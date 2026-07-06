@@ -12,46 +12,20 @@ const WOLF_DAMAGE = 12;
 const PLAYER_FRAME = 2; // side-view facing right (4-col sheet: front, diag, side, diag)
 const WOLF_RUN_FRAMES = [0, 1, 4]; // side-view run cycle only
 
+const GROUND_SURFACE_Y = 568; // top of the 32px ground strip (600 - 32)
+
 function createMountainTexture(
   scene: Phaser.Scene,
   key: string,
   peaks: { x: number; h: number }[],
-  opts: { haze?: number; bodyColor?: number; highlightColor?: number; snow?: boolean } = {}
+  opts: { bodyColor?: number; highlightColor?: number; snow?: boolean } = {}
 ) {
   const w = 800;
   const h = 260;
   const g = scene.make.graphics({}, false);
-  const haze = opts.haze ?? 1;
-  const bodyColor = opts.bodyColor ?? 0x4f5f74;
-  const highlightColor = opts.highlightColor ?? 0x6b7a91;
-  const showSnow = opts.snow ?? true;
-
-  const bands = [
-    { y: 0, color: 0xf8d4b0, alpha: 0.45 * haze },
-    { y: 35, color: 0xe8b8c8, alpha: 0.38 * haze },
-    { y: 70, color: 0xc4aac8, alpha: 0.32 * haze },
-    { y: 105, color: 0x96aac8, alpha: 0.28 * haze },
-    { y: 140, color: 0x7a94b8, alpha: 0.22 * haze },
-  ];
-  for (const b of bands) {
-    g.fillStyle(b.color, b.alpha);
-    g.fillRect(0, b.y, w, 40);
-  }
-
-  g.fillStyle(0xffffff, 0.2);
-  g.fillEllipse(120, 48, 100, 16);
-  g.fillEllipse(480, 28, 130, 18);
-  g.fillEllipse(690, 62, 80, 12);
-
-  g.fillStyle(0x9aa4b8, 0.5 * haze);
-  g.beginPath();
-  g.moveTo(0, h);
-  for (const peak of peaks) {
-    g.lineTo(peak.x, h - peak.h * 0.68 - 14);
-  }
-  g.lineTo(w, h);
-  g.closePath();
-  g.fillPath();
+  const bodyColor = opts.bodyColor ?? 0x5a6b52;
+  const highlightColor = opts.highlightColor ?? 0x6d8058;
+  const showSnow = opts.snow ?? false;
 
   g.fillStyle(bodyColor);
   g.beginPath();
@@ -63,27 +37,17 @@ function createMountainTexture(
   g.closePath();
   g.fillPath();
 
-  g.fillStyle(highlightColor, 0.5);
+  g.fillStyle(highlightColor, 0.45);
   for (const peak of peaks) {
-    g.fillTriangle(peak.x - 50, h, peak.x, h - peak.h, peak.x - 8, h - peak.h * 0.38);
-  }
-
-  g.lineStyle(1, 0x3a4555, 0.35);
-  for (const peak of peaks) {
-    g.beginPath();
-    g.moveTo(peak.x - 30, h - peak.h * 0.55);
-    g.lineTo(peak.x - 8, h - peak.h * 0.82);
-    g.strokePath();
+    g.fillTriangle(peak.x - 45, h, peak.x, h - peak.h, peak.x - 8, h - peak.h * 0.38);
   }
 
   if (showSnow) {
     for (const peak of peaks) {
       if (peak.h > 95) {
         const snowBase = h - peak.h + 28;
-        g.fillStyle(0xf5f2ef);
+        g.fillStyle(0xf0eeeb);
         g.fillTriangle(peak.x - 22, snowBase, peak.x, h - peak.h, peak.x + 22, snowBase);
-        g.fillStyle(0xf6c4c4, 0.5);
-        g.fillTriangle(peak.x - 8, h - peak.h + 8, peak.x, h - peak.h, peak.x + 5, h - peak.h + 16);
       }
     }
   }
@@ -287,6 +251,7 @@ export default function PhaserGame() {
           right: Phaser.Input.Keyboard.Key;
         };
         private ground!: Phaser.GameObjects.TileSprite;
+        private groundCollider!: Phaser.GameObjects.Rectangle;
         private sky!: Phaser.GameObjects.TileSprite;
         private wolves!: Phaser.Physics.Arcade.Group;
         private attackKey!: Phaser.Input.Keyboard.Key;
@@ -319,21 +284,13 @@ export default function PhaserGame() {
     frameHeight: 68,
   });
 
-  createMountainTexture(this, "mountains-far", [
-    { x: 100, h: 155 },
-    { x: 280, h: 205 },
-    { x: 450, h: 145 },
-    { x: 620, h: 220 },
-    { x: 750, h: 165 },
-  ], { haze: 1, bodyColor: 0x4a5a6e, snow: true });
-
   createMountainTexture(this, "mountains-mid", [
     { x: 60, h: 90 },
     { x: 220, h: 120 },
     { x: 400, h: 75 },
     { x: 580, h: 110 },
     { x: 720, h: 85 },
-  ], { haze: 0.6, bodyColor: 0x5a6b52, highlightColor: 0x6d8058, snow: false });
+  ], { bodyColor: 0x5a6b52, highlightColor: 0x6d8058, snow: false });
 
   createMidHillsTexture(this, "hills-near");
   createGroundTexture(this, "ground-tile");
@@ -356,11 +313,6 @@ export default function PhaserGame() {
 
           for (let x = 400; x <= WORLD_WIDTH; x += 800) {
             this.add
-              .image(x, 584, "mountains-far")
-              .setOrigin(0.5, 1)
-              .setScrollFactor(0.15)
-              .setDepth(-9);
-            this.add
               .image(x + 200, 584, "mountains-mid")
               .setOrigin(0.5, 1)
               .setScrollFactor(0.3)
@@ -377,10 +329,13 @@ export default function PhaserGame() {
               .setDepth(-3);
           }
 
-          this.ground = this.add.tileSprite(WORLD_WIDTH / 2, 584, WORLD_WIDTH, 32, "ground-tile");
-          this.ground.setTileScale(1, 1);
+          const groundCenterY = GROUND_SURFACE_Y + 16;
+          this.ground = this.add.tileSprite(WORLD_WIDTH / 2, groundCenterY, WORLD_WIDTH, 32, "ground-tile");
           this.ground.setDepth(-1);
-          this.physics.add.existing(this.ground, true);
+
+          this.groundCollider = this.add.rectangle(WORLD_WIDTH / 2, groundCenterY, WORLD_WIDTH, 32);
+          this.groundCollider.setVisible(false);
+          this.physics.add.existing(this.groundCollider, true);
 
           this.anims.create({
             key: "walk",
@@ -397,16 +352,16 @@ export default function PhaserGame() {
           });
 
           this.player = this.physics.add
-            .sprite(200, 450, "player", PLAYER_FRAME)
+            .sprite(200, GROUND_SURFACE_Y, "player", PLAYER_FRAME)
             .setCollideWorldBounds(true)
-            .setBounce(0.1)
+            .setBounce(0)
             .setScale(2)
             .setDepth(1)
             .setOrigin(0.5, 1);
 
-          this.player.setSize(38, 72);
-          this.player.setOffset(27, 18);
-          this.physics.add.collider(this.player, this.ground);
+          this.player.setSize(36, 58);
+          this.player.setOffset(28, 32);
+          this.physics.add.collider(this.player, this.groundCollider);
 
           this.wolves = this.physics.add.group();
           const wolfPositions = [700, 1300, 2000, 2700, 3300];
@@ -414,10 +369,10 @@ export default function PhaserGame() {
           this.wolvesDefeated = 0;
 
           for (const x of wolfPositions) {
-            const wolf = this.wolves.create(x, 500, "wolf", 0) as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+            const wolf = this.wolves.create(x, GROUND_SURFACE_Y, "wolf", 0) as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
             wolf.setScale(2).setCollideWorldBounds(true).setDepth(1).setOrigin(0.5, 1);
-            wolf.setSize(52, 34);
-            wolf.setOffset(8, 30);
+            wolf.setSize(48, 28);
+            wolf.setOffset(10, 36);
             wolf.setData("health", WOLF_MAX_HP);
             wolf.setData("maxHealth", WOLF_MAX_HP);
             wolf.setData("patrolDir", Math.random() > 0.5 ? 1 : -1);
@@ -425,7 +380,7 @@ export default function PhaserGame() {
             wolf.setData("patrolMax", x + 120);
             wolf.setData("lastAttack", 0);
             this.attachHealthBar(wolf, WOLF_MAX_HP, 48);
-            this.physics.add.collider(wolf, this.ground);
+            this.physics.add.collider(wolf, this.groundCollider);
           }
 
           this.createPlayerHud();
@@ -768,8 +723,6 @@ export default function PhaserGame() {
           });
         }
 
-        private playerWalkBob = 0;
-
         update() {
           this.sky.tilePositionX = this.cameras.main.scrollX * 0.12;
 
@@ -801,12 +754,9 @@ export default function PhaserGame() {
           }
 
           if (moving && onGround) {
-            this.playerWalkBob += 0.25;
             this.player.setFrame(PLAYER_FRAME);
-            this.player.setScale(2, 2 + Math.sin(this.playerWalkBob) * 0.04);
           } else {
             this.player.setFrame(PLAYER_FRAME);
-            this.player.setScale(2, 2);
             if (this.player.anims.isPlaying) this.player.anims.stop();
           }
 
