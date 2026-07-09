@@ -812,7 +812,7 @@ export default function PhaserGame() {
 
           this.player.once(
             Phaser.Animations.Events.ANIMATION_COMPLETE,
-            (anim) => {
+            (anim: Phaser.Animations.Animation) => {
               if (anim.key === "attack") {
                 this.isAttacking = false;
               }
