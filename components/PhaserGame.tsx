@@ -9,8 +9,14 @@ const WOLF_MAX_HP = 40;
 const ATTACK_DAMAGE = 20;
 const WOLF_DAMAGE = 12;
 
-const PLAYER_FRAME = 2; // side-view facing right (4-col sheet: front, diag, side, diag)
-const WOLF_RUN_FRAMES = [0, 1, 4]; // side-view run cycle only
+const MAN_COLS = 10;
+const MAN_FRAME_W = 80;
+const MAN_FRAME_H = 64;
+
+const manFrames = (row: number, count: number) =>
+  Array.from({ length: count }, (_, i) => row * MAN_COLS + i);
+
+const WOLF_RUN_FRAMES = [0, 1, 4, 7]; // баруун тийш алхах мөчлөг
 
 const GROUND_SURFACE_Y = 568; // top of the 32px ground strip (600 - 32)
 
@@ -18,7 +24,7 @@ function createMountainTexture(
   scene: Phaser.Scene,
   key: string,
   peaks: { x: number; h: number }[],
-  opts: { bodyColor?: number; highlightColor?: number; snow?: boolean } = {}
+  opts: { bodyColor?: number; highlightColor?: number; snow?: boolean } = {},
 ) {
   const w = 800;
   const h = 260;
@@ -39,17 +45,14 @@ function createMountainTexture(
 
   g.fillStyle(highlightColor, 0.45);
   for (const peak of peaks) {
-    g.fillTriangle(peak.x - 45, h, peak.x, h - peak.h, peak.x - 8, h - peak.h * 0.38);
-  }
-
-  if (showSnow) {
-    for (const peak of peaks) {
-      if (peak.h > 95) {
-        const snowBase = h - peak.h + 28;
-        g.fillStyle(0xf0eeeb);
-        g.fillTriangle(peak.x - 22, snowBase, peak.x, h - peak.h, peak.x + 22, snowBase);
-      }
-    }
+    g.fillTriangle(
+      peak.x - 45,
+      h,
+      peak.x,
+      h - peak.h,
+      peak.x - 8,
+      h - peak.h * 0.38,
+    );
   }
 
   g.generateTexture(key, w, h);
@@ -137,7 +140,12 @@ function createGerTexture(scene: Phaser.Scene, key: string) {
     g.fillEllipse(cx - 2 * scale, topY - 28 * scale, 22 * scale, 12 * scale);
   };
 
-  const drawGer = (cx: number, baseY: number, scale: number, withSmoke = false) => {
+  const drawGer = (
+    cx: number,
+    baseY: number,
+    scale: number,
+    withSmoke = false,
+  ) => {
     const wallW = 100 * scale;
     const wallH = 42 * scale;
     const roofH = 46 * scale;
@@ -149,13 +157,24 @@ function createGerTexture(scene: Phaser.Scene, key: string) {
     g.fillRoundedRect(cx - wallW / 2, baseY - wallH, wallW, wallH, 5 * scale);
 
     g.fillStyle(0xf5efe2, 0.35);
-    g.fillRoundedRect(cx - wallW / 2 + 4, baseY - wallH + 4, wallW * 0.35, wallH - 8, 3 * scale);
+    g.fillRoundedRect(
+      cx - wallW / 2 + 4,
+      baseY - wallH + 4,
+      wallW * 0.35,
+      wallH - 8,
+      3 * scale,
+    );
 
     g.fillStyle(0xb64a2e);
     g.fillRect(cx - wallW / 2, baseY - wallH, wallW, 7 * scale);
     g.fillStyle(0xd4af37);
     for (let i = 0; i < 7; i++) {
-      g.fillRect(cx - wallW / 2 + i * (wallW / 7) + 2, baseY - wallH + 1.5 * scale, 4 * scale, 4 * scale);
+      g.fillRect(
+        cx - wallW / 2 + i * (wallW / 7) + 2,
+        baseY - wallH + 1.5 * scale,
+        4 * scale,
+        4 * scale,
+      );
     }
 
     g.fillStyle(0x6b3a20);
@@ -172,7 +191,7 @@ function createGerTexture(scene: Phaser.Scene, key: string) {
       cx,
       baseY - wallH - roofH,
       cx + wallW / 2 + 5 * scale,
-      baseY - wallH
+      baseY - wallH,
     );
 
     g.fillStyle(0xffffff, 0.15);
@@ -182,7 +201,7 @@ function createGerTexture(scene: Phaser.Scene, key: string) {
       cx,
       baseY - wallH - roofH,
       cx + wallW / 6,
-      baseY - wallH - roofH * 0.5
+      baseY - wallH - roofH * 0.5,
     );
 
     g.lineStyle(Math.max(1, 1 * scale), 0xcabb9c, 0.85);
@@ -196,7 +215,12 @@ function createGerTexture(scene: Phaser.Scene, key: string) {
     g.fillStyle(0x4a3828);
     g.fillCircle(cx, baseY - wallH - roofH, 4 * scale);
     g.fillStyle(0xc0392b, 0.9);
-    g.fillRect(cx - 1.5 * scale, baseY - wallH - roofH - 14 * scale, 3 * scale, 12 * scale);
+    g.fillRect(
+      cx - 1.5 * scale,
+      baseY - wallH - roofH - 14 * scale,
+      3 * scale,
+      12 * scale,
+    );
 
     if (withSmoke) drawSmoke(cx, baseY - wallH - roofH - 14 * scale, scale);
   };
@@ -257,6 +281,7 @@ export default function PhaserGame() {
         private attackKey!: Phaser.Input.Keyboard.Key;
         private restartKey!: Phaser.Input.Keyboard.Key;
         private canAttack = true;
+        private isAttacking = false;
         private playerHealth = PLAYER_MAX_HP;
         private playerHpFill!: Phaser.GameObjects.Rectangle;
         private gameOver = false;
@@ -269,33 +294,38 @@ export default function PhaserGame() {
           super("GameScene");
         }
 
-   preload() {
-  this.load.image("sky", "/sky.png");
+        preload() {
+          this.load.image("sky", "/sky.png");
 
-  // 368×184, 4×2 grid → 92×92 per frame (8-direction sheet; use side-view only)
-  this.load.spritesheet("player", "/assets/man-spritesheet.png", {
-    frameWidth: 92,
-    frameHeight: 92,
-  });
+          // 800×448, 10×7 grid → 80×64 per frame
+          this.load.spritesheet("player", "/assets/man-spritesheet.png", {
+            frameWidth: MAN_FRAME_W,
+            frameHeight: MAN_FRAME_H,
+          });
 
-  // 272×136, 4×2 grid → 68×68 per frame
-  this.load.spritesheet("wolf", "/assets/wolf-spritesheet.png", {
-    frameWidth: 68,
-    frameHeight: 68,
-  });
+          // 272×136, 4×2 grid → 68×68 per frame
+          this.load.spritesheet("wolf", "/assets/wolf-spritesheet.png", {
+            frameWidth: 68,
+            frameHeight: 68,
+          });
 
-  createMountainTexture(this, "mountains-mid", [
-    { x: 60, h: 90 },
-    { x: 220, h: 120 },
-    { x: 400, h: 75 },
-    { x: 580, h: 110 },
-    { x: 720, h: 85 },
-  ], { bodyColor: 0x5a6b52, highlightColor: 0x6d8058, snow: false });
+          createMountainTexture(
+            this,
+            "mountains-mid",
+            [
+              { x: 60, h: 90 },
+              { x: 220, h: 120 },
+              { x: 400, h: 75 },
+              { x: 580, h: 110 },
+              { x: 720, h: 85 },
+            ],
+            { bodyColor: 0x5a6b52, highlightColor: 0x6d8058, snow: false },
+          );
 
-  createMidHillsTexture(this, "hills-near");
-  createGroundTexture(this, "ground-tile");
-  createGerTexture(this, "gers");
-}
+          createMidHillsTexture(this, "hills-near");
+          createGroundTexture(this, "ground-tile");
+          createGerTexture(this, "gers");
+        }
 
         create() {
           this.physics.world.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
@@ -306,7 +336,7 @@ export default function PhaserGame() {
             WORLD_HEIGHT / 2,
             WORLD_WIDTH + 1600,
             WORLD_HEIGHT,
-            "sky"
+            "sky",
           );
           this.sky.setScrollFactor(0);
           this.sky.setDepth(-10);
@@ -330,19 +360,25 @@ export default function PhaserGame() {
           }
 
           const groundCenterY = GROUND_SURFACE_Y + 16;
-          this.ground = this.add.tileSprite(WORLD_WIDTH / 2, groundCenterY, WORLD_WIDTH, 32, "ground-tile");
+          this.ground = this.add.tileSprite(
+            WORLD_WIDTH / 2,
+            groundCenterY,
+            WORLD_WIDTH,
+            32,
+            "ground-tile",
+          );
           this.ground.setDepth(-1);
 
-          this.groundCollider = this.add.rectangle(WORLD_WIDTH / 2, groundCenterY, WORLD_WIDTH, 32);
+          this.groundCollider = this.add.rectangle(
+            WORLD_WIDTH / 2,
+            groundCenterY,
+            WORLD_WIDTH,
+            32,
+          );
           this.groundCollider.setVisible(false);
           this.physics.add.existing(this.groundCollider, true);
 
-          this.anims.create({
-            key: "walk",
-            frames: [{ key: "player", frame: PLAYER_FRAME }],
-            frameRate: 8,
-            repeat: -1,
-          });
+          this.createPlayerAnimations();
 
           this.anims.create({
             key: "wolf-run",
@@ -352,15 +388,15 @@ export default function PhaserGame() {
           });
 
           this.player = this.physics.add
-            .sprite(200, GROUND_SURFACE_Y, "player", PLAYER_FRAME)
+            .sprite(200, GROUND_SURFACE_Y, "player", 0)
             .setCollideWorldBounds(true)
             .setBounce(0)
             .setScale(2)
             .setDepth(1)
             .setOrigin(0.5, 1);
 
-          this.player.setSize(36, 58);
-          this.player.setOffset(28, 32);
+          this.player.setSize(28, 50);
+          this.player.setOffset(26, 8);
           this.physics.add.collider(this.player, this.groundCollider);
 
           this.wolves = this.physics.add.group();
@@ -369,10 +405,19 @@ export default function PhaserGame() {
           this.wolvesDefeated = 0;
 
           for (const x of wolfPositions) {
-            const wolf = this.wolves.create(x, GROUND_SURFACE_Y, "wolf", 0) as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
-            wolf.setScale(2).setCollideWorldBounds(true).setDepth(1).setOrigin(0.5, 1);
-            wolf.setSize(48, 28);
-            wolf.setOffset(10, 36);
+            const wolf = this.wolves.create(
+              x,
+              GROUND_SURFACE_Y,
+              "wolf",
+              0,
+            ) as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+            wolf
+              .setScale(2)
+              .setCollideWorldBounds(true)
+              .setDepth(1)
+              .setOrigin(0.5, 1);
+            wolf.setSize(50, 20);
+            wolf.setOffset(5, 25);
             wolf.setData("health", WOLF_MAX_HP);
             wolf.setData("maxHealth", WOLF_MAX_HP);
             wolf.setData("patrolDir", Math.random() > 0.5 ? 1 : -1);
@@ -393,15 +438,65 @@ export default function PhaserGame() {
             up: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.W),
             down: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S),
             left: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-            right: this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.D),
+            right: this.input.keyboard!.addKey(
+              Phaser.Input.Keyboard.KeyCodes.D,
+            ),
           };
-          this.attackKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X);
-          this.restartKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+          this.attackKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes.X,
+          );
+          this.restartKey = this.input.keyboard!.addKey(
+            Phaser.Input.Keyboard.KeyCodes.R,
+          );
+        }
+
+        private createPlayerAnimations() {
+          const frames = (row: number, count: number) =>
+            manFrames(row, count).map((frame) => ({ key: "player", frame }));
+
+          this.anims.create({
+            key: "idle",
+            frames: frames(0, 5),
+            frameRate: 6,
+            repeat: -1,
+          });
+
+          this.anims.create({
+            key: "walk",
+            frames: frames(1, 8),
+            frameRate: 10,
+            repeat: -1,
+          });
+
+          this.anims.create({
+            key: "jump",
+            frames: frames(3, 4),
+            frameRate: 8,
+            repeat: -1,
+          });
+
+          this.anims.create({
+            key: "attack",
+            frames: frames(5, 6),
+            frameRate: 14,
+            repeat: 0,
+          });
+
+          this.anims.create({
+            key: "death",
+            frames: frames(6, 10),
+            frameRate: 9,
+            repeat: 0,
+          });
         }
 
         private createPlayerHud() {
           this.add
-            .text(16, 12, "HP", { fontSize: "13px", color: "#ffffff", fontStyle: "bold" })
+            .text(16, 12, "HP", {
+              fontSize: "13px",
+              color: "#ffffff",
+              fontStyle: "bold",
+            })
             .setScrollFactor(0)
             .setDepth(100);
 
@@ -430,7 +525,7 @@ export default function PhaserGame() {
         private attachHealthBar(
           entity: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody,
           maxHp: number,
-          barWidth: number
+          barWidth: number,
         ) {
           const container = this.add.container(entity.x, entity.y - 52);
           const innerWidth = barWidth - 4;
@@ -450,8 +545,12 @@ export default function PhaserGame() {
         }
 
         private updateEntityHealthBar(entity: Phaser.GameObjects.Sprite) {
-          const container = entity.getData("hpContainer") as Phaser.GameObjects.Container | undefined;
-          const fill = entity.getData("hpFill") as Phaser.GameObjects.Rectangle | undefined;
+          const container = entity.getData("hpContainer") as
+            | Phaser.GameObjects.Container
+            | undefined;
+          const fill = entity.getData("hpFill") as
+            | Phaser.GameObjects.Rectangle
+            | undefined;
           const innerWidth = entity.getData("hpInnerWidth") as number;
           const health = entity.getData("health") as number;
           const maxHealth = entity.getData("maxHealth") as number;
@@ -461,13 +560,15 @@ export default function PhaserGame() {
           container.setPosition(entity.x, entity.y - 52);
           const ratio = Math.max(0, health / maxHealth);
           fill.width = innerWidth * ratio;
-          fill.fillColor = ratio > 0.5 ? 0x22c55e : ratio > 0.25 ? 0xeab308 : 0xef4444;
+          fill.fillColor =
+            ratio > 0.5 ? 0x22c55e : ratio > 0.25 ? 0xeab308 : 0xef4444;
         }
 
         private updatePlayerHealthBar() {
           const ratio = this.playerHealth / PLAYER_MAX_HP;
           this.playerHpFill.width = 100 * ratio;
-          this.playerHpFill.fillColor = ratio > 0.5 ? 0x22c55e : ratio > 0.25 ? 0xeab308 : 0xef4444;
+          this.playerHpFill.fillColor =
+            ratio > 0.5 ? 0x22c55e : ratio > 0.25 ? 0xeab308 : 0xef4444;
         }
 
         private damagePlayer(amount: number) {
@@ -487,7 +588,7 @@ export default function PhaserGame() {
 
         private damageWolf(
           wolf: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody,
-          amount: number
+          amount: number,
         ) {
           const health = (wolf.getData("health") as number) - amount;
           wolf.setData("health", Math.max(0, health));
@@ -502,8 +603,12 @@ export default function PhaserGame() {
           }
         }
 
-        private killWolf(wolf: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody) {
-          const container = wolf.getData("hpContainer") as Phaser.GameObjects.Container;
+        private killWolf(
+          wolf: Phaser.Types.Physics.Arcade.SpriteWithDynamicBody,
+        ) {
+          const container = wolf.getData(
+            "hpContainer",
+          ) as Phaser.GameObjects.Container;
           if (container) container.destroy();
 
           wolf.disableBody(true, false);
@@ -517,7 +622,9 @@ export default function PhaserGame() {
           });
 
           this.wolvesDefeated += 1;
-          this.wolfCountText.setText(`Чоно: ${this.wolvesDefeated}/${this.totalWolves}`);
+          this.wolfCountText.setText(
+            `Чоно: ${this.wolvesDefeated}/${this.totalWolves}`,
+          );
 
           if (this.wolvesDefeated >= this.totalWolves) {
             this.triggerVictory();
@@ -527,10 +634,17 @@ export default function PhaserGame() {
         private triggerGameOver() {
           this.gameOver = true;
           this.player.setVelocity(0, 0);
-          this.player.setTint(0x666666);
+          this.player.anims.play("death");
           this.physics.pause();
 
-          const overlay = this.add.rectangle(400, 300, 800, 600, 0x000000, 0.55);
+          const overlay = this.add.rectangle(
+            400,
+            300,
+            800,
+            600,
+            0x000000,
+            0.55,
+          );
           overlay.setScrollFactor(0).setDepth(200);
 
           this.add
@@ -616,22 +730,20 @@ export default function PhaserGame() {
         }
 
         private performAttack() {
-          if (!this.canAttack || this.gameOver || this.victory) return;
+          if (
+            !this.canAttack ||
+            this.gameOver ||
+            this.victory ||
+            this.isAttacking
+          )
+            return;
           this.canAttack = false;
+          this.isAttacking = true;
+          this.player.anims.play("attack");
 
           const dir = this.player.flipX ? -1 : 1;
           const attackX = this.player.x + dir * 48;
           const attackY = this.player.y - 8;
-
-          // quick squash-and-stretch punch feedback on the player
-          this.tweens.add({
-            targets: this.player,
-            scaleX: 2.25,
-            scaleY: 1.85,
-            duration: 60,
-            yoyo: true,
-            ease: "Quad.easeOut",
-          });
 
           // curved slash swipe in the facing direction
           const slash = this.add.graphics();
@@ -641,11 +753,25 @@ export default function PhaserGame() {
           const a1 = dir > 0 ? 55 : 125;
           slash.lineStyle(5, 0xfff6d5, 0.95);
           slash.beginPath();
-          slash.arc(0, 0, 26, Phaser.Math.DegToRad(a0), Phaser.Math.DegToRad(a1), false);
+          slash.arc(
+            0,
+            0,
+            26,
+            Phaser.Math.DegToRad(a0),
+            Phaser.Math.DegToRad(a1),
+            false,
+          );
           slash.strokePath();
           slash.lineStyle(2, 0xffffff, 0.6);
           slash.beginPath();
-          slash.arc(0, 0, 18, Phaser.Math.DegToRad(a0), Phaser.Math.DegToRad(a1), false);
+          slash.arc(
+            0,
+            0,
+            18,
+            Phaser.Math.DegToRad(a0),
+            Phaser.Math.DegToRad(a1),
+            false,
+          );
           slash.strokePath();
 
           this.tweens.add({
@@ -659,10 +785,16 @@ export default function PhaserGame() {
 
           let hitSomething = false;
           this.wolves.getChildren().forEach((child) => {
-            const wolf = child as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+            const wolf =
+              child as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
             if (!wolf.active) return;
 
-            const dist = Phaser.Math.Distance.Between(attackX, attackY, wolf.x, wolf.y);
+            const dist = Phaser.Math.Distance.Between(
+              attackX,
+              attackY,
+              wolf.x,
+              wolf.y,
+            );
             if (dist < 85) {
               this.damageWolf(wolf, ATTACK_DAMAGE);
               this.spawnHitSpark(wolf.x, wolf.y - 20);
@@ -677,11 +809,21 @@ export default function PhaserGame() {
           this.time.delayedCall(350, () => {
             this.canAttack = true;
           });
+
+          this.player.once(
+            Phaser.Animations.Events.ANIMATION_COMPLETE,
+            (anim) => {
+              if (anim.key === "attack") {
+                this.isAttacking = false;
+              }
+            },
+          );
         }
 
         private updateWolves() {
           this.wolves.getChildren().forEach((child) => {
-            const wolf = child as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+            const wolf =
+              child as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
             if (!wolf.active) return;
 
             this.updateEntityHealthBar(wolf);
@@ -690,7 +832,7 @@ export default function PhaserGame() {
               wolf.x,
               wolf.y,
               this.player.x,
-              this.player.y
+              this.player.y,
             );
 
             if (!this.gameOver && !this.victory && distToPlayer < 240) {
@@ -733,7 +875,8 @@ export default function PhaserGame() {
             return;
           }
 
-          const onGround = this.player.body.blocked.down || this.player.body.touching.down;
+          const onGround =
+            this.player.body.blocked.down || this.player.body.touching.down;
           const left = this.cursors.left.isDown || this.wasd.left.isDown;
           const right = this.cursors.right.isDown || this.wasd.right.isDown;
           const jump =
@@ -744,20 +887,23 @@ export default function PhaserGame() {
           const moving = left || right;
 
           if (left) {
-            this.player.setVelocityX(-160);
-            this.player.setFlipX(true);
-          } else if (right) {
-            this.player.setVelocityX(160);
+            this.player.setVelocityX(this.isAttacking ? 0 : -160);
             this.player.setFlipX(false);
+          } else if (right) {
+            this.player.setVelocityX(this.isAttacking ? 0 : 160);
+            this.player.setFlipX(true);
           } else {
             this.player.setVelocityX(0);
           }
 
-          if (moving && onGround) {
-            this.player.setFrame(PLAYER_FRAME);
-          } else {
-            this.player.setFrame(PLAYER_FRAME);
-            if (this.player.anims.isPlaying) this.player.anims.stop();
+          if (!this.isAttacking) {
+            if (!onGround) {
+              this.player.anims.play("jump", true);
+            } else if (moving) {
+              this.player.anims.play("walk", true);
+            } else {
+              this.player.anims.play("idle", true);
+            }
           }
 
           if (jump && onGround) {
@@ -772,19 +918,19 @@ export default function PhaserGame() {
         }
       }
 
-const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
-  width: 800,
-  height: 600,
-  pixelArt: true,
-  roundPixels: true,
-  physics: {
-    default: "arcade",
-    arcade: { gravity: { x: 0, y: 600 } },
-  },
-  scene: GameScene,
-  parent: gameRef.current,
-};
+      const config: Phaser.Types.Core.GameConfig = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        pixelArt: true,
+        roundPixels: true,
+        physics: {
+          default: "arcade",
+          arcade: { gravity: { x: 0, y: 600 } },
+        },
+        scene: GameScene,
+        parent: gameRef.current,
+      };
 
       gameInstanceRef.current = new Phaser.Game(config);
     });
