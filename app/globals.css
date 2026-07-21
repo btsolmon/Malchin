@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --herder-bg: #1a1510;
+  --herder-glow: #2a2010;
+  --herder-gold: #e8c56a;
+  --herder-muted: #a89880;
+  --background: var(--herder-bg);
+  --foreground: #f2e8d5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-mono-body);
+  --font-mono: var(--font-mono-body);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, var(--herder-glow), transparent),
+    radial-gradient(ellipse 50% 40% at 80% 100%, #1a2a18, transparent),
+    var(--herder-bg);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-mono-body), monospace;
+  min-height: 100%;
+}
+
+.herder-page {
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.herder-header {
+  text-align: center;
+}
+
+.herder-eyebrow {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--herder-muted);
+}
+
+.herder-title {
+  margin: 0.25rem 0 0;
+  font-family: var(--font-display), Impact, sans-serif;
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: var(--herder-gold);
+  text-shadow: 2px 2px 0 #3a2810;
+}
+
+.herder-stage {
+  display: block;
+  max-width: 100%;
+  border: 2px solid #8a6a3a;
+  box-shadow:
+    0 0 0 1px #3a2810,
+    0 16px 48px rgba(0, 0, 0, 0.55);
+  background: #2c4a2e;
+  image-rendering: pixelated;
+}
+
+.herder-hint {
+  margin: 0;
+  max-width: 40rem;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--herder-muted);
+  line-height: 1.5;
 }
