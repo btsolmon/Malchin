@@ -8,10 +8,10 @@ export default function Home() {
         <h1 className="herder-title">Малчин</h1>
       </header>
       <HerderGame />
-      <p className="herder-hint">
-        WASD хөдлөх · Space/J тулалдах · E мод/жимс · Q жимс идэх · F гал · Зорилго:
-        1000 хонь
-      </p>
+        <p className="herder-hint">
+          WASD хөдлөх · Space/J тулалдах · E мод/жимс · Q жимс идэх · F гал ·
+          1/2/3 ур чадвар сонгох · R дахин эхлэх · Зорилго: 1000 хонь
+        </p>
     </main>
   );
 }
