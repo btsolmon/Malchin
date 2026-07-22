@@ -17,7 +17,7 @@
 
 type WeatherKind = "clear" | "wind" | "storm" | "snow";
 type Season = "summer" | "autumn" | "winter" | "spring";
-type GamePhase = "playing" | "won" | "lost" | "levelup";
+type GamePhase = "menu" | "playing" | "paused" | "won" | "lost" | "levelup";
 
 interface Vector2 {
   x: number;
@@ -176,6 +176,10 @@ interface InputState {
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
+  /** Enter/Space — меню дэх сонголт */
+  confirm: boolean;
+  /** Escape — түр зогсоох */
+  pause: boolean;
 }
 
 interface Particle {
@@ -730,6 +734,8 @@ function createInitialState(): GameState {
       skill1: false,
       skill2: false,
       skill3: false,
+      confirm: false,
+      pause: false,
     },
     fx: {
       particles: [],
@@ -746,7 +752,7 @@ function createInitialState(): GameState {
     level: 1,
     xpNext: 90,
     skillChoices: [],
-    phase: "playing",
+    phase: "menu",
     nextEntityId: 100,
   };
 
@@ -784,6 +790,13 @@ function bindInput(getInput: () => InputState): () => void {
       case "Space":
       case "KeyJ":
         input.attack = pressed;
+        if (pressed) input.confirm = true;
+        break;
+      case "Enter":
+        if (pressed) input.confirm = true;
+        break;
+      case "Escape":
+        if (pressed) input.pause = true;
         break;
       case "KeyF":
         input.lightFire = pressed;
@@ -917,7 +930,7 @@ function spawnThief(state: GameState): void {
 function updateWeatherCycle(state: GameState, dt: number): void {
   const world = state.world;
   const prevDay = Math.floor(world.timeOfDay);
-  world.timeOfDay = (world.timeOfDay + dt * 0.8) % 24;
+  world.timeOfDay = (world.timeOfDay + dt * 0.4) % 24;
   world.elapsed += dt;
 
   const curDay = Math.floor(world.timeOfDay);
@@ -1452,7 +1465,7 @@ function updateSurvival(state: GameState, dt: number): void {
   }
 
   player.vitals.hunger = clamp(
-    player.vitals.hunger - 2.8 * dt,
+    player.vitals.hunger - 1.4 * dt,
     0,
     player.vitals.maxHunger,
   );
@@ -1494,6 +1507,20 @@ function updateSurvival(state: GameState, dt: number): void {
 }
 
 function update(state: GameState, dt: number): void {
+  // Меню ба пауз
+  if (state.phase === "menu") {
+    if (state.input.confirm) {
+      state.phase = "playing";
+      setMessage(state, "10 хоньтой эхэллээ. Сүргээ хамгаал!", 5);
+    }
+  } else if (state.phase === "paused") {
+    if (state.input.confirm || state.input.pause) state.phase = "playing";
+  } else if (state.phase === "playing" && state.input.pause) {
+    state.phase = "paused";
+  }
+  state.input.confirm = false;
+  state.input.pause = false;
+
   // Түвшин ахисан — ур чадвар сонгох (тоглоом түр зогсоно)
   if (state.phase === "levelup") {
     const picks: Array<[boolean, number]> = [
@@ -2660,9 +2687,80 @@ function drawThreatArrows(
   }
 }
 
+/** Эхлэх меню — гарчиг, удирдлага, зорилго */
+function drawMenu(ctx: CanvasRenderingContext2D): void {
+  const t = performance.now() / 1000;
+
+  const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+  g.addColorStop(0, "rgba(10,8,6,0.85)");
+  g.addColorStop(1, "rgba(10,8,6,0.6)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = COLORS.hudMuted;
+  ctx.font = "600 13px system-ui, sans-serif";
+  ctx.fillText("МОНГОЛ ТАЛ · SURVIVAL", VIEW_W / 2, 88);
+  ctx.fillStyle = "#e8c56a";
+  ctx.font = "bold 58px system-ui, sans-serif";
+  ctx.fillText("МАЛЧИН", VIEW_W / 2, 148);
+  ctx.fillStyle = COLORS.hudText;
+  ctx.font = "15px system-ui, sans-serif";
+  ctx.fillText("10 хоньтой эхэлж 1000 хонь цуглуул", VIEW_W / 2, 182);
+
+  // Удирдлагын жагсаалт
+  const lines: Array<[string, string]> = [
+    ["WASD", "хөдлөх"],
+    ["Space / J", "чоно, хулгайчтай тулалдах"],
+    ["E", "мод огтлох · жимс түүх"],
+    ["Q", "жимс идэх"],
+    ["F", "гал түлэх (шөнө)"],
+    ["1 / 2 / 3", "ур чадвар сонгох"],
+    ["Esc", "түр зогсоох"],
+  ];
+  const boxW = 400;
+  const boxH = lines.length * 24 + 26;
+  const bx = (VIEW_W - boxW) / 2;
+  const by = 208;
+  ctx.fillStyle = "rgba(12,10,8,0.72)";
+  roundRectPath(ctx, bx, by, boxW, boxH, 10);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(232,197,106,0.25)";
+  ctx.lineWidth = 1;
+  roundRectPath(ctx, bx, by, boxW, boxH, 10);
+  ctx.stroke();
+
+  lines.forEach(([key, desc], i) => {
+    const ly = by + 30 + i * 24;
+    ctx.textAlign = "right";
+    ctx.fillStyle = COLORS.hudAccent;
+    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.fillText(key, bx + 140, ly);
+    ctx.textAlign = "left";
+    ctx.fillStyle = COLORS.hudText;
+    ctx.font = "13px system-ui, sans-serif";
+    ctx.fillText(desc, bx + 158, ly);
+  });
+
+  // Анивчих эхлэх заавар
+  ctx.textAlign = "center";
+  ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 3.5);
+  ctx.fillStyle = "#e8c56a";
+  ctx.font = "600 19px system-ui, sans-serif";
+  ctx.fillText("Enter / Space — Эхлэх", VIEW_W / 2, by + boxH + 44);
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "left";
+}
+
 function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   const { player, world } = state;
   const pad = 14;
+
+  // Эхлэх меню — HUD-ын оронд зөвхөн меню харуулна
+  if (state.phase === "menu") {
+    drawMenu(ctx);
+    return;
+  }
 
   // Зүүн дээд самбар
   ctx.fillStyle = "rgba(12,10,8,0.72)";
@@ -2789,6 +2887,23 @@ function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudText;
     ctx.fillText(state.message, mx + 14, my + 20);
     ctx.globalAlpha = 1;
+  }
+
+  // Пауз дэлгэц
+  if (state.phase === "paused") {
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#e8c56a";
+    ctx.font = "bold 40px system-ui, sans-serif";
+    ctx.fillText("ТҮР ЗОГССОН", VIEW_W / 2, VIEW_H / 2 - 24);
+    ctx.fillStyle = COLORS.hudText;
+    ctx.font = "15px system-ui, sans-serif";
+    ctx.fillText("Esc / Enter — үргэлжлүүлэх", VIEW_W / 2, VIEW_H / 2 + 18);
+    ctx.fillStyle = COLORS.hudMuted;
+    ctx.font = "14px system-ui, sans-serif";
+    ctx.fillText("R — дахин эхлэх (меню рүү)", VIEW_W / 2, VIEW_H / 2 + 44);
+    ctx.textAlign = "left";
   }
 
   // Түвшин ахих — ур чадвар сонгох дэлгэц
@@ -3063,8 +3178,10 @@ function render(rc: RenderContext, state: GameState, time: number): void {
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
 
-  drawThreatArrows(ctx, state, cam);
-  drawMinimap(ctx, state, cam);
+  if (state.phase !== "menu") {
+    drawThreatArrows(ctx, state, cam);
+    drawMinimap(ctx, state, cam);
+  }
   drawHud(ctx, state);
 }
 
