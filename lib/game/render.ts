@@ -878,92 +878,37 @@ export function drawPlayer(
 
   drawShadow(ctx, x, y + 12, 11, 4.5);
 
-  // Хөл (монгол гутал — өргөн, бага зэрэг сөхөгдсөн хоншоортой)
-  ctx.strokeStyle = "#3a2418";
-  ctx.lineWidth = 3.6;
+  // Хөл (гутал)
+  ctx.strokeStyle = "#2a2a30";
+  ctx.lineWidth = 3.4;
   ctx.beginPath();
   ctx.moveTo(x - 3.5, y + 4);
-  ctx.lineTo(x - 3.5 + walk, y + 11.5);
+  ctx.lineTo(x - 3.5 + walk, y + 12);
   ctx.moveTo(x + 3.5, y + 4);
-  ctx.lineTo(x + 3.5 - walk, y + 11.5);
-  ctx.stroke();
-  // Гутлын хоншоор
-  ctx.lineWidth = 2.4;
-  ctx.beginPath();
-  ctx.moveTo(x - 3.5 + walk, y + 11.5);
-  ctx.lineTo(x - 3.5 + walk + 3 * flip, y + 10.8);
-  ctx.moveTo(x + 3.5 - walk, y + 11.5);
-  ctx.lineTo(x + 3.5 - walk + 3 * flip, y + 10.8);
+  ctx.lineTo(x + 3.5 - walk, y + 12);
   ctx.stroke();
 
-  // Дээл — гүн хөх торго, хормой нь өргөн
-  const by = y - 2 - bob * 0.4;
-  const deel = ctx.createLinearGradient(x - 9, by - 11, x + 9, by + 9);
-  deel.addColorStop(0, "#2d5a9e");
-  deel.addColorStop(0.6, "#1e4278");
-  deel.addColorStop(1, "#173259");
+  // Дээл — хөх торгон, градиенттай
+  const deel = ctx.createLinearGradient(x - 8, y - 10, x + 8, y + 6);
+  deel.addColorStop(0, "#3a62a0");
+  deel.addColorStop(1, "#24457a");
   ctx.fillStyle = deel;
   ctx.beginPath();
-  ctx.moveTo(x - 7, by - 9);
-  ctx.quadraticCurveTo(x - 11.5, by + 2, x - 10, by + 9);
-  ctx.lineTo(x + 10, by + 9);
-  ctx.quadraticCurveTo(x + 11.5, by + 2, x + 7, by - 9);
-  ctx.quadraticCurveTo(x, by - 12.5, x - 7, by - 9);
-  ctx.closePath();
+  ctx.ellipse(x, y - 2 - bob * 0.4, 9.5, 11, 0, 0, Math.PI * 2);
   ctx.fill();
-
-  // Хормойн алтан эмжээр
-  ctx.strokeStyle = "#d8a840";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x - 10, by + 8);
-  ctx.lineTo(x + 10, by + 8);
-  ctx.stroke();
-
-  // Энгэр — ташуу давхарласан (баруун энгэр), алтан эмжээртэй
+  // Энгэрийн эмжээр
   ctx.strokeStyle = "#e8c56a";
-  ctx.lineWidth = 1.8;
+  ctx.lineWidth = 1.6;
   ctx.beginPath();
-  ctx.moveTo(x, by - 11);
-  ctx.quadraticCurveTo(x + 6 * flip, by - 8, x + 7.5 * flip, by - 3);
-  ctx.lineTo(x + 8 * flip, by + 3);
+  ctx.moveTo(x + 1 * flip, y - 11);
+  ctx.quadraticCurveTo(x + 7 * flip, y - 6, x + 5 * flip, y + 2);
   ctx.stroke();
-
-  // Захын босоо хүзүүвч
-  ctx.strokeStyle = "#c9a227";
-  ctx.lineWidth = 2.2;
+  // Улбар шар бүс
+  ctx.strokeStyle = "#d88a2a";
+  ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(x - 4, by - 10.5);
-  ctx.quadraticCurveTo(x, by - 12.5, x + 4, by - 10.5);
-  ctx.stroke();
-
-  // Улбар шар бүс — өргөн, унжсан үзүүртэй
-  ctx.strokeStyle = "#e8862a";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(x - 10, by + 2);
-  ctx.lineTo(x + 10, by + 2);
-  ctx.stroke();
-  ctx.strokeStyle = "#c96a18";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x - 2 * flip, by + 3);
-  ctx.quadraticCurveTo(
-    x - 4 * flip,
-    by + 8,
-    x - 3 * flip + walk * 0.3,
-    by + 12,
-  );
-  ctx.stroke();
-
-  // Ханцуйны алтан ирмэг
-  ctx.strokeStyle = "#d8a840";
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(x - 9.5, by - 2);
-  ctx.lineTo(x - 7, by - 2);
-  ctx.moveTo(x + 7, by - 2);
-  ctx.lineTo(x + 9.5, by - 2);
+  ctx.moveTo(x - 9, y + 1);
+  ctx.lineTo(x + 9, y + 1);
   ctx.stroke();
 
   // Толгой
