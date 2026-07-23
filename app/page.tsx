@@ -9,8 +9,8 @@ export default function Home() {
       </header>
       <HerderGame />
         <p className="herder-hint">
-          WASD хөдлөх · Space/J тулалдах · E мод/жимс · Q жимс идэх · F гал ·
-          1/2/3 ур чадвар сонгох · R дахин эхлэх · Зорилго: 1000 хонь
+          WASD хөдлөх · Space/J тулалдах · E мод/жимс/гэрт орох · Q жимс идэх ·
+          F гал · Гэр доторх авдараас дэлгүүр · Зорилго: 1000 хонь
         </p>
     </main>
   );

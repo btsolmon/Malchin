@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { mountHerderGame } from "@/lib/herder-game";
+import { mountHerderGame } from "@/lib/game";
 
 export default function HerderGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
