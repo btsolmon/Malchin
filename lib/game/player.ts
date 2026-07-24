@@ -405,7 +405,13 @@ export function updateSurvival(state: GameState, dt: number): void {
   if (player.chopCooldown > 0) player.chopCooldown -= dt;
   if (player.attackCooldown > 0) player.attackCooldown -= dt;
   if (player.eatCooldown > 0) player.eatCooldown -= dt;
-  if (player.attackAnim > 0) player.attackAnim -= dt;
+  if (player.attackAnim > 0) {
+    player.attackAnim -= dt;
+    if (player.attackAnim <= 0) {
+      player.attackAnim = 0;
+      player.attackMelee = false;
+    }
+  }
   if (player.invuln > 0) player.invuln -= dt;
   if (player.sleepCooldown > 0) player.sleepCooldown -= dt;
 }

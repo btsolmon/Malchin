@@ -113,6 +113,7 @@ export function createInitialState(): GameState {
       attackCooldown: 0,
       eatCooldown: 0,
       attackAnim: 0,
+      attackMelee: false,
       invuln: 0,
       damageMult: 1,
       reachMult: 1,
@@ -156,6 +157,7 @@ export function createInitialState(): GameState {
       right: false,
       interact: false,
       attack: false,
+      shoot: false,
       lightFire: false,
       eat: false,
       debugXp: false,
@@ -195,6 +197,8 @@ export function createInitialState(): GameState {
     pauseIndex: 0,
     shopOpen: false,
     gerPlayer: { x: 480, y: 435 },
+    gerSleepTimer: 0,
+    gerSleepBed: null,
     requestRestart: false,
     nextEntityId: 100,
   };
@@ -238,14 +242,18 @@ export function bindInput(getInput: () => InputState): () => void {
         if (pressed) input.interact = true;
         break;
       case "Space":
+        if (pressed) input.confirm = true;
+        break;
       case "KeyJ":
         input.attack = pressed;
-        if (pressed) input.confirm = true;
+        break;
+      case "KeyK":
+        input.shoot = pressed;
         break;
       case "Enter":
         if (pressed) input.confirm = true;
         break;
-      case "Escape":
+      case "KeyP":
         if (pressed) input.pause = true;
         break;
       case "KeyF":

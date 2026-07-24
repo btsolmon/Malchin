@@ -62,16 +62,16 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
 
 export function tryAttack(state: GameState): void {
   const { player, world } = state;
-  if (player.attackCooldown > 0 || !state.input.attack) return;
+  if (player.attackCooldown > 0) return;
 
-  // Холын зэвсэг: буу > нум сум > таяг
-  if (player.gear.gun || player.gear.bow) {
+  // K — буу / нум харвах
+  if (state.input.shoot && (player.gear.gun || player.gear.bow)) {
     const gun = player.gear.gun;
     const range = gun ? 300 : 200;
     player.attackCooldown = (gun ? 0.8 : 0.55) * player.cooldownMult;
+    player.attackMelee = false;
     player.attackAnim = 0.18;
 
-    // Хамгийн ойрын бай руу онилно, байхгүй бол харсан зүг рүү буудна
     let dir = player.facing;
     let bestD = range;
     for (const w of world.wolves) {
@@ -104,8 +104,11 @@ export function tryAttack(state: GameState): void {
     return;
   }
 
-  // Таяг — ойрын тулаан
+  // J — таягаар цохих
+  if (!state.input.attack) return;
+
   player.attackCooldown = 0.4 * player.cooldownMult;
+  player.attackMelee = true;
   player.attackAnim = 0.22;
   sfx("swing");
   const reach = 42 * player.reachMult;

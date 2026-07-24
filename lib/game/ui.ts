@@ -89,11 +89,11 @@ export function settingsLayout(): {
   return {
     rows: [
       {
-        label: "Ая (Music)",
+        label: "Ая",
         bar: { x: barX, y: 226, w: barW, h: 20, label: "" },
       },
       {
-        label: "Дууны эффект (Sound)",
+        label: "Дууны эффект",
         bar: { x: barX, y: 288, w: barW, h: 20, label: "" },
       },
     ],
@@ -276,6 +276,8 @@ export function gerLayout(): {
 export function gerProximity(state: GameState): {
   nearChest: boolean;
   nearBed: boolean;
+  nearBedL: boolean;
+  nearBedR: boolean;
   atDoor: boolean;
 } {
   const p = state.gerPlayer;
@@ -286,9 +288,13 @@ export function gerProximity(state: GameState): {
     const ny = clamp(p.y, r.y, r.y + r.h);
     return Math.hypot(p.x - nx, p.y - ny) < range;
   };
+  const nearBedL = nearRect(lay.bedL, 50);
+  const nearBedR = nearRect(lay.bedR, 50);
   return {
     nearChest: nearRect(lay.chest, 55),
-    nearBed: nearRect(lay.bedL, 50) || nearRect(lay.bedR, 50),
+    nearBed: nearBedL || nearBedR,
+    nearBedL,
+    nearBedR,
     atDoor: p.y > 492 && Math.abs(p.x - 480) < 90,
   };
 }
@@ -317,7 +323,7 @@ export function shopLayout(): {
       y: y + h - 54,
       w: 140,
       h: 40,
-      label: "Хаах (Esc)",
+      label: "Хаах (P)",
     },
   };
 }
@@ -359,6 +365,26 @@ export function buyItem(state: GameState, idx: number): void {
 
 export function updateGer(state: GameState, dt: number): void {
   const input = state.input;
+
+  // ===== Унтах анимэйшн (5 сек) =====
+  if (state.gerSleepTimer > 0) {
+    state.gerSleepTimer = Math.max(0, state.gerSleepTimer - dt);
+    state.player.moving = false;
+    // Унтаж байхад бусад үйлдэл хаалттай
+    if (state.gerSleepTimer <= 0) {
+      const player = state.player;
+      player.vitals.health = Math.min(
+        player.vitals.maxHealth,
+        player.vitals.health + 50,
+      );
+      player.vitals.warmth = Math.min(100, player.vitals.warmth + 40);
+      player.sleepCooldown = 60;
+      state.gerSleepBed = null;
+      sfx("levelup");
+      setMessage(state, "Сайхан унтаж амарлаа. +50 амь", 3);
+    }
+    return;
+  }
 
   if (state.shopOpen) {
     const lay = shopLayout();
@@ -439,26 +465,27 @@ export function updateGer(state: GameState, dt: number): void {
     return;
   }
 
-  // Ор: ойртоод E → унтаж амь нөхнө
+  // Ор: ойртоод E → 5 сек унтах анимэйшн
   if (input.interact && prox.nearBed) {
     state.input.interact = false;
     if (player.sleepCooldown > 0) {
       setMessage(state, "Сая унтсан — жаахан хүлээ.", 2);
       sfx("move");
     } else {
-      player.vitals.health = Math.min(
-        player.vitals.maxHealth,
-        player.vitals.health + 50,
-      );
-      player.vitals.warmth = Math.min(100, player.vitals.warmth + 40);
-      player.sleepCooldown = 60;
-      sfx("levelup");
-      setMessage(state, "Сайхан унтаж амарлаа. +50 амь", 3);
+      const bed = prox.nearBedL ? lay.bedL : lay.bedR;
+      state.gerSleepBed = prox.nearBedL ? "L" : "R";
+      state.gerSleepTimer = 5;
+      // Орны дээд хэсэгт хэвтүүлнэ
+      state.gerPlayer.x = bed.x + bed.w / 2;
+      state.gerPlayer.y = bed.y + bed.h * 0.38;
+      player.moving = false;
+      sfx("select");
+      setMessage(state, "Зөөлөн орон… унтаж байна…", 5);
     }
     return;
   }
 
-  // Хаалга руу алхах, Esc, эсвэл хаалган дээр дарах → гадагш гарна
+  // Хаалга руу алхах, P, эсвэл хаалган дээр дарах → гадагш гарна
   if (
     prox.atDoor ||
     input.pause ||
@@ -800,7 +827,7 @@ export function drawBackHint(ctx: CanvasRenderingContext2D, y: number): void {
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
   ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText("Esc / Enter — буцах", VIEW_W / 2, y);
+  ctx.fillText("P / Enter — буцах", VIEW_W / 2, y);
   ctx.textAlign = "left";
 }
 
@@ -818,7 +845,7 @@ export function drawMenuMain(
   ctx.fillText("МАЛЧИН", VIEW_W / 2, 166);
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText("Мянгат малчин болоорой", VIEW_W / 2, 200);
+  ctx.fillText("Мянгат малчин бол", VIEW_W / 2, 200);
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();
@@ -902,11 +929,12 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
 
   const lines: Array<[string, string]> = [
     ["WASD", "Алхах"],
-    ["Space / J", "Цохих"],
+    ["J", "Цохих"],
+    ["K", "Буудах / Харвах"],
     ["E", "Мод огтлох · Жимс түүх"],
     ["Q", "Жимс идэх"],
     ["F", "Гал түлэх"],
-    ["Esc", "Түр зогсоох"],
+    ["P", "Түр зогсоох"],
   ];
   const boxW = 400;
   const boxH = lines.length * 24 + 26;
@@ -950,7 +978,7 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText("Малчин", VIEW_W / 2, 192);
+  ctx.fillText("Pinecone 4A", VIEW_W / 2, 192);
   ctx.textAlign = "left";
 
   lines.forEach(([role, name], i) => {
@@ -1154,7 +1182,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(
-      "↑↓ / Enter · хулгана · Esc — үргэлжлүүлэх",
+      "↑↓ / Enter · хулгана · P — үргэлжлүүлэх",
       VIEW_W / 2,
       VIEW_H / 2 + 118,
     );
@@ -1236,7 +1264,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     );
     ctx.fillStyle = COLORS.hudAccent;
     ctx.font = "600 15px system-ui, sans-serif";
-    ctx.fillText("Enter / Esc — үндсэн цэс", VIEW_W / 2, VIEW_H / 2 + 70);
+    ctx.fillText("Enter / P — үндсэн цэс", VIEW_W / 2, VIEW_H / 2 + 70);
     ctx.textAlign = "left";
   }
 }

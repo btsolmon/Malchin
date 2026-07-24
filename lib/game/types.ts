@@ -44,6 +44,8 @@ export interface Player {
   eatCooldown: number;
   /** Цохилтын арк-ийн үлдсэн хугацаа */
   attackAnim: number;
+  /** true = J таяг цохилт (буу/нумтай байсан ч таяг зурна) */
+  attackMelee: boolean;
   /** Цохилт авсны дараах хамгаалалт */
   invuln: number;
   /** Ур чадварын үржүүлэгчид */
@@ -197,6 +199,8 @@ export interface InputState {
   right: boolean;
   interact: boolean;
   attack: boolean;
+  /** K — буу / нум харвах */
+  shoot: boolean;
   lightFire: boolean;
   eat: boolean;
   /** Debug — / дарж XP нэмэх */
@@ -207,7 +211,7 @@ export interface InputState {
   skill4: boolean;
   /** Enter/Space — меню дэх сонголт */
   confirm: boolean;
-  /** Escape — түр зогсоох */
+  /** P — түр зогсоох */
   pause: boolean;
   /** Меню доторх нэг удаагийн шилжилтүүд */
   menuUp: boolean;
@@ -280,6 +284,10 @@ export interface GameState {
   shopOpen: boolean;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */
   gerPlayer: Vector2;
+  /** Орон дээр унтаж байгаа үлдсэн хугацаа (сек). 0 = унтаагүй */
+  gerSleepTimer: number;
+  /** Аль орон дээр унтаж байгаа */
+  gerSleepBed: "L" | "R" | null;
   /** Пауз менюгээс үндсэн цэс рүү буцах */
   requestRestart: boolean;
   nextEntityId: number;

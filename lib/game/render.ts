@@ -752,7 +752,13 @@ export function drawThief(
   const x = thief.pos.x - cam.x;
   const y = thief.pos.y - cam.y;
   const flip = thief.face;
-  const run = Math.sin(time * 13 + thief.id) * 3;
+  const moving = Math.abs(thief.vel.x) + Math.abs(thief.vel.y) > 0.05;
+  const run = moving ? Math.sin(time * 13 + thief.id) * 3 : 0;
+  const armSwing = moving
+    ? -Math.sin(time * 13 + thief.id) * 4.5
+    : -Math.sin(time * 1.5 + thief.id) * 0.8;
+  const armFlip = -flip;
+  const shoulderY = y - 5;
 
   drawShadow(ctx, x, y + 11, 10, 4);
 
@@ -764,6 +770,18 @@ export function drawThief(
   ctx.lineTo(x - 3 + run, y + 11);
   ctx.moveTo(x + 3, y + 4);
   ctx.lineTo(x + 3 - run, y + 11);
+  ctx.stroke();
+
+  // Хойд гар
+  ctx.strokeStyle = "#c4a574";
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - 5.5 * armFlip, shoulderY);
+  ctx.lineTo(
+    x - 8.5 * armFlip - armSwing * 0.35,
+    shoulderY + 6.5 - armSwing * 0.15,
+  );
   ctx.stroke();
 
   // Уут (хулгайлсан хонь)
@@ -811,6 +829,17 @@ export function drawThief(
   ctx.arc(x, y - 16, 5.5, Math.PI, 0);
   ctx.fill();
 
+  // Урд гар
+  const handX = x + 6.5 * armFlip + armSwing * 0.25;
+  const handY = shoulderY + 7.5 + armSwing * 0.2;
+  ctx.strokeStyle = "#c4a574";
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x + 5.5 * armFlip, shoulderY);
+  ctx.lineTo(handX, handY);
+  ctx.stroke();
+
   if (thief.flash > 0) {
     ctx.fillStyle = `rgba(255,255,255,${thief.flash * 5})`;
     ctx.beginPath();
@@ -842,6 +871,7 @@ export function drawPlayer(
 ): void {
   const x = player.pos.x - cam.x;
   const y = player.pos.y - cam.y;
+  // facing.x < 0 → зүүн тийш нүүр / бие
   const flip = player.facing.x < 0 ? -1 : 1;
   const walk = player.moving ? Math.sin(time * 11) * 3 : 0;
   const bob = player.moving ? Math.abs(Math.sin(time * 11)) * 1.5 : Math.sin(time * 2) * 0.6;
@@ -878,7 +908,7 @@ export function drawPlayer(
 
   drawShadow(ctx, x, y + 12, 11, 4.5);
 
-  // Хөл (гутал)
+  // Хөл (гутал) — эсрэг чиглэлд хөдөлнө
   ctx.strokeStyle = "#2a2a30";
   ctx.lineWidth = 3.4;
   ctx.beginPath();
@@ -886,6 +916,25 @@ export function drawPlayer(
   ctx.lineTo(x - 3.5 + walk, y + 12);
   ctx.moveTo(x + 3.5, y + 4);
   ctx.lineTo(x + 3.5 - walk, y + 12);
+  ctx.stroke();
+
+  // Гарын дүүжин — биеийн flip-ээс эсрэг талд, хөлтэй эсрэг фаз
+  const armSwing = player.moving
+    ? -Math.sin(time * 11) * 4.5
+    : -Math.sin(time * 1.5) * 0.8;
+  const armFlip = -flip;
+  const shoulderY = y - 6 - bob * 0.3;
+
+  // Хойд гар (биений ард)
+  ctx.strokeStyle = "#d8b088";
+  ctx.lineWidth = 2.8;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - 6 * armFlip, shoulderY);
+  ctx.lineTo(
+    x - 9 * armFlip - armSwing * 0.35,
+    shoulderY + 7 - armSwing * 0.15,
+  );
   ctx.stroke();
 
   // Дээл — хөх торгон, градиенттай
@@ -918,29 +967,54 @@ export function drawPlayer(
   ctx.arc(x, hdy, 6, 0, Math.PI * 2);
   ctx.fill();
 
-  // Нүүр: хоёр нүд, хөмсөг, ам
+  // Нүүр: хоёр нүд, хөмсөг, ам — дайрах үед ууртай нүүр
   const fx = 1.6 * flip;
+  const angry = player.attackAnim > 0;
   ctx.fillStyle = "#2a2018";
   ctx.beginPath();
-  ctx.arc(x + fx - 2.2, hdy - 0.8, 0.9, 0, Math.PI * 2);
-  ctx.arc(x + fx + 2.2, hdy - 0.8, 0.9, 0, Math.PI * 2);
+  ctx.arc(x + fx - 2.2, hdy - 0.8, angry ? 1.05 : 0.9, 0, Math.PI * 2);
+  ctx.arc(x + fx + 2.2, hdy - 0.8, angry ? 1.05 : 0.9, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "#3a2c1c";
-  ctx.lineWidth = 0.9;
+  ctx.lineWidth = angry ? 1.15 : 0.9;
   ctx.beginPath();
-  ctx.moveTo(x + fx - 3.4, hdy - 2.6);
-  ctx.lineTo(x + fx - 1, hdy - 2.9);
-  ctx.moveTo(x + fx + 1, hdy - 2.9);
-  ctx.lineTo(x + fx + 3.4, hdy - 2.6);
+  if (angry) {
+    // Ууртай хөмсөг — дотогш налуу
+    ctx.moveTo(x + fx - 3.6, hdy - 3.2);
+    ctx.lineTo(x + fx - 0.8, hdy - 2.2);
+    ctx.moveTo(x + fx + 0.8, hdy - 2.2);
+    ctx.lineTo(x + fx + 3.6, hdy - 3.2);
+  } else {
+    ctx.moveTo(x + fx - 3.4, hdy - 2.6);
+    ctx.lineTo(x + fx - 1, hdy - 2.9);
+    ctx.moveTo(x + fx + 1, hdy - 2.9);
+    ctx.lineTo(x + fx + 3.4, hdy - 2.6);
+  }
   ctx.stroke();
-  // Инээмсэглэл
-  ctx.strokeStyle = "#8a5838";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.arc(x + fx * 0.6, hdy + 2, 2.2, 0.25, Math.PI - 0.25);
-  ctx.stroke();
+  if (angry) {
+    // Нээлттэй ам
+    ctx.fillStyle = "#5a2830";
+    ctx.beginPath();
+    ctx.ellipse(x + fx * 0.6, hdy + 2.4, 1.8, 1.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#c07060";
+    ctx.beginPath();
+    ctx.ellipse(x + fx * 0.6, hdy + 1.7, 1.5, 0.55, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Тайван ам — богино шулуун хэвтээ зураас
+    ctx.strokeStyle = "#8a5838";
+    ctx.lineWidth = 1;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    const mx = x + fx * 0.6;
+    const my = hdy + 2.2;
+    ctx.moveTo(mx - 1.4, my);
+    ctx.lineTo(mx + 1.4, my);
+    ctx.stroke();
+  }
   // Хацрын улайлт
-  ctx.fillStyle = "rgba(214,110,80,0.35)";
+  ctx.fillStyle = angry ? "rgba(214,90,60,0.45)" : "rgba(214,110,80,0.35)";
   ctx.beginPath();
   ctx.arc(x + fx - 3.6, hdy + 1.4, 1.4, 0, Math.PI * 2);
   ctx.arc(x + fx + 3.6, hdy + 1.4, 1.4, 0, Math.PI * 2);
@@ -987,41 +1061,108 @@ export function drawPlayer(
   );
   ctx.stroke();
 
-  // Таяг
-  const ang = Math.atan2(player.facing.y, player.facing.x);
-  let staffAng = ang;
-  if (player.attackAnim > 0) {
-    const p = 1 - player.attackAnim / 0.22;
-    staffAng = ang + lerp(-1.3, 1.3, p);
-  }
-  const hx = x + Math.cos(staffAng + 0.5) * 8;
-  const hy = y - 4 + Math.sin(staffAng + 0.5) * 6;
-  ctx.strokeStyle = "#9a6a34";
+  // Урд гар — зэвсэг барина эсвэл дүүжинэ
+  const handX = x + 7 * armFlip + armSwing * 0.25;
+  const handY = shoulderY + 8 + armSwing * 0.2;
+  ctx.strokeStyle = "#d8b088";
   ctx.lineWidth = 2.8;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(hx, hy);
-  ctx.lineTo(hx + Math.cos(staffAng) * 26, hy + Math.sin(staffAng) * 26);
+  ctx.moveTo(x + 6 * armFlip, shoulderY);
+  ctx.lineTo(handX, handY);
   ctx.stroke();
-  // Таягны толгой
-  ctx.fillStyle = "#c9a227";
-  ctx.beginPath();
-  ctx.arc(
-    hx + Math.cos(staffAng) * 26,
-    hy + Math.sin(staffAng) * 26,
-    2.6,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
 
-  // Цохилтын арк
-  if (player.attackAnim > 0) {
+  const ang = Math.atan2(player.facing.y, player.facing.x);
+  const hasGun = player.gear.gun;
+  const hasBow = player.gear.bow && !hasGun;
+  const swingingStaff = player.attackMelee && player.attackAnim > 0;
+
+  if (swingingStaff) {
+    // Таяг — J цохилт (нум/буутай байсан ч харагдана)
     const p = 1 - player.attackAnim / 0.22;
+    const staffAng = ang + lerp(-1.3, 1.3, p);
+    const sx = x + Math.cos(staffAng + 0.5) * 8;
+    const sy = y - 4 + Math.sin(staffAng + 0.5) * 6;
+    ctx.strokeStyle = "#9a6a34";
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + Math.cos(staffAng) * 26, sy + Math.sin(staffAng) * 26);
+    ctx.stroke();
+    ctx.fillStyle = "#c9a227";
+    ctx.beginPath();
+    ctx.arc(
+      sx + Math.cos(staffAng) * 26,
+      sy + Math.sin(staffAng) * 26,
+      2.6,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
     ctx.strokeStyle = `rgba(255,240,180,${0.7 * (1 - p)})`;
     ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(x, y - 2, 38, ang - 1.1 + p * 1.4, ang - 0.5 + p * 1.6);
     ctx.stroke();
+  } else if (hasGun) {
+    // Буу — барьсан байдал
+    const kick = player.attackAnim > 0 ? (1 - player.attackAnim / 0.18) * 3 : 0;
+    const gx = handX + Math.cos(ang) * (4 - kick);
+    const gy = handY + Math.sin(ang) * (4 - kick) - 1;
+    ctx.save();
+    ctx.translate(gx, gy);
+    ctx.rotate(ang);
+    ctx.fillStyle = "#3a2a1a";
+    roundRectPath(ctx, -4, -2.2, 22, 4.4, 1.5);
+    ctx.fill();
+    ctx.fillStyle = "#2a2a30";
+    roundRectPath(ctx, 14, -1.4, 10, 2.8, 1);
+    ctx.fill();
+    ctx.fillStyle = "#c9a227";
+    ctx.fillRect(2, -3.2, 3, 6.4);
+    // Галлалтын оч
+    if (player.attackAnim > 0.08) {
+      ctx.fillStyle = `rgba(255,200,80,${player.attackAnim * 4})`;
+      ctx.beginPath();
+      ctx.arc(26, 0, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  } else if (hasBow) {
+    // Нум — барьсан байдал
+    const draw = player.attackAnim > 0 ? Math.min(1, (0.18 - player.attackAnim) / 0.12) : 0;
+    ctx.save();
+    ctx.translate(handX, handY - 1);
+    ctx.rotate(ang);
+    ctx.strokeStyle = "#8a5a28";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(2, -11);
+    ctx.quadraticCurveTo(14, 0, 2, 11);
+    ctx.stroke();
+    // Хөвч
+    ctx.strokeStyle = "#e8e0d0";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(2, -11);
+    ctx.lineTo(2 - draw * 6, 0);
+    ctx.lineTo(2, 11);
+    ctx.stroke();
+    // Сум (байнга нүхлүүртэй)
+    ctx.strokeStyle = "#c8a060";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(2 - draw * 6, 0);
+    ctx.lineTo(16, 0);
+    ctx.stroke();
+    ctx.fillStyle = "#e8e0d0";
+    ctx.beginPath();
+    ctx.moveTo(18, 0);
+    ctx.lineTo(14, -2);
+    ctx.lineTo(14, 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   if (riding) ctx.restore();
@@ -1374,6 +1515,109 @@ export function drawWeatherFx(
 }
 
 
+/** Гэр дотор орон дээр хэвтэж унтаж буй малчин */
+export function drawSleepingHerder(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  time: number,
+  scale: number,
+): void {
+  const bed =
+    state.gerSleepBed === "L" ? gerLayout().bedL : gerLayout().bedR;
+  const cx = bed.x + bed.w / 2;
+  // Орны дээд хэсэг рүү ойртуулж хэвтүүлнэ
+  const cy = bed.y + bed.h * 0.38;
+  // Зүүн ор — толгой баруун тийш, баруун ор — зүүн тийш (дэрнээс хол)
+  const headLeft = state.gerSleepBed === "R";
+  const breath = Math.sin(time * 2.2) * 1.2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(scale, scale);
+  // Босоо дүрийг хэвтүүлэх
+  ctx.rotate(headLeft ? Math.PI / 2 : -Math.PI / 2);
+
+  // Хөл
+  ctx.strokeStyle = "#2a2a30";
+  ctx.lineWidth = 3.2;
+  ctx.beginPath();
+  ctx.moveTo(-3.5, 3);
+  ctx.lineTo(-3.5, 11);
+  ctx.moveTo(3.5, 3);
+  ctx.lineTo(3.5, 11);
+  ctx.stroke();
+
+  // Дээл
+  const deel = ctx.createLinearGradient(-8, -10, 8, 6);
+  deel.addColorStop(0, "#3a62a0");
+  deel.addColorStop(1, "#24457a");
+  ctx.fillStyle = deel;
+  ctx.beginPath();
+  ctx.ellipse(0, -1 + breath * 0.15, 9.5, 10.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#e8c56a";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(1, -10);
+  ctx.quadraticCurveTo(7, -5, 5, 1);
+  ctx.stroke();
+  ctx.strokeStyle = "#d88a2a";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(-9, 1);
+  ctx.lineTo(9, 1);
+  ctx.stroke();
+
+  // Толгой
+  const hy = -14 + breath * 0.1;
+  ctx.fillStyle = "#e0b890";
+  ctx.beginPath();
+  ctx.arc(0, hy, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Нүд аниастай (унтаж байна)
+  ctx.strokeStyle = "#2a2018";
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(-3.2, hy - 0.5);
+  ctx.quadraticCurveTo(-2, hy + 0.8, -0.6, hy - 0.5);
+  ctx.moveTo(0.6, hy - 0.5);
+  ctx.quadraticCurveTo(2, hy + 0.8, 3.2, hy - 0.5);
+  ctx.stroke();
+
+  // Монгол малгай
+  ctx.fillStyle = "#a82424";
+  ctx.beginPath();
+  ctx.moveTo(-6, hy - 3);
+  ctx.quadraticCurveTo(-3, hy - 9, 0, hy - 11);
+  ctx.quadraticCurveTo(3, hy - 9, 6, hy - 3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#5a3c22";
+  roundRectPath(ctx, -7, hy - 4, 14, 3.8, 2);
+  ctx.fill();
+  ctx.fillStyle = "#e8c56a";
+  ctx.beginPath();
+  ctx.arc(0, hy - 11.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // Zzz — толгойн тал руу хөвнө
+  for (let i = 0; i < 3; i++) {
+    const phase = (time * 0.7 + i * 0.85) % 1;
+    const zx = cx + (headLeft ? -28 : 28) + Math.sin(time + i) * 4;
+    const zy = cy - 22 - phase * 42;
+    ctx.globalAlpha = (1 - phase) * 0.9;
+    ctx.fillStyle = "#d8e8ff";
+    ctx.font = `${11 + i * 3}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText("z", zx, zy);
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "left";
+}
+
 export function drawGerInterior(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -1602,72 +1846,179 @@ export function drawGerInterior(
     ctx.lineWidth = 2.5;
     roundRectPath(ctx, fx - 6, fy - 6, fw + 12, fh + 12, 4);
     ctx.stroke();
-    // Зургийн дэвсгэр — тал нутаг
-    const sky = ctx.createLinearGradient(fx, fy, fx, fy + fh);
-    sky.addColorStop(0, "#6a9ec8");
-    sky.addColorStop(0.55, "#c8b070");
-    sky.addColorStop(1, "#6a8a40");
-    ctx.fillStyle = sky;
+
+    ctx.save();
     roundRectPath(ctx, fx, fy, fw, fh, 2);
+    ctx.clip();
+
+    // Тэнгэр
+    const sky = ctx.createLinearGradient(fx, fy, fx, fy + fh * 0.55);
+    sky.addColorStop(0, "#7aa8c8");
+    sky.addColorStop(0.55, "#b8c8a8");
+    sky.addColorStop(1, "#c8b888");
+    ctx.fillStyle = sky;
+    ctx.fillRect(fx, fy, fw, fh);
+
+    // Нар
+    const sunX = fx + 28;
+    const sunY = fy + 22;
+    const sunGlow = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 18);
+    sunGlow.addColorStop(0, "rgba(255,220,120,0.85)");
+    sunGlow.addColorStop(0.45, "rgba(255,190,80,0.35)");
+    sunGlow.addColorStop(1, "rgba(255,180,60,0)");
+    ctx.fillStyle = sunGlow;
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 18, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e8b848";
+    ctx.beginPath();
+    ctx.arc(sunX, sunY, 7, 0, Math.PI * 2);
     ctx.fill();
 
-    // Галлоп морь
-    const hx = fx + 78;
-    const hy = fy + 58;
-    ctx.save();
-    ctx.translate(hx, hy);
-    // Сүүл
-    ctx.strokeStyle = "#2a1810";
-    ctx.lineWidth = 3;
+    // Хол уулс
+    ctx.fillStyle = "#6a7a88";
     ctx.beginPath();
-    ctx.moveTo(-28, -4);
-    ctx.quadraticCurveTo(-40, -10, -38, 6);
-    ctx.stroke();
-    // Бие
-    const body = ctx.createLinearGradient(0, -14, 0, 8);
-    body.addColorStop(0, "#6b4226");
-    body.addColorStop(1, "#3a2412");
-    ctx.fillStyle = body;
-    ctx.beginPath();
-    ctx.ellipse(0, -2, 26, 11, -0.12, 0, Math.PI * 2);
+    ctx.moveTo(fx, fy + 58);
+    ctx.lineTo(fx + 22, fy + 34);
+    ctx.lineTo(fx + 48, fy + 52);
+    ctx.lineTo(fx + 72, fy + 28);
+    ctx.lineTo(fx + 98, fy + 48);
+    ctx.lineTo(fx + 120, fy + 30);
+    ctx.lineTo(fx + fw, fy + 50);
+    ctx.lineTo(fx + fw, fy + 68);
+    ctx.lineTo(fx, fy + 68);
+    ctx.closePath();
     ctx.fill();
-    // Хөл — гүйх байрлал
-    ctx.strokeStyle = "#2a1810";
-    ctx.lineWidth = 2.8;
+    // Ойрын уулс
+    ctx.fillStyle = "#5a6a58";
     ctx.beginPath();
-    ctx.moveTo(-14, 4);
-    ctx.lineTo(-22, 18);
-    ctx.moveTo(-4, 6);
-    ctx.lineTo(6, 16);
-    ctx.moveTo(8, 5);
-    ctx.lineTo(2, 18);
-    ctx.moveTo(16, 3);
-    ctx.lineTo(28, 12);
-    ctx.stroke();
-    // Хүзүү + толгой
-    ctx.fillStyle = "#5a3418";
+    ctx.moveTo(fx, fy + 66);
+    ctx.lineTo(fx + 30, fy + 46);
+    ctx.lineTo(fx + 58, fy + 62);
+    ctx.lineTo(fx + 88, fy + 42);
+    ctx.lineTo(fx + 118, fy + 60);
+    ctx.lineTo(fx + fw, fy + 48);
+    ctx.lineTo(fx + fw, fy + 74);
+    ctx.lineTo(fx, fy + 74);
+    ctx.closePath();
+    ctx.fill();
+    // Цасан орой
+    ctx.fillStyle = "rgba(230,236,240,0.55)";
     ctx.beginPath();
-    ctx.moveTo(16, -6);
-    ctx.lineTo(28, -20);
-    ctx.lineTo(34, -14);
-    ctx.lineTo(22, 0);
+    ctx.moveTo(fx + 72, fy + 28);
+    ctx.lineTo(fx + 66, fy + 36);
+    ctx.lineTo(fx + 78, fy + 36);
     ctx.closePath();
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(34, -18, 8, 4.5, -0.55, 0, Math.PI * 2);
+    ctx.moveTo(fx + 120, fy + 30);
+    ctx.lineTo(fx + 114, fy + 38);
+    ctx.lineTo(fx + 126, fy + 38);
+    ctx.closePath();
     ctx.fill();
-    // Дэл — салхинд
-    ctx.strokeStyle = "#1a1008";
-    ctx.lineWidth = 2.2;
+
+    // Эрэг / тал
+    ctx.fillStyle = "#7a8a48";
+    ctx.fillRect(fx, fy + 70, fw, 12);
+
+    // Нуур / ус
+    const water = ctx.createLinearGradient(fx, fy + 78, fx, fy + fh);
+    water.addColorStop(0, "#5a8aa8");
+    water.addColorStop(0.5, "#4a7a98");
+    water.addColorStop(1, "#3a6888");
+    ctx.fillStyle = water;
+    ctx.fillRect(fx, fy + 78, fw, fh - 78);
+    // Усны долгион
+    ctx.strokeStyle = "rgba(200,230,240,0.28)";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      const wy = fy + 84 + i * 5;
+      ctx.beginPath();
+      ctx.moveTo(fx + 4, wy);
+      ctx.quadraticCurveTo(fx + 40, wy - 2, fx + 75, wy);
+      ctx.quadraticCurveTo(fx + 110, wy + 2, fx + fw - 4, wy);
+      ctx.stroke();
+    }
+
+    // Морь — тоглоомын drawHorse силуэттэй адил, зургийн өнгөөр
+    const hx = fx + 82;
+    const hy = fy + 66;
+    const flip = 1;
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.scale(1.15, 1.15);
+
+    // Сүүдэр (зургийн)
+    ctx.fillStyle = "rgba(30,20,10,0.22)";
     ctx.beginPath();
-    ctx.moveTo(18, -8);
-    ctx.quadraticCurveTo(10, -22, 22, -24);
+    ctx.ellipse(0, 12, 18, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Хөл
+    ctx.strokeStyle = "#3a2a18";
+    ctx.lineWidth = 3;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-12, 2);
+    ctx.lineTo(-12, 13);
+    ctx.moveTo(-6, 3);
+    ctx.lineTo(-6, 13);
+    ctx.moveTo(6, 3);
+    ctx.lineTo(6, 13);
+    ctx.moveTo(12, 2);
+    ctx.lineTo(12, 13);
     ctx.stroke();
-    // Нүд
-    ctx.fillStyle = "#1a1008";
+
+    // Сүүл
+    ctx.strokeStyle = "#241808";
+    ctx.lineWidth = 4;
     ctx.beginPath();
-    ctx.arc(36, -19, 1.2, 0, Math.PI * 2);
+    ctx.moveTo(-16 * flip, -2);
+    ctx.quadraticCurveTo(-22 * flip, 4, -20 * flip, 12);
+    ctx.stroke();
+
+    // Бие
+    const body = ctx.createLinearGradient(0, -10, 0, 6);
+    body.addColorStop(0, "#6b4a26");
+    body.addColorStop(1, "#4a3016");
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 17, 8.5, 0, 0, Math.PI * 2);
     ctx.fill();
+
+    // Хүзүү ба толгой
+    ctx.fillStyle = "#5d3f1f";
+    ctx.beginPath();
+    ctx.moveTo(10 * flip, -6);
+    ctx.lineTo(20 * flip, -16);
+    ctx.lineTo(24 * flip, -12);
+    ctx.lineTo(15 * flip, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(23 * flip, -15, 6, 3.6, flip * -0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Дэл
+    ctx.strokeStyle = "#241808";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(11 * flip, -7);
+    ctx.lineTo(20 * flip, -17);
+    ctx.stroke();
+
+    // Нүд
+    ctx.fillStyle = "#1a1208";
+    ctx.beginPath();
+    ctx.arc(24 * flip, -16, 1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // Ханын зургийн бага зэрэг бүдэгрүүлэх
+    ctx.fillStyle = "rgba(90,60,30,0.08)";
+    ctx.fillRect(fx, fy, fw, fh);
+
     ctx.restore();
 
     // Жижиг шошго
@@ -1770,27 +2121,31 @@ export function drawGerInterior(
   ctx.stroke();
   ctx.fillStyle = "#ffe9a8";
   ctx.font = "600 14px system-ui, sans-serif";
-  ctx.fillText("Гарах — Esc", door.x + door.w / 2, door.y + door.h / 2 + 5);
+  ctx.fillText("Гарах — P", door.x + door.w / 2, door.y + door.h / 2 + 5);
   ctx.textAlign = "left";
 
   // ===== Малчин гэр дотор алхаж явна (тавилгатай харьцуулахад томруулсан) =====
-  const walker: Player = {
-    ...state.player,
-    pos: state.gerPlayer,
-    gear: { ...state.player.gear, horse: false },
-    invuln: 0,
-    attackAnim: 0,
-  };
   const gerScale = 2.85;
-  ctx.save();
-  ctx.translate(state.gerPlayer.x, state.gerPlayer.y);
-  ctx.scale(gerScale, gerScale);
-  ctx.translate(-state.gerPlayer.x, -state.gerPlayer.y);
-  drawPlayer(ctx, walker, { x: 0, y: 0 }, time);
-  ctx.restore();
+  if (state.gerSleepTimer > 0 && state.gerSleepBed) {
+    drawSleepingHerder(ctx, state, time, gerScale);
+  } else {
+    const walker: Player = {
+      ...state.player,
+      pos: state.gerPlayer,
+      gear: { ...state.player.gear, horse: false },
+      invuln: 0,
+      attackAnim: 0,
+    };
+    ctx.save();
+    ctx.translate(state.gerPlayer.x, state.gerPlayer.y);
+    ctx.scale(gerScale, gerScale);
+    ctx.translate(-state.gerPlayer.x, -state.gerPlayer.y);
+    drawPlayer(ctx, walker, { x: 0, y: 0 }, time);
+    ctx.restore();
+  }
 
   // Ойролцоох зүйлсийн заавар
-  if (!state.shopOpen) {
+  if (!state.shopOpen && state.gerSleepTimer <= 0) {
     const prox = gerProximity(state);
     let hint = "";
     if (prox.nearChest) hint = "E — Дэлгүүр нээх";
@@ -1807,6 +2162,28 @@ export function drawGerInterior(
       ctx.fillText(hint, state.gerPlayer.x, hintY);
       ctx.textAlign = "left";
     }
+  }
+
+  // Унтах анимэйшний прогресс
+  if (state.gerSleepTimer > 0) {
+    const progress = 1 - state.gerSleepTimer / 5;
+    const bw = 220;
+    const bx = (VIEW_W - bw) / 2;
+    const by = VIEW_H - 52;
+    ctx.fillStyle = "rgba(12,10,8,0.8)";
+    roundRectPath(ctx, bx - 10, by - 28, bw + 20, 48, 10);
+    ctx.fill();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffe9a8";
+    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.fillText("Унтаж байна… Zzz", VIEW_W / 2, by - 8);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    roundRectPath(ctx, bx, by + 2, bw, 10, 5);
+    ctx.fill();
+    ctx.fillStyle = "#7ab8e8";
+    roundRectPath(ctx, bx, by + 2, bw * progress, 10, 5);
+    ctx.fill();
+    ctx.textAlign = "left";
   }
 
   // Дулаан гэрлийн vignette
@@ -1832,7 +2209,7 @@ export function drawGerInterior(
   }
 
   // Удирдлагын заавар
-  if (!state.shopOpen) {
+  if (!state.shopOpen && state.gerSleepTimer <= 0) {
     ctx.textAlign = "center";
     ctx.fillStyle = "rgba(242,232,213,0.55)";
     ctx.font = "12px system-ui, sans-serif";
