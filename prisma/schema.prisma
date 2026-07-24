@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 1. Хэрэглэгчийн модель
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  saveGames SaveGame[]
+  scores    Leaderboard[]
+}
+
+// 2. Тоглоомын хадгалсан төлөв (GameState-ийг хадгалах)
+model SaveGame {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  dayNumber Int    @default(1)
+  season    String @default("autumn")
+  score     Int    @default(0)
+  level     Int    @default(1)
+
+  // Нийлмэл/цөгц объектуудыг JSON хэлбэрээр хадгалах нь хамгийн тохиромжтой
+  playerData Json // Vitals, Inventory, Gear зэрэг Player-ийн мэдээлэл
+  worldData  Json // Flock, Campfire, Weather гэх мэт орчны мэдээлэл
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
+// 3. Тэргүүлэгчдийн самбар (Оноо)
+model Leaderboard {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score      Int
+  dayReached Int
+  createdAt  DateTime @default(now())
+}
