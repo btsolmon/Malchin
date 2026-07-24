@@ -199,7 +199,8 @@ export interface InputState {
   attack: boolean;
   lightFire: boolean;
   eat: boolean;
-  restart: boolean;
+  /** Debug — / дарж XP нэмэх */
+  debugXp: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
@@ -279,7 +280,7 @@ export interface GameState {
   shopOpen: boolean;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */
   gerPlayer: Vector2;
-  /** Пауз менюгээс "Дахин эхлэх" дарсан */
+  /** Пауз менюгээс үндсэн цэс рүү буцах */
   requestRestart: boolean;
   nextEntityId: number;
 }

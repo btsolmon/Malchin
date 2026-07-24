@@ -1588,40 +1588,99 @@ export function drawGerInterior(
   ctx.fillRect(cx - 30, 366, 8, 9);
   ctx.fillRect(cx + 22, 366, 8, 9);
 
-  // Ор — зүүн ба баруун
-  for (const side of [-1, 1] as const) {
-    const bx = cx + side * 330 - 95;
-    const by = 300;
-    ctx.fillStyle = "#7a4c22";
-    roundRectPath(ctx, bx, by, 190, 84, 8);
+  // Шүүгээний оронд — хурдан морины зураг (ханын хүрээтэй)
+  {
+    const fx = 175;
+    const fy = 175;
+    const fw = 150;
+    const fh = 100;
+    // Модон хүрээ
+    ctx.fillStyle = "#5a3418";
+    roundRectPath(ctx, fx - 6, fy - 6, fw + 12, fh + 12, 4);
     ctx.fill();
-    ctx.fillStyle = "#a03030";
-    roundRectPath(ctx, bx + 8, by + 8, 174, 52, 6);
-    ctx.fill();
-    ctx.strokeStyle = "#e0b050";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(bx + 14, by + 34);
-    ctx.lineTo(bx + 176, by + 34);
+    ctx.strokeStyle = "#d8a040";
+    ctx.lineWidth = 2.5;
+    roundRectPath(ctx, fx - 6, fy - 6, fw + 12, fh + 12, 4);
     ctx.stroke();
-    // Дэр
-    ctx.fillStyle = "#e8d8b8";
-    roundRectPath(ctx, bx + (side < 0 ? 12 : 132), by + 12, 46, 24, 5);
+    // Зургийн дэвсгэр — тал нутаг
+    const sky = ctx.createLinearGradient(fx, fy, fx, fy + fh);
+    sky.addColorStop(0, "#6a9ec8");
+    sky.addColorStop(0.55, "#c8b070");
+    sky.addColorStop(1, "#6a8a40");
+    ctx.fillStyle = sky;
+    roundRectPath(ctx, fx, fy, fw, fh, 2);
     ctx.fill();
+
+    // Галлоп морь
+    const hx = fx + 78;
+    const hy = fy + 58;
+    ctx.save();
+    ctx.translate(hx, hy);
+    // Сүүл
+    ctx.strokeStyle = "#2a1810";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(-28, -4);
+    ctx.quadraticCurveTo(-40, -10, -38, 6);
+    ctx.stroke();
+    // Бие
+    const body = ctx.createLinearGradient(0, -14, 0, 8);
+    body.addColorStop(0, "#6b4226");
+    body.addColorStop(1, "#3a2412");
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.ellipse(0, -2, 26, 11, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+    // Хөл — гүйх байрлал
+    ctx.strokeStyle = "#2a1810";
+    ctx.lineWidth = 2.8;
+    ctx.beginPath();
+    ctx.moveTo(-14, 4);
+    ctx.lineTo(-22, 18);
+    ctx.moveTo(-4, 6);
+    ctx.lineTo(6, 16);
+    ctx.moveTo(8, 5);
+    ctx.lineTo(2, 18);
+    ctx.moveTo(16, 3);
+    ctx.lineTo(28, 12);
+    ctx.stroke();
+    // Хүзүү + толгой
+    ctx.fillStyle = "#5a3418";
+    ctx.beginPath();
+    ctx.moveTo(16, -6);
+    ctx.lineTo(28, -20);
+    ctx.lineTo(34, -14);
+    ctx.lineTo(22, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(34, -18, 8, 4.5, -0.55, 0, Math.PI * 2);
+    ctx.fill();
+    // Дэл — салхинд
+    ctx.strokeStyle = "#1a1008";
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(18, -8);
+    ctx.quadraticCurveTo(10, -22, 22, -24);
+    ctx.stroke();
+    // Нүд
+    ctx.fillStyle = "#1a1008";
+    ctx.beginPath();
+    ctx.arc(36, -19, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Жижиг шошго
+    ctx.fillStyle = "rgba(20,12,6,0.55)";
+    roundRectPath(ctx, fx + 8, fy + fh - 18, 72, 12, 3);
+    ctx.fill();
+    ctx.fillStyle = "#ffe9a8";
+    ctx.font = "600 9px system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("Хурдан морь", fx + 14, fy + fh - 9);
   }
 
-  // Шүүгээ — зүүн хойно
-  ctx.fillStyle = "#2a5070";
-  roundRectPath(ctx, 190, 208, 140, 86, 6);
-  ctx.fill();
-  ctx.strokeStyle = "#d8a040";
-  ctx.lineWidth = 2;
-  roundRectPath(ctx, 198, 216, 58, 70, 4);
-  ctx.stroke();
-  roundRectPath(ctx, 264, 216, 58, 70, 4);
-  ctx.stroke();
-
-  // ===== АВДАР (дэлгүүр) =====
+  // ===== АВДАР — тахилын ширээтэй нэг түвшин, орны хойно =====
   const lay = gerLayout();
   const ch = lay.chest;
   const hover = overButton(ch, state.input) && !state.shopOpen;
@@ -1672,9 +1731,31 @@ export function drawGerInterior(
   ctx.font = "600 13px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.7)";
   ctx.lineWidth = 3;
-  ctx.strokeText("Авдар — Дэлгүүр", ch.x + ch.w / 2, ch.y - 12);
+  ctx.strokeText("Авдар", ch.x + ch.w / 2, ch.y - 12);
   ctx.fillStyle = "#ffe9a8";
-  ctx.fillText("Авдар — Дэлгүүр", ch.x + ch.w / 2, ch.y - 12);
+  ctx.fillText("Авдар", ch.x + ch.w / 2, ch.y - 12);
+
+  // Ор — зүүн ба баруун (авдрын урд зурагдана)
+  for (const side of [-1, 1] as const) {
+    const bx = cx + side * 330 - 95;
+    const by = 300;
+    ctx.fillStyle = "#7a4c22";
+    roundRectPath(ctx, bx, by, 190, 84, 8);
+    ctx.fill();
+    ctx.fillStyle = "#a03030";
+    roundRectPath(ctx, bx + 8, by + 8, 174, 52, 6);
+    ctx.fill();
+    ctx.strokeStyle = "#e0b050";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx + 14, by + 34);
+    ctx.lineTo(bx + 176, by + 34);
+    ctx.stroke();
+    // Дэр
+    ctx.fillStyle = "#e8d8b8";
+    roundRectPath(ctx, bx + (side < 0 ? 12 : 132), by + 12, 46, 24, 5);
+    ctx.fill();
+  }
 
   // Хаалга (гарах)
   const door = lay.door;
@@ -1692,7 +1773,7 @@ export function drawGerInterior(
   ctx.fillText("Гарах — Esc", door.x + door.w / 2, door.y + door.h / 2 + 5);
   ctx.textAlign = "left";
 
-  // ===== Малчин гэр дотор алхаж явна =====
+  // ===== Малчин гэр дотор алхаж явна (тавилгатай харьцуулахад томруулсан) =====
   const walker: Player = {
     ...state.player,
     pos: state.gerPlayer,
@@ -1700,7 +1781,13 @@ export function drawGerInterior(
     invuln: 0,
     attackAnim: 0,
   };
+  const gerScale = 2.85;
+  ctx.save();
+  ctx.translate(state.gerPlayer.x, state.gerPlayer.y);
+  ctx.scale(gerScale, gerScale);
+  ctx.translate(-state.gerPlayer.x, -state.gerPlayer.y);
   drawPlayer(ctx, walker, { x: 0, y: 0 }, time);
+  ctx.restore();
 
   // Ойролцоох зүйлсийн заавар
   if (!state.shopOpen) {
@@ -1710,13 +1797,14 @@ export function drawGerInterior(
     else if (prox.nearBed)
       hint = state.player.sleepCooldown > 0 ? "Сая унтсан…" : "E — Унтах";
     if (hint) {
+      const hintY = state.gerPlayer.y - 28 * gerScale;
       ctx.textAlign = "center";
       ctx.font = "600 13px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.75)";
       ctx.lineWidth = 3;
-      ctx.strokeText(hint, state.gerPlayer.x, state.gerPlayer.y - 46);
+      ctx.strokeText(hint, state.gerPlayer.x, hintY);
       ctx.fillStyle = "#ffe9a8";
-      ctx.fillText(hint, state.gerPlayer.x, state.gerPlayer.y - 46);
+      ctx.fillText(hint, state.gerPlayer.x, hintY);
       ctx.textAlign = "left";
     }
   }

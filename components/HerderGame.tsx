@@ -14,12 +14,14 @@ export default function HerderGame() {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={960}
-      height={540}
-      className="herder-stage"
-      aria-label="Малчин survival тоглоом"
-    />
+    <div className="herder-stage-wrap">
+      <canvas
+        ref={canvasRef}
+        width={960}
+        height={540}
+        className="herder-stage"
+        aria-label="Малчин survival тоглоом"
+      />
+    </div>
   );
 }

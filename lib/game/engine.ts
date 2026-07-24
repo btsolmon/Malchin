@@ -13,7 +13,7 @@ import {
   type Vector2,
 } from "./types";
 import { dist, setMessage } from "./utils";
-import { updateEffects } from "./effects";
+import { spawnText, updateEffects } from "./effects";
 import {
   ensureAudio,
   loadAudioSettings,
@@ -22,7 +22,6 @@ import {
   startMusic,
 } from "./audio";
 import {
-  maybeLevelUp,
   tryEatBerry,
   tryInteract,
   tryLightCampfire,
@@ -38,7 +37,7 @@ import {
   updateWolves,
 } from "./enemies";
 import { tryAttack, updateDog, updateProjectiles } from "./combat";
-import { updateGer, updateMenu, updatePauseMenu } from "./ui";
+import { updateGer, updateLevelUp, updateMenu, updatePauseMenu } from "./ui";
 import {
   makeVignette,
   render,
@@ -106,7 +105,7 @@ export function createInitialState(): GameState {
         maxHealth: 100,
         warmth: 100,
         maxWarmth: 100,
-        hunger: 85,
+        hunger: 100,
         maxHunger: 100,
       },
       inventory: { wood: 0, berries: 0 },
@@ -159,7 +158,7 @@ export function createInitialState(): GameState {
       attack: false,
       lightFire: false,
       eat: false,
-      restart: false,
+      debugXp: false,
       skill1: false,
       skill2: false,
       skill3: false,
@@ -255,8 +254,8 @@ export function bindInput(getInput: () => InputState): () => void {
       case "KeyQ":
         if (pressed) input.eat = true;
         break;
-      case "KeyR":
-        if (pressed) input.restart = true;
+      case "Slash":
+        if (pressed) input.debugXp = true;
         break;
       case "Digit1":
       case "Numpad1":
@@ -313,9 +312,17 @@ export function update(state: GameState, dt: number): void {
     updatePauseMenu(state);
   } else if (state.phase === "ger") {
     updateGer(state, dt);
+  } else if (state.phase === "levelup") {
+    updateLevelUp(state);
   } else if (state.phase === "playing" && state.input.pause) {
     state.phase = "paused";
     state.pauseIndex = 0;
+    sfx("select");
+  } else if (
+    (state.phase === "won" || state.phase === "lost") &&
+    (state.input.confirm || state.input.pause || state.input.mouseClicked)
+  ) {
+    state.requestRestart = true;
     sfx("select");
   }
   state.input.confirm = false;
@@ -327,32 +334,18 @@ export function update(state: GameState, dt: number): void {
   state.input.mouseMoved = false;
   state.input.mouseClicked = false;
 
-  // Түвшин ахисан — ур чадвар сонгох (тоглоом түр зогсоно)
-  if (state.phase === "levelup") {
-    const picks: Array<[boolean, number]> = [
-      [state.input.skill1, 0],
-      [state.input.skill2, 1],
-      [state.input.skill3, 2],
-    ];
-    for (const [pressed, idx] of picks) {
-      if (pressed && state.skillChoices[idx]) {
-        const skill = state.skillChoices[idx];
-        skill.apply(state);
-        state.skillChoices = [];
-        state.phase = "playing";
-        setMessage(state, `Ур чадвар: ${skill.name}!`, 3);
-        sfx("select");
-        maybeLevelUp(state);
-        break;
-      }
-    }
-  }
+  // Shop шууд сонголтын товчнууд (1–4) — ур чадварт ашиглагдахгүй
   state.input.skill1 = false;
   state.input.skill2 = false;
   state.input.skill3 = false;
   state.input.skill4 = false;
 
   if (state.phase === "playing") {
+    if (state.input.debugXp) {
+      state.score += 1000;
+      spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
+      sfx("buy");
+    }
     updateWeatherCycle(state, dt);
     updatePlayerMovement(state, dt);
     tryInteract(state);
@@ -382,6 +375,7 @@ export function update(state: GameState, dt: number): void {
   state.input.interact = false;
   state.input.eat = false;
   state.input.lightFire = false;
+  state.input.debugXp = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -398,14 +392,20 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context дэмжигдэхгүй");
 
-  // Retina дэмжлэг
+  // Retina дэмжлэг — CSS-ээр viewport дүүргэнэ (object-fit: contain)
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   canvas.width = VIEW_W * dpr;
   canvas.height = VIEW_H * dpr;
-  canvas.style.width = "960px";
-  canvas.style.height = "auto";
-  canvas.style.aspectRatio = `${VIEW_W} / ${VIEW_H}`;
+  canvas.style.width = "";
+  canvas.style.height = "";
   ctx.scale(dpr, dpr);
+
+  const enterBrowserFullscreen = (): void => {
+    const root = canvas.parentElement ?? canvas;
+    if (!document.fullscreenElement) {
+      void root.requestFullscreen?.().catch(() => undefined);
+    }
+  };
 
   const rc: RenderContext = {
     ctx,
@@ -466,24 +466,16 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    if (state.input.restart) {
-      // Гэр дотор эсвэл levelup үед санамсаргүй R дарж тоглолт алдахаас сэргийлнэ
-      if (
-        state.phase === "won" ||
-        state.phase === "lost" ||
-        state.phase === "paused"
-      ) {
-        state = createInitialState();
-      }
-      state.input.restart = false;
-    }
     if (state.requestRestart) {
       state = createInitialState();
-      state.phase = "playing";
-      setMessage(state, "Шинэ тоглолт эхэллээ!", 3);
     }
 
+    const phaseBefore = state.phase;
     update(state, dt);
+    // Play дармагц браузерийн fullscreen руу орно
+    if (phaseBefore === "menu" && state.phase === "playing") {
+      enterBrowserFullscreen();
+    }
     render(rc, state, now / 1000);
     raf = requestAnimationFrame(frame);
   };

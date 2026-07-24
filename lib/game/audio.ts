@@ -52,23 +52,41 @@ export function ensureAudio(): void {
   if (typeof window === "undefined" || !window.AudioContext) return;
   audio.ctx = new window.AudioContext();
   audio.musicGain = audio.ctx.createGain();
-  audio.musicGain.gain.value = audio.musicVol * 0.5;
   audio.musicGain.connect(audio.ctx.destination);
   audio.sfxGain = audio.ctx.createGain();
-  audio.sfxGain.gain.value = audio.sfxVol;
   audio.sfxGain.connect(audio.ctx.destination);
+  applyMusicGain();
+  applySfxGain();
 }
 
 export function setMusicVol(v: number): void {
   audio.musicVol = Math.round(clamp(v, 0, 1) * 100) / 100;
-  if (audio.musicGain) audio.musicGain.gain.value = audio.musicVol * 0.5;
+  applyMusicGain();
   saveAudioSettings();
 }
 
 export function setSfxVol(v: number): void {
   audio.sfxVol = Math.round(clamp(v, 0, 1) * 100) / 100;
-  if (audio.sfxGain) audio.sfxGain.gain.value = audio.sfxVol;
+  applySfxGain();
   saveAudioSettings();
+}
+
+/** Master music gain — cancelScheduledValues ашиглаж 0% үед бүрэн унтраана */
+function applyMusicGain(): void {
+  if (!audio.musicGain || !audio.ctx) return;
+  const param = audio.musicGain.gain;
+  const t = audio.ctx.currentTime;
+  param.cancelScheduledValues(t);
+  // 0% = бүрэн чимээгүй (0.5 нь ердийн max түвшин)
+  param.setValueAtTime(audio.musicVol <= 0 ? 0 : audio.musicVol * 0.5, t);
+}
+
+function applySfxGain(): void {
+  if (!audio.sfxGain || !audio.ctx) return;
+  const param = audio.sfxGain.gain;
+  const t = audio.ctx.currentTime;
+  param.cancelScheduledValues(t);
+  param.setValueAtTime(audio.sfxVol <= 0 ? 0 : audio.sfxVol, t);
 }
 
 export function getNoiseBuf(ctx: AudioContext): AudioBuffer {
@@ -348,6 +366,11 @@ export function startMusic(): void {
   audio.musicTimer = window.setInterval(() => {
     const ctx = audio.ctx;
     if (!ctx || !audio.musicGain) return;
+    // Ая унтарсан бол шинэ нот гаргахгүй (аль хэдийн эхэлсэн нот master gain-ээр чимээгүй)
+    if (audio.musicVol <= 0) {
+      audio.nextNote = Math.max(audio.nextNote, ctx.currentTime + 0.8);
+      return;
+    }
     while (audio.nextNote < ctx.currentTime + 1.6) {
       // Ихэвчлэн зэргэлдээ нот руу, хааяа алгасаж хөдөлнө
       const r = Math.random();

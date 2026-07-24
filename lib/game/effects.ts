@@ -1,7 +1,7 @@
 // Хүн 5 — particle, floating text, дэлгэцийн эффектүүд
 
 import type { GameState, Vector2 } from "./types";
-import { randRange } from "./utils";
+import { dist, randRange } from "./utils";
 
 export function spawnParticles(
   state: GameState,
@@ -32,11 +32,19 @@ export function spawnText(
   text: string,
   color = "#ffffff",
 ): void {
+  // Ойролцоох шинэ текстүүдийг тоолж, дээшээ зайлуулна (давхраалахаас сэргийлнэ)
+  let stack = 0;
+  for (const t of state.fx.texts) {
+    if (t.life > t.maxLife * 0.35 && dist(t.pos, pos) < 56) stack++;
+  }
   state.fx.texts.push({
-    pos: { x: pos.x + randRange(-8, 8), y: pos.y },
+    pos: {
+      x: pos.x + randRange(-10, 10) + (stack % 2 === 0 ? -6 : 6),
+      y: pos.y - 8 - stack * 22,
+    },
     text,
-    life: 1.4,
-    maxLife: 1.4,
+    life: 1.5,
+    maxLife: 1.5,
     color,
   });
 }

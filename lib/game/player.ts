@@ -89,6 +89,7 @@ export function maybeLevelUp(state: GameState): void {
   state.level += 1;
   state.xpNext = 60 + state.level * 30;
   state.skillChoices = pickSkillChoices();
+  state.menuIndex = 0;
   state.phase = "levelup";
 }
 

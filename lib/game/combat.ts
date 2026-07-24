@@ -22,12 +22,14 @@ export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
 
   if (wolf.hp <= 0) {
     const bear = wolf.kind === "bear";
+    const score = bear ? 60 : 25;
+    const xp = bear ? 45 : 22;
     wolf.alive = false;
     sfx("kill");
-    state.score += bear ? 60 : 25;
+    state.score += score;
     spawnParticles(state, wolf.pos, bear ? 22 : 16, "#909090", { speed: 130 });
-    spawnText(state, wolf.pos, bear ? "+60" : "+25", "#ffd060");
-    gainXp(state, bear ? 45 : 22, wolf.pos);
+    spawnText(state, wolf.pos, `+${score} · +${xp} XP`, "#ffd060");
+    gainXp(state, xp);
     setMessage(state, bear ? "Баавгай унагалаа!" : "Чоно устгагдлаа!", 2);
   }
 }
@@ -43,11 +45,17 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
     thief.alive = false;
     sfx("kill");
     const recovered = thief.stolen;
+    const xp = 30 + recovered * 2;
     thief.stolen = 0;
     addSheep(state, recovered);
     state.score += recovered * 15;
-    spawnText(state, thief.pos, `+${recovered} хонь!`, "#b8e8a0");
-    gainXp(state, 30 + recovered * 2, thief.pos);
+    spawnText(
+      state,
+      thief.pos,
+      `+${recovered} хонь · +${xp} XP`,
+      "#b8e8a0",
+    );
+    gainXp(state, xp);
     setMessage(state, `Мал буцааж авлаа! +${recovered} хонь`, 3);
   }
 }
