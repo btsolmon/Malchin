@@ -11,16 +11,16 @@ import {
   type InputState,
   type Tree,
   type Vector2,
-} from "./types";
-import { dist, setMessage } from "./utils";
-import { spawnText, updateEffects } from "./effects";
+} from "../game/types";
+import { dist, setMessage } from "../game/utils";
+import { spawnText, updateEffects } from "../game/effects";
 import {
   ensureAudio,
   loadAudioSettings,
   sfx,
   shutdownAudio,
   startMusic,
-} from "./audio";
+} from "../game/audio";
 import {
   tryEatBerry,
   tryInteract,
@@ -28,22 +28,27 @@ import {
   updatePlayerMovement,
   updateSurvival,
   updateWeatherCycle,
-} from "./player";
+} from "../game/player";
 import {
   syncVisualFlock,
   updateFlock,
   updateThieves,
   updateThreatTimers,
   updateWolves,
-} from "./enemies";
-import { tryAttack, updateDog, updateProjectiles } from "./combat";
-import { updateGer, updateLevelUp, updateMenu, updatePauseMenu } from "./ui";
+} from "../game/enemies";
+import { tryAttack, updateDog, updateProjectiles } from "../game/combat";
+import {
+  updateGer,
+  updateLevelUp,
+  updateMenu,
+  updatePauseMenu,
+} from "../game/ui";
 import {
   makeVignette,
   render,
   renderTerrain,
   type RenderContext,
-} from "./render";
+} from "../render/render";
 
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
@@ -211,7 +216,6 @@ export function createInitialState(): GameState {
 // Дуу — Web Audio (процедурал ая ба эффект, гадны файл шаардлагагүй)
 // ---------------------------------------------------------------------------
 
-
 export function bindInput(getInput: () => InputState): () => void {
   const setKey = (code: string, pressed: boolean): void => {
     const input = getInput();
@@ -309,7 +313,6 @@ export function bindInput(getInput: () => InputState): () => void {
 // Threat spawning
 // ---------------------------------------------------------------------------
 
-
 export function update(state: GameState, dt: number): void {
   const phaseBefore = state.phase;
 
@@ -389,7 +392,6 @@ export function update(state: GameState, dt: number): void {
 // ---------------------------------------------------------------------------
 // Terrain prerender
 // ---------------------------------------------------------------------------
-
 
 export interface HerderGameHandle {
   destroy: () => void;

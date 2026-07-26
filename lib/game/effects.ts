@@ -1,7 +1,7 @@
 // Хүн 5 — particle, floating text, дэлгэцийн эффектүүд
 
-import type { GameState, Vector2 } from "./types";
-import { dist, randRange } from "./utils";
+import type { GameState, Vector2 } from "../game/types";
+import { dist, randRange } from "../game/utils";
 
 export function spawnParticles(
   state: GameState,

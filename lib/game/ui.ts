@@ -13,7 +13,7 @@ import {
   type InputState,
   type Vector2,
   type WeatherKind,
-} from "./types";
+} from "../game/types";
 import {
   clamp,
   formatClock,
@@ -22,9 +22,9 @@ import {
   roundRectPath,
   setMessage,
   weatherLabel,
-} from "./utils";
-import { audio, setMusicVol, setSfxVol, sfx } from "./audio";
-import { maybeLevelUp } from "./player";
+} from "../game/utils";
+import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
+import { maybeLevelUp } from "../game/player";
 
 export interface UiButton {
   x: number;

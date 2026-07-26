@@ -7,7 +7,7 @@ import {
   type Skill,
   type Tree,
   type Vector2,
-} from "./types";
+} from "../game/types";
 import {
   clamp,
   dist,
@@ -16,10 +16,10 @@ import {
   randRange,
   seasonForDay,
   setMessage,
-} from "./utils";
-import { spawnParticles, spawnText } from "./effects";
-import { sfx } from "./audio";
-import { addSheep } from "./enemies";
+} from "../game/utils";
+import { spawnParticles, spawnText } from "../game/effects";
+import { sfx } from "../game/audio";
+import { addSheep } from "../game/enemies";
 
 export const SKILL_POOL: Skill[] = [
   {
@@ -103,7 +103,6 @@ export function gainXp(state: GameState, n: number, at?: Vector2): void {
 // Effects
 // ---------------------------------------------------------------------------
 
-
 export function updateWeatherCycle(state: GameState, dt: number): void {
   const world = state.world;
   const prevDay = Math.floor(world.timeOfDay);
@@ -162,7 +161,11 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     player.pos.y += n.y * spd * dt;
   }
 
-  player.pos.x = clamp(player.pos.x, player.radius, world.width - player.radius);
+  player.pos.x = clamp(
+    player.pos.x,
+    player.radius,
+    world.width - player.radius,
+  );
   player.pos.y = clamp(
     player.pos.y,
     player.radius,
@@ -284,11 +287,17 @@ export function tryEatBerry(state: GameState): void {
   player.eatCooldown = 0.5;
   state.input.eat = false;
   sfx("eat");
-  spawnParticles(state, { x: player.pos.x, y: player.pos.y - 16 }, 4, "#e04070", {
-    speed: 40,
-    gravity: -20,
-    size: 2,
-  });
+  spawnParticles(
+    state,
+    { x: player.pos.x, y: player.pos.y - 16 },
+    4,
+    "#e04070",
+    {
+      speed: 40,
+      gravity: -20,
+      size: 2,
+    },
+  );
   spawnText(state, player.pos, "+28 хоол", "#ffd080");
 }
 

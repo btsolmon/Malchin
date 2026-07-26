@@ -19,7 +19,7 @@ import {
   type Tree,
   type Wolf,
   type World,
-} from "./types";
+} from "../game/types";
 import {
   clamp,
   dist,
@@ -27,7 +27,7 @@ import {
   pastureCenter,
   randRange,
   roundRectPath,
-} from "./utils";
+} from "../game/utils";
 import {
   SHOP_ITEMS,
   drawHud,
@@ -37,7 +37,7 @@ import {
   gerLayout,
   gerProximity,
   overButton,
-} from "./ui";
+} from "../game/ui";
 
 export function renderTerrain(winter: boolean): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
@@ -111,7 +111,15 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
     ctx.fill();
     ctx.fillStyle = "rgba(255,255,255,0.25)";
     ctx.beginPath();
-    ctx.ellipse(x - r * 0.25, y - r * 0.25, r * 0.45, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.ellipse(
+      x - r * 0.25,
+      y - r * 0.25,
+      r * 0.45,
+      r * 0.3,
+      0,
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
 
@@ -151,14 +159,18 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
     const r = Math.random() * 90;
     ctx.fillStyle = "rgba(60,45,32,0.25)";
     ctx.beginPath();
-    ctx.arc(cx + Math.cos(a) * r, cy + Math.sin(a) * r, randRange(2, 5), 0, Math.PI * 2);
+    ctx.arc(
+      cx + Math.cos(a) * r,
+      cy + Math.sin(a) * r,
+      randRange(2, 5),
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
 
   // Бэлчээрийн хилийн тойрог (бүдэг)
-  ctx.strokeStyle = winter
-    ? "rgba(140,120,80,0.25)"
-    : "rgba(232,197,106,0.18)";
+  ctx.strokeStyle = winter ? "rgba(140,120,80,0.25)" : "rgba(232,197,106,0.18)";
   ctx.lineWidth = 2;
   ctx.setLineDash([10, 14]);
   ctx.beginPath();
@@ -173,7 +185,6 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
 // Entity rendering
 // ---------------------------------------------------------------------------
 
-
 export function drawShadow(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -187,7 +198,11 @@ export function drawShadow(
   ctx.fill();
 }
 
-export function drawGer(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+export function drawGer(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+): void {
   drawShadow(ctx, x, y + 26, 52, 14);
 
   // Их бие (цагаан эсгий)
@@ -329,7 +344,14 @@ export function drawBerryBush(
     [0, -8, 8],
   ];
   for (const [ox, oy, r] of clumps) {
-    const g = ctx.createRadialGradient(x + ox - 2, y + oy - 3, 1, x + ox, y + oy, r);
+    const g = ctx.createRadialGradient(
+      x + ox - 2,
+      y + oy - 3,
+      1,
+      x + ox,
+      y + oy,
+      r,
+    );
     g.addColorStop(0, alive ? "#3f7a38" : "#485842");
     g.addColorStop(1, alive ? "#274d22" : "#37452f");
     ctx.fillStyle = g;
@@ -544,12 +566,7 @@ export function drawWolf(
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(-13 * flip, 0);
-  ctx.quadraticCurveTo(
-    -19 * flip,
-    -3 + Math.sin(time * 6) * 2,
-    -22 * flip,
-    -7,
-  );
+  ctx.quadraticCurveTo(-19 * flip, -3 + Math.sin(time * 6) * 2, -22 * flip, -7);
   ctx.stroke();
 
   // Бие
@@ -874,7 +891,9 @@ export function drawPlayer(
   // facing.x < 0 → зүүн тийш нүүр / бие
   const flip = player.facing.x < 0 ? -1 : 1;
   const walk = player.moving ? Math.sin(time * 11) * 3 : 0;
-  const bob = player.moving ? Math.abs(Math.sin(time * 11)) * 1.5 : Math.sin(time * 2) * 0.6;
+  const bob = player.moving
+    ? Math.abs(Math.sin(time * 11)) * 1.5
+    : Math.sin(time * 2) * 0.6;
 
   // Хамгаалалттай үед анивчина
   if (player.invuln > 0 && Math.floor(time * 14) % 2 === 0) {
@@ -1130,7 +1149,10 @@ export function drawPlayer(
     ctx.restore();
   } else if (hasBow) {
     // Нум — барьсан байдал
-    const draw = player.attackAnim > 0 ? Math.min(1, (0.18 - player.attackAnim) / 0.12) : 0;
+    const draw =
+      player.attackAnim > 0
+        ? Math.min(1, (0.18 - player.attackAnim) / 0.12)
+        : 0;
     ctx.save();
     ctx.translate(handX, handY - 1);
     ctx.rotate(ang);
@@ -1514,7 +1536,6 @@ export function drawWeatherFx(
   }
 }
 
-
 /** Гэр дотор орон дээр хэвтэж унтаж буй малчин */
 export function drawSleepingHerder(
   ctx: CanvasRenderingContext2D,
@@ -1522,8 +1543,7 @@ export function drawSleepingHerder(
   time: number,
   scale: number,
 ): void {
-  const bed =
-    state.gerSleepBed === "L" ? gerLayout().bedL : gerLayout().bedR;
+  const bed = state.gerSleepBed === "L" ? gerLayout().bedL : gerLayout().bedR;
   const cx = bed.x + bed.w / 2;
   // Орны дээд хэсэг рүү ойртуулж хэвтүүлнэ
   const cy = bed.y + bed.h * 0.38;
@@ -2113,9 +2133,8 @@ export function drawGerInterior(
   ctx.fillStyle = "#8a2828";
   roundRectPath(ctx, door.x, door.y, door.w, door.h, 8);
   ctx.fill();
-  ctx.strokeStyle = overButton(door, state.input) && !state.shopOpen
-    ? "#ffe080"
-    : "#d8a040";
+  ctx.strokeStyle =
+    overButton(door, state.input) && !state.shopOpen ? "#ffe080" : "#d8a040";
   ctx.lineWidth = 2;
   roundRectPath(ctx, door.x, door.y, door.w, door.h, 8);
   ctx.stroke();
@@ -2266,7 +2285,11 @@ export function getCamera(state: GameState): Camera {
   };
 }
 
-export function render(rc: RenderContext, state: GameState, time: number): void {
+export function render(
+  rc: RenderContext,
+  state: GameState,
+  time: number,
+): void {
   const { ctx } = rc;
 
   // Гэрийн дотор — тусдаа дэлгэц
@@ -2279,19 +2302,8 @@ export function render(rc: RenderContext, state: GameState, time: number): void 
   const world = state.world;
 
   // Газар
-  const terrain =
-    world.season === "winter" ? rc.terrainWinter : rc.terrain;
-  ctx.drawImage(
-    terrain,
-    cam.x,
-    cam.y,
-    VIEW_W,
-    VIEW_H,
-    0,
-    0,
-    VIEW_W,
-    VIEW_H,
-  );
+  const terrain = world.season === "winter" ? rc.terrainWinter : rc.terrain;
+  ctx.drawImage(terrain, cam.x, cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
 
   // Салхины хүч (модны найгалт)
   const windAmp =
@@ -2373,9 +2385,7 @@ export function render(rc: RenderContext, state: GameState, time: number): void 
     draw: () => drawPlayer(ctx, state.player, cam, time),
   });
 
-  drawables.sort(
-    (a, b) => Math.round(a.y) - Math.round(b.y) || a.key - b.key,
-  );
+  drawables.sort((a, b) => Math.round(a.y) - Math.round(b.y) || a.key - b.key);
   for (const d of drawables) d.draw();
 
   // Сумнууд — бүх объектын дээр
@@ -2405,7 +2415,13 @@ export function render(rc: RenderContext, state: GameState, time: number): void 
     ctx.globalAlpha = a;
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(p.pos.x - cam.x, p.pos.y - cam.y, p.size * (0.5 + a * 0.5), 0, Math.PI * 2);
+    ctx.arc(
+      p.pos.x - cam.x,
+      p.pos.y - cam.y,
+      p.size * (0.5 + a * 0.5),
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
   ctx.globalAlpha = 1;

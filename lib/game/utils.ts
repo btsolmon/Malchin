@@ -8,7 +8,7 @@ import {
   type Vector2,
   type WeatherKind,
   type World,
-} from "./types";
+} from "../game/types";
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
@@ -79,7 +79,11 @@ export function formatClock(timeOfDay: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
-export function setMessage(state: GameState, text: string, seconds = 2.5): void {
+export function setMessage(
+  state: GameState,
+  text: string,
+  seconds = 2.5,
+): void {
   state.message = text;
   state.messageTimer = seconds;
 }
@@ -90,7 +94,9 @@ export function allocId(state: GameState): number {
 }
 
 export function seasonForDay(day: number): Season {
-  return SEASON_ORDER[Math.floor((day - 1) / SEASON_DAYS) % SEASON_ORDER.length];
+  return SEASON_ORDER[
+    Math.floor((day - 1) / SEASON_DAYS) % SEASON_ORDER.length
+  ];
 }
 
 export function isNight(world: World): boolean {

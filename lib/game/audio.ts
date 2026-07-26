@@ -1,6 +1,6 @@
 // Хүн 6 — Web Audio: дууны эффект, морин хуурын хөгжим, тохиргоо
 
-import { clamp, randRange } from "./utils";
+import { clamp, randRange } from "../game/utils";
 
 export const AUDIO_SETTINGS_KEY = "malchin-audio";
 
@@ -91,7 +91,11 @@ function applySfxGain(): void {
 
 export function getNoiseBuf(ctx: AudioContext): AudioBuffer {
   if (noiseBuf) return noiseBuf;
-  const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.5), ctx.sampleRate);
+  const buf = ctx.createBuffer(
+    1,
+    Math.floor(ctx.sampleRate * 0.5),
+    ctx.sampleRate,
+  );
   const d = buf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   noiseBuf = buf;
@@ -123,7 +127,12 @@ export function tone(
   o.stop(t0 + dur + 0.05);
 }
 
-export function noiseBurst(dur: number, filterFreq: number, vol: number, delay = 0): void {
+export function noiseBurst(
+  dur: number,
+  filterFreq: number,
+  vol: number,
+  delay = 0,
+): void {
   if (!audio.ctx || !audio.sfxGain || audio.sfxVol <= 0) return;
   const t0 = audio.ctx.currentTime + delay;
   const src = audio.ctx.createBufferSource();
@@ -396,9 +405,17 @@ export function startMusic(): void {
       const dur = phraseEnd ? randRange(2.0, 3.2) : randRange(0.8, 1.5);
       const slideFrom = Math.random() < 0.5 ? audio.lastFreq : undefined;
 
-      morinKhuurNote(ctx, audio.musicGain, audio.nextNote, freq, dur, slideFrom);
+      morinKhuurNote(
+        ctx,
+        audio.musicGain,
+        audio.nextNote,
+        freq,
+        dur,
+        slideFrom,
+      );
       audio.lastFreq = freq;
-      audio.nextNote += dur + (phraseEnd ? randRange(0.7, 1.6) : randRange(-0.08, 0.2));
+      audio.nextNote +=
+        dur + (phraseEnd ? randRange(0.7, 1.6) : randRange(-0.08, 0.2));
     }
   }, 250);
 }
