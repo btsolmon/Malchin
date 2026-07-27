@@ -211,7 +211,6 @@ export function createInitialState(): GameState {
 // Дуу — Web Audio (процедурал ая ба эффект, гадны файл шаардлагагүй)
 // ---------------------------------------------------------------------------
 
-
 export function bindInput(getInput: () => InputState): () => void {
   const setKey = (code: string, pressed: boolean): void => {
     const input = getInput();
@@ -309,7 +308,6 @@ export function bindInput(getInput: () => InputState): () => void {
 // Threat spawning
 // ---------------------------------------------------------------------------
 
-
 export function update(state: GameState, dt: number): void {
   const phaseBefore = state.phase;
 
@@ -389,7 +387,6 @@ export function update(state: GameState, dt: number): void {
 // ---------------------------------------------------------------------------
 // Terrain prerender
 // ---------------------------------------------------------------------------
-
 
 export interface HerderGameHandle {
   destroy: () => void;
