@@ -43,13 +43,9 @@ import {
   updateMenu,
   updatePauseMenu,
 } from "../game/ui";
-import {
-  makeVignette,
-  render,
-  renderTerrain,
-  type RenderContext,
-} from "../render/render";
-
+import { render, type RenderContext } from "../game/render/render";
+import { makeVignette } from "../game/render/lighting";
+import { renderTerrain } from "../game/render/terrain";
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
