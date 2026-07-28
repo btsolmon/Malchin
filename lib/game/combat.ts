@@ -49,12 +49,7 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
     thief.stolen = 0;
     addSheep(state, recovered);
     state.score += recovered * 15;
-    spawnText(
-      state,
-      thief.pos,
-      `+${recovered} хонь · +${xp} XP`,
-      "#b8e8a0",
-    );
+    spawnText(state, thief.pos, `+${recovered} хонь · +${xp} XP`, "#b8e8a0");
     gainXp(state, xp);
     setMessage(state, `Мал буцааж авлаа! +${recovered} хонь`, 3);
   }
@@ -79,7 +74,10 @@ export function tryAttack(state: GameState): void {
       const d = dist(player.pos, w.pos);
       if (d < bestD) {
         bestD = d;
-        dir = normalize({ x: w.pos.x - player.pos.x, y: w.pos.y - player.pos.y });
+        dir = normalize({
+          x: w.pos.x - player.pos.x,
+          y: w.pos.y - player.pos.y,
+        });
       }
     }
     for (const t of world.thieves) {
@@ -87,7 +85,10 @@ export function tryAttack(state: GameState): void {
       const d = dist(player.pos, t.pos);
       if (d < bestD) {
         bestD = d;
-        dir = normalize({ x: t.pos.x - player.pos.x, y: t.pos.y - player.pos.y });
+        dir = normalize({
+          x: t.pos.x - player.pos.x,
+          y: t.pos.y - player.pos.y,
+        });
       }
     }
     if (dir.x === 0 && dir.y === 0) dir = { x: 1, y: 0 };

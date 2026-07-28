@@ -15,7 +15,7 @@ import {
   type Skill,
   type Tree,
   type Vector2,
-} from "./types";
+} from "../game/types";
 import {
   allocId,
   clamp,

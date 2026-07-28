@@ -1,3 +1,3 @@
 // Тоглоомын гадаад interface — components/HerderGame.tsx эндээс импортолно
-export { mountHerderGame } from "./engine";
-export type { HerderGameHandle } from "./engine";
+export { mountHerderGame } from "../game/engine";
+export type { HerderGameHandle } from "../game/engine";

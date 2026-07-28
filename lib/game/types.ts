@@ -421,7 +421,6 @@ export const COLORS = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-
 export interface Camera {
   x: number;
   y: number;

@@ -13,7 +13,7 @@ import {
   type GameState,
   type Sheep,
   type Vector2,
-} from "./types";
+} from "../game/types";
 import {
   allocId,
   clamp,
@@ -116,7 +116,6 @@ export function nearestSheep(from: Vector2, visuals: Sheep[]): Sheep | null {
 // World bootstrap
 // ---------------------------------------------------------------------------
 
-
 export function spawnWolf(
   state: GameState,
   kind: "wolf" | "bear" = "wolf",
@@ -124,7 +123,8 @@ export function spawnWolf(
   const edge = Math.floor(Math.random() * 4);
   let pos: Vector2;
   if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
-  else if (edge === 1) pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
+  else if (edge === 1)
+    pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
   else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
   else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
 
@@ -230,7 +230,6 @@ export function spawnThief(state: GameState): void {
 // ---------------------------------------------------------------------------
 // Update systems
 // ---------------------------------------------------------------------------
-
 
 export function updateFlock(state: GameState, dt: number): void {
   const center = pastureCenter(state.world);
