@@ -1,7 +1,15 @@
 // Хүн 2 — малчин: хөдөлгөөн, амьдрах механик, XP/ур чадвар, цаг агаар
 
 import {
+  FENCE_COST,
+  FENCE_GRID,
+  FENCE_MAX_HP_BY_TIER,
+  FENCE_RADIUS,
+  FENCE_TIER_NAMES,
+  FENCE_UPGRADE_COST,
   type BerryBush,
+  type Fence,
+  type FenceTier,
   type GameState,
   type Player,
   type Skill,
@@ -9,13 +17,19 @@ import {
   type Vector2,
 } from "./types";
 import {
+  allocId,
   clamp,
+  collidePlayerWithGates,
   dist,
+  fenceOrientFromFacing,
+  fencePlacePos,
+  fencesOverlap,
   normalize,
   pastureCenter,
   randRange,
   seasonForDay,
   setMessage,
+  wouldCloseFenceLoop,
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
@@ -103,7 +117,6 @@ export function gainXp(state: GameState, n: number, at?: Vector2): void {
 // Effects
 // ---------------------------------------------------------------------------
 
-
 export function updateWeatherCycle(state: GameState, dt: number): void {
   const world = state.world;
   const prevDay = Math.floor(world.timeOfDay);
@@ -162,12 +175,18 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     player.pos.y += n.y * spd * dt;
   }
 
-  player.pos.x = clamp(player.pos.x, player.radius, world.width - player.radius);
+  player.pos.x = clamp(
+    player.pos.x,
+    player.radius,
+    world.width - player.radius,
+  );
   player.pos.y = clamp(
     player.pos.y,
     player.radius,
     world.height - player.radius,
   );
+
+  collidePlayerWithGates(state);
 }
 
 export function nearestAliveTree(player: Player, trees: Tree[]): Tree | null {
@@ -240,8 +259,8 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  tree.hp -= 1;
-  player.chopCooldown = 0.45;
+  tree.hp -= player.gear.axe ? tree.hp : 1;
+  player.chopCooldown = player.gear.axe ? 0.35 : 0.45;
   spawnParticles(state, { x: tree.pos.x, y: tree.pos.y - 8 }, 6, "#a0733d", {
     speed: 80,
     size: 3,
@@ -284,11 +303,17 @@ export function tryEatBerry(state: GameState): void {
   player.eatCooldown = 0.5;
   state.input.eat = false;
   sfx("eat");
-  spawnParticles(state, { x: player.pos.x, y: player.pos.y - 16 }, 4, "#e04070", {
-    speed: 40,
-    gravity: -20,
-    size: 2,
-  });
+  spawnParticles(
+    state,
+    { x: player.pos.x, y: player.pos.y - 16 },
+    4,
+    "#e04070",
+    {
+      speed: 40,
+      gravity: -20,
+      size: 2,
+    },
+  );
   spawnText(state, player.pos, "+28 хоол", "#ffd080");
 }
 
@@ -304,19 +329,160 @@ export function tryLightCampfire(state: GameState): void {
   }
 
   const cost = 3;
-  if (player.inventory.wood < cost) {
+  if (!state.unlimitedWood && player.inventory.wood < cost) {
     setMessage(state, `Галд ${cost} түлээ хэрэгтэй.`, 2);
     state.input.lightFire = false;
     return;
   }
 
-  player.inventory.wood -= cost;
+  if (!state.unlimitedWood) player.inventory.wood -= cost;
   fire.lit = true;
   fire.fuel = Math.max(fire.fuel, 0) + 18;
   state.input.lightFire = false;
   sfx("fire");
   spawnParticles(state, fire.pos, 14, "#ffb347", { speed: 70, gravity: -40 });
   setMessage(state, "Гал асаалаа.", 2);
+}
+
+function tryUpgradeFence(state: GameState, fence: Fence): void {
+  const { player } = state;
+  if (fence.tier >= 3) {
+    setMessage(state, "Хамгийн дээд шатны хашаа байна.", 1.5);
+    return;
+  }
+  const from = fence.tier as 1 | 2;
+  const cost = FENCE_UPGRADE_COST[from];
+  const next = (fence.tier + 1) as FenceTier;
+  const nextName = FENCE_TIER_NAMES[next];
+
+  if (state.level < cost.minLevel) {
+    setMessage(
+      state,
+      `${nextName} — түвшин ${cost.minLevel}+ хэрэгтэй.`,
+      2,
+    );
+    return;
+  }
+  if (!state.unlimitedWood && player.inventory.wood < cost.wood) {
+    setMessage(state, `${nextName} болгоход ${cost.wood} мод хэрэгтэй.`, 2);
+    return;
+  }
+  if (state.score < cost.score) {
+    setMessage(state, `${nextName} — ${cost.score} оноо хэрэгтэй.`, 2);
+    return;
+  }
+  if (player.inventory.berries < cost.berries) {
+    setMessage(
+      state,
+      `${nextName} — ${cost.berries} жимс хэрэгтэй.`,
+      2,
+    );
+    return;
+  }
+
+  if (!state.unlimitedWood) player.inventory.wood -= cost.wood;
+  state.score -= cost.score;
+  player.inventory.berries -= cost.berries;
+  player.chopCooldown = 0.28;
+  fence.tier = next;
+  fence.maxHp = FENCE_MAX_HP_BY_TIER[next];
+  fence.hp = fence.maxHp;
+  sfx("chop");
+  const color = next === 3 ? "#7ec8ff" : "#a8a8a8";
+  spawnParticles(state, fence.pos, 12, color, { speed: 80, size: 2.5 });
+  const spent: string[] = state.unlimitedWood
+    ? []
+    : [`−${cost.wood} мод`];
+  if (cost.score > 0) spent.push(`−${cost.score} оноо`);
+  if (cost.berries > 0) spent.push(`−${cost.berries} жимс`);
+  if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
+  setMessage(state, `${nextName} болголоо!`, 1.6);
+}
+
+export function tryBuildFence(state: GameState): void {
+  if (!state.input.buildFence) return;
+  state.input.buildFence = false;
+
+  const { player, world } = state;
+  if (player.chopCooldown > 0) return;
+
+  // Эхний B — цагаан preview; хоёр дахь B — барих/шинэчлэх
+  if (!state.fencePreview) {
+    state.fencePreview = true;
+    setMessage(state, "Байршлыг хар. Дахин B дарж барина (P = цуцлах).", 2.5);
+    return;
+  }
+
+  state.fencePreview = false;
+
+  const pos = fencePlacePos(player.pos, player.facing, FENCE_GRID);
+
+  // Ойролцоо/ижил цэг дээрх хашааг шинэчлэнэ
+  const existing = world.fences.find((f) => fencesOverlap(pos, f.pos));
+  if (existing) {
+    tryUpgradeFence(state, existing);
+    return;
+  }
+
+  if (!state.unlimitedWood && player.inventory.wood < FENCE_COST) {
+    setMessage(state, `Модон хашаанд ${FENCE_COST} мод хэрэгтэй.`, 2);
+    return;
+  }
+
+  const center = pastureCenter(world);
+  const gerPos = { x: center.x, y: center.y - 20 };
+
+  if (dist(pos, gerPos) < 78) {
+    setMessage(state, "Гэрийн дэргэд хашаа барихгүй.", 2);
+    return;
+  }
+  if (dist(pos, world.campfire.pos) < 40) {
+    setMessage(state, "Галын дэргэд хашаа барихгүй.", 2);
+    return;
+  }
+  if (
+    pos.x < FENCE_RADIUS + 8 ||
+    pos.y < FENCE_RADIUS + 8 ||
+    pos.x > world.width - FENCE_RADIUS - 8 ||
+    pos.y > world.height - FENCE_RADIUS - 8
+  ) {
+    setMessage(state, "Энд хашаа барихгүй.", 1.5);
+    return;
+  }
+  for (const tree of world.trees) {
+    if (tree.hp > 0 && dist(pos, tree.pos) < tree.radius + FENCE_RADIUS) {
+      setMessage(state, "Модны дээр хашаа барихгүй.", 1.5);
+      return;
+    }
+  }
+
+  if (!state.unlimitedWood) player.inventory.wood -= FENCE_COST;
+  player.chopCooldown = 0.28;
+  const orient = fenceOrientFromFacing(player.facing);
+  const isGate = wouldCloseFenceLoop(pos, orient, world.fences);
+  world.fences.push({
+    id: allocId(state),
+    pos,
+    radius: FENCE_RADIUS,
+    orient,
+    tier: 1,
+    hp: FENCE_MAX_HP_BY_TIER[1],
+    maxHp: FENCE_MAX_HP_BY_TIER[1],
+    isGate,
+    gateOpen: 0,
+    gateCloseIn: 0,
+  });
+  state.score += 2;
+  sfx("chop");
+  spawnParticles(state, pos, 8, "#8a6a3a", { speed: 70, size: 2.5 });
+  if (!state.unlimitedWood) {
+    spawnText(state, pos, `−${FENCE_COST} мод`, "#e8c56a");
+  }
+  if (isGate) {
+    setMessage(state, "Хаалга босголоо — түлхэж нээнэ.", 2);
+  } else {
+    setMessage(state, `${FENCE_TIER_NAMES[1]} босголоо.`, 1.2);
+  }
 }
 
 /** Чононд хохирол өгөх — цохилт, сум, нохойн хазалт бүгд эндээс */

@@ -12,7 +12,7 @@ export type GamePhase =
   | "ger";
 
 /** Дэлгүүрээс авч болох эд зүйлс */
-export type GearId = "dog" | "horse" | "bow" | "gun";
+export type GearId = "dog" | "horse" | "bow" | "gun" | "axe";
 
 export interface Vector2 {
   x: number;
@@ -87,6 +87,28 @@ export interface Campfire {
   lit: boolean;
   fuel: number;
   radius: number;
+}
+
+/** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
+export type FenceTier = 1 | 2 | 3;
+
+/** Модон хашааны нэг хэсэг — чоно/баавгай/хулгайчийг хаана */
+export interface Fence {
+  id: number;
+  pos: Vector2;
+  radius: number;
+  /** 0 = зүүн–баруун төмөр, 1 = хойд–өмнөд төмөр */
+  orient: 0 | 1;
+  /** 1 анхан · 2 дунд · 3 дээд */
+  tier: FenceTier;
+  hp: number;
+  maxHp: number;
+  /** Хашаа хаагдах сүүлийн хэсэг — хаалга */
+  isGate: boolean;
+  /** 0 = хаалттай · 1 = бүрэн нээлттэй */
+  gateOpen: number;
+  /** Нээлттэй үед авто-хаагдах хүртэлх үлдсэн хугацаа (сек) */
+  gateCloseIn: number;
 }
 
 export interface Sheep {
@@ -178,6 +200,7 @@ export interface World {
   trees: Tree[];
   bushes: BerryBush[];
   campfire: Campfire;
+  fences: Fence[];
   flock: Flock;
   wolves: Wolf[];
   thieves: Thief[];
@@ -202,9 +225,15 @@ export interface InputState {
   /** K — буу / нум харвах */
   shoot: boolean;
   lightFire: boolean;
+  /** B — хашаа барих / шинэчлэх */
+  buildFence: boolean;
   eat: boolean;
   /** Debug — / дарж XP нэмэх */
   debugXp: boolean;
+  /** Debug — . дарж мод хязгааргүй болгох */
+  debugWood: boolean;
+  /** N барих — хонь туух */
+  herd: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
@@ -290,6 +319,10 @@ export interface GameState {
   gerSleepBed: "L" | "R" | null;
   /** Пауз менюгээс үндсэн цэс рүү буцах */
   requestRestart: boolean;
+  /** B эхний даралт — хашааны цагаан preview идэвхтэй */
+  fencePreview: boolean;
+  /** . cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
+  unlimitedWood: boolean;
   nextEntityId: number;
 }
 
@@ -305,6 +338,70 @@ export const START_SHEEP = 10;
 export const WIN_SHEEP = 1000;
 export const MAX_VISUAL_SHEEP = 36;
 export const PASTURE_RADIUS = 160;
+/** Хашааны мөргөлдөөний радиус */
+export const FENCE_RADIUS = 14;
+/** Анхан шатны хашаа барихад зарцуулах мод */
+export const FENCE_COST = 3;
+/** Байрлуулах торны хэмжээ */
+export const FENCE_GRID = 28;
+export const FENCE_TIER_NAMES: Record<FenceTier, string> = {
+  1: "Модон хашаа",
+  2: "Өргөстэй тор",
+  3: "Цахилгаан хашаа",
+};
+
+export const FENCE_TIER_SHORT: Record<FenceTier, string> = {
+  1: "Анхан",
+  2: "Дунд",
+  3: "Дээд",
+};
+
+/** Шат бүрийн дээд HP */
+export const FENCE_MAX_HP_BY_TIER: Record<FenceTier, number> = {
+  1: 40,
+  2: 120,
+  3: 320,
+};
+
+/** 1→2, 2→3 шинэчлэх зардал */
+export const FENCE_UPGRADE_COST: Record<
+  1 | 2,
+  { wood: number; score: number; berries: number; minLevel: number }
+> = {
+  1: { wood: 5, score: 40, berries: 0, minLevel: 1 },
+  2: { wood: 8, score: 120, berries: 3, minLevel: 3 },
+};
+
+/** Дайсан хашаанд өгөх хохирол/сек — T3 хулгайч/баавгайг найдвартай зогсооно */
+export const FENCE_BREAK_DPS: Record<
+  FenceTier,
+  Record<"wolf" | "bear" | "thief", number>
+> = {
+  1: { wolf: 12, bear: 20, thief: 9 },
+  2: { wolf: 2.2, bear: 4.5, thief: 2.5 },
+  3: { wolf: 0.3, bear: 0, thief: 0 },
+};
+
+/** Хашаа дайсанд өгөх хохирол/сек (өргөс / цахилгаан) */
+export const FENCE_CONTACT_DPS: Record<FenceTier, number> = {
+  1: 0,
+  2: 6,
+  3: 16,
+};
+
+/** Мөргөлдөхөд дайсныг түлхэх хүч */
+export const FENCE_KNOCKBACK: Record<FenceTier, number> = {
+  1: 0,
+  2: 14,
+  3: 28,
+};
+
+/** Хаалга нээгдэх/хаагдах хугацаа (сек) */
+export const GATE_ANIM_SEC = 0.4;
+/** Биеэр түлхэж нээсний дараа авто-хаагдах хүлээлт (сек) */
+export const GATE_CLOSE_DELAY = 2;
+/** Энэ хэмжээнээс дээш нээлттэй бол нэвтрэх боломжтой */
+export const GATE_PASS_OPEN = 0.55;
 /** Нэг улирал хэдэн өдөр үргэлжлэх */
 export const SEASON_DAYS = 6;
 

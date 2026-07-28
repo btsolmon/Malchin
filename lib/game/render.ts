@@ -2,6 +2,7 @@
 
 import {
   COLORS,
+  FENCE_GRID,
   PASTURE_RADIUS,
   VIEW_H,
   VIEW_W,
@@ -11,18 +12,22 @@ import {
   type Camera,
   type Campfire,
   type Dog,
+  type Fence,
   type GameState,
   type Player,
   type Projectile,
   type Sheep,
   type Thief,
   type Tree,
+  type Vector2,
   type Wolf,
   type World,
 } from "./types";
 import {
   clamp,
   dist,
+  fenceOrientFromFacing,
+  fencePlacePos,
   lerp,
   pastureCenter,
   randRange,
@@ -420,6 +425,310 @@ export function drawCampfire(
     ctx.beginPath();
     ctx.arc(x, y, 42, 0, Math.PI * 2);
     ctx.fill();
+  }
+}
+
+export function drawFence(
+  ctx: CanvasRenderingContext2D,
+  fence: Fence,
+  cam: Camera,
+  time: number,
+): void {
+  const x = fence.pos.x - cam.x;
+  const y = fence.pos.y - cam.y;
+  const ns = fence.orient === 1;
+  const tier = fence.tier ?? 1;
+  const open = fence.isGate ? fence.gateOpen : 0;
+
+  ctx.save();
+  ctx.translate(x, y);
+  if (ns) ctx.rotate(Math.PI / 2);
+  drawShadow(ctx, 0, 5, 18, 5);
+
+  if (tier === 1) {
+    drawFenceWoodEW(ctx, 0, 0, fence.isGate, open);
+  } else if (tier === 2) {
+    drawFenceBarbedEW(ctx, 0, 0, fence.isGate, open);
+  } else {
+    drawFenceElectricEW(ctx, 0, 0, time, fence.id, fence.isGate, open);
+  }
+
+  ctx.restore();
+
+  if (fence.hp < fence.maxHp) {
+    const bw = 22;
+    const ratio = clamp(fence.hp / fence.maxHp, 0, 1);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    roundRectPath(ctx, x - bw / 2, y - 30, bw, 4, 2);
+    ctx.fill();
+    const barColor =
+      tier === 3 ? "#7ec8ff" : tier === 2 ? "#a8a8a8" : "#c49a6c";
+    ctx.fillStyle = ratio > 0.35 ? barColor : "#d64545";
+    roundRectPath(ctx, x - bw / 2, y - 30, bw * ratio, 4, 2);
+    ctx.fill();
+  }
+}
+
+/** Модон хашааны цагаан тунгалаг ghost (preview) */
+export function drawFenceGhost(
+  ctx: CanvasRenderingContext2D,
+  pos: Vector2,
+  orient: 0 | 1,
+  cam: Camera,
+): void {
+  const x = pos.x - cam.x;
+  const y = pos.y - cam.y;
+  const ns = orient === 1;
+
+  ctx.save();
+  ctx.globalAlpha = 0.55;
+  ctx.translate(x, y);
+  if (ns) ctx.rotate(Math.PI / 2);
+
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
+  roundRectPath(ctx, -15, -3, 30, 9, 3);
+  ctx.fill();
+
+  const post = (px: number, py: number): void => {
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.fillRect(px - 2.2, py - 18, 4.4, 20);
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillRect(px - 1.6, py - 17, 2.2, 18);
+  };
+
+  post(-12, 0);
+  post(12, 0);
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-11, -14);
+  ctx.lineTo(11, -14);
+  ctx.moveTo(-11, -7);
+  ctx.lineTo(11, -7);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawWoodPost(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+): void {
+  ctx.fillStyle = "#5a3a1e";
+  ctx.fillRect(px - 2.2, py - 18, 4.4, 20);
+  ctx.fillStyle = "#7a5230";
+  ctx.fillRect(px - 1.6, py - 17, 2.2, 18);
+  ctx.fillStyle = "#3d2814";
+  ctx.beginPath();
+  ctx.moveTo(px - 2.6, py - 18);
+  ctx.lineTo(px, py - 22);
+  ctx.lineTo(px + 2.6, py - 18);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** Ижил модон төмөр — урт (урд) */
+function drawWoodRails(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  x1: number,
+  py: number,
+): void {
+  ctx.strokeStyle = "#6b4524";
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x0, py - 14);
+  ctx.lineTo(x1, py - 14);
+  ctx.moveTo(x0, py - 7);
+  ctx.lineTo(x1, py - 7);
+  ctx.stroke();
+  ctx.strokeStyle = "#8a6238";
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.moveTo(x0, py - 15);
+  ctx.lineTo(x1, py - 15);
+  ctx.moveTo(x0, py - 8);
+  ctx.lineTo(x1, py - 8);
+  ctx.stroke();
+}
+
+/** Хаалганы хавтан — hinge-ээс эргэнэ (open 0..1) */
+function drawGateSwing(
+  ctx: CanvasRenderingContext2D,
+  drawPanel: (ctx: CanvasRenderingContext2D) => void,
+  open: number,
+): void {
+  const hingeX = -11;
+  ctx.save();
+  ctx.translate(hingeX, 0);
+  ctx.rotate(-open * (Math.PI / 2) * 0.92);
+  ctx.translate(-hingeX, 0);
+  drawPanel(ctx);
+  ctx.restore();
+}
+
+function drawFenceWoodEW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  isGate: boolean,
+  open: number,
+): void {
+  drawWoodPost(ctx, x - 12, y);
+  drawWoodPost(ctx, x + 12, y);
+  if (isGate) {
+    drawGateSwing(ctx, (c) => {
+      drawWoodRails(c, x - 11, x + 11, y);
+      // Хаалганы босоо бариул
+      c.strokeStyle = "#5a3a1e";
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(x + 2, y - 16);
+      c.lineTo(x + 2, y - 2);
+      c.stroke();
+    }, open);
+  } else {
+    drawWoodRails(ctx, x - 11, x + 11, y);
+  }
+}
+
+/** Дунд шат — өргөстэй төмөр тор */
+function drawBarbedPost(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+): void {
+  ctx.fillStyle = "#3a3a3a";
+  ctx.fillRect(px - 2, py - 19, 4, 21);
+  ctx.fillStyle = "#6a6a6a";
+  ctx.fillRect(px - 1.4, py - 18, 2, 19);
+  ctx.fillStyle = "#2a2a2a";
+  ctx.fillRect(px - 2.4, py - 20, 4.8, 3);
+}
+
+function drawBarbedPanel(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  x1: number,
+  py: number,
+): void {
+  const mid = (x0 + x1) / 2;
+  const half = (x1 - x0) / 2;
+  ctx.strokeStyle = "#8a8a8a";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(x0, py - 15);
+  ctx.lineTo(x1, py - 15);
+  ctx.moveTo(x0, py - 9);
+  ctx.lineTo(x1, py - 9);
+  ctx.moveTo(x0, py - 3);
+  ctx.lineTo(x1, py - 3);
+  ctx.stroke();
+  ctx.strokeStyle = "#b0b0b0";
+  ctx.lineWidth = 1;
+  const step = half > 8 ? 4 : 5;
+  for (let i = -half + 2; i <= half - 2; i += step) {
+    ctx.beginPath();
+    ctx.moveTo(mid + i - 2, py - 16);
+    ctx.lineTo(mid + i + 2, py - 2);
+    ctx.moveTo(mid + i + 2, py - 16);
+    ctx.lineTo(mid + i - 2, py - 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#d0d0d0";
+  const barbStep = half > 8 ? 5 : 4;
+  for (let i = -half + 1; i <= half - 1; i += barbStep) {
+    for (const hy of [-15, -9, -3]) {
+      ctx.beginPath();
+      ctx.arc(mid + i, py + hy, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+function drawFenceBarbedEW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  isGate: boolean,
+  open: number,
+): void {
+  drawBarbedPost(ctx, x - 12, y);
+  drawBarbedPost(ctx, x + 12, y);
+  if (isGate) {
+    drawGateSwing(ctx, (c) => drawBarbedPanel(c, x - 11, x + 11, y), open);
+  } else {
+    drawBarbedPanel(ctx, x - 11, x + 11, y);
+  }
+}
+
+/** Дээд шат — чулуун суурь + цахилгаан утас */
+function drawFenceElectricEW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+  id: number,
+  isGate: boolean,
+  open: number,
+): void {
+  const pulse = 0.55 + 0.45 * Math.sin(time * 8 + id);
+
+  const drawStones = (sx: number, sy: number, sw: number, sh: number): void => {
+    ctx.fillStyle = "#5a6570";
+    ctx.fillRect(sx, sy - 6, sw, sh);
+    ctx.fillStyle = "#7a8894";
+    ctx.fillRect(sx + 1, sy - 5, sw - 3, sh - 3);
+    ctx.fillStyle = "#3a4550";
+    ctx.fillRect(sx, sy - 6 + sh - 2, sw, 2);
+  };
+
+  for (const [sx, sy, sw, sh] of [
+    [-11, -2, 10, 8],
+    [-1, -3, 11, 9],
+    [8, -1, 8, 7],
+  ] as const) {
+    drawStones(x + sx, y + sy, sw, sh);
+  }
+
+  const drawWires = (c: CanvasRenderingContext2D): void => {
+    c.strokeStyle = `rgba(120, 210, 255, ${0.55 + pulse * 0.35})`;
+    c.lineWidth = 1.8;
+    c.shadowColor = "#6ad0ff";
+    c.shadowBlur = 4 + pulse * 4;
+    c.beginPath();
+    c.moveTo(x - 12, y - 16);
+    c.lineTo(x + 12, y - 16);
+    c.moveTo(x - 12, y - 10);
+    c.lineTo(x + 12, y - 10);
+    c.stroke();
+    c.shadowBlur = 0;
+  };
+
+  if (isGate) {
+    drawGateSwing(ctx, drawWires, open);
+  } else {
+    drawWires(ctx);
+  }
+
+  if (pulse > 0.85 && open < 0.5) {
+    const sx = x + Math.sin(time * 12 + id) * 8;
+    const sy = y - 13;
+    ctx.fillStyle = "#e8f8ff";
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(160,230,255,0.8)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx - 3, sy);
+    ctx.lineTo(sx + 3, sy);
+    ctx.moveTo(sx, sy - 3);
+    ctx.lineTo(sx, sy + 3);
+    ctx.stroke();
   }
 }
 
@@ -2335,6 +2644,26 @@ export function render(rc: RenderContext, state: GameState, time: number): void 
     key: -1,
     draw: () => drawCampfire(ctx, world.campfire, cam, time),
   });
+  for (const fence of world.fences) {
+    drawables.push({
+      y: fence.pos.y,
+      key: 3000 + fence.id,
+      draw: () => drawFence(ctx, fence, cam, time),
+    });
+  }
+  if (state.fencePreview && state.phase === "playing") {
+    const ghostPos = fencePlacePos(
+      state.player.pos,
+      state.player.facing,
+      FENCE_GRID,
+    );
+    const ghostOrient = fenceOrientFromFacing(state.player.facing);
+    drawables.push({
+      y: ghostPos.y,
+      key: 2999,
+      draw: () => drawFenceGhost(ctx, ghostPos, ghostOrient, cam),
+    });
+  }
   for (const sheep of world.flock.visuals) {
     drawables.push({
       y: sheep.pos.y,

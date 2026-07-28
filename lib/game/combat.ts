@@ -8,7 +8,7 @@ import {
   type Vector2,
   type Wolf,
 } from "./types";
-import { clamp, dist, normalize, setMessage } from "./utils";
+import { clamp, dist, normalize, pastureCenter, setMessage } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import { gainXp } from "./player";
@@ -194,9 +194,61 @@ export function updateDog(state: GameState, dt: number): void {
     }
   }
 
+  const herding = state.input.herd;
+  const visuals = state.world.flock.visuals;
+  // Туух үед ойрын чононоос бусад үед сүргээ тусална
+  const preferHerd =
+    !prey || (herding && bestD > 160) || (!herding && bestD > 240);
+
   let target: Vector2 | null = null;
-  if (prey) {
+  let speed = 140;
+
+  if (prey && (!preferHerd || visuals.length === 0)) {
     target = prey.pos;
+    speed = 165;
+  } else if (visuals.length > 0) {
+    // Сүргийн төв
+    let cx = 0;
+    let cy = 0;
+    for (const s of visuals) {
+      cx += s.pos.x;
+      cy += s.pos.y;
+    }
+    cx /= visuals.length;
+    cy /= visuals.length;
+
+    // Туух чиг: N үед малчны нүүр, үгүй бол бэлчээр рүү
+    const drive = herding
+      ? normalize(state.player.facing)
+      : normalize({
+          x: pastureCenter(state.world).x - cx,
+          y: pastureCenter(state.world).y - cy,
+        });
+
+    // Хамгийн холдсон / ар талын хонийг олж ард нь очно
+    let bestSheep = visuals[0];
+    let bestScore = -Infinity;
+    for (const s of visuals) {
+      // Drive чигийн эсрэг (ард) байгаа хонийг илүүд үздэг
+      const along =
+        (s.pos.x - cx) * drive.x + (s.pos.y - cy) * drive.y;
+      const fromPlayer = dist(s.pos, state.player.pos);
+      const score = herding
+        ? -along + fromPlayer * 0.15
+        : dist(s.pos, { x: cx, y: cy });
+      if (score > bestScore) {
+        bestScore = score;
+        bestSheep = s;
+      }
+    }
+
+    // Хонины ард (drive-ийн эсрэг) байрлана — хонь нохойноос урагш зугтана
+    const behindDist = herding ? 38 : 48;
+    target = {
+      x: bestSheep.pos.x - drive.x * behindDist,
+      y: bestSheep.pos.y - drive.y * behindDist,
+    };
+    speed = herding ? 185 : 150;
   } else {
     const follow = { x: state.player.pos.x + 26, y: state.player.pos.y + 12 };
     if (dist(dog.pos, follow) > 34) target = follow;
@@ -206,9 +258,11 @@ export function updateDog(state: GameState, dt: number): void {
     const dir = normalize({ x: target.x - dog.pos.x, y: target.y - dog.pos.y });
     dog.vel = dir;
     if (Math.abs(dir.x) > 0.25) dog.face = dir.x < 0 ? -1 : 1;
-    const speed = prey ? 165 : 140;
-    const stopRange = prey ? prey.radius * prey.scale + 10 : 0;
-    if (!prey || dist(dog.pos, prey.pos) > stopRange) {
+    const stopRange =
+      prey && (!preferHerd || visuals.length === 0)
+        ? prey.radius * prey.scale + 10
+        : 10;
+    if (dist(dog.pos, target) > stopRange) {
       dog.pos.x += dir.x * speed * dt;
       dog.pos.y += dir.y * speed * dt;
     }

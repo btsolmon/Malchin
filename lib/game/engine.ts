@@ -12,7 +12,7 @@ import {
   type Tree,
   type Vector2,
 } from "./types";
-import { dist, setMessage } from "./utils";
+import { dist, setMessage, updateGates } from "./utils";
 import { spawnText, updateEffects } from "./effects";
 import {
   ensureAudio,
@@ -22,6 +22,7 @@ import {
   startMusic,
 } from "./audio";
 import {
+  tryBuildFence,
   tryEatBerry,
   tryInteract,
   tryLightCampfire,
@@ -119,7 +120,7 @@ export function createInitialState(): GameState {
       reachMult: 1,
       cooldownMult: 1,
       warmthResist: 1,
-      gear: { dog: false, horse: false, bow: false, gun: false },
+      gear: { dog: false, horse: false, bow: false, gun: false, axe: false },
       horseHp: 0,
       horseMaxHp: 0,
       sleepCooldown: 0,
@@ -137,6 +138,7 @@ export function createInitialState(): GameState {
         fuel: 0,
         radius: 56,
       },
+      fences: [],
       flock: { total: START_SHEEP, visuals: [] },
       wolves: [],
       thieves: [],
@@ -150,6 +152,8 @@ export function createInitialState(): GameState {
       dog: null,
       projectiles: [],
     },
+    fencePreview: false,
+    unlimitedWood: false,
     input: {
       up: false,
       down: false,
@@ -159,8 +163,11 @@ export function createInitialState(): GameState {
       attack: false,
       shoot: false,
       lightFire: false,
+      buildFence: false,
       eat: false,
       debugXp: false,
+      debugWood: false,
+      herd: false,
       skill1: false,
       skill2: false,
       skill3: false,
@@ -259,11 +266,20 @@ export function bindInput(getInput: () => InputState): () => void {
       case "KeyF":
         if (pressed) input.lightFire = true;
         break;
+      case "KeyB":
+        if (pressed) input.buildFence = true;
+        break;
       case "KeyQ":
         if (pressed) input.eat = true;
         break;
       case "Slash":
         if (pressed) input.debugXp = true;
+        break;
+      case "Period":
+        if (pressed) input.debugWood = true;
+        break;
+      case "KeyN":
+        input.herd = pressed;
         break;
       case "Digit1":
       case "Numpad1":
@@ -320,11 +336,14 @@ export function update(state: GameState, dt: number): void {
     updatePauseMenu(state);
   } else if (state.phase === "ger") {
     updateGer(state, dt);
+    state.fencePreview = false;
   } else if (state.phase === "levelup") {
     updateLevelUp(state);
+    state.fencePreview = false;
   } else if (state.phase === "playing" && state.input.pause) {
     state.phase = "paused";
     state.pauseIndex = 0;
+    state.fencePreview = false;
     sfx("select");
   } else if (
     (state.phase === "won" || state.phase === "lost") &&
@@ -354,12 +373,27 @@ export function update(state: GameState, dt: number): void {
       spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
       sfx("buy");
     }
+    if (state.input.debugWood) {
+      state.unlimitedWood = !state.unlimitedWood;
+      if (state.unlimitedWood) {
+        state.player.inventory.wood = 999999;
+        spawnText(state, state.player.pos, "Мод хязгааргүй!", "#e8c56a");
+        setMessage(state, "Мод/түлээ хязгааргүй боллоо.", 2.5);
+      } else {
+        state.player.inventory.wood = Math.min(state.player.inventory.wood, 50);
+        spawnText(state, state.player.pos, "Мод хязгаартай", "#a89880");
+        setMessage(state, "Мод хязгаартай боллоо.", 2);
+      }
+      sfx("buy");
+    }
     updateWeatherCycle(state, dt);
     updatePlayerMovement(state, dt);
     tryInteract(state);
     tryEatBerry(state);
     tryLightCampfire(state);
+    tryBuildFence(state);
     tryAttack(state);
+    updateGates(state, dt);
     updateFlock(state, dt);
     updateThreatTimers(state, dt);
     updateWolves(state, dt);
@@ -383,7 +417,9 @@ export function update(state: GameState, dt: number): void {
   state.input.interact = false;
   state.input.eat = false;
   state.input.lightFire = false;
+  state.input.buildFence = false;
   state.input.debugXp = false;
+  state.input.debugWood = false;
 }
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,11 @@
 
 import {
   COLORS,
+  FENCE_COST,
+  FENCE_TIER_NAMES,
+  FENCE_TIER_SHORT,
+  FENCE_UPGRADE_COST,
+  GATE_PASS_OPEN,
   VIEW_H,
   VIEW_W,
   WIN_SHEEP,
@@ -18,6 +23,7 @@ import {
   clamp,
   formatClock,
   isNight,
+  nearestFence,
   pastureCenter,
   roundRectPath,
   setMessage,
@@ -253,6 +259,13 @@ export const SHOP_ITEMS: Array<{
     desc: "Хүчтэй бөгөөд хол тусна",
     price: 800,
   },
+  {
+    id: "axe",
+    icon: "🪓",
+    name: "Сүх",
+    desc: "Мод/түлээ нэг цохилтоор унагана",
+    price: 500,
+  },
 ];
 
 export function gerLayout(): {
@@ -305,7 +318,7 @@ export function shopLayout(): {
   close: UiButton;
 } {
   const w = 620;
-  const h = 412;
+  const h = 76 + SHOP_ITEMS.length * 66 + 70;
   const x = (VIEW_W - w) / 2;
   const y = (VIEW_H - h) / 2;
   const rows: UiButton[] = SHOP_ITEMS.map((it, i) => ({
@@ -927,6 +940,8 @@ export function drawMenuSettings(
 export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   drawMenuTitle(ctx, "УДИРДЛАГА");
 
+  const u1 = FENCE_UPGRADE_COST[1];
+  const u2 = FENCE_UPGRADE_COST[2];
   const lines: Array<[string, string]> = [
     ["WASD", "Алхах"],
     ["J", "Цохих"],
@@ -934,10 +949,22 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["E", "Мод огтлох · Жимс түүх"],
     ["Q", "Жимс идэх"],
     ["F", "Гал түлэх"],
+    ["B", "Хашаа preview → дахин B барих/шинэчлэх"],
+    ["", `  ① ${FENCE_TIER_NAMES[1]} — ${FENCE_COST} мод`],
+    [
+      "",
+      `  ② ${FENCE_TIER_NAMES[2]} — ${u1.wood} мод + ${u1.score} оноо`,
+    ],
+    [
+      "",
+      `  ③ ${FENCE_TIER_NAMES[3]} — ${u2.wood} мод + ${u2.score} оноо + ${u2.berries} жимс (түв. ${u2.minLevel}+)`,
+    ],
+    ["N", "Хонь туух (барина)"],
+    [".", "Мод/түлээ хязгааргүй"],
     ["P", "Түр зогсоох"],
   ];
-  const boxW = 400;
-  const boxH = lines.length * 24 + 26;
+  const boxW = 520;
+  const boxH = lines.length * 22 + 26;
   const bx = (VIEW_W - boxW) / 2;
   const by = 180;
   ctx.fillStyle = "rgba(12,10,8,0.72)";
@@ -949,13 +976,15 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 
   lines.forEach(([key, desc], i) => {
-    const ly = by + 30 + i * 24;
-    ctx.textAlign = "right";
-    ctx.fillStyle = COLORS.hudAccent;
-    ctx.font = "600 13px system-ui, sans-serif";
-    ctx.fillText(key, bx + 140, ly);
+    const ly = by + 28 + i * 22;
+    if (key) {
+      ctx.textAlign = "right";
+      ctx.fillStyle = COLORS.hudAccent;
+      ctx.font = "600 13px system-ui, sans-serif";
+      ctx.fillText(key, bx + 140, ly);
+    }
     ctx.textAlign = "left";
-    ctx.fillStyle = COLORS.hudText;
+    ctx.fillStyle = key ? COLORS.hudText : COLORS.hudMuted;
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(desc, bx + 158, ly);
   });
@@ -1027,11 +1056,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   // Зүүн дээд самбар
   ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, pad, pad, 296, 218, 10);
+  roundRectPath(ctx, pad, pad, 296, 258, 10);
   ctx.fill();
   ctx.strokeStyle = "rgba(232,197,106,0.3)";
   ctx.lineWidth = 1;
-  roundRectPath(ctx, pad, pad, 296, 218, 10);
+  roundRectPath(ctx, pad, pad, 296, 258, 10);
   ctx.stroke();
 
   drawBarFancy(
@@ -1088,13 +1117,82 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   // Нөөц
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillStyle = "#c49a6c";
-  ctx.fillText(`🪵 ${player.inventory.wood}`, pad + 14, pad + 198);
+  ctx.fillText(
+    state.unlimitedWood ? "🪵 ∞" : `🪵 ${player.inventory.wood}`,
+    pad + 14,
+    pad + 198,
+  );
   ctx.fillStyle = "#e890b0";
   ctx.fillText(`🍒 ${player.inventory.berries}`, pad + 80, pad + 198);
   ctx.fillStyle = COLORS.hudAccent;
   ctx.fillText(`Өдөр ${world.dayNumber}`, pad + 150, pad + 198);
   ctx.fillStyle = COLORS.hudMuted;
   ctx.fillText(`Оноо ${state.score}`, pad + 218, pad + 198);
+
+  ctx.fillStyle =
+    state.unlimitedWood || player.inventory.wood >= FENCE_COST
+      ? "rgba(232,197,106,0.85)"
+      : "rgba(168,152,128,0.7)";
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.fillText(
+    state.fencePreview
+      ? "B — барих · P = цуцлах"
+      : state.unlimitedWood
+        ? "B — preview · дахин B = барих · N — туух"
+        : `B — preview (${FENCE_COST} мод) · дахин B = барих`,
+    pad + 14,
+    pad + 216,
+  );
+
+  const nearFence = nearestFence(player.pos, world.fences, 64);
+  if (nearFence) {
+    const tier = nearFence.tier;
+    const hpPct = Math.max(0, Math.ceil((nearFence.hp / nearFence.maxHp) * 100));
+    ctx.fillStyle =
+      tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
+    ctx.font = "600 11px system-ui, sans-serif";
+    const gateLabel = nearFence.isGate ? "Хаалга · " : "";
+    ctx.fillText(
+      `${gateLabel}${FENCE_TIER_SHORT[tier]} · ${hpPct}%`,
+      pad + 14,
+      pad + 234,
+    );
+    if (nearFence.isGate) {
+      ctx.fillStyle = COLORS.hudMuted;
+      ctx.font = "10px system-ui, sans-serif";
+      ctx.fillText(
+        nearFence.gateOpen >= GATE_PASS_OPEN
+          ? "хаалга нээлттэй"
+          : "хаалга түлхэж нээх",
+        pad + 100,
+        pad + 234,
+      );
+    } else if (tier < 3) {
+      const next = FENCE_UPGRADE_COST[tier as 1 | 2];
+      const parts = [`${next.wood}м`];
+      if (next.score) parts.push(`${next.score}о`);
+      if (next.berries) parts.push(`${next.berries}ж`);
+      ctx.fillStyle = COLORS.hudMuted;
+      ctx.font = "10px system-ui, sans-serif";
+      ctx.fillText(
+        `→ ${FENCE_TIER_NAMES[(tier + 1) as 2 | 3]}: ${parts.join("+")}`,
+        pad + 100,
+        pad + 234,
+      );
+    } else {
+      ctx.fillStyle = COLORS.hudMuted;
+      ctx.font = "10px system-ui, sans-serif";
+      ctx.fillText(FENCE_TIER_NAMES[3], pad + 100, pad + 234);
+    }
+  } else {
+    ctx.fillStyle = "rgba(168,152,128,0.75)";
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.fillText(
+      `${FENCE_TIER_NAMES[1]} → ${FENCE_TIER_NAMES[2]} → ${FENCE_TIER_NAMES[3]}`,
+      pad + 14,
+      pad + 234,
+    );
+  }
 
   // Баруун дээд: цаг агаар
   const panelW = 196;

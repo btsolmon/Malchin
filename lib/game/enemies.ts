@@ -1,11 +1,15 @@
 // Хүн 3 — дайсны AI: чоно, хулгайч, спавн/scaling, мал сүрэг
 
 import {
+  FENCE_BREAK_DPS,
+  FENCE_CONTACT_DPS,
+  FENCE_KNOCKBACK,
   MAX_VISUAL_SHEEP,
   PASTURE_RADIUS,
   WIN_SHEEP,
   WORLD_H,
   WORLD_W,
+  type FenceTier,
   type GameState,
   type Sheep,
   type Vector2,
@@ -14,11 +18,15 @@ import {
   allocId,
   clamp,
   dist,
+  fenceBlocksMovement,
   isNight,
   normalize,
   pastureCenter,
+  pastureFenceDefense,
+  pushOutOfFences,
   randRange,
   setMessage,
+  sheepFenceMitigation,
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
@@ -174,9 +182,22 @@ export function spawnThief(state: GameState): void {
     y: clamp(center.y + Math.sin(escapeAng) * 1400, 20, WORLD_H - 20),
   };
 
-  const stealWant = clamp(2 + Math.floor(Math.random() * 4), 1, 8);
-  const stolen = loseSheep(state, stealWant);
-  if (stolen <= 0) return;
+  const defense = pastureFenceDefense(state.world);
+  let stealWant = clamp(2 + Math.floor(Math.random() * 4), 1, 8);
+
+  // Дээд хашаа — хулгайч хонь авч чадахгүй
+  if (defense.tier3Count >= 5) {
+    stealWant = 0;
+    setMessage(state, "Цахилгаан хашаа хулгайчийг няцаалаа!", 3);
+    spawnText(state, pos, "Хашаа хамгааллаа!", "#7ec8ff");
+  } else if (defense.tier2Plus >= 4) {
+    stealWant = Math.max(1, Math.floor(stealWant * 0.4));
+  } else if (defense.count >= 4) {
+    stealWant = Math.max(1, Math.floor(stealWant * 0.8));
+  }
+
+  const stolen = stealWant > 0 ? loseSheep(state, stealWant) : 0;
+  if (stealWant > 0 && stolen <= 0) return;
 
   const lvl = state.level - 1;
   const thiefHp = 40 + lvl * 8;
@@ -198,8 +219,12 @@ export function spawnThief(state: GameState): void {
   });
   sfx("alert");
 
-  spawnText(state, pos, `−${stolen} хонь!`, "#ff8080");
-  setMessage(state, `Хулгайч ${stolen} хонь авч зугтав! Гүйцэж ав!`, 4);
+  if (stolen > 0) {
+    spawnText(state, pos, `−${stolen} хонь!`, "#ff8080");
+    setMessage(state, `Хулгайч ${stolen} хонь авч зугтав! Гүйцэж ав!`, 4);
+  } else if (defense.tier3Count < 5) {
+    setMessage(state, "Хулгайч ойртлоо — хашаагаа шалга!", 3);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -210,6 +235,9 @@ export function spawnThief(state: GameState): void {
 export function updateFlock(state: GameState, dt: number): void {
   const center = pastureCenter(state.world);
   const { player, world } = state;
+  const herding = state.input.herd;
+  const drive = normalize(player.facing);
+  const dog = world.dog;
 
   for (const sheep of world.flock.visuals) {
     const toCenter = normalize({
@@ -237,19 +265,71 @@ export function updateFlock(state: GameState, dt: number): void {
       }
     }
 
+    // Нохойноос зугтана — нохой ард байрлаж туухад ашиглагдана
+    if (dog) {
+      const dDog = dist(sheep.pos, dog.pos);
+      const dogRange = herding ? 130 : 70;
+      if (dDog < dogRange && dDog > 1) {
+        const w = (dogRange - dDog) / dogRange;
+        const push = herding ? 4.2 : 1.4;
+        fleeX += ((sheep.pos.x - dog.pos.x) / dDog) * w * push;
+        fleeY += ((sheep.pos.y - dog.pos.y) / dDog) * w * push;
+      }
+    }
+
+    // N барих — ойрхон хонийг нүүрний чигт тууна
+    let herdX = 0;
+    let herdY = 0;
+    if (herding) {
+      const dPlayer = dist(sheep.pos, player.pos);
+      if (dPlayer < 180) {
+        const away =
+          dPlayer > 1
+            ? {
+                x: (sheep.pos.x - player.pos.x) / dPlayer,
+                y: (sheep.pos.y - player.pos.y) / dPlayer,
+              }
+            : drive;
+        const strength = 1.2 + ((180 - dPlayer) / 180) * 2.8;
+        herdX = (drive.x * 2.2 + away.x * 0.9) * strength;
+        herdY = (drive.y * 2.2 + away.y * 0.9) * strength;
+      }
+    }
+
     const dCenter = dist(sheep.pos, center);
-    const pull = dCenter > PASTURE_RADIUS ? 1.2 : 0.25;
+    // Туух үед бэлчээрийн таталтыг сулруулна — сүрэг урагш явна
+    const pull = herding
+      ? dCenter > PASTURE_RADIUS * 1.4
+        ? 0.35
+        : 0.05
+      : dCenter > PASTURE_RADIUS
+        ? 1.2
+        : 0.25;
+    const playerPull = herding ? 0 : 0.15;
 
     sheep.vel.x +=
-      (toCenter.x * pull + toPlayer.x * 0.15 + wander.x + fleeX) * 40 * dt;
+      (toCenter.x * pull +
+        toPlayer.x * playerPull +
+        wander.x +
+        fleeX +
+        herdX) *
+      40 *
+      dt;
     sheep.vel.y +=
-      (toCenter.y * pull + toPlayer.y * 0.15 + wander.y + fleeY) * 40 * dt;
+      (toCenter.y * pull +
+        toPlayer.y * playerPull +
+        wander.y +
+        fleeY +
+        herdY) *
+      40 *
+      dt;
     sheep.vel.x *= 0.92;
     sheep.vel.y *= 0.92;
     sheep.pos.x += sheep.vel.x * dt;
     sheep.pos.y += sheep.vel.y * dt;
     sheep.pos.x = clamp(sheep.pos.x, 30, WORLD_W - 30);
     sheep.pos.y = clamp(sheep.pos.y, 30, WORLD_H - 30);
+    pushOutOfFences(sheep.pos, sheep.radius, world.fences);
 
     if (sheep.flash > 0) sheep.flash -= dt;
     // Хазуулсан хонь аажмаар амиа нөхнө (~12с тутамд 1 амь)
@@ -282,6 +362,60 @@ export function damagePlayer(state: GameState, dmg: number): void {
     0,
     player.vitals.maxHealth,
   );
+}
+
+/** Дайсныг хашаанаас түлхэж, шатаас хамааран хохирол өгнө / авна */
+function collideEntityWithFences(
+  state: GameState,
+  pos: Vector2,
+  radius: number,
+  attacker: "wolf" | "bear" | "thief",
+  dt: number,
+): { contactDps: number; knockback: number; hitTier: FenceTier | 0 } {
+  const fences = state.world.fences;
+  if (fences.length === 0) return { contactDps: 0, knockback: 0, hitTier: 0 };
+  const hit = pushOutOfFences(pos, radius, fences);
+  if (!hit) return { contactDps: 0, knockback: 0, hitTier: 0 };
+
+  let contactDps = 0;
+  let knockback = 0;
+  let hitTier: FenceTier | 0 = 0;
+  let pushFrom: Vector2 | null = null;
+  for (const fence of fences) {
+    if (!fenceBlocksMovement(fence)) continue;
+    if (dist(pos, fence.pos) > radius + fence.radius + 2) continue;
+    const tier = fence.tier as FenceTier;
+    if (tier > hitTier) hitTier = tier;
+    const breakDps = FENCE_BREAK_DPS[tier][attacker];
+    if (breakDps > 0) {
+      fence.hp -= breakDps * dt;
+      if (fence.hp <= 0) {
+        const colors: Record<FenceTier, string> = {
+          1: "#8a6a3a",
+          2: "#909090",
+          3: "#6a8aaa",
+        };
+        spawnParticles(state, fence.pos, 10, colors[tier], { speed: 90 });
+        spawnText(state, fence.pos, "Хашаа эвдэрлээ", "#c49a6c");
+      }
+    }
+    contactDps = Math.max(contactDps, FENCE_CONTACT_DPS[tier]);
+    const kb = FENCE_KNOCKBACK[tier];
+    if (kb >= knockback) {
+      knockback = kb;
+      pushFrom = fence.pos;
+    }
+  }
+  if (pushFrom && knockback > 0) {
+    const away = normalize({
+      x: pos.x - pushFrom.x,
+      y: pos.y - pushFrom.y,
+    });
+    pos.x += away.x * knockback * dt;
+    pos.y += away.y * knockback * dt;
+  }
+  state.world.fences = fences.filter((f) => f.hp > 0);
+  return { contactDps, knockback, hitTier };
 }
 
 export function updateWolves(state: GameState, dt: number): void {
@@ -319,23 +453,66 @@ export function updateWolves(state: GameState, dt: number): void {
       wolf.pos.x += dir.x * wolf.speed * dt;
       wolf.pos.y += dir.y * wolf.speed * dt;
     }
-
-    // Чоно 3, баавгай 2 хазалтаар хонь унагана
-    if (prey && dPrey < biteRange + 4 && wolf.attackCooldown <= 0) {
-      wolf.attackCooldown = wolf.kind === "bear" ? 1.5 : 1.3;
-      prey.hp -= wolf.kind === "bear" ? 1.5 : 1;
-      prey.flash = 0.18;
-      sfx("baa");
-      spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
-      if (prey.hp <= 0) {
-        spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
-        spawnText(state, prey.pos, "−1 хонь", "#ff8080");
-        killSheepVisual(state, prey);
+    const contact = collideEntityWithFences(
+      state,
+      wolf.pos,
+      wolf.radius * wolf.scale,
+      wolf.kind === "bear" ? "bear" : "wolf",
+      dt,
+    );
+    if (contact.contactDps > 0 && wolf.alive) {
+      const before = wolf.hp;
+      wolf.hp -= contact.contactDps * dt;
+      wolf.flash = Math.max(wolf.flash, 0.05);
+      if (Math.random() < dt * 2.2) {
+        spawnParticles(state, wolf.pos, 2, "#b0c8d8", { speed: 50 });
+      }
+      if (before > 0 && wolf.hp <= 0) {
+        wolf.hp = 0;
+        wolf.alive = false;
+        sfx("kill");
+        const bear = wolf.kind === "bear";
+        const score = bear ? 60 : 25;
+        const xp = bear ? 45 : 22;
+        state.score += score;
+        state.xp += xp;
+        spawnParticles(state, wolf.pos, bear ? 22 : 16, "#909090", {
+          speed: 130,
+        });
+        spawnText(state, wolf.pos, `+${score} · +${xp} XP`, "#ffd060");
         setMessage(
           state,
-          wolf.kind === "bear" ? "Баавгай хонь барив!" : "Чоно хонь барив!",
+          bear ? "Хашаанд баавгай унав!" : "Хашаанд чоно унав!",
           2,
         );
+      }
+    }
+
+    // Чоно 3, баавгай 2 хазалтаар хонь унагана — ойролцоох хашаа хамгаална
+    if (prey && dPrey < biteRange + 4 && wolf.attackCooldown <= 0) {
+      wolf.attackCooldown = wolf.kind === "bear" ? 1.5 : 1.3;
+      const mitigate = sheepFenceMitigation(prey.pos, state.world.fences);
+      const block =
+        contact.hitTier >= 3 ? 0.08 : contact.hitTier >= 2 ? 0.55 : 1;
+      const dmg = (wolf.kind === "bear" ? 1.5 : 1) * mitigate * block;
+      if (dmg < 0.12) {
+        spawnText(state, prey.pos, "Хашаа хамгааллаа", "#a8d8ff");
+        spawnParticles(state, wolf.pos, 3, "#90c8e8", { speed: 40 });
+      } else {
+        prey.hp -= dmg;
+        prey.flash = 0.18;
+        sfx("baa");
+        spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
+        if (prey.hp <= 0) {
+          spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
+          spawnText(state, prey.pos, "−1 хонь", "#ff8080");
+          killSheepVisual(state, prey);
+          setMessage(
+            state,
+            wolf.kind === "bear" ? "Баавгай хонь барив!" : "Чоно хонь барив!",
+            2,
+          );
+        }
       }
     }
 
@@ -420,6 +597,45 @@ export function updateThieves(state: GameState, dt: number): void {
       if (Math.abs(dir.x) > 0.25) thief.face = dir.x < 0 ? -1 : 1;
       thief.pos.x += dir.x * thief.speed * dt;
       thief.pos.y += dir.y * thief.speed * dt;
+    }
+    const contact = collideEntityWithFences(
+      state,
+      thief.pos,
+      thief.radius,
+      "thief",
+      dt,
+    );
+    if (contact.contactDps > 0 && thief.alive) {
+      const before = thief.hp;
+      thief.hp -= contact.contactDps * dt;
+      thief.flash = Math.max(thief.flash, 0.05);
+      if (Math.random() < dt * 2.2) {
+        spawnParticles(state, thief.pos, 2, "#90e0ff", { speed: 50 });
+      }
+      if (before > 0 && thief.hp <= 0) {
+        thief.hp = 0;
+        thief.alive = false;
+        sfx("kill");
+        const recovered = thief.stolen;
+        thief.stolen = 0;
+        if (recovered > 0) addSheep(state, recovered);
+        const xp = 30 + recovered * 2;
+        state.score += recovered * 15;
+        state.xp += xp;
+        spawnText(
+          state,
+          thief.pos,
+          recovered > 0 ? `+${recovered} хонь · +${xp} XP` : `+${xp} XP`,
+          "#b8e8a0",
+        );
+        setMessage(
+          state,
+          recovered > 0
+            ? `Хашаа хулгайчийг зогсоов! +${recovered} хонь`
+            : "Хашаа хулгайчийг зогсоов!",
+          3,
+        );
+      }
     }
 
     const atEdge =
