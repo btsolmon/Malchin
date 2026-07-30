@@ -107,6 +107,24 @@ export function seasonForDay(day: number): Season {
   ];
 }
 
+/** Өвс хадаж болох улирал (бэлчээр ургана) */
+export function canHarvestHay(season: Season): boolean {
+  return season === "summer" || season === "autumn" || season === "spring";
+}
+
+/** Бэлчээрийн өвсний өсөлт / сек */
+export function pastureGrowthRate(season: Season): number {
+  if (season === "summer") return 0.55;
+  if (season === "autumn") return 0.42;
+  if (season === "spring") return 0.22;
+  return 0;
+}
+
+/** Улирлын доторх өдөр (1…SEASON_DAYS) */
+export function dayInSeason(day: number): number {
+  return ((day - 1) % SEASON_DAYS) + 1;
+}
+
 export function isNight(world: World): boolean {
   return world.timeOfDay < 6 || world.timeOfDay > 19;
 }

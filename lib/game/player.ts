@@ -1,12 +1,19 @@
 // Хүн 2 — малчин: хөдөлгөөн, амьдрах механик, XP/ур чадвар, цаг агаар
 
 import {
+  DAY_LENGTH_SEC,
   FENCE_COST,
   FENCE_GRID,
   FENCE_MAX_HP_BY_TIER,
   FENCE_RADIUS,
   FENCE_TIER_NAMES,
   FENCE_UPGRADE_COST,
+  HAY_GRASS_COST,
+  HAY_HARVEST_RADIUS,
+  HAY_PER_SHEEP_PER_DAY,
+  MAX_HAY,
+  MAX_PASTURE_GRASS,
+  SEASON_DAYS,
   type BerryBush,
   type Fence,
   type FenceTier,
@@ -18,14 +25,17 @@ import {
 } from "../game/types";
 import {
   allocId,
+  canHarvestHay,
   clamp,
   collidePlayerWithGates,
+  dayInSeason,
   dist,
   fenceOrientFromFacing,
   fencePlacePos,
   fencesOverlap,
   normalize,
   pastureCenter,
+  pastureGrowthRate,
   randRange,
   seasonForDay,
   setMessage,
@@ -33,7 +43,13 @@ import {
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
-import { addSheep } from "./enemies";
+import { addSheep, loseSheep } from "./enemies";
+import {
+  collectProduct,
+  depositHayToFeeder,
+  nearestReadyAnimal,
+  tryCatchWildHorse,
+} from "./livestock";
 
 export const SKILL_POOL: Skill[] = [
   {
@@ -120,6 +136,7 @@ export function gainXp(state: GameState, n: number, at?: Vector2): void {
 export function updateWeatherCycle(state: GameState, dt: number): void {
   const world = state.world;
   const prevDay = Math.floor(world.timeOfDay);
+  const prevSeason = world.season;
   world.timeOfDay = (world.timeOfDay + dt * 0.4) % 24;
   world.elapsed += dt;
 
@@ -133,7 +150,7 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
     addSheep(state, growth);
     state.score += growth;
     gainXp(state, 12);
-    spawnText(state, pastureCenter(world), `+${growth} хонь`, "#b8e8a0");
+    spawnText(state, pastureCenter(world), `+${growth} мал`, "#b8e8a0");
     if (state.phase === "playing") {
       setMessage(
         state,
@@ -144,6 +161,33 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
   }
 
   world.season = seasonForDay(world.dayNumber);
+
+  // Улирал солигдох / өвөл ойртох анхааруулга
+  if (state.phase === "playing" && world.season !== prevSeason) {
+    if (world.season === "winter") {
+      const hay = state.player.inventory.hay;
+      setMessage(
+        state,
+        hay > 0 || state.world.feeder.hay > 0
+          ? `Өвөл ирлээ! Тэжээгчид өвс хий — мал тэжээнэ.`
+          : "Өвөл ирлээ! Тэжээгч хоосон — мал өлсөх аюултай!",
+        5,
+      );
+    } else if (world.season === "spring") {
+      setMessage(state, "Хавар — бэлчээр сэргэж эхэллээ.", 3.5);
+    } else if (world.season === "summer") {
+      setMessage(state, "Зун — бэлчээрээс E-ээр өвс хадгал!", 3.5);
+    } else if (world.season === "autumn") {
+      setMessage(state, "Намар — өвөлд өвс хадгалах цаг!", 3.5);
+    }
+  } else if (
+    state.phase === "playing" &&
+    curDay < prevDay &&
+    world.season === "autumn" &&
+    dayInSeason(world.dayNumber) >= SEASON_DAYS - 1
+  ) {
+    setMessage(state, "Өвс хадгал! Өвөл ойртож байна.", 4);
+  }
 
   const t = world.elapsed;
   if (world.season === "winter") {
@@ -230,10 +274,46 @@ export function tryInteract(state: GameState): void {
   if (dist(player.pos, gerPos) < 62) {
     state.phase = "ger";
     state.shopOpen = false;
+    state.craftOpen = false;
     state.menuIndex = 0;
     state.gerPlayer = { x: 480, y: 435 };
     state.input.interact = false;
     sfx("select");
+    return;
+  }
+
+  // Уургаар зэрлэг морь барих
+  if (player.gear.urga) {
+    let nearWild = false;
+    for (const h of world.wildHorses) {
+      if (dist(player.pos, h.pos) < 62) {
+        nearWild = true;
+        break;
+      }
+    }
+    if (nearWild) {
+      tryCatchWildHorse(state);
+      player.chopCooldown = 0.55;
+      state.input.interact = false;
+      return;
+    }
+  }
+
+  // Бэлэн бүтээгдэхүүн цуглуулах
+  const ready = nearestReadyAnimal(player.pos, world.flock.visuals, 42);
+  if (ready) {
+    collectProduct(state, ready);
+    player.chopCooldown = 0.3;
+    state.input.interact = false;
+    return;
+  }
+
+  // Тэжээгчид өвс хийх
+  const feeder = world.feeder;
+  if (dist(player.pos, feeder.pos) < feeder.radius + player.radius + 18) {
+    depositHayToFeeder(state, 5);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
     return;
   }
 
@@ -253,9 +333,49 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  // Бэлчээрээс өвс хадах (зун / намар / хавар)
+  const nearPasture =
+    dist(player.pos, center) < HAY_HARVEST_RADIUS &&
+    dist(player.pos, gerPos) >= 62;
+  if (nearPasture) {
+    if (!canHarvestHay(world.season)) {
+      setMessage(state, "Өвөл бэлчээр хөлдсөн — өвс хадахгүй.", 2);
+      state.input.interact = false;
+      return;
+    }
+    if (player.inventory.hay >= MAX_HAY) {
+      setMessage(state, `Өвс дүүрэн (${MAX_HAY}).`, 1.5);
+      state.input.interact = false;
+      return;
+    }
+    if (world.pastureGrass < HAY_GRASS_COST) {
+      setMessage(state, "Бэлчээрийн өвс бага — жаахан хүлээ.", 2);
+      state.input.interact = false;
+      return;
+    }
+
+    world.pastureGrass -= HAY_GRASS_COST;
+    const gained = world.season === "spring" ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
+    const add = Math.min(gained, MAX_HAY - player.inventory.hay);
+    player.inventory.hay += add;
+    player.chopCooldown = 0.4;
+    state.score += add;
+    gainXp(state, 1);
+    sfx("chop");
+    spawnParticles(
+      state,
+      { x: player.pos.x, y: player.pos.y - 4 },
+      7,
+      "#7a9a45",
+      { speed: 55, size: 2.2 },
+    );
+    spawnText(state, player.pos, `+${add} өвс`, "#b8d060");
+    return;
+  }
+
   const tree = nearestAliveTree(player, world.trees);
   if (!tree) {
-    setMessage(state, "Ойрхон мод/жимс алга.", 1.5);
+    setMessage(state, "Ойрхон мод/жимс/бэлчээр алга.", 1.5);
     return;
   }
 
@@ -550,6 +670,8 @@ export function updateSurvival(state: GameState, dt: number): void {
     }
   }
 
+  updatePastureAndFlockFeed(state, dt);
+
   for (const tree of world.trees) {
     if (tree.hp > 0) continue;
     tree.respawnIn -= dt;
@@ -580,6 +702,71 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
   if (player.invuln > 0) player.invuln -= dt;
   if (player.sleepCooldown > 0) player.sleepCooldown -= dt;
+}
+
+/** Бэлчээр ургалт + тэжээгчээс өвс / өлсгөлөн */
+function updatePastureAndFlockFeed(state: GameState, dt: number): void {
+  const { world } = state;
+  const flock = world.flock;
+  if (flock.total <= 0 || state.phase !== "playing") return;
+
+  const grow = pastureGrowthRate(world.season);
+  if (grow > 0) {
+    world.pastureGrass = clamp(
+      world.pastureGrass + grow * dt,
+      0,
+      MAX_PASTURE_GRASS,
+    );
+  }
+
+  const feeder = world.feeder;
+  const needPerSec =
+    (flock.total * HAY_PER_SHEEP_PER_DAY) / DAY_LENGTH_SEC;
+
+  if (world.season === "winter") {
+    const hadHay = feeder.hay > 0;
+    const feed = Math.min(feeder.hay, needPerSec * dt);
+    feeder.hay = Math.max(0, feeder.hay - feed);
+
+    if (feed >= needPerSec * dt * 0.95 && needPerSec > 0) {
+      flock.hunger = clamp(flock.hunger + 8 * dt, 0, 100);
+      flock.starveAcc = 0;
+    } else if (feeder.hay <= 0) {
+      if (hadHay && feed > 0) {
+        setMessage(state, "Тэжээгч хоосон — мал өлсөж байна!", 4);
+      }
+      flock.hunger = clamp(flock.hunger - 4.5 * dt, 0, 100);
+      if (flock.hunger < 35) {
+        flock.starveAcc += dt;
+        const interval = clamp(14 - flock.total * 0.02, 6, 14);
+        if (flock.starveAcc >= interval) {
+          flock.starveAcc = 0;
+          const lost = loseSheep(state, 1);
+          if (lost > 0) {
+            spawnText(
+              state,
+              pastureCenter(world),
+              "−1 мал (өлсгөлөн)",
+              "#ff9080",
+            );
+            sfx("baa");
+            setMessage(state, "Мал өлсөж үхэж байна! Тэжээгчид өвс хий!", 3.5);
+          }
+        }
+      }
+    } else {
+      flock.hunger = clamp(flock.hunger - 1.2 * dt, 0, 100);
+    }
+  } else {
+    // Зун бэлчээр — тэжээгч байвал илүү цатгалан
+    flock.hunger = clamp(flock.hunger + 6 * dt, 0, 100);
+    if (feeder.hay > 0 && needPerSec > 0) {
+      const snack = Math.min(feeder.hay, needPerSec * 0.35 * dt);
+      feeder.hay -= snack;
+      flock.hunger = clamp(flock.hunger + 3 * dt, 0, 100);
+    }
+    flock.starveAcc = 0;
+  }
 }
 
 // ---------------------------------------------------------------------------

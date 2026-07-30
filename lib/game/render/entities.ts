@@ -591,11 +591,44 @@ export function drawSheep(
   const walk = moving ? Math.sin(time * 10 + sheep.id) * 2 : 0;
   const graze =
     !moving && Math.sin(time * 0.6 + sheep.grazeSeed) > 0.4 ? 3.5 : 0;
+  const kind = sheep.kind ?? "sheep";
 
-  drawShadow(ctx, x, y + 8, 11, 4);
+  // Өнгө / хэмжээ — төрлөөр
+  let body0 = "#fbf7ee";
+  let body1 = "#ddd4c4";
+  let headC = "#c9bfae";
+  let rx = 11;
+  let ry = 8;
+  if (kind === "goat") {
+    body0 = "#e8e0d0";
+    body1 = "#b8a888";
+    headC = "#a89878";
+    rx = 9;
+    ry = 7;
+  } else if (kind === "cattle") {
+    body0 = "#8a6a48";
+    body1 = "#5a4030";
+    headC = "#6a4a30";
+    rx = 14;
+    ry = 10;
+  } else if (kind === "horse") {
+    body0 = "#7a5538";
+    body1 = "#4a3020";
+    headC = "#5a3a28";
+    rx = 13;
+    ry = 9;
+  } else if (kind === "camel") {
+    body0 = "#c4a06a";
+    body1 = "#8a6840";
+    headC = "#a07848";
+    rx = 15;
+    ry = 11;
+  }
+
+  drawShadow(ctx, x, y + 8, rx, 4);
 
   // Хөл
-  ctx.strokeStyle = "#8a7f70";
+  ctx.strokeStyle = kind === "sheep" || kind === "goat" ? "#8a7f70" : "#3a2a18";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(x - 6, y + 3);
@@ -604,52 +637,71 @@ export function drawSheep(
   ctx.lineTo(x + 5 - walk * 0.4, y + 9);
   ctx.stroke();
 
-  // Ноосон бие
-  const wool = ctx.createRadialGradient(x - 3, y - 4, 2, x, y, 13);
-  wool.addColorStop(0, "#fbf7ee");
-  wool.addColorStop(1, "#ddd4c4");
+  const wool = ctx.createRadialGradient(x - 3, y - 4, 2, x, y, rx + 2);
+  wool.addColorStop(0, body0);
+  wool.addColorStop(1, body1);
   ctx.fillStyle = wool;
   ctx.beginPath();
-  ctx.ellipse(x, y, 11, 8, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Ноосны овгор
-  for (const [ox, oy, r] of [
-    [-7, -4, 4.5],
-    [-1, -6, 5],
-    [5, -4, 4.5],
-  ] as Array<[number, number, number]>) {
+
+  if (kind === "sheep") {
+    for (const [ox, oy, r] of [
+      [-7, -4, 4.5],
+      [-1, -6, 5],
+      [5, -4, 4.5],
+    ] as Array<[number, number, number]>) {
+      ctx.beginPath();
+      ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  if (kind === "camel") {
+    // Бөгс
     ctx.beginPath();
-    ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+    ctx.ellipse(x - 2, y - ry - 2, 5, 4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  if (kind === "goat") {
+    // Эвэр
+    ctx.strokeStyle = "#6a5a40";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + 6 * flip, y - 6);
+    ctx.lineTo(x + 10 * flip, y - 12);
+    ctx.moveTo(x + 4 * flip, y - 6);
+    ctx.lineTo(x + 7 * flip, y - 11);
+    ctx.stroke();
+  }
+  if (kind === "cattle") {
+    ctx.strokeStyle = "#4a3020";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 8 * flip, y - 8);
+    ctx.lineTo(x + 14 * flip, y - 14);
+    ctx.moveTo(x + 6 * flip, y - 8);
+    ctx.lineTo(x + 2 * flip, y - 14);
+    ctx.stroke();
+  }
 
-  // Толгой
-  const hx = x + 9 * flip;
+  const hx = x + (rx - 2) * flip;
   const hy = y - 1 + graze;
-  ctx.fillStyle = "#c9bfae";
+  ctx.fillStyle = headC;
   ctx.beginPath();
-  ctx.ellipse(hx, hy, 5, 4.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(hx, hy, kind === "horse" || kind === "camel" ? 5.5 : 5, 4.4, 0, 0, Math.PI * 2);
   ctx.fill();
-  // Чих
-  ctx.fillStyle = "#b5a892";
-  ctx.beginPath();
-  ctx.ellipse(hx - 3 * flip, hy - 3, 2.6, 1.4, -0.5 * flip, 0, Math.PI * 2);
-  ctx.fill();
-  // Нүд
   ctx.fillStyle = "#332a20";
   ctx.beginPath();
   ctx.arc(hx + 1.8 * flip, hy - 1, 0.9, 0, Math.PI * 2);
   ctx.fill();
 
-  // Хазуулсны анивчилт
   if (sheep.flash > 0) {
     ctx.fillStyle = `rgba(255,90,90,${Math.min(1, sheep.flash * 4)})`;
     ctx.beginPath();
-    ctx.ellipse(x, y - 1, 13, 10, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y - 1, rx + 2, ry + 2, 0, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Хазуулсан хонины амь
   if (sheep.hp < 3) {
     const bw = 18;
     ctx.fillStyle = "rgba(0,0,0,0.5)";
@@ -659,6 +711,108 @@ export function drawSheep(
     roundRectPath(ctx, x - bw / 2, y - 18, (bw * sheep.hp) / 3, 3.5, 1.5);
     ctx.fill();
   }
+
+  // Бүтээгдэхүүн бэлэн — анивчсан цэг
+  if (sheep.produceReady) {
+    const pulse = 0.55 + Math.sin(time * 6 + sheep.id) * 0.35;
+    ctx.fillStyle = `rgba(255,220,100,${pulse})`;
+    ctx.beginPath();
+    ctx.arc(x, y - ry - 10, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff8d0";
+    ctx.font = "bold 9px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("E", x, y - ry - 7);
+    ctx.textAlign = "left";
+  }
+}
+
+export function drawFeeder(
+  ctx: CanvasRenderingContext2D,
+  feeder: { pos: { x: number; y: number }; hay: number; maxHay: number },
+  cam: Camera,
+): void {
+  const x = feeder.pos.x - cam.x;
+  const y = feeder.pos.y - cam.y;
+  const fill = feeder.hay / Math.max(1, feeder.maxHay);
+
+  drawShadow(ctx, x, y + 6, 22, 7);
+  // Тевш
+  ctx.fillStyle = "#6a4a28";
+  ctx.beginPath();
+  ctx.moveTo(x - 22, y - 4);
+  ctx.lineTo(x - 18, y + 8);
+  ctx.lineTo(x + 18, y + 8);
+  ctx.lineTo(x + 22, y - 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#3a2810";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  if (fill > 0.02) {
+    ctx.fillStyle = "#b8a84a";
+    ctx.beginPath();
+    ctx.ellipse(x, y - 1, 16 * fill + 2, 4 + 3 * fill, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Дүүргэлтийн зурвас
+  const bw = 28;
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  roundRectPath(ctx, x - bw / 2, y - 18, bw, 4, 1);
+  ctx.fill();
+  ctx.fillStyle = fill < 0.15 ? "#d64545" : "#a8c050";
+  roundRectPath(ctx, x - bw / 2, y - 18, bw * fill, 4, 1);
+  ctx.fill();
+}
+
+export function drawWildHorse(
+  ctx: CanvasRenderingContext2D,
+  horse: { pos: { x: number; y: number }; vel: { x: number; y: number }; face: 1 | -1; id: number; spooked: number },
+  cam: Camera,
+  time: number,
+): void {
+  const x = horse.pos.x - cam.x;
+  const y = horse.pos.y - cam.y;
+  const flip = horse.face;
+  const run = Math.sin(time * 12 + horse.id) * 2.5;
+
+  drawShadow(ctx, x, y + 8, 14, 5);
+  ctx.strokeStyle = "#3a2818";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(x - 8, y + 2);
+  ctx.lineTo(x - 8 + run, y + 10);
+  ctx.moveTo(x + 6, y + 2);
+  ctx.lineTo(x + 6 - run, y + 10);
+  ctx.stroke();
+
+  const g = ctx.createRadialGradient(x - 2, y - 4, 2, x, y, 14);
+  g.addColorStop(0, "#9a7050");
+  g.addColorStop(1, "#5a3820");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(x, y, 13, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const hx = x + 11 * flip;
+  ctx.fillStyle = "#6a4030";
+  ctx.beginPath();
+  ctx.ellipse(hx, y - 2, 5.5, 4.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Дэл
+  ctx.fillStyle = "#2a1810";
+  ctx.beginPath();
+  ctx.moveTo(x - 4, y - 8);
+  ctx.quadraticCurveTo(x - 10, y - 16, x + 2, y - 10);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255,220,120,0.85)";
+  ctx.font = "bold 10px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("зэрлэг", x, y - 22);
+  ctx.textAlign = "left";
 }
 
 export function drawWolf(

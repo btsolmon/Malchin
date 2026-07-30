@@ -1,7 +1,7 @@
-import { Camera, FENCE_GRID, GameState, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
+import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
-import { clamp, dist, fenceOrientFromFacing, fencePlacePos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDog, drawFence, drawFenceGhost, drawGer, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWolf } from "./entities";
+import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, pastureCenter, randRange } from "../utils";
+import { drawBear, drawBerryBush, drawCampfire, drawDog, drawFeeder, drawFence, drawFenceGhost, drawGer, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf } from "./entities";
 import { drawGerInterior } from "./ger";
 
 import { drawLighting, drawWeatherFx } from "./lighting";
@@ -12,6 +12,41 @@ export interface RenderContext {
   terrainWinter: HTMLCanvasElement;
   lightCanvas: HTMLCanvasElement;
   vignette: HTMLCanvasElement;
+}
+
+/** Гэрийн дэргэд өвсний овоо */
+function drawHaystack(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  hay: number,
+): void {
+  const t = Math.min(1, hay / Math.max(40, MAX_HAY * 0.4));
+  const w = 14 + t * 16;
+  const h = 10 + t * 18;
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.beginPath();
+  ctx.ellipse(x + 1, y + 2, w * 0.7, w * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#9a8a3a";
+  ctx.beginPath();
+  ctx.moveTo(x - w * 0.55, y);
+  ctx.quadraticCurveTo(x, y - h, x + w * 0.55, y);
+  ctx.quadraticCurveTo(x, y + h * 0.35, x - w * 0.55, y);
+  ctx.fill();
+  ctx.fillStyle = "#b8a84a";
+  ctx.beginPath();
+  ctx.ellipse(x, y - h * 0.35, w * 0.35, h * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(70,55,20,0.45)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 3; i++) {
+    const yy = y - h * 0.15 * i;
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.4, yy);
+    ctx.quadraticCurveTo(x, yy + 2, x + w * 0.4, yy);
+    ctx.stroke();
+  }
 }
 
 
@@ -70,6 +105,29 @@ export function render(
     draw: () => drawGer(ctx, center.x - 46 - cam.x, center.y - 26 - cam.y),
   });
 
+  // Өвсний овоо — хадгалсан хэмжээгээр өснө
+  if (state.player.inventory.hay > 0) {
+    const hayPos = { x: center.x + 58, y: center.y + 28 };
+    drawables.push({
+      y: hayPos.y,
+      key: -3,
+      draw: () =>
+        drawHaystack(
+          ctx,
+          hayPos.x - cam.x,
+          hayPos.y - cam.y,
+          state.player.inventory.hay,
+        ),
+    });
+  }
+
+  // Тэжээгч
+  drawables.push({
+    y: world.feeder.pos.y,
+    key: -4,
+    draw: () => drawFeeder(ctx, world.feeder, cam),
+  });
+
   for (const tree of world.trees) {
     drawables.push({
       y: tree.pos.y,
@@ -116,6 +174,13 @@ export function render(
       draw: () => drawSheep(ctx, sheep, cam, time),
     });
   }
+  for (const wh of world.wildHorses) {
+    drawables.push({
+      y: wh.pos.y,
+      key: 2500 + wh.id,
+      draw: () => drawWildHorse(ctx, wh, cam, time),
+    });
+  }
   for (const wolf of world.wolves) {
     drawables.push({
       y: wolf.pos.y,
@@ -153,11 +218,13 @@ export function render(
   // Сумнууд — бүх объектын дээр
   for (const p of world.projectiles) drawProjectile(ctx, p, cam);
 
-  // Гэрт орох заавар
+  // Гэрт орох / өвс хадах / тэжээгч заавар
   if (state.phase === "playing") {
     const c = pastureCenter(world);
     const gp = { x: c.x, y: c.y - 20 };
-    if (dist(state.player.pos, gp) < 70) {
+    const dGer = dist(state.player.pos, gp);
+    const dFeed = dist(state.player.pos, world.feeder.pos);
+    if (dGer < 70) {
       const tx = gp.x - cam.x;
       const ty = gp.y - 66 - cam.y;
       ctx.textAlign = "center";
@@ -167,6 +234,33 @@ export function render(
       ctx.strokeText("E — Гэрт орох", tx, ty);
       ctx.fillStyle = "#ffe9a8";
       ctx.fillText("E — Гэрт орох", tx, ty);
+      ctx.textAlign = "left";
+    } else if (dFeed < world.feeder.radius + 28) {
+      const tx = world.feeder.pos.x - cam.x;
+      const ty = world.feeder.pos.y - 28 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const tip = `E — Өвс хийх (${Math.floor(world.feeder.hay)}/${world.feeder.maxHay})`;
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#c8e070";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (
+      dist(state.player.pos, c) < HAY_HARVEST_RADIUS &&
+      canHarvestHay(world.season) &&
+      world.pastureGrass >= HAY_GRASS_COST
+    ) {
+      const tx = state.player.pos.x - cam.x;
+      const ty = state.player.pos.y - 36 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      ctx.strokeText("E — Өвс хадах", tx, ty);
+      ctx.fillStyle = "#c8e070";
+      ctx.fillText("E — Өвс хадах", tx, ty);
       ctx.textAlign = "left";
     }
   }

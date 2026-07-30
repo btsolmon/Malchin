@@ -49,9 +49,9 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
     thief.stolen = 0;
     addSheep(state, recovered);
     state.score += recovered * 15;
-    spawnText(state, thief.pos, `+${recovered} хонь · +${xp} XP`, "#b8e8a0");
+    spawnText(state, thief.pos, `+${recovered} мал · +${xp} XP`, "#b8e8a0");
     gainXp(state, xp);
-    setMessage(state, `Мал буцааж авлаа! +${recovered} хонь`, 3);
+    setMessage(state, `Мал буцааж авлаа! +${recovered} мал`, 3);
   }
 }
 

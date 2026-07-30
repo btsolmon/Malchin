@@ -7,15 +7,17 @@ import {
   FENCE_TIER_SHORT,
   FENCE_UPGRADE_COST,
   GATE_PASS_OPEN,
+  LIVESTOCK_KINDS,
+  LIVESTOCK_MN,
   VIEW_H,
   VIEW_W,
-  WIN_SHEEP,
   WORLD_H,
   WORLD_W,
   type Camera,
   type GameState,
   type GearId,
   type InputState,
+  type LivestockKind,
   type Vector2,
   type WeatherKind,
 } from "../game/types";
@@ -31,6 +33,7 @@ import {
 } from "../game/utils";
 import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
+import { addLivestock, fiveKindsProgress } from "./livestock";
 
 export interface UiButton {
   x: number;
@@ -191,7 +194,11 @@ export function updateMenu(state: GameState): void {
 
     if (activate === 0) {
       state.phase = "playing";
-      setMessage(state, "10 хоньтой эхэллээ. Сүргээ хамгаал!", 5);
+      setMessage(
+        state,
+        "2 хонь + 2 ямаатай эхэллээ. Тэжээгчид өвс хий, 5 хошуу мал цуглуул!",
+        6,
+      );
       sfx("select");
     } else if (activate === 1) {
       state.menuScreen = "settings";
@@ -224,14 +231,35 @@ export function updateMenu(state: GameState): void {
 // Гэр ба дэлгүүр
 // ---------------------------------------------------------------------------
 
-export const SHOP_ITEMS: Array<{
-  id: GearId;
-  icon: string;
-  name: string;
-  desc: string;
-  price: number;
-}> = [
+export type ShopItem =
+  | {
+      type: "gear";
+      id: GearId;
+      icon: string;
+      name: string;
+      desc: string;
+      price: number;
+    }
+  | {
+      type: "livestock";
+      kind: LivestockKind;
+      icon: string;
+      name: string;
+      desc: string;
+      price: number;
+    }
+  | {
+      type: "sell";
+      key: "wool" | "cashmere" | "milk" | "felt" | "aaruul";
+      icon: string;
+      name: string;
+      desc: string;
+      price: number;
+    };
+
+export const SHOP_ITEMS: ShopItem[] = [
   {
+    type: "gear",
     id: "dog",
     icon: "🐕",
     name: "Нохой",
@@ -239,13 +267,15 @@ export const SHOP_ITEMS: Array<{
     price: 300,
   },
   {
+    type: "gear",
     id: "horse",
     icon: "🐎",
-    name: "Морь",
+    name: "Унах морь",
     desc: "Унаж явахад хурд +50%",
     price: 500,
   },
   {
+    type: "gear",
     id: "bow",
     icon: "🏹",
     name: "Нум сум",
@@ -253,6 +283,7 @@ export const SHOP_ITEMS: Array<{
     price: 400,
   },
   {
+    type: "gear",
     id: "gun",
     icon: "🔫",
     name: "Буу",
@@ -260,11 +291,114 @@ export const SHOP_ITEMS: Array<{
     price: 800,
   },
   {
+    type: "gear",
     id: "axe",
     icon: "🪓",
     name: "Сүх",
     desc: "Мод/түлээ нэг цохилтоор унагана",
     price: 500,
+  },
+  {
+    type: "gear",
+    id: "urga",
+    icon: "🪢",
+    name: "Уурга",
+    desc: "Зэрлэг морийг ойртож E-ээр барина",
+    price: 180,
+  },
+  {
+    type: "livestock",
+    kind: "cattle",
+    icon: "🐄",
+    name: "Үхэр",
+    desc: "Сүрэгт үхэр нэмнэ · сүү өгнө",
+    price: 220,
+  },
+  {
+    type: "livestock",
+    kind: "horse",
+    icon: "🐴",
+    name: "Морь (сүрэг)",
+    desc: "Сүргийн морь · сүү өгнө",
+    price: 320,
+  },
+  {
+    type: "livestock",
+    kind: "camel",
+    icon: "🐪",
+    name: "Тэмээ",
+    desc: "Сүрэгт тэмээ · сүү/ноос",
+    price: 400,
+  },
+  {
+    type: "sell",
+    key: "wool",
+    icon: "🧶",
+    name: "Ноос зарах",
+    desc: "1 ноос → 8 оноо",
+    price: 8,
+  },
+  {
+    type: "sell",
+    key: "cashmere",
+    icon: "🧵",
+    name: "Ноолуур зарах",
+    desc: "1 ноолуур → 22 оноо",
+    price: 22,
+  },
+  {
+    type: "sell",
+    key: "milk",
+    icon: "🥛",
+    name: "Сүү зарах",
+    desc: "1 сүү → 6 оноо",
+    price: 6,
+  },
+  {
+    type: "sell",
+    key: "felt",
+    icon: "🧺",
+    name: "Эсгий зарах",
+    desc: "1 эсгий → 45 оноо",
+    price: 45,
+  },
+  {
+    type: "sell",
+    key: "aaruul",
+    icon: "🧀",
+    name: "Ааруул зарах",
+    desc: "1 ааруул → 30 оноо",
+    price: 30,
+  },
+];
+
+export const CRAFT_RECIPES: Array<{
+  id: string;
+  name: string;
+  desc: string;
+  need: Partial<Record<"wool" | "cashmere" | "milk", number>>;
+  give: Partial<Record<"felt" | "aaruul", number>>;
+}> = [
+  {
+    id: "felt",
+    name: "Эсгий",
+    desc: "3 ноос → 1 эсгий",
+    need: { wool: 3 },
+    give: { felt: 1 },
+  },
+  {
+    id: "aaruul",
+    name: "Ааруул",
+    desc: "2 сүү → 1 ааруул",
+    need: { milk: 2 },
+    give: { aaruul: 1 },
+  },
+  {
+    id: "cashmere_felt",
+    name: "Ноолууран эсгий",
+    desc: "2 ноолуур → 2 эсгий",
+    need: { cashmere: 2 },
+    give: { felt: 2 },
   },
 ];
 
@@ -276,7 +410,6 @@ export function gerLayout(): {
   altar: UiButton;
 } {
   return {
-    // Тахилын ширээ ба баруун орны голд
     chest: { x: 580, y: 255, w: 140, h: 95, label: "" },
     door: { x: 400, y: 452, w: 160, h: 72, label: "" },
     bedL: { x: 55, y: 300, w: 190, h: 84, label: "" },
@@ -291,12 +424,12 @@ export function gerProximity(state: GameState): {
   nearBed: boolean;
   nearBedL: boolean;
   nearBedR: boolean;
+  nearAltar: boolean;
   atDoor: boolean;
 } {
   const p = state.gerPlayer;
   const lay = gerLayout();
   const nearRect = (r: UiButton, range: number): boolean => {
-    // Тавилгын хамгийн ойр цэг хүртэлх зай
     const nx = clamp(p.x, r.x, r.x + r.w);
     const ny = clamp(p.y, r.y, r.y + r.h);
     return Math.hypot(p.x - nx, p.y - ny) < range;
@@ -308,24 +441,59 @@ export function gerProximity(state: GameState): {
     nearBed: nearBedL || nearBedR,
     nearBedL,
     nearBedR,
+    nearAltar: nearRect(lay.altar, 55),
     atDoor: p.y > 492 && Math.abs(p.x - 480) < 90,
   };
 }
+
+const SHOP_VISIBLE = 6;
 
 export function shopLayout(): {
   panel: UiButton;
   rows: UiButton[];
   close: UiButton;
 } {
-  const w = 620;
-  const h = 76 + SHOP_ITEMS.length * 66 + 70;
+  const w = 640;
+  const h = 76 + SHOP_VISIBLE * 54 + 70;
   const x = (VIEW_W - w) / 2;
   const y = (VIEW_H - h) / 2;
-  const rows: UiButton[] = SHOP_ITEMS.map((it, i) => ({
+  const rows: UiButton[] = [];
+  for (let i = 0; i < SHOP_VISIBLE; i++) {
+    rows.push({
+      x: x + 24,
+      y: y + 76 + i * 54,
+      w: w - 48,
+      h: 48,
+      label: "",
+    });
+  }
+  return {
+    panel: { x, y, w, h, label: "" },
+    rows,
+    close: {
+      x: x + w / 2 - 70,
+      y: y + h - 54,
+      w: 140,
+      h: 40,
+      label: "Хаах (P)",
+    },
+  };
+}
+
+export function craftLayout(): {
+  panel: UiButton;
+  rows: UiButton[];
+  close: UiButton;
+} {
+  const w = 520;
+  const h = 76 + CRAFT_RECIPES.length * 58 + 70;
+  const x = (VIEW_W - w) / 2;
+  const y = (VIEW_H - h) / 2;
+  const rows: UiButton[] = CRAFT_RECIPES.map((it, i) => ({
     x: x + 24,
-    y: y + 76 + i * 66,
+    y: y + 76 + i * 58,
     w: w - 48,
-    h: 58,
+    h: 50,
     label: it.name,
   }));
   return {
@@ -341,9 +509,49 @@ export function shopLayout(): {
   };
 }
 
+function shopScrollStart(menuIndex: number): number {
+  return clamp(
+    menuIndex - SHOP_VISIBLE + 1,
+    0,
+    Math.max(0, SHOP_ITEMS.length - SHOP_VISIBLE),
+  );
+}
+
 export function buyItem(state: GameState, idx: number): void {
   const item = SHOP_ITEMS[idx];
   if (!item) return;
+
+  if (item.type === "sell") {
+    const inv = state.player.inventory;
+    if (inv[item.key] <= 0) {
+      setMessage(state, `${item.name.replace(" зарах", "")} алга.`, 2);
+      sfx("move");
+      return;
+    }
+    inv[item.key] -= 1;
+    state.score += item.price;
+    sfx("buy");
+    setMessage(state, `${item.name}: +${item.price} оноо`, 2);
+    return;
+  }
+
+  if (item.type === "livestock") {
+    if (state.score < item.price) {
+      setMessage(state, `Оноо хүрэхгүй — ${item.price} оноо хэрэгтэй.`, 2);
+      sfx("move");
+      return;
+    }
+    state.score -= item.price;
+    addLivestock(state, item.kind, 1);
+    sfx("buy");
+    setMessage(
+      state,
+      `${item.name} худалдаж авлаа! (+1 ${LIVESTOCK_MN[item.kind]})`,
+      3,
+    );
+    return;
+  }
+
   if (state.player.gear[item.id]) {
     setMessage(state, `${item.name} аль хэдийн бий.`, 2);
     sfx("move");
@@ -376,14 +584,36 @@ export function buyItem(state: GameState, idx: number): void {
   setMessage(state, `${item.name} худалдаж авлаа!`, 3);
 }
 
+export function craftItem(state: GameState, idx: number): void {
+  const recipe = CRAFT_RECIPES[idx];
+  if (!recipe) return;
+  const inv = state.player.inventory;
+  for (const [k, need] of Object.entries(recipe.need)) {
+    const key = k as "wool" | "cashmere" | "milk";
+    if ((inv[key] ?? 0) < (need ?? 0)) {
+      setMessage(state, `Хүрэлцэхгүй — ${recipe.desc}`, 2);
+      sfx("move");
+      return;
+    }
+  }
+  for (const [k, need] of Object.entries(recipe.need)) {
+    const key = k as "wool" | "cashmere" | "milk";
+    inv[key] -= need ?? 0;
+  }
+  for (const [k, give] of Object.entries(recipe.give)) {
+    const key = k as "felt" | "aaruul";
+    inv[key] += give ?? 0;
+  }
+  sfx("buy");
+  setMessage(state, `${recipe.name} хийлээ!`, 2.5);
+}
+
 export function updateGer(state: GameState, dt: number): void {
   const input = state.input;
 
-  // ===== Унтах анимэйшн (5 сек) =====
   if (state.gerSleepTimer > 0) {
     state.gerSleepTimer = Math.max(0, state.gerSleepTimer - dt);
     state.player.moving = false;
-    // Унтаж байхад бусад үйлдэл хаалттай
     if (state.gerSleepTimer <= 0) {
       const player = state.player;
       player.vitals.health = Math.min(
@@ -395,6 +625,38 @@ export function updateGer(state: GameState, dt: number): void {
       state.gerSleepBed = null;
       sfx("levelup");
       setMessage(state, "Сайхан унтаж амарлаа. +50 амь", 3);
+    }
+    return;
+  }
+
+  if (state.craftOpen) {
+    const lay = craftLayout();
+    if (input.menuUp) {
+      state.menuIndex =
+        (state.menuIndex + CRAFT_RECIPES.length - 1) % CRAFT_RECIPES.length;
+      sfx("move");
+    }
+    if (input.menuDown) {
+      state.menuIndex = (state.menuIndex + 1) % CRAFT_RECIPES.length;
+      sfx("move");
+    }
+    if (input.mouseMoved) {
+      lay.rows.forEach((r, i) => {
+        if (overButton(r, input)) state.menuIndex = i;
+      });
+    }
+    if (input.confirm) craftItem(state, state.menuIndex);
+    if (input.mouseClicked) {
+      const i = lay.rows.findIndex((r) => overButton(r, input));
+      if (i >= 0) craftItem(state, i);
+      else if (overButton(lay.close, input) || !overButton(lay.panel, input)) {
+        state.craftOpen = false;
+        sfx("select");
+      }
+    }
+    if (input.pause) {
+      state.craftOpen = false;
+      sfx("select");
     }
     return;
   }
@@ -411,8 +673,9 @@ export function updateGer(state: GameState, dt: number): void {
       sfx("move");
     }
     if (input.mouseMoved) {
+      const scroll = shopScrollStart(state.menuIndex);
       lay.rows.forEach((r, i) => {
-        if (overButton(r, input)) state.menuIndex = i;
+        if (overButton(r, input)) state.menuIndex = scroll + i;
       });
     }
 
@@ -429,9 +692,10 @@ export function updateGer(state: GameState, dt: number): void {
     }
 
     if (input.mouseClicked) {
+      const scroll = shopScrollStart(state.menuIndex);
       const i = lay.rows.findIndex((r) => overButton(r, input));
       if (i >= 0) {
-        buyItem(state, i);
+        buyItem(state, scroll + i);
       } else if (
         overButton(lay.close, input) ||
         !overButton(lay.panel, input)
@@ -447,7 +711,6 @@ export function updateGer(state: GameState, dt: number): void {
     return;
   }
 
-  // Гэр дотор алхах
   const lay = gerLayout();
   const player = state.player;
   const dir = {
@@ -466,19 +729,30 @@ export function updateGer(state: GameState, dt: number): void {
 
   const prox = gerProximity(state);
 
-  // Авдар: ойртоод E, эсвэл авдар дээр дарах → дэлгүүр
   if (
     (input.interact && prox.nearChest) ||
     (input.mouseClicked && overButton(lay.chest, input))
   ) {
     state.shopOpen = true;
+    state.craftOpen = false;
     state.menuIndex = 0;
     state.input.interact = false;
     sfx("select");
     return;
   }
 
-  // Ор: ойртоод E → 5 сек унтах анимэйшн
+  if (
+    (input.interact && prox.nearAltar) ||
+    (input.mouseClicked && overButton(lay.altar, input))
+  ) {
+    state.craftOpen = true;
+    state.shopOpen = false;
+    state.menuIndex = 0;
+    state.input.interact = false;
+    sfx("select");
+    return;
+  }
+
   if (input.interact && prox.nearBed) {
     state.input.interact = false;
     if (player.sleepCooldown > 0) {
@@ -488,7 +762,6 @@ export function updateGer(state: GameState, dt: number): void {
       const bed = prox.nearBedL ? lay.bedL : lay.bedR;
       state.gerSleepBed = prox.nearBedL ? "L" : "R";
       state.gerSleepTimer = 5;
-      // Орны дээд хэсэгт хэвтүүлнэ
       state.gerPlayer.x = bed.x + bed.w / 2;
       state.gerPlayer.y = bed.y + bed.h * 0.38;
       player.moving = false;
@@ -498,7 +771,6 @@ export function updateGer(state: GameState, dt: number): void {
     return;
   }
 
-  // Хаалга руу алхах, P, эсвэл хаалган дээр дарах → гадагш гарна
   if (
     prox.atDoor ||
     input.pause ||
@@ -736,7 +1008,20 @@ export function drawMinimap(
   // Хонь
   ctx.fillStyle = "#f0ebe3";
   for (const s of state.world.flock.visuals) {
+    const colors: Record<string, string> = {
+      sheep: "#f0ebe3",
+      goat: "#d0c0a0",
+      cattle: "#8a6a48",
+      horse: "#7a5538",
+      camel: "#c4a06a",
+    };
+    ctx.fillStyle = colors[s.kind] ?? "#f0ebe3";
     ctx.fillRect(mx + s.pos.x * sx - 1, my + s.pos.y * sy - 1, 2, 2);
+  }
+  // Зэрлэг морь
+  ctx.fillStyle = "#e8c56a";
+  for (const h of state.world.wildHorses) {
+    ctx.fillRect(mx + h.pos.x * sx - 1.5, my + h.pos.y * sy - 1.5, 3, 3);
   }
   // Чоно
   ctx.fillStyle = "#ff5050";
@@ -858,7 +1143,7 @@ export function drawMenuMain(
   ctx.fillText("МАЛЧИН", VIEW_W / 2, 166);
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText("Мянгат малчин бол", VIEW_W / 2, 200);
+  ctx.fillText("5 хошуу малчин бол", VIEW_W / 2, 200);
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();
@@ -946,7 +1231,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["WASD", "Алхах"],
     ["J", "Цохих"],
     ["K", "Буудах / Харвах"],
-    ["E", "Мод огтлох · Жимс түүх"],
+    ["E", "Мод огтлох · Жимс түүх · Бэлчээрээс өвс хадах"],
     ["Q", "Жимс идэх"],
     ["F", "Гал түлэх"],
     ["B", "Хашаа preview → дахин B барих/шинэчлэх"],
@@ -959,7 +1244,9 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
       "",
       `  ③ ${FENCE_TIER_NAMES[3]} — ${u2.wood} мод + ${u2.score} оноо + ${u2.berries} жимс (түв. ${u2.minLevel}+)`,
     ],
-    ["N", "Хонь туух (барина)"],
+    ["N", "Мал туух (барина)"],
+    ["", "Зун/намар/хавар: бэлчээр дээр E — өвс хадгал"],
+    ["", "Өвөл: тэжээгчид өвс хий (хоосон бол мал өлсөнө)"],
     [".", "Мод/түлээ хязгааргүй"],
     ["P", "Түр зогсоох"],
   ];
@@ -1056,11 +1343,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   // Зүүн дээд самбар
   ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, pad, pad, 296, 258, 10);
+  roundRectPath(ctx, pad, pad, 296, 310, 10);
   ctx.fill();
   ctx.strokeStyle = "rgba(232,197,106,0.3)";
   ctx.lineWidth = 1;
-  roundRectPath(ctx, pad, pad, 296, 258, 10);
+  roundRectPath(ctx, pad, pad, 296, 310, 10);
   ctx.stroke();
 
   drawBarFancy(
@@ -1093,15 +1380,16 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     "#ff9f5a",
     `Дулаан ${Math.ceil(player.vitals.warmth)}`,
   );
+  const kindsDone = fiveKindsProgress(world.flock.counts);
   drawBarFancy(
     ctx,
     pad + 14,
     pad + 122,
     266,
     12,
-    world.flock.total / WIN_SHEEP,
+    kindsDone / 5,
     "#d4c4a0",
-    `Хонь ${world.flock.total} / ${WIN_SHEEP}`,
+    `5 хошуу ${kindsDone}/5 · Мал ${world.flock.total}`,
   );
   drawBarFancy(
     ctx,
@@ -1114,20 +1402,56 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     `Түвшин ${state.level} · XP ${Math.floor(state.xp)} / ${state.xpNext}`,
   );
 
+  // 5 хошуу мал товч
+  ctx.font = "600 11px system-ui, sans-serif";
+  let lx = pad + 14;
+  for (const k of LIVESTOCK_KINDS) {
+    const n = world.flock.counts[k];
+    ctx.fillStyle = n >= 1 ? "#a0d890" : "#887860";
+    const label = `${LIVESTOCK_MN[k]} ${n}`;
+    ctx.fillText(label, lx, pad + 178);
+    lx += ctx.measureText(label).width + 10;
+  }
+
   // Нөөц
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.fillStyle = "#c49a6c";
   ctx.fillText(
     state.unlimitedWood ? "🪵 ∞" : `🪵 ${player.inventory.wood}`,
     pad + 14,
-    pad + 198,
+    pad + 192,
   );
   ctx.fillStyle = "#e890b0";
-  ctx.fillText(`🍒 ${player.inventory.berries}`, pad + 80, pad + 198);
+  ctx.fillText(`🍒 ${player.inventory.berries}`, pad + 78, pad + 192);
+  ctx.fillStyle =
+    world.season === "winter" && world.feeder.hay <= 0
+      ? "#ff8080"
+      : "#a8c050";
+  ctx.fillText(`🌾 ${player.inventory.hay}`, pad + 142, pad + 192);
   ctx.fillStyle = COLORS.hudAccent;
-  ctx.fillText(`Өдөр ${world.dayNumber}`, pad + 150, pad + 198);
-  ctx.fillStyle = COLORS.hudMuted;
-  ctx.fillText(`Оноо ${state.score}`, pad + 218, pad + 198);
+  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score} оноо`, pad + 200, pad + 192);
+
+  // Өвлийн сүргийн өлсгөлөн / зуны бэлчээр
+  if (world.season === "winter") {
+    drawBarFancy(
+      ctx,
+      pad + 14,
+      pad + 206,
+      266,
+      8,
+      world.flock.hunger / 100,
+      world.flock.hunger < 35 ? "#d64545" : "#9aaa50",
+      `Сүрэг ${Math.ceil(world.flock.hunger)}%`,
+    );
+  } else {
+    ctx.fillStyle = COLORS.hudMuted;
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.fillText(
+      `Бэлчээр ${Math.ceil(world.pastureGrass)} · E — өвс хадах`,
+      pad + 14,
+      pad + 214,
+    );
+  }
 
   ctx.fillStyle =
     state.unlimitedWood || player.inventory.wood >= FENCE_COST
@@ -1141,7 +1465,21 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
         ? "B — preview · дахин B = барих · N — туух"
         : `B — preview (${FENCE_COST} мод) · дахин B = барих`,
     pad + 14,
-    pad + 216,
+    pad + 236,
+  );
+
+  // Бүтээгдэхүүн + тэжээгч
+  ctx.font = "600 11px system-ui, sans-serif";
+  ctx.fillStyle = "#e8d8a0";
+  ctx.fillText(
+    `Ноос ${player.inventory.wool} · Ноолуур ${player.inventory.cashmere} · Сүү ${player.inventory.milk}`,
+    pad + 14,
+    pad + 256,
+  );
+  ctx.fillText(
+    `Эсгий ${player.inventory.felt} · Ааруул ${player.inventory.aaruul} · Тэжээгч ${Math.floor(world.feeder.hay)}`,
+    pad + 14,
+    pad + 272,
   );
 
   const nearFence = nearestFence(player.pos, world.fences, 64);
@@ -1155,7 +1493,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `${gateLabel}${FENCE_TIER_SHORT[tier]} · ${hpPct}%`,
       pad + 14,
-      pad + 234,
+      pad + 292,
     );
     if (nearFence.isGate) {
       ctx.fillStyle = COLORS.hudMuted;
@@ -1165,7 +1503,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
           ? "хаалга нээлттэй"
           : "хаалга түлхэж нээх",
         pad + 100,
-        pad + 234,
+        pad + 292,
       );
     } else if (tier < 3) {
       const next = FENCE_UPGRADE_COST[tier as 1 | 2];
@@ -1177,12 +1515,12 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       ctx.fillText(
         `→ ${FENCE_TIER_NAMES[(tier + 1) as 2 | 3]}: ${parts.join("+")}`,
         pad + 100,
-        pad + 234,
+        pad + 292,
       );
     } else {
       ctx.fillStyle = COLORS.hudMuted;
       ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(FENCE_TIER_NAMES[3], pad + 100, pad + 234);
+      ctx.fillText(FENCE_TIER_NAMES[3], pad + 100, pad + 292);
     }
   } else {
     ctx.fillStyle = "rgba(168,152,128,0.75)";
@@ -1190,7 +1528,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `${FENCE_TIER_NAMES[1]} → ${FENCE_TIER_NAMES[2]} → ${FENCE_TIER_NAMES[3]}`,
       pad + 14,
-      pad + 234,
+      pad + 292,
     );
   }
 
@@ -1222,7 +1560,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     if (world.wolves.length) parts.push(`Чоно ${world.wolves.length}`);
     if (world.thieves.length) {
       const stolen = world.thieves.reduce((s, t) => s + t.stolen, 0);
-      parts.push(`Хулгайч (−${stolen} хонь)`);
+      parts.push(`Хулгайч (−${stolen} мал)`);
     }
     const text = parts.join("  ·  ");
     ctx.font = "600 13px system-ui, sans-serif";
@@ -1235,7 +1573,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   }
 
   // Эзэмшсэн эд зүйлс — зүүн доод булан
-  const gearIcons = SHOP_ITEMS.filter((it) => player.gear[it.id])
+  const gearIcons = SHOP_ITEMS.filter(
+    (it): it is Extract<ShopItem, { type: "gear" }> =>
+      it.type === "gear" && player.gear[it.id],
+  )
     .map((it) => it.icon)
     .join(" ");
   if (gearIcons) {
@@ -1348,7 +1689,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.font = "16px system-ui, sans-serif";
     ctx.fillText(
       state.phase === "won"
-        ? `${WIN_SHEEP} Мянгат малчин боллоо!`
+        ? "5 хошуу малтай малчин боллоо!"
         : state.message,
       VIEW_W / 2,
       VIEW_H / 2 + 8,
@@ -1356,7 +1697,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "14px system-ui, sans-serif";
     ctx.fillText(
-      `Түвшин: ${state.level} · Өдөр: ${state.world.dayNumber} · Хонь: ${state.world.flock.total} · Оноо: ${state.score}`,
+      `Түвшин: ${state.level} · Өдөр: ${state.world.dayNumber} · Мал: ${state.world.flock.total} · Оноо: ${state.score}`,
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );
@@ -1379,6 +1720,7 @@ export function drawShop(
 ): void {
   const lay = shopLayout();
   const { panel, rows, close } = lay;
+  const scroll = shopScrollStart(state.menuIndex);
 
   ctx.fillStyle = "rgba(0,0,0,0.55)";
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -1402,10 +1744,24 @@ export function drawShop(
   ctx.textAlign = "left";
 
   rows.forEach((r, i) => {
-    const item = SHOP_ITEMS[i];
-    const owned = state.player.gear[item.id];
-    const selected = state.menuIndex === i;
-    const afford = state.score >= item.price;
+    const item = SHOP_ITEMS[scroll + i];
+    if (!item) return;
+    const selected = state.menuIndex === scroll + i;
+    let owned = false;
+    let rightLabel = "";
+    let afford = true;
+    if (item.type === "gear") {
+      owned = state.player.gear[item.id];
+      afford = state.score >= item.price;
+      rightLabel = owned ? "Эзэмшсэн ✓" : `${item.price} оноо`;
+    } else if (item.type === "livestock") {
+      afford = state.score >= item.price;
+      rightLabel = `${item.price} оноо`;
+    } else {
+      const have = state.player.inventory[item.key];
+      afford = have > 0;
+      rightLabel = have > 0 ? `×${have} · +${item.price}` : "Алга";
+    }
 
     ctx.fillStyle = owned
       ? "rgba(70,95,55,0.35)"
@@ -1419,40 +1775,100 @@ export function drawShop(
     roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
     ctx.stroke();
 
-    // Icon
-    ctx.font = "26px system-ui, sans-serif";
-    ctx.fillText(item.icon, r.x + 14, r.y + 38);
+    ctx.font = "22px system-ui, sans-serif";
+    ctx.fillText(item.icon, r.x + 12, r.y + 34);
 
-    // Нэр ба тайлбар
     ctx.fillStyle = selected ? "#e8c56a" : COLORS.hudText;
-    ctx.font = "600 16px system-ui, sans-serif";
-    ctx.fillText(`${i + 1}. ${item.name}`, r.x + 56, r.y + 24);
+    ctx.font = "600 14px system-ui, sans-serif";
+    ctx.fillText(item.name, r.x + 48, r.y + 20);
+    ctx.fillStyle = COLORS.hudMuted;
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.fillText(item.desc, r.x + 48, r.y + 38);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = owned
+      ? "#a0d890"
+      : afford
+        ? "#ffd060"
+        : "#e07070";
+    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.fillText(rightLabel, r.x + r.w - 14, r.y + 30);
+    ctx.textAlign = "left";
+  });
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = COLORS.hudMuted;
+  ctx.font = "11px system-ui, sans-serif";
+  ctx.fillText(
+    `↑↓ гүйлгэх · ${scroll + 1}–${Math.min(scroll + SHOP_VISIBLE, SHOP_ITEMS.length)} / ${SHOP_ITEMS.length}`,
+    VIEW_W / 2,
+    panel.y + panel.h - 62,
+  );
+  ctx.textAlign = "left";
+
+  drawUiButton(ctx, close, false);
+}
+
+export function drawCraft(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+): void {
+  const lay = craftLayout();
+  const { panel, rows, close } = lay;
+
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  ctx.fillStyle = "rgba(26,17,10,0.97)";
+  roundRectPath(ctx, panel.x, panel.y, panel.w, panel.h, 14);
+  ctx.fill();
+  ctx.strokeStyle = "#e8c56a";
+  ctx.lineWidth = 2;
+  roundRectPath(ctx, panel.x, panel.y, panel.w, panel.h, 14);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#e8c56a";
+  ctx.font = "bold 22px system-ui, sans-serif";
+  ctx.fillText("УРЛАЛ", VIEW_W / 2, panel.y + 40);
+  ctx.textAlign = "left";
+
+  const inv = state.player.inventory;
+  rows.forEach((r, i) => {
+    const recipe = CRAFT_RECIPES[i];
+    const selected = state.menuIndex === i;
+    let can = true;
+    for (const [k, need] of Object.entries(recipe.need)) {
+      if ((inv[k as "wool" | "cashmere" | "milk"] ?? 0) < (need ?? 0)) can = false;
+    }
+
+    ctx.fillStyle = selected
+      ? "rgba(232,197,106,0.14)"
+      : "rgba(12,10,8,0.6)";
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
+    ctx.fill();
+    ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.22)";
+    ctx.lineWidth = selected ? 2 : 1;
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
+    ctx.stroke();
+
+    ctx.fillStyle = selected ? "#e8c56a" : COLORS.hudText;
+    ctx.font = "600 15px system-ui, sans-serif";
+    ctx.fillText(recipe.name, r.x + 16, r.y + 22);
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(item.desc, r.x + 56, r.y + 44);
+    ctx.fillText(recipe.desc, r.x + 16, r.y + 40);
 
-    // Үнэ / эзэмшсэн
     ctx.textAlign = "right";
-    if (owned) {
-      ctx.fillStyle = "#a0d890";
-      ctx.font = "600 14px system-ui, sans-serif";
-      ctx.fillText("Эзэмшсэн ✓", r.x + r.w - 16, r.y + 34);
-    } else {
-      ctx.fillStyle = afford ? "#ffd060" : "#e07070";
-      ctx.font = "600 15px system-ui, sans-serif";
-      ctx.fillText(`${item.price} оноо`, r.x + r.w - 16, r.y + 34);
-    }
+    ctx.fillStyle = can ? "#a0d890" : "#e07070";
+    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.fillText(can ? "Хийх" : "Хүрэлцэхгүй", r.x + r.w - 14, r.y + 30);
     ctx.textAlign = "left";
   });
 
   drawUiButton(ctx, close, false);
-
-  ctx.textAlign = "center";
-  ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "12px system-ui, sans-serif";
-  ctx.fillText("", VIEW_W / 2, panel.y + panel.h + 24);
-  ctx.textAlign = "left";
 }
+
 
 // ---------------------------------------------------------------------------
 // Render

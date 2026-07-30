@@ -1,6 +1,7 @@
 // Хүн 1 — цөм: game loop, оролт, төлөв үүсгэх, mount
 
 import {
+  START_GOATS,
   START_SHEEP,
   VIEW_H,
   VIEW_W,
@@ -47,6 +48,12 @@ import {
 import { render, type RenderContext } from "../game/render/render";
 import { makeVignette } from "../game/render/lighting";
 import { renderTerrain } from "../game/render/terrain";
+import {
+  createFeeder,
+  emptyCounts,
+  updateProduction,
+  updateWildHorses,
+} from "./livestock";
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
@@ -110,7 +117,16 @@ export function createInitialState(): GameState {
         hunger: 100,
         maxHunger: 100,
       },
-      inventory: { wood: 0, berries: 0 },
+      inventory: {
+        wood: 0,
+        berries: 0,
+        hay: 0,
+        wool: 0,
+        cashmere: 0,
+        milk: 0,
+        felt: 0,
+        aaruul: 0,
+      },
       chopCooldown: 0,
       attackCooldown: 0,
       eatCooldown: 0,
@@ -121,7 +137,14 @@ export function createInitialState(): GameState {
       reachMult: 1,
       cooldownMult: 1,
       warmthResist: 1,
-      gear: { dog: false, horse: false, bow: false, gun: false, axe: false },
+      gear: {
+        dog: false,
+        horse: false,
+        bow: false,
+        gun: false,
+        axe: false,
+        urga: false,
+      },
       horseHp: 0,
       horseMaxHp: 0,
       sleepCooldown: 0,
@@ -140,7 +163,13 @@ export function createInitialState(): GameState {
         radius: 56,
       },
       fences: [],
-      flock: { total: START_SHEEP, visuals: [] },
+      flock: {
+        counts: { ...emptyCounts(), sheep: START_SHEEP, goat: START_GOATS },
+        total: START_SHEEP + START_GOATS,
+        visuals: [],
+        hunger: 100,
+        starveAcc: 0,
+      },
       wolves: [],
       thieves: [],
       season: "autumn",
@@ -148,10 +177,14 @@ export function createInitialState(): GameState {
       timeOfDay: 8,
       dayNumber: 1,
       elapsed: 0,
-      nextWolfIn: 18,
-      nextThiefIn: 35,
+      nextWolfIn: 36,
+      nextThiefIn: 70,
+      nextWildHorseIn: 25,
       dog: null,
       projectiles: [],
+      pastureGrass: 80,
+      feeder: createFeeder(spawn),
+      wildHorses: [],
     },
     fencePreview: false,
     unlimitedWood: false,
@@ -192,8 +225,9 @@ export function createInitialState(): GameState {
       emberAcc: 0,
       dustAcc: 0,
     },
-    message: "10 хоньтой эхэллээ. Жимс идэж, сүргээ хамгаал!",
-    messageTimer: 5,
+    message:
+      "2 хонь + 2 ямаатай эхэллээ. Тэжээгчид өвс хий, 5 хошуу мал цуглуул!",
+    messageTimer: 6,
     score: 0,
     xp: 0,
     level: 1,
@@ -204,6 +238,7 @@ export function createInitialState(): GameState {
     menuIndex: 0,
     pauseIndex: 0,
     shopOpen: false,
+    craftOpen: false,
     gerPlayer: { x: 480, y: 435 },
     gerSleepTimer: 0,
     gerSleepBed: null,
@@ -394,6 +429,8 @@ export function update(state: GameState, dt: number): void {
     tryAttack(state);
     updateGates(state, dt);
     updateFlock(state, dt);
+    updateProduction(state, dt);
+    updateWildHorses(state, dt);
     updateThreatTimers(state, dt);
     updateWolves(state, dt);
     updateThieves(state, dt);

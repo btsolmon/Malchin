@@ -4,14 +4,12 @@ import {
   FENCE_BREAK_DPS,
   FENCE_CONTACT_DPS,
   FENCE_KNOCKBACK,
-  MAX_VISUAL_SHEEP,
   PASTURE_RADIUS,
-  WIN_SHEEP,
   WORLD_H,
   WORLD_W,
   type FenceTier,
   type GameState,
-  type Sheep,
+  type HerdAnimal,
   type Vector2,
 } from "../game/types";
 import {
@@ -30,86 +28,67 @@ import {
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
+import {
+  addLivestock,
+  checkFiveKindsWin,
+  killHerdVisual,
+  loseLivestock,
+  nearestHerdAnimal,
+  syncVisualFlock,
+} from "./livestock";
 
-export function createVisualSheep(id: number, around: Vector2): Sheep {
-  const ang = Math.random() * Math.PI * 2;
-  const r = randRange(20, PASTURE_RADIUS * 0.7);
-  return {
-    id,
-    pos: {
-      x: around.x + Math.cos(ang) * r,
-      y: around.y + Math.sin(ang) * r,
-    },
-    vel: { x: 0, y: 0 },
-    radius: 10,
-    grazeSeed: Math.random() * 10,
-    hp: 3,
-    flash: 0,
-    face: 1,
-  };
-}
+// Re-exports for other modules
+export {
+  syncVisualFlock,
+  addLivestock,
+  loseLivestock,
+  killHerdVisual,
+  checkFiveKindsWin,
+  nearestHerdAnimal,
+};
 
-export function syncVisualFlock(state: GameState): void {
-  const { flock } = state.world;
-  const center = pastureCenter(state.world);
-  const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
-
-  while (flock.visuals.length < want) {
-    flock.visuals.push(createVisualSheep(allocId(state), center));
-  }
-  while (flock.visuals.length > want) {
-    flock.visuals.pop();
-  }
-}
-
+/** Хуучин API — хонь нэмэх (өдөр тутмын өсөлт гэх мэт) */
 export function addSheep(state: GameState, n: number): void {
-  state.world.flock.total = Math.min(WIN_SHEEP, state.world.flock.total + n);
-  syncVisualFlock(state);
-  checkWin(state);
+  // Одоо байгаа төрлүүдэд пропорциональ хуваарилна
+  const flock = state.world.flock;
+  if (flock.total <= 0) {
+    addLivestock(state, "sheep", n);
+    return;
+  }
+  let left = n;
+  const kinds = (["sheep", "goat", "cattle", "horse", "camel"] as const).filter(
+    (k) => flock.counts[k] > 0,
+  );
+  for (let i = 0; i < kinds.length; i++) {
+    const k = kinds[i];
+    const share =
+      i === kinds.length - 1
+        ? left
+        : Math.max(0, Math.round((flock.counts[k] / flock.total) * n));
+    const give = Math.min(share, left);
+    if (give > 0) addLivestock(state, k, give);
+    left -= give;
+  }
+  if (left > 0) addLivestock(state, kinds[0] ?? "sheep", left);
 }
 
 export function loseSheep(state: GameState, n: number): number {
-  const lost = Math.min(n, state.world.flock.total);
-  state.world.flock.total -= lost;
-  syncVisualFlock(state);
-  if (state.world.flock.total <= 0) {
-    state.phase = "lost";
-    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
-  }
-  return lost;
+  return loseLivestock(state, n);
 }
 
-/** Тодорхой нэг хонь чонод идэгдэх */
-export function killSheepVisual(state: GameState, sheep: Sheep): void {
-  const flock = state.world.flock;
-  flock.total = Math.max(0, flock.total - 1);
-  const i = flock.visuals.indexOf(sheep);
-  if (i >= 0) flock.visuals.splice(i, 1);
-  syncVisualFlock(state);
-  if (flock.total <= 0) {
-    state.phase = "lost";
-    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
-  }
+export function killSheepVisual(state: GameState, sheep: HerdAnimal): void {
+  killHerdVisual(state, sheep);
 }
 
 export function checkWin(state: GameState): void {
-  if (state.world.flock.total >= WIN_SHEEP) {
-    state.phase = "won";
-    setMessage(state, `Ялалт! ${WIN_SHEEP} хоньтой болоо!`, 99);
-  }
+  checkFiveKindsWin(state);
 }
 
-export function nearestSheep(from: Vector2, visuals: Sheep[]): Sheep | null {
-  let best: Sheep | null = null;
-  let bestD = Infinity;
-  for (const s of visuals) {
-    const d = dist(from, s.pos);
-    if (d < bestD) {
-      bestD = d;
-      best = s;
-    }
-  }
-  return best;
+export function nearestSheep(
+  from: Vector2,
+  visuals: HerdAnimal[],
+): HerdAnimal | null {
+  return nearestHerdAnimal(from, visuals);
 }
 
 // ---------------------------------------------------------------------------
@@ -220,8 +199,8 @@ export function spawnThief(state: GameState): void {
   sfx("alert");
 
   if (stolen > 0) {
-    spawnText(state, pos, `−${stolen} хонь!`, "#ff8080");
-    setMessage(state, `Хулгайч ${stolen} хонь авч зугтав! Гүйцэж ав!`, 4);
+    spawnText(state, pos, `−${stolen} мал!`, "#ff8080");
+    setMessage(state, `Хулгайч ${stolen} мал авч зугтав! Гүйцэж ав!`, 4);
   } else if (defense.tier3Count < 5) {
     setMessage(state, "Хулгайч ойртлоо — хашаагаа шалга!", 3);
   }
@@ -504,11 +483,11 @@ export function updateWolves(state: GameState, dt: number): void {
         spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
         if (prey.hp <= 0) {
           spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
-          spawnText(state, prey.pos, "−1 хонь", "#ff8080");
+          spawnText(state, prey.pos, "−1 мал", "#ff8080");
           killSheepVisual(state, prey);
           setMessage(
             state,
-            wolf.kind === "bear" ? "Баавгай хонь барив!" : "Чоно хонь барив!",
+            wolf.kind === "bear" ? "Баавгай мал барив!" : "Чоно мал барив!",
             2,
           );
         }
@@ -624,13 +603,13 @@ export function updateThieves(state: GameState, dt: number): void {
         spawnText(
           state,
           thief.pos,
-          recovered > 0 ? `+${recovered} хонь · +${xp} XP` : `+${xp} XP`,
+          recovered > 0 ? `+${recovered} мал · +${xp} XP` : `+${xp} XP`,
           "#b8e8a0",
         );
         setMessage(
           state,
           recovered > 0
-            ? `Хашаа хулгайчийг зогсоов! +${recovered} хонь`
+            ? `Хашаа хулгайчийг зогсоов! +${recovered} мал`
             : "Хашаа хулгайчийг зогсоов!",
           3,
         );
@@ -651,7 +630,7 @@ export function updateThieves(state: GameState, dt: number): void {
       setMessage(
         state,
         lost > 0
-          ? `Хулгайч зугтав… ${lost} хонь үгүй болов.`
+          ? `Хулгайч зугтав… ${lost} мал үгүй болов.`
           : "Хулгайч зугтав.",
         3,
       );
@@ -668,16 +647,17 @@ export function updateThreatTimers(state: GameState, dt: number): void {
 
   const night = isNight(world);
   if (world.nextWolfIn <= 0) {
-    // 2-р түвшнээс эхлэн заримдаа чонын оронд баавгай гарна
-    const bear = state.level >= 2 && Math.random() < 0.25;
+    // 2-р түвшнээс эхлэн заримдаа чонын оронд баавгай гарна (ховор)
+    const bear = state.level >= 2 && Math.random() < 0.12;
     spawnWolf(state, bear ? "bear" : "wolf");
-    world.nextWolfIn = night ? randRange(10, 18) : randRange(22, 38);
+    // Дайралт 2× бага давтамжтай
+    world.nextWolfIn = night ? randRange(20, 36) : randRange(44, 76);
   }
 
   if (world.nextThiefIn <= 0) {
-    if (!night || Math.random() < 0.35) {
+    if (!night || Math.random() < 0.18) {
       spawnThief(state);
     }
-    world.nextThiefIn = randRange(28, 50);
+    world.nextThiefIn = randRange(56, 100);
   }
 }

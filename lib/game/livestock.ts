@@ -1,0 +1,430 @@
+// 5 хошуу мал — тоолол, бүтээгдэхүүн, тэжээгч, уурга
+
+import {
+  LIVESTOCK_KINDS,
+  LIVESTOCK_MN,
+  MAX_FEEDER_HAY,
+  MAX_VISUAL_SHEEP,
+  PASTURE_RADIUS,
+  PRODUCE_INTERVAL,
+  WIN_EACH_KIND,
+  WORLD_H,
+  WORLD_W,
+  type Feeder,
+  type GameState,
+  type HerdAnimal,
+  type LivestockKind,
+  type Vector2,
+  type WildHorse,
+} from "./types";
+import { allocId, clamp, dist, normalize, pastureCenter, randRange, setMessage } from "./utils";
+import { spawnParticles, spawnText } from "./effects";
+import { sfx } from "./audio";
+
+export function emptyCounts(): Record<LivestockKind, number> {
+  return { sheep: 0, goat: 0, cattle: 0, horse: 0, camel: 0 };
+}
+
+export function recountTotal(counts: Record<LivestockKind, number>): number {
+  let t = 0;
+  for (const k of LIVESTOCK_KINDS) t += counts[k];
+  return t;
+}
+
+export function syncFlockTotal(flock: { counts: Record<LivestockKind, number>; total: number }): void {
+  flock.total = recountTotal(flock.counts);
+}
+
+export function hasFiveKinds(counts: Record<LivestockKind, number>): boolean {
+  return LIVESTOCK_KINDS.every((k) => counts[k] >= WIN_EACH_KIND);
+}
+
+export function fiveKindsProgress(counts: Record<LivestockKind, number>): number {
+  let n = 0;
+  for (const k of LIVESTOCK_KINDS) if (counts[k] >= WIN_EACH_KIND) n++;
+  return n;
+}
+
+export function createHerdAnimal(
+  id: number,
+  around: Vector2,
+  kind: LivestockKind,
+): HerdAnimal {
+  const ang = Math.random() * Math.PI * 2;
+  const r = randRange(20, PASTURE_RADIUS * 0.7);
+  const scale =
+    kind === "camel" ? 1.35 : kind === "cattle" ? 1.25 : kind === "horse" ? 1.15 : 1;
+  return {
+    id,
+    kind,
+    pos: {
+      x: around.x + Math.cos(ang) * r,
+      y: around.y + Math.sin(ang) * r,
+    },
+    vel: { x: 0, y: 0 },
+    radius: 9 * scale,
+    grazeSeed: Math.random() * 10,
+    hp: 3,
+    flash: 0,
+    face: 1,
+    produceIn: PRODUCE_INTERVAL[kind] * (0.4 + Math.random() * 0.6),
+    produceReady: false,
+  };
+}
+
+/** Төрөл бүрийн харьцаагаар дүрслэл синк */
+export function syncVisualFlock(state: GameState): void {
+  const { flock } = state.world;
+  syncFlockTotal(flock);
+  const center = pastureCenter(state.world);
+  const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
+
+  const have = emptyCounts();
+  for (const v of flock.visuals) have[v.kind]++;
+
+  for (let i = flock.visuals.length - 1; i >= 0; i--) {
+    const v = flock.visuals[i];
+    if (have[v.kind] > flock.counts[v.kind]) {
+      flock.visuals.splice(i, 1);
+      have[v.kind]--;
+    }
+  }
+  while (flock.visuals.length > want) {
+    const v = flock.visuals.pop();
+    if (v) have[v.kind]--;
+  }
+
+  while (flock.visuals.length < want) {
+    let best: LivestockKind | null = null;
+    let bestDiff = -Infinity;
+    for (const k of LIVESTOCK_KINDS) {
+      if (flock.counts[k] <= 0) continue;
+      if (have[k] >= flock.counts[k]) continue;
+      const target = (flock.counts[k] / Math.max(1, flock.total)) * want;
+      const diff = target - have[k];
+      if (diff > bestDiff) {
+        bestDiff = diff;
+        best = k;
+      }
+    }
+    if (!best) break;
+    flock.visuals.push(createHerdAnimal(allocId(state), center, best));
+    have[best]++;
+  }
+}
+
+export function addLivestock(
+  state: GameState,
+  kind: LivestockKind,
+  n: number,
+): void {
+  if (n <= 0) return;
+  state.world.flock.counts[kind] += n;
+  syncVisualFlock(state);
+  checkFiveKindsWin(state);
+}
+
+export function loseLivestock(state: GameState, n: number): number {
+  const flock = state.world.flock;
+  let remaining = Math.min(n, flock.total);
+  let lost = 0;
+  while (remaining > 0 && flock.total > 0) {
+    // Жинлэгдсэн санамсаргүй төрөл
+    let roll = Math.random() * flock.total;
+    let kind: LivestockKind = "sheep";
+    for (const k of LIVESTOCK_KINDS) {
+      roll -= flock.counts[k];
+      if (roll <= 0) {
+        kind = k;
+        break;
+      }
+    }
+    if (flock.counts[kind] <= 0) {
+      // fallback
+      kind = LIVESTOCK_KINDS.find((k) => flock.counts[k] > 0) ?? "sheep";
+    }
+    if (flock.counts[kind] <= 0) break;
+    flock.counts[kind] -= 1;
+    lost += 1;
+    remaining -= 1;
+    syncFlockTotal(flock);
+  }
+  syncVisualFlock(state);
+  if (flock.total <= 0) {
+    state.phase = "lost";
+    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
+  }
+  return lost;
+}
+
+export function killHerdVisual(state: GameState, animal: HerdAnimal): void {
+  const flock = state.world.flock;
+  if (flock.counts[animal.kind] > 0) flock.counts[animal.kind] -= 1;
+  const i = flock.visuals.indexOf(animal);
+  if (i >= 0) flock.visuals.splice(i, 1);
+  syncVisualFlock(state);
+  if (flock.total <= 0) {
+    state.phase = "lost";
+    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
+  }
+}
+
+export function checkFiveKindsWin(state: GameState): void {
+  if (state.phase !== "playing") return;
+  if (hasFiveKinds(state.world.flock.counts)) {
+    state.phase = "won";
+    setMessage(state, "Ялалт! 5 хошуу малтай боллоо!", 99);
+  }
+}
+
+export function nearestHerdAnimal(
+  from: Vector2,
+  visuals: HerdAnimal[],
+): HerdAnimal | null {
+  let best: HerdAnimal | null = null;
+  let bestD = Infinity;
+  for (const s of visuals) {
+    const d = dist(from, s.pos);
+    if (d < bestD) {
+      bestD = d;
+      best = s;
+    }
+  }
+  return best;
+}
+
+export function nearestReadyAnimal(
+  from: Vector2,
+  visuals: HerdAnimal[],
+  maxDist: number,
+): HerdAnimal | null {
+  let best: HerdAnimal | null = null;
+  let bestD = Infinity;
+  for (const s of visuals) {
+    if (!s.produceReady) continue;
+    const d = dist(from, s.pos);
+    if (d < bestD && d < maxDist) {
+      bestD = d;
+      best = s;
+    }
+  }
+  return best;
+}
+
+export function productLabel(kind: LivestockKind): string {
+  switch (kind) {
+    case "sheep":
+      return "ноос";
+    case "goat":
+      return Math.random() < 0.35 ? "ноолуур" : "сүү";
+    case "cattle":
+      return "сүү";
+    case "horse":
+      return "сүү";
+    case "camel":
+      return Math.random() < 0.4 ? "ноос" : "сүү";
+  }
+}
+
+export function collectProduct(state: GameState, animal: HerdAnimal): void {
+  const inv = state.player.inventory;
+  const kind = animal.kind;
+  animal.produceReady = false;
+  animal.produceIn = PRODUCE_INTERVAL[kind] * (0.85 + Math.random() * 0.3);
+
+  let label = "";
+  if (kind === "sheep") {
+    inv.wool += 1;
+    label = "+1 ноос";
+  } else if (kind === "goat") {
+    if (Math.random() < 0.35) {
+      inv.cashmere += 1;
+      label = "+1 ноолуур";
+    } else {
+      inv.milk += 1;
+      label = "+1 сүү";
+    }
+  } else if (kind === "cattle" || kind === "horse") {
+    inv.milk += 1;
+    label = "+1 сүү";
+  } else {
+    // camel
+    if (Math.random() < 0.4) {
+      inv.wool += 1;
+      label = "+1 тэмээний ноос";
+    } else {
+      inv.milk += 1;
+      label = "+1 сүү";
+    }
+  }
+
+  state.score += 2;
+  sfx("berry");
+  spawnParticles(state, animal.pos, 6, "#f0e0a0", { speed: 50, size: 2 });
+  spawnText(state, animal.pos, label, "#ffe9a0");
+}
+
+/** Малын бүтээгдэхүүн таймер — цатгалан үед */
+export function updateProduction(state: GameState, dt: number): void {
+  if (state.phase !== "playing") return;
+  const flock = state.world.flock;
+  const fed = flock.hunger >= 40;
+  const rate = fed ? 1 : 0.25;
+
+  for (const a of flock.visuals) {
+    if (a.produceReady) continue;
+    a.produceIn -= dt * rate;
+    if (a.produceIn <= 0) {
+      a.produceReady = true;
+      a.produceIn = 0;
+    }
+  }
+}
+
+export function createFeeder(center: Vector2): Feeder {
+  return {
+    pos: { x: center.x - 70, y: center.y + 48 },
+    hay: 12,
+    maxHay: MAX_FEEDER_HAY,
+    radius: 22,
+  };
+}
+
+export function depositHayToFeeder(state: GameState, amount = 5): boolean {
+  const feeder = state.world.feeder;
+  const inv = state.player.inventory;
+  if (inv.hay <= 0) {
+    setMessage(state, "Өвс алга — бэлчээрээс E-ээр хад.", 2);
+    return false;
+  }
+  const space = feeder.maxHay - feeder.hay;
+  if (space <= 0) {
+    setMessage(state, "Тэжээгч дүүрэн.", 1.5);
+    return false;
+  }
+  const move = Math.min(amount, inv.hay, space);
+  inv.hay -= move;
+  feeder.hay += move;
+  sfx("chop");
+  spawnText(state, feeder.pos, `+${move} өвс → тэжээгч`, "#b8d060");
+  setMessage(state, `Тэжээгчид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})`, 2);
+  return true;
+}
+
+export function spawnWildHorse(state: GameState): void {
+  const edge = Math.floor(Math.random() * 4);
+  let pos: Vector2;
+  if (edge === 0) pos = { x: randRange(80, WORLD_W - 80), y: 60 };
+  else if (edge === 1) pos = { x: randRange(80, WORLD_W - 80), y: WORLD_H - 60 };
+  else if (edge === 2) pos = { x: 60, y: randRange(80, WORLD_H - 80) };
+  else pos = { x: WORLD_W - 60, y: randRange(80, WORLD_H - 80) };
+
+  state.world.wildHorses.push({
+    id: allocId(state),
+    pos,
+    vel: { x: 0, y: 0 },
+    radius: 14,
+    face: 1,
+    spooked: 0,
+  });
+  setMessage(state, "Зэрлэг морь гарлаа — уургатай ойртож E!", 3.5);
+}
+
+export function updateWildHorses(state: GameState, dt: number): void {
+  const { player, world } = state;
+  const center = pastureCenter(world);
+
+  world.nextWildHorseIn -= dt;
+  if (world.nextWildHorseIn <= 0 && world.wildHorses.length < 3) {
+    spawnWildHorse(state);
+    world.nextWildHorseIn = randRange(45, 90);
+  }
+
+  for (const h of world.wildHorses) {
+    if (h.spooked > 0) h.spooked -= dt;
+
+    const toPlayer = { x: player.pos.x - h.pos.x, y: player.pos.y - h.pos.y };
+    const dPlayer = Math.hypot(toPlayer.x, toPlayer.y);
+    const wander = {
+      x: Math.sin(world.elapsed * 0.4 + h.id) * 0.6,
+      y: Math.cos(world.elapsed * 0.35 + h.id * 1.3) * 0.6,
+    };
+
+    let ax = wander.x;
+    let ay = wander.y;
+
+    // Тоглогчоос холд (ялангуяа уургагүй бол)
+    if (dPlayer < 120) {
+      const flee = normalize({ x: -toPlayer.x, y: -toPlayer.y });
+      const fear = player.gear.urga && dPlayer < 70 ? 0.4 : 1.2;
+      ax += flee.x * fear;
+      ay += flee.y * fear;
+      if (dPlayer < 55) h.spooked = 1.5;
+    }
+
+    // Бэлчээр рүү бага зэрэг татагдана
+    const toC = normalize({ x: center.x - h.pos.x, y: center.y - h.pos.y });
+    if (dist(h.pos, center) > PASTURE_RADIUS + 200) {
+      ax += toC.x * 0.3;
+      ay += toC.y * 0.3;
+    }
+
+    const spd = h.spooked > 0 ? 160 : 70;
+    const dir = normalize({ x: ax, y: ay });
+    h.vel.x = dir.x * spd;
+    h.vel.y = dir.y * spd;
+    h.pos.x = clamp(h.pos.x + h.vel.x * dt, 30, WORLD_W - 30);
+    h.pos.y = clamp(h.pos.y + h.vel.y * dt, 30, WORLD_H - 30);
+    if (Math.abs(h.vel.x) > 8) h.face = h.vel.x > 0 ? 1 : -1;
+  }
+}
+
+/** Уургатай ойртож барих — ойртох тусам илүү амжилттай */
+export function tryCatchWildHorse(state: GameState): boolean {
+  if (!state.player.gear.urga) {
+    setMessage(state, "Уурга хэрэгтэй — авдраас худалдаж ав.", 2);
+    return false;
+  }
+  const player = state.player;
+  let best: WildHorse | null = null;
+  let bestD = Infinity;
+  for (const h of state.world.wildHorses) {
+    const d = dist(player.pos, h.pos);
+    if (d < bestD) {
+      bestD = d;
+      best = h;
+    }
+  }
+  if (!best || bestD > 58) return false;
+
+  // Ойртох тусам амжилт өндөр; айсан морь хэцүү
+  const closeBonus = clamp(1 - bestD / 58, 0, 1);
+  const chance = 0.35 + closeBonus * 0.55 - (best.spooked > 0 ? 0.25 : 0);
+  if (Math.random() < chance) {
+    const idx = state.world.wildHorses.indexOf(best);
+    if (idx >= 0) state.world.wildHorses.splice(idx, 1);
+    addLivestock(state, "horse", 1);
+    state.score += 25;
+    sfx("buy");
+    spawnParticles(state, best.pos, 14, "#e8c56a", { speed: 90, size: 3 });
+    spawnText(state, best.pos, "+1 морь!", "#ffe9a0");
+    setMessage(state, "Зэрлэг морь уургаар барив!", 3.5);
+    return true;
+  }
+
+  best.spooked = 2.5;
+  const flee = normalize({
+    x: best.pos.x - player.pos.x,
+    y: best.pos.y - player.pos.y,
+  });
+  best.pos.x += flee.x * 40;
+  best.pos.y += flee.y * 40;
+  sfx("alert");
+  spawnText(state, best.pos, "Зугаллаа!", "#ffb080");
+  setMessage(state, "Морь зугтав — ойртож дахин оролд!", 2.5);
+  return true;
+}
+
+export function livestockSummary(counts: Record<LivestockKind, number>): string {
+  return LIVESTOCK_KINDS.map((k) => `${LIVESTOCK_MN[k]} ${counts[k]}`).join(" · ");
+}
