@@ -29,12 +29,17 @@ import {
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import {
+  penCenter,
+  PEN_RADIUS,
+  threatIntervalMult,
+  winterFenceBreakMult,
+} from "./daycycle";
+import {
+  syncVisualFlock,
   addLivestock,
-  checkFiveKindsWin,
   killHerdVisual,
   loseLivestock,
   nearestHerdAnimal,
-  syncVisualFlock,
 } from "./livestock";
 
 // Re-exports for other modules
@@ -43,7 +48,6 @@ export {
   addLivestock,
   loseLivestock,
   killHerdVisual,
-  checkFiveKindsWin,
   nearestHerdAnimal,
 };
 
@@ -78,10 +82,6 @@ export function loseSheep(state: GameState, n: number): number {
 
 export function killSheepVisual(state: GameState, sheep: HerdAnimal): void {
   killHerdVisual(state, sheep);
-}
-
-export function checkWin(state: GameState): void {
-  checkFiveKindsWin(state);
 }
 
 export function nearestSheep(
@@ -212,23 +212,27 @@ export function spawnThief(state: GameState): void {
 
 export function updateFlock(state: GameState, dt: number): void {
   const center = pastureCenter(state.world);
+  const pen = penCenter(state.world);
   const { player, world } = state;
   const herding = state.input.herd;
   const drive = normalize(player.facing);
   const dog = world.dog;
+  const out = world.flockOut;
 
   for (const sheep of world.flock.visuals) {
+    const home = out ? center : pen;
+    const homeR = out ? PASTURE_RADIUS : PEN_RADIUS * 0.85;
     const toCenter = normalize({
-      x: center.x - sheep.pos.x,
-      y: center.y - sheep.pos.y,
+      x: home.x - sheep.pos.x,
+      y: home.y - sheep.pos.y,
     });
     const toPlayer = normalize({
       x: player.pos.x - sheep.pos.x,
       y: player.pos.y - sheep.pos.y,
     });
     const wander = {
-      x: Math.sin(world.elapsed * 0.7 + sheep.id) * 0.4,
-      y: Math.cos(world.elapsed * 0.5 + sheep.id * 1.3) * 0.4,
+      x: Math.sin(world.elapsed * 0.7 + sheep.id) * (out ? 0.4 : 0.15),
+      y: Math.cos(world.elapsed * 0.5 + sheep.id * 1.3) * (out ? 0.4 : 0.15),
     };
 
     // Чононоос зугтана
@@ -274,19 +278,45 @@ export function updateFlock(state: GameState, dt: number): void {
       }
     }
 
-    const dCenter = dist(sheep.pos, center);
-    // Туух үед бэлчээрийн таталтыг сулруулна — сүрэг урагш явна
-    const pull = herding
-      ? dCenter > PASTURE_RADIUS * 1.4
-        ? 0.35
-        : 0.05
-      : dCenter > PASTURE_RADIUS
-        ? 1.2
-        : 0.25;
-    const playerPull = herding ? 0 : 0.15;
+    const dCenter = dist(sheep.pos, home);
+    // Бэлчээрт гарсан үед гэрийн дэргэд биш, бэлчээрийн тойрогт тарана
+    let pull: number;
+    let steerX = toCenter.x;
+    let steerY = toCenter.y;
+    if (herding) {
+      pull = dCenter > homeR * 1.4 ? 0.35 : 0.05;
+    } else if (!out) {
+      pull = dCenter > homeR ? 2.4 : 0.6;
+    } else {
+      // Бэлчих цэг — гэрийн эргэн тойронд тархана
+      const ang =
+        world.elapsed * 0.12 + sheep.id * 1.91 + sheep.grazeSeed;
+      const rad =
+        PASTURE_RADIUS * (0.35 + ((sheep.id * 17) % 7) * 0.08);
+      const spot = {
+        x: center.x + Math.cos(ang) * rad,
+        y: center.y + Math.sin(ang * 0.85) * rad * 0.8,
+      };
+      const toSpot = normalize({
+        x: spot.x - sheep.pos.x,
+        y: spot.y - sheep.pos.y,
+      });
+      steerX = toSpot.x;
+      steerY = toSpot.y;
+      const dSpot = dist(sheep.pos, spot);
+      pull = dSpot > 28 ? 1.1 : 0.2;
+      // Гэрт хэт ойртохыг түлхэнэ
+      const dGer = dist(sheep.pos, center);
+      if (dGer < 70) {
+        steerX += (sheep.pos.x - center.x) / Math.max(1, dGer) * 1.5;
+        steerY += (sheep.pos.y - center.y) / Math.max(1, dGer) * 1.5;
+        pull = Math.max(pull, 1.2);
+      }
+    }
+    const playerPull = herding ? 0 : out ? 0.05 : 0.05;
 
     sheep.vel.x +=
-      (toCenter.x * pull +
+      (steerX * pull +
         toPlayer.x * playerPull +
         wander.x +
         fleeX +
@@ -294,7 +324,7 @@ export function updateFlock(state: GameState, dt: number): void {
       40 *
       dt;
     sheep.vel.y +=
-      (toCenter.y * pull +
+      (steerY * pull +
         toPlayer.y * playerPull +
         wander.y +
         fleeY +
@@ -332,7 +362,24 @@ export function damagePlayer(state: GameState, dmg: number): void {
       player.gear.horse = false;
       spawnParticles(state, player.pos, 14, "#6b4a26", { speed: 110 });
       spawnText(state, player.pos, "Морь үхэв!", "#ff8080");
-      setMessage(state, "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.", 3);
+      if (state.world.gerPacked) {
+        // Гэр унана — одоогийн байранд буулгана
+        const pos = {
+          x: clamp(player.pos.x, 120, state.world.width - 120),
+          y: clamp(player.pos.y, 120, state.world.height - 120),
+        };
+        state.world.campPos = { ...pos };
+        state.world.gerPacked = false;
+        state.world.campfire.pos = { x: pos.x + 52, y: pos.y + 14 };
+        state.world.feeder.pos = { x: pos.x - 70, y: pos.y + 48 };
+        setMessage(
+          state,
+          "Морь үхэж гэр унав! Энд буулаа — шинийг авч нүү.",
+          4,
+        );
+      } else {
+        setMessage(state, "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.", 3);
+      }
     }
   }
   player.vitals.health = clamp(
@@ -364,7 +411,7 @@ function collideEntityWithFences(
     if (dist(pos, fence.pos) > radius + fence.radius + 2) continue;
     const tier = fence.tier as FenceTier;
     if (tier > hitTier) hitTier = tier;
-    const breakDps = FENCE_BREAK_DPS[tier][attacker];
+    const breakDps = FENCE_BREAK_DPS[tier][attacker] * winterFenceBreakMult(state.world);
     if (breakDps > 0) {
       fence.hp -= breakDps * dt;
       if (fence.hp <= 0) {
@@ -645,19 +692,19 @@ export function updateThreatTimers(state: GameState, dt: number): void {
   world.nextWolfIn -= dt;
   world.nextThiefIn -= dt;
 
-  const night = isNight(world);
+  const mult = threatIntervalMult(world) * 2;
+  const night = isNight(world) || world.dayPhase === "night";
   if (world.nextWolfIn <= 0) {
-    // 2-р түвшнээс эхлэн заримдаа чонын оронд баавгай гарна (ховор)
     const bear = state.level >= 2 && Math.random() < 0.12;
     spawnWolf(state, bear ? "bear" : "wolf");
-    // Дайралт 2× бага давтамжтай
-    world.nextWolfIn = night ? randRange(20, 36) : randRange(44, 76);
+    const base = night ? randRange(20, 36) : randRange(44, 76);
+    world.nextWolfIn = base * mult;
   }
 
   if (world.nextThiefIn <= 0) {
     if (!night || Math.random() < 0.18) {
       spawnThief(state);
     }
-    world.nextThiefIn = randRange(56, 100);
+    world.nextThiefIn = randRange(56, 100) * mult;
   }
 }

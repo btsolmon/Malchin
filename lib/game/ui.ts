@@ -24,7 +24,6 @@ import {
 import {
   clamp,
   formatClock,
-  isNight,
   nearestFence,
   pastureCenter,
   roundRectPath,
@@ -33,7 +32,8 @@ import {
 } from "../game/utils";
 import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
-import { addLivestock, fiveKindsProgress } from "./livestock";
+import { addLivestock } from "./livestock";
+import { dayPhaseLabel } from "./daycycle";
 
 export interface UiButton {
   x: number;
@@ -76,17 +76,19 @@ export function mainMenuButtons(): UiButton[] {
 
 export function pauseMenuButtons(): UiButton[] {
   const w = 250;
-  const h = 48;
-  const gap = 16;
+  const h = 44;
+  const gap = 12;
   const x = (VIEW_W - w) / 2;
-  const y0 = VIEW_H / 2 - 30;
-  return ["Үргэлжлүүлэх", "Үндсэн цэс"].map((label, i) => ({
-    x,
-    y: y0 + i * (h + gap),
-    w,
-    h,
-    label,
-  }));
+  const y0 = VIEW_H / 2 - 70;
+  return ["Үргэлжлүүлэх", "Тохиргоо", "Удирдлага", "Үндсэн цэс"].map(
+    (label, i) => ({
+      x,
+      y: y0 + i * (h + gap),
+      w,
+      h,
+      label,
+    }),
+  );
 }
 
 export function settingsLayout(): {
@@ -152,16 +154,26 @@ export function updateSettingsMenu(state: GameState): void {
       }
     });
     if (overButton(lay.back, input)) {
-      state.menuScreen = "main";
-      state.menuIndex = 1;
+      if (state.phase === "paused") {
+        state.menuScreen = "main";
+        state.pauseIndex = 1;
+      } else {
+        state.menuScreen = "main";
+        state.menuIndex = 1;
+      }
       sfx("select");
       return;
     }
   }
 
   if (input.pause || (input.confirm && state.menuIndex === 2)) {
-    state.menuScreen = "main";
-    state.menuIndex = 1;
+    if (state.phase === "paused") {
+      state.menuScreen = "main";
+      state.pauseIndex = 1;
+    } else {
+      state.menuScreen = "main";
+      state.menuIndex = 1;
+    }
     sfx("select");
   }
 }
@@ -196,7 +208,7 @@ export function updateMenu(state: GameState): void {
       state.phase = "playing";
       setMessage(
         state,
-        "2 хонь + 2 ямаатай эхэллээ. Тэжээгчид өвс хий, 5 хошуу мал цуглуул!",
+        "Үүр! Гал түлээд тэжээгчийн дэргэд E — малаа бэлчээрт гарга.",
         6,
       );
       sfx("select");
@@ -784,10 +796,29 @@ export function updateGer(state: GameState, dt: number): void {
 
 export function updatePauseMenu(state: GameState): void {
   const input = state.input;
+
+  // Паузаас нээгдсэн тохиргоо / удирдлага
+  if (state.menuScreen === "settings") {
+    updateSettingsMenu(state);
+    return;
+  }
+  if (state.menuScreen === "controls") {
+    if (input.confirm || input.pause || input.mouseClicked) {
+      state.menuScreen = "main";
+      state.pauseIndex = 2;
+      sfx("select");
+    }
+    return;
+  }
+
   const btns = pauseMenuButtons();
 
-  if (input.menuUp || input.menuDown) {
-    state.pauseIndex = 1 - state.pauseIndex;
+  if (input.menuUp) {
+    state.pauseIndex = (state.pauseIndex + btns.length - 1) % btns.length;
+    sfx("move");
+  }
+  if (input.menuDown) {
+    state.pauseIndex = (state.pauseIndex + 1) % btns.length;
     sfx("move");
   }
   if (input.mouseMoved) {
@@ -806,9 +837,19 @@ export function updatePauseMenu(state: GameState): void {
 
   if (activate === 0) {
     state.phase = "playing";
+    state.menuScreen = "main";
     sfx("select");
   } else if (activate === 1) {
+    state.menuScreen = "settings";
+    state.menuIndex = 0;
+    sfx("select");
+  } else if (activate === 2) {
+    state.menuScreen = "controls";
+    state.menuIndex = 0;
+    sfx("select");
+  } else if (activate === 3) {
     state.requestRestart = true;
+    state.menuScreen = "main";
     sfx("select");
   }
 }
@@ -1143,7 +1184,7 @@ export function drawMenuMain(
   ctx.fillText("МАЛЧИН", VIEW_W / 2, 166);
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText("5 хошуу малчин бол", VIEW_W / 2, 200);
+  ctx.fillText("Талын малчны амьдрал", VIEW_W / 2, 200);
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();
@@ -1231,9 +1272,9 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["WASD", "Алхах"],
     ["J", "Цохих"],
     ["K", "Буудах / Харвах"],
-    ["E", "Мод огтлох · Жимс түүх · Бэлчээрээс өвс хадах"],
-    ["Q", "Жимс идэх"],
-    ["F", "Гал түлэх"],
+    ["E", "Мод/жимс/өвс · бэлэн мал · тэжээгч: мал гаргах/оруулах"],
+    ["Q", "Жимс эсвэл ааруул идэх"],
+    ["F", "Гал түлэх (үүр/шөнө дулаац)"],
     ["B", "Хашаа preview → дахин B барих/шинэчлэх"],
     ["", `  ① ${FENCE_TIER_NAMES[1]} — ${FENCE_COST} мод`],
     [
@@ -1244,9 +1285,12 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
       "",
       `  ③ ${FENCE_TIER_NAMES[3]} — ${u2.wood} мод + ${u2.score} оноо + ${u2.berries} жимс (түв. ${u2.minLevel}+)`,
     ],
-    ["N", "Мал туух (барина)"],
-    ["", "Зун/намар/хавар: бэлчээр дээр E — өвс хадгал"],
-    ["", "Өвөл: тэжээгчид өвс хий (хоосон бол мал өлсөнө)"],
+    ["N", "Мал туух — орой хашаанд оруулахад"],
+    ["G", "Гэр моринд ачих / буулгах (унах морь заавал)"],
+    ["", "Өдөр ~24 сек: Үүр→Өдөр→Орой→Шөнө"],
+    ["", "Мал бэлчээрт өвс иднэ · дууссан бол хөрс харагдана"],
+    ["", "Өвс улирал солигдоход л дахин ургана · нүүдэлд морь"],
+    ["", "Ямааны ноолуур — хавар · хоньны ноос — зун"],
     [".", "Мод/түлээ хязгааргүй"],
     ["P", "Түр зогсоох"],
   ];
@@ -1380,16 +1424,15 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     "#ff9f5a",
     `Дулаан ${Math.ceil(player.vitals.warmth)}`,
   );
-  const kindsDone = fiveKindsProgress(world.flock.counts);
   drawBarFancy(
     ctx,
     pad + 14,
     pad + 122,
     266,
     12,
-    kindsDone / 5,
+    clamp(world.flock.total / 40, 0, 1),
     "#d4c4a0",
-    `5 хошуу ${kindsDone}/5 · Мал ${world.flock.total}`,
+    `Мал ${world.flock.total}`,
   );
   drawBarFancy(
     ctx,
@@ -1402,7 +1445,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     `Түвшин ${state.level} · XP ${Math.floor(state.xp)} / ${state.xpNext}`,
   );
 
-  // 5 хошуу мал товч
+  // Малын төрөл
   ctx.font = "600 11px system-ui, sans-serif";
   let lx = pad + 14;
   for (const k of LIVESTOCK_KINDS) {
@@ -1447,7 +1490,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "10px system-ui, sans-serif";
     ctx.fillText(
-      `Бэлчээр ${Math.ceil(world.pastureGrass)} · E — өвс хадах`,
+      `Бэлчээр ${Math.ceil(world.pastureGrass)}${world.pastureGrass <= 0 ? " (дууссан!)" : ""}`,
       pad + 14,
       pad + 214,
     );
@@ -1532,26 +1575,48 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     );
   }
 
-  // Баруун дээд: цаг агаар
-  const panelW = 196;
+  // Баруун дээд: цаг агаар + өдрийн фаз
+  const panelW = 210;
+  const panelH = 78;
   const rx = VIEW_W - panelW - pad;
   ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, rx, pad, panelW, 58, 10);
+  roundRectPath(ctx, rx, pad, panelW, panelH, 10);
   ctx.fill();
   ctx.strokeStyle = "rgba(232,197,106,0.3)";
-  roundRectPath(ctx, rx, pad, panelW, 58, 10);
+  roundRectPath(ctx, rx, pad, panelW, panelH, 10);
   ctx.stroke();
 
   drawWeatherIcon(ctx, rx + 22, pad + 29, world.weather);
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "600 13px system-ui, sans-serif";
-  ctx.fillText(weatherLabel(world.weather, world.season), rx + 40, pad + 24);
+  ctx.fillText(weatherLabel(world.weather, world.season), rx + 40, pad + 22);
   ctx.fillStyle = COLORS.hudMuted;
   ctx.font = "12px system-ui, sans-serif";
+  const phaseIcon =
+    world.dayPhase === "night"
+      ? "🌙"
+      : world.dayPhase === "evening"
+        ? "🌅"
+        : world.dayPhase === "dawn"
+          ? "🌄"
+          : "☀️";
   ctx.fillText(
-    `Цаг ${formatClock(world.timeOfDay)} ${isNight(world) ? "🌙" : "☀️"}`,
+    `${phaseIcon} ${dayPhaseLabel(world.dayPhase)} · ${formatClock(world.timeOfDay)}`,
     rx + 40,
-    pad + 44,
+    pad + 42,
+  );
+  ctx.fillStyle =
+    world.flockOut &&
+    (world.dayPhase === "evening" || world.dayPhase === "night")
+      ? "#ff9080"
+      : world.flockOut
+        ? "#a0d890"
+        : "#c4b898";
+  ctx.font = "600 11px system-ui, sans-serif";
+  ctx.fillText(
+    world.flockOut ? "Мал: бэлчээрт" : "Мал: хашаанд",
+    rx + 40,
+    pad + 62,
   );
 
   // Аюулын мэдээлэл
@@ -1604,28 +1669,35 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.globalAlpha = 1;
   }
 
-  // Пауз дэлгэц — Resume / Restart товчлуурууд
+  // Пауз дэлгэц — үргэлжлүүлэх / тохиргоо / удирдлага / үндсэн цэс
   if (state.phase === "paused") {
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#e8c56a";
-    ctx.font = "bold 40px system-ui, sans-serif";
-    ctx.fillText("ТҮР ЗОГССОН", VIEW_W / 2, VIEW_H / 2 - 70);
-    ctx.textAlign = "left";
 
-    const btns = pauseMenuButtons();
-    btns.forEach((b, i) => drawUiButton(ctx, b, state.pauseIndex === i));
+    if (state.menuScreen === "settings") {
+      drawMenuSettings(ctx, state);
+    } else if (state.menuScreen === "controls") {
+      drawMenuControls(ctx);
+    } else {
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#e8c56a";
+      ctx.font = "bold 40px system-ui, sans-serif";
+      ctx.fillText("ТҮР ЗОГССОН", VIEW_W / 2, VIEW_H / 2 - 110);
+      ctx.textAlign = "left";
 
-    ctx.textAlign = "center";
-    ctx.fillStyle = COLORS.hudMuted;
-    ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText(
-      "↑↓ / Enter · хулгана · P — үргэлжлүүлэх",
-      VIEW_W / 2,
-      VIEW_H / 2 + 118,
-    );
-    ctx.textAlign = "left";
+      const btns = pauseMenuButtons();
+      btns.forEach((b, i) => drawUiButton(ctx, b, state.pauseIndex === i));
+
+      ctx.textAlign = "center";
+      ctx.fillStyle = COLORS.hudMuted;
+      ctx.font = "13px system-ui, sans-serif";
+      ctx.fillText(
+        "↑↓ / Enter · хулгана · P — үргэлжлүүлэх",
+        VIEW_W / 2,
+        VIEW_H / 2 + 170,
+      );
+      ctx.textAlign = "left";
+    }
   }
 
   // Түвшин ахих — ур чадвар сонгох дэлгэц
@@ -1671,29 +1743,19 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.textAlign = "left";
   }
 
-  // Төгсгөлийн дэлгэц
-  if (state.phase === "won" || state.phase === "lost") {
+  // Төгсгөлийн дэлгэц — зөвхөн ялагдал
+  if (state.phase === "lost") {
     ctx.fillStyle = "rgba(0,0,0,0.68)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
     ctx.textAlign = "center";
     ctx.font = "bold 44px system-ui, sans-serif";
-    ctx.fillStyle = state.phase === "won" ? "#e8c56a" : "#ff6b6b";
-    ctx.fillText(
-      state.phase === "won" ? "ЯЛАЛТ!" : "ЯЛАГДЛАА",
-      VIEW_W / 2,
-      VIEW_H / 2 - 30,
-    );
+    ctx.fillStyle = "#ff6b6b";
+    ctx.fillText("ЯЛАГДЛАА", VIEW_W / 2, VIEW_H / 2 - 30);
 
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "16px system-ui, sans-serif";
-    ctx.fillText(
-      state.phase === "won"
-        ? "5 хошуу малтай малчин боллоо!"
-        : state.message,
-      VIEW_W / 2,
-      VIEW_H / 2 + 8,
-    );
+    ctx.fillText(state.message, VIEW_W / 2, VIEW_H / 2 + 8);
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "14px system-ui, sans-serif";
     ctx.fillText(

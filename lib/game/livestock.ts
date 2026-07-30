@@ -7,7 +7,6 @@ import {
   MAX_VISUAL_SHEEP,
   PASTURE_RADIUS,
   PRODUCE_INTERVAL,
-  WIN_EACH_KIND,
   WORLD_H,
   WORLD_W,
   type Feeder,
@@ -35,16 +34,6 @@ export function syncFlockTotal(flock: { counts: Record<LivestockKind, number>; t
   flock.total = recountTotal(flock.counts);
 }
 
-export function hasFiveKinds(counts: Record<LivestockKind, number>): boolean {
-  return LIVESTOCK_KINDS.every((k) => counts[k] >= WIN_EACH_KIND);
-}
-
-export function fiveKindsProgress(counts: Record<LivestockKind, number>): number {
-  let n = 0;
-  for (const k of LIVESTOCK_KINDS) if (counts[k] >= WIN_EACH_KIND) n++;
-  return n;
-}
-
 export function createHerdAnimal(
   id: number,
   around: Vector2,
@@ -69,6 +58,8 @@ export function createHerdAnimal(
     face: 1,
     produceIn: PRODUCE_INTERVAL[kind] * (0.4 + Math.random() * 0.6),
     produceReady: false,
+    newborn: false,
+    newbornWarmth: 100,
   };
 }
 
@@ -121,7 +112,6 @@ export function addLivestock(
   if (n <= 0) return;
   state.world.flock.counts[kind] += n;
   syncVisualFlock(state);
-  checkFiveKindsWin(state);
 }
 
 export function loseLivestock(state: GameState, n: number): number {
@@ -169,14 +159,6 @@ export function killHerdVisual(state: GameState, animal: HerdAnimal): void {
   }
 }
 
-export function checkFiveKindsWin(state: GameState): void {
-  if (state.phase !== "playing") return;
-  if (hasFiveKinds(state.world.flock.counts)) {
-    state.phase = "won";
-    setMessage(state, "Ялалт! 5 хошуу малтай боллоо!", 99);
-  }
-}
-
 export function nearestHerdAnimal(
   from: Vector2,
   visuals: HerdAnimal[],
@@ -211,12 +193,16 @@ export function nearestReadyAnimal(
   return best;
 }
 
-export function productLabel(kind: LivestockKind): string {
+export function productLabel(
+  kind: LivestockKind,
+  season: GameState["world"]["season"] = "summer",
+): string {
   switch (kind) {
     case "sheep":
       return "ноос";
     case "goat":
-      return Math.random() < 0.35 ? "ноолуур" : "сүү";
+      // Ноолуур зөвхөн хавар
+      return season === "spring" && Math.random() < 0.35 ? "ноолуур" : "сүү";
     case "cattle":
       return "сүү";
     case "horse":
@@ -229,15 +215,22 @@ export function productLabel(kind: LivestockKind): string {
 export function collectProduct(state: GameState, animal: HerdAnimal): void {
   const inv = state.player.inventory;
   const kind = animal.kind;
+  const season = state.world.season;
   animal.produceReady = false;
   animal.produceIn = PRODUCE_INTERVAL[kind] * (0.85 + Math.random() * 0.3);
 
   let label = "";
   if (kind === "sheep") {
+    // Хоньны ноос зөвхөн зун
+    if (season !== "summer") {
+      setMessage(state, "Хоньны ноос зөвхөн зуны улиралд гардаг.", 2);
+      return;
+    }
     inv.wool += 1;
     label = "+1 ноос";
   } else if (kind === "goat") {
-    if (Math.random() < 0.35) {
+    // Ямааны ноолуур зөвхөн хавар; бусад улиралд сүү
+    if (season === "spring" && Math.random() < 0.35) {
       inv.cashmere += 1;
       label = "+1 ноолуур";
     } else {
@@ -260,18 +253,28 @@ export function collectProduct(state: GameState, animal: HerdAnimal): void {
 
   state.score += 2;
   sfx("berry");
-  spawnParticles(state, animal.pos, 6, "#f0e0a0", { speed: 50, size: 2 });
+  spawnParticles(state, animal.pos, 6, "#f0e0a0", { speed: 50, life: 2 });
   spawnText(state, animal.pos, label, "#ffe9a0");
 }
 
-/** Малын бүтээгдэхүүн таймер — цатгалан үед */
+/** Малын бүтээгдэхүүн таймер — цатгалан үед; ноос/ноолуур улирлын дагуу */
 export function updateProduction(state: GameState, dt: number): void {
   if (state.phase !== "playing") return;
   const flock = state.world.flock;
+  const season = state.world.season;
   const fed = flock.hunger >= 40;
   const rate = fed ? 1 : 0.25;
 
   for (const a of flock.visuals) {
+    // Хоньны ноос зөвхөн зуны улиралд хуримтлагдана / бэлэн болно
+    if (a.kind === "sheep" && season !== "summer") {
+      if (a.produceReady) {
+        a.produceReady = false;
+        a.produceIn = PRODUCE_INTERVAL.sheep * (0.4 + Math.random() * 0.6);
+      }
+      continue;
+    }
+
     if (a.produceReady) continue;
     a.produceIn -= dt * rate;
     if (a.produceIn <= 0) {

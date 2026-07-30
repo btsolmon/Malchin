@@ -27,6 +27,7 @@ import {
   tryEatBerry,
   tryInteract,
   tryLightCampfire,
+  tryMigrateGer,
   updatePlayerMovement,
   updateSurvival,
   updateWeatherCycle,
@@ -174,15 +175,21 @@ export function createInitialState(): GameState {
       thieves: [],
       season: "autumn",
       weather: "clear",
-      timeOfDay: 8,
+      timeOfDay: 6.5,
       dayNumber: 1,
       elapsed: 0,
-      nextWolfIn: 36,
-      nextThiefIn: 70,
+      dayPhase: "dawn",
+      flockOut: false,
+      outdoorRiskAcc: 0,
+      nextWolfIn: 72,
+      nextThiefIn: 140,
       nextWildHorseIn: 25,
       dog: null,
       projectiles: [],
-      pastureGrass: 80,
+      campPos: { x: spawn.x, y: spawn.y },
+      gerPacked: false,
+      pastureGrass: 75,
+      pastureSeason: "autumn",
       feeder: createFeeder(spawn),
       wildHorses: [],
     },
@@ -202,6 +209,7 @@ export function createInitialState(): GameState {
       debugXp: false,
       debugWood: false,
       herd: false,
+      migrate: false,
       skill1: false,
       skill2: false,
       skill3: false,
@@ -226,7 +234,7 @@ export function createInitialState(): GameState {
       dustAcc: 0,
     },
     message:
-      "2 хонь + 2 ямаатай эхэллээ. Тэжээгчид өвс хий, 5 хошуу мал цуглуул!",
+      "Үүр! Гал түлээд тэжээгчийн дэргэд E — малаа бэлчээрт гарга.",
     messageTimer: 6,
     score: 0,
     xp: 0,
@@ -316,6 +324,9 @@ export function bindInput(getInput: () => InputState): () => void {
       case "KeyN":
         input.herd = pressed;
         break;
+      case "KeyG":
+        if (pressed) input.migrate = true;
+        break;
       case "Digit1":
       case "Numpad1":
         if (pressed) input.skill1 = true;
@@ -377,10 +388,11 @@ export function update(state: GameState, dt: number): void {
   } else if (state.phase === "playing" && state.input.pause) {
     state.phase = "paused";
     state.pauseIndex = 0;
+    state.menuScreen = "main";
     state.fencePreview = false;
     sfx("select");
   } else if (
-    (state.phase === "won" || state.phase === "lost") &&
+    state.phase === "lost" &&
     (state.input.confirm || state.input.pause || state.input.mouseClicked)
   ) {
     state.requestRestart = true;
@@ -424,6 +436,7 @@ export function update(state: GameState, dt: number): void {
     updatePlayerMovement(state, dt);
     tryInteract(state);
     tryEatBerry(state);
+    tryMigrateGer(state);
     tryLightCampfire(state);
     tryBuildFence(state);
     tryAttack(state);
@@ -442,8 +455,7 @@ export function update(state: GameState, dt: number): void {
 
   // Фаз солигдоход нэг удаагийн дуут дохио
   if (state.phase !== phaseBefore) {
-    if (state.phase === "won") sfx("win");
-    else if (state.phase === "lost") sfx("lose");
+    if (state.phase === "lost") sfx("lose");
     else if (state.phase === "levelup") sfx("levelup");
   }
 
@@ -456,6 +468,7 @@ export function update(state: GameState, dt: number): void {
   state.input.buildFence = false;
   state.input.debugXp = false;
   state.input.debugWood = false;
+  state.input.migrate = false;
 }
 
 // ---------------------------------------------------------------------------

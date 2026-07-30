@@ -8,11 +8,13 @@ import {
   FENCE_RADIUS,
   FENCE_TIER_NAMES,
   FENCE_UPGRADE_COST,
+  GRAZE_PER_ANIMAL_PER_DAY,
   HAY_GRASS_COST,
   HAY_HARVEST_RADIUS,
   HAY_PER_SHEEP_PER_DAY,
   MAX_HAY,
   MAX_PASTURE_GRASS,
+  PASTURE_RADIUS,
   SEASON_DAYS,
   type BerryBush,
   type Fence,
@@ -33,9 +35,10 @@ import {
   fenceOrientFromFacing,
   fencePlacePos,
   fencesOverlap,
+  gerDoorPos,
   normalize,
   pastureCenter,
-  pastureGrowthRate,
+  pastureRefillForSeason,
   randRange,
   seasonForDay,
   setMessage,
@@ -44,6 +47,19 @@ import {
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import { addSheep, loseSheep } from "./enemies";
+import {
+  TIME_RATE,
+  dailyGrowthCount,
+  dayPhaseHint,
+  getDayPhase,
+  seasonBerryRespawnMult,
+  seasonWarmthMult,
+  spawnSpringBirths,
+  tryToggleFlockPen,
+  updateDayPhaseTransitions,
+  updateNewborns,
+  updateOutdoorNightRisk,
+} from "./daycycle";
 import {
   collectProduct,
   depositHayToFeeder,
@@ -137,48 +153,78 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
   const world = state.world;
   const prevDay = Math.floor(world.timeOfDay);
   const prevSeason = world.season;
-  world.timeOfDay = (world.timeOfDay + dt * 0.4) % 24;
+  world.timeOfDay = (world.timeOfDay + dt * TIME_RATE) % 24;
   world.elapsed += dt;
+
+  // Фазыг шинэчилж мессеж өгнө
+  if (state.phase === "playing") {
+    if (!world.dayPhase) {
+      world.dayPhase = getDayPhase(world.timeOfDay, world.season);
+    }
+    updateDayPhaseTransitions(state);
+  }
 
   const curDay = Math.floor(world.timeOfDay);
   if (curDay < prevDay) {
     world.dayNumber += 1;
-    const growth = Math.max(
-      1,
-      Math.floor(world.flock.total * randRange(0.08, 0.15)),
-    );
-    addSheep(state, growth);
-    state.score += growth;
-    gainXp(state, 12);
-    spawnText(state, pastureCenter(world), `+${growth} мал`, "#b8e8a0");
+    const growth = dailyGrowthCount(state);
+    if (growth > 0) {
+      addSheep(state, growth);
+      state.score += growth;
+      gainXp(state, 12);
+      spawnText(state, pastureCenter(world), `+${growth} мал`, "#b8e8a0");
+    }
+    spawnSpringBirths(state);
     if (state.phase === "playing") {
+      const hint = dayPhaseHint(
+        getDayPhase(world.timeOfDay, world.season),
+        world.season,
+        world.flockOut,
+      );
       setMessage(
         state,
-        `Өдөр ${world.dayNumber}: сүрэг +${growth} (нийт ${world.flock.total})`,
+        growth > 0
+          ? `Өдөр ${world.dayNumber}: сүрэг +${growth}. ${hint}`
+          : `Өдөр ${world.dayNumber}. ${hint}`,
         3.5,
       );
     }
   }
 
   world.season = seasonForDay(world.dayNumber);
+  world.dayPhase = getDayPhase(world.timeOfDay, world.season);
 
-  // Улирал солигдох / өвөл ойртох анхааруулга
+  // Улирал солигдох — бэлчээр нэг удаа ургана
   if (state.phase === "playing" && world.season !== prevSeason) {
+    world.pastureGrass = pastureRefillForSeason(world.season);
+    world.pastureSeason = world.season;
     if (world.season === "winter") {
-      const hay = state.player.inventory.hay;
+      const hay = state.player.inventory.hay + state.world.feeder.hay;
       setMessage(
         state,
-        hay > 0 || state.world.feeder.hay > 0
-          ? `Өвөл ирлээ! Тэжээгчид өвс хий — мал тэжээнэ.`
-          : "Өвөл ирлээ! Тэжээгч хоосон — мал өлсөх аюултай!",
+        hay > 0
+          ? "Өвөл ирлээ! Бэлчээр хөлдөв. Тэжээгч + гал бэлд."
+          : "Өвөл ирлээ! Өвсгүй — мал өлсөх, чи даарах аюултай!",
         5,
       );
     } else if (world.season === "spring") {
-      setMessage(state, "Хавар — бэлчээр сэргэж эхэллээ.", 3.5);
+      setMessage(
+        state,
+        `Хавар — бэлчээр ургалаа (${Math.floor(world.pastureGrass)}). Мал өснө · ямааны ноолуур энэ улиралд!`,
+        4,
+      );
     } else if (world.season === "summer") {
-      setMessage(state, "Зун — бэлчээрээс E-ээр өвс хадгал!", 3.5);
+      setMessage(
+        state,
+        `Зун — бэлчээр дүүрэн (${Math.floor(world.pastureGrass)}). Хоньны ноос энэ улиралд · мал бэлчээрт идүүлъя!`,
+        4,
+      );
     } else if (world.season === "autumn") {
-      setMessage(state, "Намар — өвөлд өвс хадгалах цаг!", 3.5);
+      setMessage(
+        state,
+        `Намар — бэлчээр ${Math.floor(world.pastureGrass)}. Өвс хадгал, гэр нүүхэд бэлд!`,
+        4,
+      );
     }
   } else if (
     state.phase === "playing" &&
@@ -268,10 +314,10 @@ export function tryInteract(state: GameState): void {
   const { player, world } = state;
   if (player.chopCooldown > 0 || !state.input.interact) return;
 
-  // Гэрийн дэргэд — гэрт орно
+  // Гэрийн дэргэд — гэрт орно (хураагаагүй үед)
   const center = pastureCenter(world);
-  const gerPos = { x: center.x, y: center.y - 20 };
-  if (dist(player.pos, gerPos) < 62) {
+  const gerPos = gerDoorPos(world);
+  if (!world.gerPacked && dist(player.pos, gerPos) < 62) {
     state.phase = "ger";
     state.shopOpen = false;
     state.craftOpen = false;
@@ -308,9 +354,23 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  // Тэжээгчид өвс хийх
+  // Тэжээгчид өвс хийх эсвэл мал гаргах/оруулах
   const feeder = world.feeder;
   if (dist(player.pos, feeder.pos) < feeder.radius + player.radius + 18) {
+    // Орой/шөнө эсвэл мал гадаа — эхлээд гаргах/оруулах
+    const phase = getDayPhase(world.timeOfDay, world.season);
+    if (
+      !world.flockOut ||
+      phase === "evening" ||
+      phase === "night" ||
+      phase === "dawn"
+    ) {
+      if (tryToggleFlockPen(state)) {
+        player.chopCooldown = 0.35;
+        state.input.interact = false;
+        return;
+      }
+    }
     depositHayToFeeder(state, 5);
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -349,7 +409,13 @@ export function tryInteract(state: GameState): void {
       return;
     }
     if (world.pastureGrass < HAY_GRASS_COST) {
-      setMessage(state, "Бэлчээрийн өвс бага — жаахан хүлээ.", 2);
+      setMessage(
+        state,
+        world.pastureGrass <= 0
+          ? "Бэлчээр хоосон! G-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ."
+          : "Бэлчээрийн өвс бага.",
+        2.5,
+      );
       state.input.interact = false;
       return;
     }
@@ -403,8 +469,28 @@ export function tryEatBerry(state: GameState): void {
   const { player } = state;
   if (!state.input.eat || player.eatCooldown > 0) return;
 
+  // Ааруул — өвлийн нөөц (жимс байхгүй үед)
+  if (player.inventory.berries <= 0 && player.inventory.aaruul > 0) {
+    player.inventory.aaruul -= 1;
+    player.vitals.hunger = clamp(
+      player.vitals.hunger + 40,
+      0,
+      player.vitals.maxHunger,
+    );
+    player.vitals.warmth = clamp(
+      player.vitals.warmth + 8,
+      0,
+      player.vitals.maxWarmth,
+    );
+    player.eatCooldown = 0.5;
+    state.input.eat = false;
+    sfx("eat");
+    spawnText(state, player.pos, "+ааруул", "#f0e0b0");
+    return;
+  }
+
   if (player.inventory.berries <= 0) {
-    setMessage(state, "Жимс алга. Бутнаас E-ээр түү.", 2);
+    setMessage(state, "Жимс/ааруул алга. Бутнаас E эсвэл урла.", 2);
     state.input.eat = false;
     return;
   }
@@ -441,6 +527,11 @@ export function tryLightCampfire(state: GameState): void {
   if (!state.input.lightFire) return;
 
   const { player, world } = state;
+  if (world.gerPacked) {
+    setMessage(state, "Гэр хураасан — эхлээд G-ээр буулга.", 2);
+    state.input.lightFire = false;
+    return;
+  }
   const fire = world.campfire;
   if (dist(player.pos, fire.pos) >= fire.radius) {
     setMessage(state, "Гал руу ойрт (F).", 1.5);
@@ -550,9 +641,9 @@ export function tryBuildFence(state: GameState): void {
   }
 
   const center = pastureCenter(world);
-  const gerPos = { x: center.x, y: center.y - 20 };
+  const gerPos = gerDoorPos(world);
 
-  if (dist(pos, gerPos) < 78) {
+  if (!world.gerPacked && dist(pos, gerPos) < 78) {
     setMessage(state, "Гэрийн дэргэд хашаа барихгүй.", 2);
     return;
   }
@@ -620,16 +711,23 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
 
   const nearFire = fire.lit && dist(player.pos, fire.pos) < fire.radius;
-  const night = world.timeOfDay < 6 || world.timeOfDay > 20;
+  const night =
+    world.dayPhase === "night" ||
+    world.timeOfDay < 6 ||
+    world.timeOfDay > 20;
   const coldWeather =
     world.weather === "snow" ||
     world.weather === "storm" ||
     world.season === "winter";
 
+  const seasonCold = seasonWarmthMult(world.season);
   let warmthDelta = 0;
-  if (night || coldWeather) {
-    warmthDelta = -2.5 * dt * player.warmthResist;
+  if (night || coldWeather || world.season === "winter") {
+    warmthDelta = -2.5 * dt * player.warmthResist * seasonCold;
     if (coldWeather && night) warmthDelta -= 1.5 * dt * player.warmthResist;
+    if (world.dayPhase === "dawn" && !nearFire) {
+      warmthDelta -= 0.8 * dt * player.warmthResist;
+    }
   } else {
     warmthDelta = 6 * dt;
   }
@@ -671,6 +769,8 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
 
   updatePastureAndFlockFeed(state, dt);
+  updateNewborns(state, dt);
+  updateOutdoorNightRisk(state, dt);
 
   for (const tree of world.trees) {
     if (tree.hp > 0) continue;
@@ -683,7 +783,7 @@ export function updateSurvival(state: GameState, dt: number): void {
 
   for (const bush of world.bushes) {
     if (bush.berries > 0) continue;
-    bush.respawnIn -= dt;
+    bush.respawnIn -= dt / seasonBerryRespawnMult(world.season);
     if (bush.respawnIn <= 0) {
       bush.berries = bush.maxBerries;
       bush.respawnIn = 0;
@@ -704,26 +804,21 @@ export function updateSurvival(state: GameState, dt: number): void {
   if (player.sleepCooldown > 0) player.sleepCooldown -= dt;
 }
 
-/** Бэлчээр ургалт + тэжээгчээс өвс / өлсгөлөн */
+/** Бэлчээр — мал идэж дуусгана; улиралд нэг удаа ургана (continuous growth байхгүй) */
 function updatePastureAndFlockFeed(state: GameState, dt: number): void {
   const { world } = state;
   const flock = world.flock;
   if (flock.total <= 0 || state.phase !== "playing") return;
 
-  const grow = pastureGrowthRate(world.season);
-  if (grow > 0) {
-    world.pastureGrass = clamp(
-      world.pastureGrass + grow * dt,
-      0,
-      MAX_PASTURE_GRASS,
-    );
-  }
-
   const feeder = world.feeder;
   const needPerSec =
     (flock.total * HAY_PER_SHEEP_PER_DAY) / DAY_LENGTH_SEC;
+  const grazePerSec =
+    (flock.total * GRAZE_PER_ANIMAL_PER_DAY) / DAY_LENGTH_SEC;
 
   if (world.season === "winter") {
+    // Өвөл бэлчээр хөлдөнө — зөвхөн тэжээгч
+    world.pastureGrass = 0;
     const hadHay = feeder.hay > 0;
     const feed = Math.min(feeder.hay, needPerSec * dt);
     feeder.hay = Math.max(0, feeder.hay - feed);
@@ -757,16 +852,138 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
     } else {
       flock.hunger = clamp(flock.hunger - 1.2 * dt, 0, 100);
     }
+    return;
+  }
+
+  // Зун/намар/хавар — мал бэлчээрт өөрөө иднэ
+  if (world.flockOut && grazePerSec > 0) {
+    if (world.pastureGrass > 0.05) {
+      const ate = Math.min(world.pastureGrass, grazePerSec * dt);
+      world.pastureGrass = Math.max(0, world.pastureGrass - ate);
+      const ratio = ate / (grazePerSec * dt);
+      flock.hunger = clamp(flock.hunger + 7 * ratio * dt, 0, 100);
+      if (world.pastureGrass <= 0.05 && world.pastureGrass > 0) {
+        world.pastureGrass = 0;
+        setMessage(
+          state,
+          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (G) шинэ бэлчээр рүү нүү, эсвэл тэжээгч ашигла.",
+          5,
+        );
+        sfx("alert");
+      }
+      flock.starveAcc = 0;
+    } else {
+      // Өвсгүй бэлчээр — тэжээгч эсвэл өлсөнө
+      if (feeder.hay > 0) {
+        const snack = Math.min(feeder.hay, needPerSec * dt);
+        feeder.hay -= snack;
+        flock.hunger = clamp(flock.hunger + 5 * dt, 0, 100);
+        flock.starveAcc = 0;
+      } else {
+        flock.hunger = clamp(flock.hunger - 3.5 * dt, 0, 100);
+        flock.starveAcc += dt;
+        if (flock.starveAcc >= 12 && flock.hunger < 40) {
+          flock.starveAcc = 0;
+          const lost = loseSheep(state, 1);
+          if (lost > 0) {
+            spawnText(state, pastureCenter(world), "−1 мал (өвсгүй)", "#ff9080");
+            setMessage(
+              state,
+              "Өвс дууссан — мал өлсөж байна! G-ээр нүү эсвэл өвс өг.",
+              3.5,
+            );
+          }
+        }
+      }
+    }
   } else {
-    // Зун бэлчээр — тэжээгч байвал илүү цатгалан
-    flock.hunger = clamp(flock.hunger + 6 * dt, 0, 100);
-    if (feeder.hay > 0 && needPerSec > 0) {
-      const snack = Math.min(feeder.hay, needPerSec * 0.35 * dt);
+    // Хашаанд — тэжээгчээс бага зэрэг, бэлчээр идэхгүй
+    if (feeder.hay > 0) {
+      const snack = Math.min(feeder.hay, needPerSec * 0.5 * dt);
       feeder.hay -= snack;
-      flock.hunger = clamp(flock.hunger + 3 * dt, 0, 100);
+      flock.hunger = clamp(flock.hunger + 4 * dt, 0, 100);
+    } else {
+      flock.hunger = clamp(flock.hunger - 0.8 * dt, 0, 100);
     }
     flock.starveAcc = 0;
   }
+}
+
+/** G — гэр хураах / шинэ газар буулгах */
+export function tryMigrateGer(state: GameState): void {
+  if (!state.input.migrate || state.phase !== "playing") return;
+  state.input.migrate = false;
+
+  const { player, world } = state;
+  if (world.gerPacked) {
+    // Буулгах — шинэ бууц
+    const pos = {
+      x: clamp(player.pos.x, 120, world.width - 120),
+      y: clamp(player.pos.y, 120, world.height - 120),
+    };
+    world.campPos = { ...pos };
+    world.gerPacked = false;
+    world.campfire.pos = { x: pos.x + 52, y: pos.y + 14 };
+    world.campfire.lit = false;
+    world.campfire.fuel = 0;
+    world.feeder.pos = { x: pos.x - 70, y: pos.y + 48 };
+    // Шинэ бэлчээр — улирлын дагуу өвс
+    if (world.season !== "winter") {
+      world.pastureGrass = pastureRefillForSeason(world.season);
+      world.pastureSeason = world.season;
+    } else {
+      world.pastureGrass = 0;
+    }
+    // Мал ойртуулна
+    for (const a of world.flock.visuals) {
+      a.pos.x = pos.x + (Math.random() - 0.5) * 60;
+      a.pos.y = pos.y + 40 + (Math.random() - 0.5) * 40;
+      a.vel.x = 0;
+      a.vel.y = 0;
+    }
+    world.flockOut = false;
+    sfx("buy");
+    spawnParticles(state, pos, 20, "#e8c56a", { speed: 100, size: 3 });
+    spawnText(state, pos, "Гэр буулаа!", "#ffe9a0");
+    setMessage(
+      state,
+      world.season === "winter"
+        ? "Шинэ бууц! Өвөл — тэжээгч бэлд."
+        : `Шинэ бэлчээр! Өвс ${Math.floor(world.pastureGrass)}. Хашаа дахин босго.`,
+      4.5,
+    );
+    return;
+  }
+
+  // Хураах — морьтой + мал хашаандаа
+  if (!player.gear.horse || player.horseHp <= 0) {
+    setMessage(
+      state,
+      "Нүүдэлд унах морь хэрэгтэй! Авдраас морь авч, гэрээ моринд ачна.",
+      3.5,
+    );
+    return;
+  }
+  if (world.flockOut) {
+    setMessage(state, "Эхлээд малыг хашаанд оруул (тэжээгчид E), дараа нь G.", 3);
+    return;
+  }
+  const ger = gerDoorPos(world);
+  if (dist(player.pos, ger) > 90) {
+    setMessage(state, "Гэрийнхээ дэргэд зогсоод G дар — моринд ачна.", 2.5);
+    return;
+  }
+
+  world.gerPacked = true;
+  world.campfire.lit = false;
+  world.campfire.fuel = 0;
+  sfx("select");
+  spawnText(state, player.pos, "Гэр → морь", "#e8c56a");
+  setMessage(
+    state,
+    "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод G дарж буулга.",
+    4.5,
+  );
 }
 
 // ---------------------------------------------------------------------------

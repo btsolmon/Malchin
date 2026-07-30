@@ -2,11 +2,11 @@
 
 export type WeatherKind = "clear" | "wind" | "storm" | "snow";
 export type Season = "summer" | "autumn" | "winter" | "spring";
+export type DayPhase = "dawn" | "day" | "evening" | "night";
 export type GamePhase =
   | "menu"
   | "playing"
   | "paused"
-  | "won"
   | "lost"
   | "levelup"
   | "ger";
@@ -52,9 +52,9 @@ export interface Inventory {
   berries: number;
   /** Тэжээгчид хийх хадгалсан өвс */
   hay: number;
-  /** Хонь / тэмээний ноос */
+  /** Хонь / тэмээний ноос (хоньны ноос зөвхөн зун) */
   wool: number;
-  /** Ямааны ноолуур */
+  /** Ямааны ноолуур (зөвхөн хавар) */
   cashmere: number;
   /** Сүү (ямаа, үхэр, гүү, тэмээ) */
   milk: number;
@@ -160,6 +160,10 @@ export interface HerdAnimal {
   produceIn: number;
   /** E-ээр цуглуулах бэлэн */
   produceReady: boolean;
+  /** Хаврын төллөлт — дулаан хэрэгтэй */
+  newborn: boolean;
+  /** 0–100, шөнө гадаа бол буурна */
+  newbornWarmth: number;
 }
 
 /** Хуучин нэр — нийцүүлэлт */
@@ -273,11 +277,23 @@ export interface World {
   timeOfDay: number;
   dayNumber: number;
   elapsed: number;
+  /** Үүр / өдөр / орой / шөнө */
+  dayPhase: DayPhase;
+  /** Мал бэлчээрт гарсан эсэх */
+  flockOut: boolean;
+  /** Шөнийн гадаа эрсдэлийн хуримтлуулагч */
+  outdoorRiskAcc: number;
   nextWolfIn: number;
   nextThiefIn: number;
   nextWildHorseIn: number;
-  /** Бэлчээрийн өсөж буй өвс — зун/намар/хавар нөхөгдөнө */
+  /** Одоогийн бууц/гэрийн төв */
+  campPos: Vector2;
+  /** true = гэр хураасан, нүүж байна */
+  gerPacked: boolean;
+  /** Бэлчээрийн өвс — мал идэж дуусгана; улирал солигдоход дахин ургана */
   pastureGrass: number;
+  /** Өвс хамгийн сүүлд ургасан улирал */
+  pastureSeason: Season | null;
   feeder: Feeder;
   wildHorses: WildHorse[];
 }
@@ -301,6 +317,8 @@ export interface InputState {
   debugWood: boolean;
   /** N барих — хонь туух */
   herd: boolean;
+  /** G — гэр хураах / буулгах (нүүдэл) */
+  migrate: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
@@ -405,10 +423,6 @@ export const WORLD_W = 2400;
 export const WORLD_H = 1600;
 export const START_SHEEP = 2;
 export const START_GOATS = 2;
-/** Хуучин ялалтын тогтмол — одоо ашиглахгүй */
-export const WIN_SHEEP = 1000;
-/** 5 хошуу мал — төрөл бүрд дор хаяж энэ тоо */
-export const WIN_EACH_KIND = 1;
 export const MAX_VISUAL_SHEEP = 36;
 export const MAX_FEEDER_HAY = 80;
 /** Малын бүтээгдэхүүн гарах хугацаа (сек) */
@@ -491,14 +505,16 @@ export const SEASON_ORDER: Season[] = ["autumn", "winter", "spring", "summer"];
 
 /** Хадгалж болох өвсний дээд хэмжээ */
 export const MAX_HAY = 150;
-/** Бэлчээрийн өвсний нөөц (хадахад зарцуулагдана) */
-export const MAX_PASTURE_GRASS = 80;
+/** Бэлчээрийн өвсний нөөц (мал идэж, хадахад зарцуулагдана) */
+export const MAX_PASTURE_GRASS = 100;
 /** Нэг хадалтад зарцуулах бэлчээрийн өвс */
 export const HAY_GRASS_COST = 6;
-/** Нэг хонинд өдөрт хэрэгтэй өвс (өвөл) */
+/** Нэг хонинд өдөрт хэрэгтэй өвс (өвөл тэжээгч) */
 export const HAY_PER_SHEEP_PER_DAY = 0.18;
-/** Тоглоомын нэг өдрийн бодит хугацаа (сек) — timeOfDay += dt * 0.4 */
-export const DAY_LENGTH_SEC = 60;
+/** Бэлчээрт 1 мал 1 өдөрт идэх өвс */
+export const GRAZE_PER_ANIMAL_PER_DAY = 0.85;
+/** Тоглоомын нэг өдрийн бодит хугацаа (сек) — 24 сек = 1 өдөр */
+export const DAY_LENGTH_SEC = 24;
 /** Бэлчээрээс өвс хадах зай (гэрийн гадна) */
 export const HAY_HARVEST_RADIUS = PASTURE_RADIUS + 28;
 
