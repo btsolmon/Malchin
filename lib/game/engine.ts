@@ -39,7 +39,7 @@ import {
   updateThreatTimers,
   updateWolves,
 } from "../game/enemies";
-import { tryAttack, updateDog, updateProjectiles } from "../game/combat";
+import { tryAttack, updateAdvancedCombat, updateDog, updateProjectiles } from "../game/combat";
 import {
   updateGer,
   updateLevelUp,
@@ -151,6 +151,18 @@ export function createInitialState(): GameState {
       sleepCooldown: 0,
       moving: false,
       facing: { x: 0, y: 1 },
+      stamina: 100,
+      maxStamina: 100,
+      staminaRegenDelay: 0,
+      meleePhase: "idle",
+      meleeTimer: 0,
+      meleeHitDone: false,
+      attackFacing: { x: 0, y: 1 },
+      dodgePhase: "idle",
+      dodgeTimer: 0,
+      dodgeDirection: { x: 0, y: 1 },
+      parryPhase: "idle",
+      parryTimer: 0,
     },
     world: {
       width: WORLD_W,
@@ -195,6 +207,8 @@ export function createInitialState(): GameState {
     },
     fencePreview: false,
     unlimitedWood: false,
+    combatMovementLocked: false,
+    combatDodgeActive: false,
     input: {
       up: false,
       down: false,
@@ -202,6 +216,9 @@ export function createInitialState(): GameState {
       right: false,
       interact: false,
       attack: false,
+      attackPressed: false,
+      dodgePressed: false,
+      parryPressed: false,
       shoot: false,
       lightFire: false,
       buildFence: false,
@@ -296,9 +313,17 @@ export function bindInput(getInput: () => InputState): () => void {
         break;
       case "KeyJ":
         input.attack = pressed;
+        if (pressed) input.attackPressed = true;
         break;
       case "KeyK":
         input.shoot = pressed;
+        break;
+      case "ShiftLeft":
+      case "ShiftRight":
+        if (pressed) input.dodgePressed = true;
+        break;
+      case "KeyL":
+        if (pressed) input.parryPressed = true;
         break;
       case "Enter":
         if (pressed) input.confirm = true;
@@ -433,6 +458,7 @@ export function update(state: GameState, dt: number): void {
       sfx("buy");
     }
     updateWeatherCycle(state, dt);
+    updateAdvancedCombat(state, dt);
     updatePlayerMovement(state, dt);
     tryInteract(state);
     tryEatBerry(state);

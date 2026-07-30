@@ -75,7 +75,7 @@ export interface Player {
   eatCooldown: number;
   /** Цохилтын арк-ийн үлдсэн хугацаа */
   attackAnim: number;
-  /** true = J таяг цохилт (буу/нумтай байсан ч таяг зурна) */
+  /** true = J цохилт (буу/нумтай байсан ч цохилт зурна) */
   attackMelee: boolean;
   /** Цохилт авсны дараах хамгаалалт */
   invuln: number;
@@ -93,6 +93,19 @@ export interface Player {
   sleepCooldown: number;
   moving: boolean;
   facing: Vector2;
+  /** Тулааны тамир */
+  stamina: number;
+  maxStamina: number;
+  staminaRegenDelay: number;
+  meleePhase: "idle" | "startup" | "active" | "recovery";
+  meleeTimer: number;
+  meleeHitDone: boolean;
+  attackFacing: Vector2;
+  dodgePhase: "idle" | "dodging" | "recovery";
+  dodgeTimer: number;
+  dodgeDirection: Vector2;
+  parryPhase: "idle" | "startup" | "active" | "recovery";
+  parryTimer: number;
 }
 
 export interface Tree {
@@ -217,6 +230,15 @@ export interface Wolf {
   /** Тогтвортой харах чиг */
   face: 1 | -1;
   alive: boolean;
+  /** Тулааны posture / фаз */
+  posture: number;
+  maxPosture: number;
+  postureRecoveryDelay: number;
+  combatPhase: "idle" | "windup" | "active" | "recovery" | "staggered";
+  combatTimer: number;
+  attackDirection: Vector2;
+  attackHitDone: boolean;
+  knockbackResistance: number;
 }
 
 export interface Thief {
@@ -237,6 +259,14 @@ export interface Thief {
   /** Тогтвортой харах чиг */
   face: 1 | -1;
   alive: boolean;
+  posture: number;
+  maxPosture: number;
+  postureRecoveryDelay: number;
+  combatPhase: "idle" | "windup" | "active" | "recovery" | "staggered";
+  combatTimer: number;
+  attackDirection: Vector2;
+  attackHitDone: boolean;
+  knockbackResistance: number;
 }
 
 /** Хоньчин нохой — чоно руу өөрөө дайрдаг, амьтай */
@@ -305,6 +335,12 @@ export interface InputState {
   right: boolean;
   interact: boolean;
   attack: boolean;
+  /** J — нэг frame melee */
+  attackPressed: boolean;
+  /** Shift — булт */
+  dodgePressed: boolean;
+  /** L — сөрөх (parry) */
+  parryPressed: boolean;
   /** K — буу / нум харвах */
   shoot: boolean;
   lightFire: boolean;
@@ -410,6 +446,10 @@ export interface GameState {
   fencePreview: boolean;
   /** . cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
+  /** Melee/parry үед хэвийн хөдөлгөөн түгжигдсэн */
+  combatMovementLocked: boolean;
+  /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
+  combatDodgeActive: boolean;
   nextEntityId: number;
 }
 

@@ -251,6 +251,40 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
 
 export function updatePlayerMovement(state: GameState, dt: number): void {
   const { player, input, world } = state;
+
+  // Dodge үед advanced combat өөрөө хөдөлгөнө
+  if (state.combatDodgeActive) {
+    player.pos.x = clamp(
+      player.pos.x,
+      player.radius,
+      world.width - player.radius,
+    );
+    player.pos.y = clamp(
+      player.pos.y,
+      player.radius,
+      world.height - player.radius,
+    );
+    collidePlayerWithGates(state);
+    return;
+  }
+
+  // Melee / parry үед хэвийн алхалт түгжинэ
+  if (state.combatMovementLocked) {
+    player.moving = false;
+    player.pos.x = clamp(
+      player.pos.x,
+      player.radius,
+      world.width - player.radius,
+    );
+    player.pos.y = clamp(
+      player.pos.y,
+      player.radius,
+      world.height - player.radius,
+    );
+    collidePlayerWithGates(state);
+    return;
+  }
+
   const dir: Vector2 = {
     x: (input.right ? 1 : 0) - (input.left ? 1 : 0),
     y: (input.down ? 1 : 0) - (input.up ? 1 : 0),

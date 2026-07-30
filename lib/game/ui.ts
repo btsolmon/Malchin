@@ -1270,8 +1270,10 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   const u2 = FENCE_UPGRADE_COST[2];
   const lines: Array<[string, string]> = [
     ["WASD", "Алхах"],
-    ["J", "Цохих"],
+    ["J", "Цохих (тамир зарцуулна)"],
     ["K", "Буудах / Харвах"],
+    ["Shift", "Бултах — invuln цонх"],
+    ["L", "Сөрөх (parry) — дайралт няцаах"],
     ["E", "Мод/жимс/өвс · бэлэн мал · тэжээгч: мал гаргах/оруулах"],
     ["Q", "Жимс эсвэл ааруул идэх"],
     ["F", "Гал түлэх (үүр/шөнө дулаац)"],
@@ -1387,11 +1389,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   // Зүүн дээд самбар
   ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, pad, pad, 296, 310, 10);
+  roundRectPath(ctx, pad, pad, 296, 360, 10);
   ctx.fill();
   ctx.strokeStyle = "rgba(232,197,106,0.3)";
   ctx.lineWidth = 1;
-  roundRectPath(ctx, pad, pad, 296, 310, 10);
+  roundRectPath(ctx, pad, pad, 296, 360, 10);
   ctx.stroke();
 
   drawBarFancy(
@@ -1410,6 +1412,16 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     pad + 58,
     266,
     12,
+    player.stamina / Math.max(1, player.maxStamina),
+    "#5ec8e8",
+    `Тамир ${Math.ceil(player.stamina)}`,
+  );
+  drawBarFancy(
+    ctx,
+    pad + 14,
+    pad + 90,
+    266,
+    12,
     player.vitals.hunger / player.vitals.maxHunger,
     "#c4a035",
     `Өлсгөлөн ${Math.ceil(player.vitals.hunger)}`,
@@ -1417,7 +1429,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawBarFancy(
     ctx,
     pad + 14,
-    pad + 90,
+    pad + 122,
     266,
     12,
     player.vitals.warmth / player.vitals.maxWarmth,
@@ -1427,7 +1439,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawBarFancy(
     ctx,
     pad + 14,
-    pad + 122,
+    pad + 154,
     266,
     12,
     clamp(world.flock.total / 40, 0, 1),
@@ -1437,7 +1449,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawBarFancy(
     ctx,
     pad + 14,
-    pad + 154,
+    pad + 186,
     266,
     12,
     clamp(state.xp / state.xpNext, 0, 1),
@@ -1452,7 +1464,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     const n = world.flock.counts[k];
     ctx.fillStyle = n >= 1 ? "#a0d890" : "#887860";
     const label = `${LIVESTOCK_MN[k]} ${n}`;
-    ctx.fillText(label, lx, pad + 178);
+    ctx.fillText(label, lx, pad + 210);
     lx += ctx.measureText(label).width + 10;
   }
 
@@ -1462,24 +1474,24 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.fillText(
     state.unlimitedWood ? "🪵 ∞" : `🪵 ${player.inventory.wood}`,
     pad + 14,
-    pad + 192,
+    pad + 228,
   );
   ctx.fillStyle = "#e890b0";
-  ctx.fillText(`🍒 ${player.inventory.berries}`, pad + 78, pad + 192);
+  ctx.fillText(`🍒 ${player.inventory.berries}`, pad + 78, pad + 228);
   ctx.fillStyle =
     world.season === "winter" && world.feeder.hay <= 0
       ? "#ff8080"
       : "#a8c050";
-  ctx.fillText(`🌾 ${player.inventory.hay}`, pad + 142, pad + 192);
+  ctx.fillText(`🌾 ${player.inventory.hay}`, pad + 142, pad + 228);
   ctx.fillStyle = COLORS.hudAccent;
-  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score} оноо`, pad + 200, pad + 192);
+  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score} оноо`, pad + 200, pad + 228);
 
   // Өвлийн сүргийн өлсгөлөн / зуны бэлчээр
   if (world.season === "winter") {
     drawBarFancy(
       ctx,
       pad + 14,
-      pad + 206,
+      pad + 242,
       266,
       8,
       world.flock.hunger / 100,
@@ -1492,7 +1504,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `Бэлчээр ${Math.ceil(world.pastureGrass)}${world.pastureGrass <= 0 ? " (дууссан!)" : ""}`,
       pad + 14,
-      pad + 214,
+      pad + 250,
     );
   }
 
@@ -1508,7 +1520,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
         ? "B — preview · дахин B = барих · N — туух"
         : `B — preview (${FENCE_COST} мод) · дахин B = барих`,
     pad + 14,
-    pad + 236,
+    pad + 272,
   );
 
   // Бүтээгдэхүүн + тэжээгч
@@ -1517,12 +1529,12 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.fillText(
     `Ноос ${player.inventory.wool} · Ноолуур ${player.inventory.cashmere} · Сүү ${player.inventory.milk}`,
     pad + 14,
-    pad + 256,
+    pad + 292,
   );
   ctx.fillText(
     `Эсгий ${player.inventory.felt} · Ааруул ${player.inventory.aaruul} · Тэжээгч ${Math.floor(world.feeder.hay)}`,
     pad + 14,
-    pad + 272,
+    pad + 308,
   );
 
   const nearFence = nearestFence(player.pos, world.fences, 64);
@@ -1536,7 +1548,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `${gateLabel}${FENCE_TIER_SHORT[tier]} · ${hpPct}%`,
       pad + 14,
-      pad + 292,
+      pad + 328,
     );
     if (nearFence.isGate) {
       ctx.fillStyle = COLORS.hudMuted;
@@ -1546,7 +1558,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
           ? "хаалга нээлттэй"
           : "хаалга түлхэж нээх",
         pad + 100,
-        pad + 292,
+        pad + 328,
       );
     } else if (tier < 3) {
       const next = FENCE_UPGRADE_COST[tier as 1 | 2];
@@ -1558,12 +1570,12 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       ctx.fillText(
         `→ ${FENCE_TIER_NAMES[(tier + 1) as 2 | 3]}: ${parts.join("+")}`,
         pad + 100,
-        pad + 292,
+        pad + 328,
       );
     } else {
       ctx.fillStyle = COLORS.hudMuted;
       ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(FENCE_TIER_NAMES[3], pad + 100, pad + 292);
+      ctx.fillText(FENCE_TIER_NAMES[3], pad + 100, pad + 328);
     }
   } else {
     ctx.fillStyle = "rgba(168,152,128,0.75)";
@@ -1571,7 +1583,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `${FENCE_TIER_NAMES[1]} → ${FENCE_TIER_NAMES[2]} → ${FENCE_TIER_NAMES[3]}`,
       pad + 14,
-      pad + 292,
+      pad + 328,
     );
   }
 
