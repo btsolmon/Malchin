@@ -2,17 +2,36 @@
 
 export type WeatherKind = "clear" | "wind" | "storm" | "snow";
 export type Season = "summer" | "autumn" | "winter" | "spring";
+export type DayPhase = "dawn" | "day" | "evening" | "night";
 export type GamePhase =
   | "menu"
   | "playing"
   | "paused"
-  | "won"
   | "lost"
   | "levelup"
   | "ger";
 
 /** Дэлгүүрээс авч болох эд зүйлс */
-export type GearId = "dog" | "horse" | "bow" | "gun" | "axe";
+export type GearId = "dog" | "horse" | "bow" | "gun" | "axe" | "urga";
+
+/** 5 хошуу мал */
+export type LivestockKind = "sheep" | "goat" | "cattle" | "horse" | "camel";
+
+export const LIVESTOCK_KINDS: LivestockKind[] = [
+  "sheep",
+  "goat",
+  "cattle",
+  "horse",
+  "camel",
+];
+
+export const LIVESTOCK_MN: Record<LivestockKind, string> = {
+  sheep: "хонь",
+  goat: "ямаа",
+  cattle: "үхэр",
+  horse: "морь",
+  camel: "тэмээ",
+};
 
 export interface Vector2 {
   x: number;
@@ -31,6 +50,18 @@ export interface Vitals {
 export interface Inventory {
   wood: number;
   berries: number;
+  /** Тэжээгчид хийх хадгалсан өвс */
+  hay: number;
+  /** Хонь / тэмээний ноос (хоньны ноос зөвхөн зун) */
+  wool: number;
+  /** Ямааны ноолуур (зөвхөн хавар) */
+  cashmere: number;
+  /** Сүү (ямаа, үхэр, гүү, тэмээ) */
+  milk: number;
+  /** Боловсруулсан эсгий */
+  felt: number;
+  /** Ааруул */
+  aaruul: number;
 }
 
 export interface Player {
@@ -44,7 +75,7 @@ export interface Player {
   eatCooldown: number;
   /** Цохилтын арк-ийн үлдсэн хугацаа */
   attackAnim: number;
-  /** true = J таяг цохилт (буу/нумтай байсан ч таяг зурна) */
+  /** true = J цохилт (буу/нумтай байсан ч цохилт зурна) */
   attackMelee: boolean;
   /** Цохилт авсны дараах хамгаалалт */
   invuln: number;
@@ -62,6 +93,19 @@ export interface Player {
   sleepCooldown: number;
   moving: boolean;
   facing: Vector2;
+  /** Тулааны тамир */
+  stamina: number;
+  maxStamina: number;
+  staminaRegenDelay: number;
+  meleePhase: "idle" | "startup" | "active" | "recovery";
+  meleeTimer: number;
+  meleeHitDone: boolean;
+  attackFacing: Vector2;
+  dodgePhase: "idle" | "dodging" | "recovery";
+  dodgeTimer: number;
+  dodgeDirection: Vector2;
+  parryPhase: "idle" | "startup" | "active" | "recovery";
+  parryTimer: number;
 }
 
 export interface Tree {
@@ -111,8 +155,9 @@ export interface Fence {
   gateCloseIn: number;
 }
 
-export interface Sheep {
+export interface HerdAnimal {
   id: number;
+  kind: LivestockKind;
   pos: Vector2;
   vel: Vector2;
   radius: number;
@@ -124,11 +169,45 @@ export interface Sheep {
   flash: number;
   /** Тогтвортой харах чиг */
   face: 1 | -1;
+  /** Бүтээгдэхүүн бэлэн болох хүртэлх секунд */
+  produceIn: number;
+  /** E-ээр цуглуулах бэлэн */
+  produceReady: boolean;
+  /** Хаврын төллөлт — дулаан хэрэгтэй */
+  newborn: boolean;
+  /** 0–100, шөнө гадаа бол буурна */
+  newbornWarmth: number;
 }
 
+/** Хуучин нэр — нийцүүлэлт */
+export type Sheep = HerdAnimal;
+
 export interface Flock {
+  counts: Record<LivestockKind, number>;
   total: number;
-  visuals: Sheep[];
+  visuals: HerdAnimal[];
+  /** 0 = өлсгөлөн · 100 = цатгалан (өвөл өвсгүй бол буурна) */
+  hunger: number;
+  /** Өлсгөлөнгөөр мал алдах хуримтлуулагч */
+  starveAcc: number;
+}
+
+/** Бэлчээрийн дэргэдэх өвсний тэжээгч */
+export interface Feeder {
+  pos: Vector2;
+  hay: number;
+  maxHay: number;
+  radius: number;
+}
+
+/** Зэрлэг морь — уургаар барина */
+export interface WildHorse {
+  id: number;
+  pos: Vector2;
+  vel: Vector2;
+  radius: number;
+  face: 1 | -1;
+  spooked: number;
 }
 
 export interface Wolf {
@@ -151,6 +230,15 @@ export interface Wolf {
   /** Тогтвортой харах чиг */
   face: 1 | -1;
   alive: boolean;
+  /** Тулааны posture / фаз */
+  posture: number;
+  maxPosture: number;
+  postureRecoveryDelay: number;
+  combatPhase: "idle" | "windup" | "active" | "recovery" | "staggered";
+  combatTimer: number;
+  attackDirection: Vector2;
+  attackHitDone: boolean;
+  knockbackResistance: number;
 }
 
 export interface Thief {
@@ -171,6 +259,14 @@ export interface Thief {
   /** Тогтвортой харах чиг */
   face: 1 | -1;
   alive: boolean;
+  posture: number;
+  maxPosture: number;
+  postureRecoveryDelay: number;
+  combatPhase: "idle" | "windup" | "active" | "recovery" | "staggered";
+  combatTimer: number;
+  attackDirection: Vector2;
+  attackHitDone: boolean;
+  knockbackResistance: number;
 }
 
 /** Хоньчин нохой — чоно руу өөрөө дайрдаг, амьтай */
@@ -211,8 +307,25 @@ export interface World {
   timeOfDay: number;
   dayNumber: number;
   elapsed: number;
+  /** Үүр / өдөр / орой / шөнө */
+  dayPhase: DayPhase;
+  /** Мал бэлчээрт гарсан эсэх */
+  flockOut: boolean;
+  /** Шөнийн гадаа эрсдэлийн хуримтлуулагч */
+  outdoorRiskAcc: number;
   nextWolfIn: number;
   nextThiefIn: number;
+  nextWildHorseIn: number;
+  /** Одоогийн бууц/гэрийн төв */
+  campPos: Vector2;
+  /** true = гэр хураасан, нүүж байна */
+  gerPacked: boolean;
+  /** Бэлчээрийн өвс — мал идэж дуусгана; улирал солигдоход дахин ургана */
+  pastureGrass: number;
+  /** Өвс хамгийн сүүлд ургасан улирал */
+  pastureSeason: Season | null;
+  feeder: Feeder;
+  wildHorses: WildHorse[];
 }
 
 export interface InputState {
@@ -222,6 +335,12 @@ export interface InputState {
   right: boolean;
   interact: boolean;
   attack: boolean;
+  /** J — нэг frame melee */
+  attackPressed: boolean;
+  /** Shift — булт */
+  dodgePressed: boolean;
+  /** L — сөрөх (parry) */
+  parryPressed: boolean;
   /** K — буу / нум харвах */
   shoot: boolean;
   lightFire: boolean;
@@ -234,6 +353,8 @@ export interface InputState {
   debugWood: boolean;
   /** N барих — хонь туух */
   herd: boolean;
+  /** G — гэр хураах / буулгах (нүүдэл) */
+  migrate: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
@@ -311,6 +432,8 @@ export interface GameState {
   pauseIndex: number;
   /** Гэр доторх дэлгүүр нээлттэй эсэх */
   shopOpen: boolean;
+  /** Гэр доторх урлал (тахилын ширээ) нээлттэй эсэх */
+  craftOpen: boolean;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */
   gerPlayer: Vector2;
   /** Орон дээр унтаж байгаа үлдсэн хугацаа (сек). 0 = унтаагүй */
@@ -323,6 +446,10 @@ export interface GameState {
   fencePreview: boolean;
   /** . cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
+  /** Melee/parry үед хэвийн хөдөлгөөн түгжигдсэн */
+  combatMovementLocked: boolean;
+  /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
+  combatDodgeActive: boolean;
   nextEntityId: number;
 }
 
@@ -334,9 +461,18 @@ export const VIEW_W = 960;
 export const VIEW_H = 540;
 export const WORLD_W = 2400;
 export const WORLD_H = 1600;
-export const START_SHEEP = 10;
-export const WIN_SHEEP = 1000;
+export const START_SHEEP = 2;
+export const START_GOATS = 2;
 export const MAX_VISUAL_SHEEP = 36;
+export const MAX_FEEDER_HAY = 80;
+/** Малын бүтээгдэхүүн гарах хугацаа (сек) */
+export const PRODUCE_INTERVAL: Record<LivestockKind, number> = {
+  sheep: 48,
+  goat: 42,
+  cattle: 36,
+  horse: 55,
+  camel: 60,
+};
 export const PASTURE_RADIUS = 160;
 /** Хашааны мөргөлдөөний радиус */
 export const FENCE_RADIUS = 14;
@@ -406,6 +542,21 @@ export const GATE_PASS_OPEN = 0.55;
 export const SEASON_DAYS = 6;
 
 export const SEASON_ORDER: Season[] = ["autumn", "winter", "spring", "summer"];
+
+/** Хадгалж болох өвсний дээд хэмжээ */
+export const MAX_HAY = 150;
+/** Бэлчээрийн өвсний нөөц (мал идэж, хадахад зарцуулагдана) */
+export const MAX_PASTURE_GRASS = 100;
+/** Нэг хадалтад зарцуулах бэлчээрийн өвс */
+export const HAY_GRASS_COST = 6;
+/** Нэг хонинд өдөрт хэрэгтэй өвс (өвөл тэжээгч) */
+export const HAY_PER_SHEEP_PER_DAY = 0.18;
+/** Бэлчээрт 1 мал 1 өдөрт идэх өвс */
+export const GRAZE_PER_ANIMAL_PER_DAY = 0.85;
+/** Тоглоомын нэг өдрийн бодит хугацаа (сек) — 24 сек = 1 өдөр */
+export const DAY_LENGTH_SEC = 24;
+/** Бэлчээрээс өвс хадах зай (гэрийн гадна) */
+export const HAY_HARVEST_RADIUS = PASTURE_RADIUS + 28;
 
 export const COLORS = {
   hudText: "#f2e8d5",

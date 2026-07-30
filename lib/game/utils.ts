@@ -6,6 +6,7 @@ import {
   GATE_ANIM_SEC,
   GATE_CLOSE_DELAY,
   GATE_PASS_OPEN,
+  MAX_PASTURE_GRASS,
   PASTURE_RADIUS,
   SEASON_DAYS,
   SEASON_ORDER,
@@ -41,7 +42,13 @@ export function randRange(a: number, b: number): number {
 }
 
 export function pastureCenter(world: World): Vector2 {
-  return { x: world.width / 2, y: world.height / 2 };
+  return { x: world.campPos.x, y: world.campPos.y };
+}
+
+/** Гэрийн хаалганы байрлал */
+export function gerDoorPos(world: World): Vector2 {
+  const c = pastureCenter(world);
+  return { x: c.x, y: c.y - 20 };
 }
 
 export function roundRectPath(
@@ -107,7 +114,26 @@ export function seasonForDay(day: number): Season {
   ];
 }
 
+/** Өвс хадаж болох улирал (бэлчээрт өвс үлдсэн үед) */
+export function canHarvestHay(season: Season): boolean {
+  return season === "summer" || season === "autumn" || season === "spring";
+}
+
+/** Улирал солигдоход бэлчээр дүүрэн ургана */
+export function pastureRefillForSeason(season: Season): number {
+  if (season === "winter") return 0;
+  if (season === "summer") return MAX_PASTURE_GRASS;
+  if (season === "autumn") return Math.floor(MAX_PASTURE_GRASS * 0.75);
+  return Math.floor(MAX_PASTURE_GRASS * 0.55); // spring
+}
+
+/** Улирлын доторх өдөр (1…SEASON_DAYS) */
+export function dayInSeason(day: number): number {
+  return ((day - 1) % SEASON_DAYS) + 1;
+}
+
 export function isNight(world: World): boolean {
+  if (world.dayPhase) return world.dayPhase === "night";
   return world.timeOfDay < 6 || world.timeOfDay > 19;
 }
 

@@ -1,4 +1,4 @@
-import { PASTURE_RADIUS, WORLD_H, WORLD_W } from "../types";
+import { WORLD_H, WORLD_W } from "../types";
 import { randRange } from "../utils";
 
 export function renderTerrain(winter: boolean): HTMLCanvasElement {
@@ -132,13 +132,5 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
     ctx.fill();
   }
 
-  // Бэлчээрийн хилийн тойрог (бүдэг)
-  ctx.strokeStyle = winter ? "rgba(140,120,80,0.25)" : "rgba(232,197,106,0.18)";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([10, 14]);
-  ctx.beginPath();
-  ctx.arc(cx, cy, PASTURE_RADIUS, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
   return canvas;
 }

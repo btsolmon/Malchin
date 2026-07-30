@@ -7,12 +7,12 @@ import {
   type Thief,
   type Vector2,
   type Wolf,
-} from "./types";
-import { clamp, dist, normalize, pastureCenter, setMessage } from "./utils";
-import { spawnParticles, spawnText } from "./effects";
-import { sfx } from "./audio";
-import { gainXp } from "./player";
-import { addSheep } from "./enemies";
+} from "../types";
+import { clamp, dist, normalize, pastureCenter, setMessage } from "../utils";
+import { spawnParticles, spawnText } from "../effects";
+import { sfx } from "../audio";
+import { gainXp } from "../player";
+import { addSheep } from "../enemies";
 
 export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
   wolf.hp -= dmg;
@@ -49,9 +49,9 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
     thief.stolen = 0;
     addSheep(state, recovered);
     state.score += recovered * 15;
-    spawnText(state, thief.pos, `+${recovered} хонь · +${xp} XP`, "#b8e8a0");
+    spawnText(state, thief.pos, `+${recovered} мал · +${xp} XP`, "#b8e8a0");
     gainXp(state, xp);
-    setMessage(state, `Мал буцааж авлаа! +${recovered} хонь`, 3);
+    setMessage(state, `Мал буцааж авлаа! +${recovered} мал`, 3);
   }
 }
 
@@ -59,85 +59,50 @@ export function tryAttack(state: GameState): void {
   const { player, world } = state;
   if (player.attackCooldown > 0) return;
 
-  // K — буу / нум харвах
-  if (state.input.shoot && (player.gear.gun || player.gear.bow)) {
-    const gun = player.gear.gun;
-    const range = gun ? 300 : 200;
-    player.attackCooldown = (gun ? 0.8 : 0.55) * player.cooldownMult;
-    player.attackMelee = false;
-    player.attackAnim = 0.18;
+  // K — буу / нум харвах (J melee нь advanced combat-д)
+  if (!state.input.shoot || !(player.gear.gun || player.gear.bow)) return;
 
-    let dir = player.facing;
-    let bestD = range;
-    for (const w of world.wolves) {
-      if (!w.alive) continue;
-      const d = dist(player.pos, w.pos);
-      if (d < bestD) {
-        bestD = d;
-        dir = normalize({
-          x: w.pos.x - player.pos.x,
-          y: w.pos.y - player.pos.y,
-        });
-      }
+  const gun = player.gear.gun;
+  const range = gun ? 300 : 200;
+  player.attackCooldown = (gun ? 0.8 : 0.55) * player.cooldownMult;
+  player.attackMelee = false;
+  player.attackAnim = 0.18;
+
+  let dir = player.facing;
+  let bestD = range;
+  for (const w of world.wolves) {
+    if (!w.alive) continue;
+    const d = dist(player.pos, w.pos);
+    if (d < bestD) {
+      bestD = d;
+      dir = normalize({
+        x: w.pos.x - player.pos.x,
+        y: w.pos.y - player.pos.y,
+      });
     }
-    for (const t of world.thieves) {
-      if (!t.alive) continue;
-      const d = dist(player.pos, t.pos);
-      if (d < bestD) {
-        bestD = d;
-        dir = normalize({
-          x: t.pos.x - player.pos.x,
-          y: t.pos.y - player.pos.y,
-        });
-      }
+  }
+  for (const t of world.thieves) {
+    if (!t.alive) continue;
+    const d = dist(player.pos, t.pos);
+    if (d < bestD) {
+      bestD = d;
+      dir = normalize({
+        x: t.pos.x - player.pos.x,
+        y: t.pos.y - player.pos.y,
+      });
     }
-    if (dir.x === 0 && dir.y === 0) dir = { x: 1, y: 0 };
-
-    const speed = gun ? 540 : 400;
-    world.projectiles.push({
-      pos: { x: player.pos.x + dir.x * 14, y: player.pos.y - 8 + dir.y * 14 },
-      vel: { x: dir.x * speed, y: dir.y * speed },
-      dmg: (gun ? 40 : 24) * player.damageMult,
-      life: range / speed + 0.15,
-      kind: gun ? "bullet" : "arrow",
-    });
-    sfx(gun ? "gunshot" : "shoot");
-    return;
   }
+  if (dir.x === 0 && dir.y === 0) dir = { x: 1, y: 0 };
 
-  // J — таягаар цохих
-  if (!state.input.attack) return;
-
-  player.attackCooldown = 0.4 * player.cooldownMult;
-  player.attackMelee = true;
-  player.attackAnim = 0.22;
-  sfx("swing");
-  const reach = 42 * player.reachMult;
-
-  for (const wolf of world.wolves) {
-    if (!wolf.alive || dist(player.pos, wolf.pos) > reach) continue;
-    const away = normalize({
-      x: wolf.pos.x - player.pos.x,
-      y: wolf.pos.y - player.pos.y,
-    });
-    wolf.pos.x += away.x * 28;
-    wolf.pos.y += away.y * 28;
-    state.fx.shake = Math.max(state.fx.shake, 2.5);
-    damageWolf(state, wolf, 18 * player.damageMult);
-    return;
-  }
-  for (const thief of world.thieves) {
-    if (!thief.alive || dist(player.pos, thief.pos) > reach) continue;
-    const away = normalize({
-      x: thief.pos.x - player.pos.x,
-      y: thief.pos.y - player.pos.y,
-    });
-    thief.pos.x += away.x * 32;
-    thief.pos.y += away.y * 32;
-    state.fx.shake = Math.max(state.fx.shake, 2.5);
-    damageThief(state, thief, 20 * player.damageMult);
-    return;
-  }
+  const speed = gun ? 540 : 400;
+  world.projectiles.push({
+    pos: { x: player.pos.x + dir.x * 14, y: player.pos.y - 8 + dir.y * 14 },
+    vel: { x: dir.x * speed, y: dir.y * speed },
+    dmg: (gun ? 40 : 24) * player.damageMult,
+    life: range / speed + 0.15,
+    kind: gun ? "bullet" : "arrow",
+  });
+  sfx(gun ? "gunshot" : "shoot");
 }
 
 /** Сумнуудын хөдөлгөөн ба мөргөлт */

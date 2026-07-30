@@ -1,6 +1,7 @@
 // Хүн 1 — цөм: game loop, оролт, төлөв үүсгэх, mount
 
 import {
+  START_GOATS,
   START_SHEEP,
   VIEW_H,
   VIEW_W,
@@ -26,6 +27,7 @@ import {
   tryEatBerry,
   tryInteract,
   tryLightCampfire,
+  tryMigrateGer,
   updatePlayerMovement,
   updateSurvival,
   updateWeatherCycle,
@@ -37,7 +39,7 @@ import {
   updateThreatTimers,
   updateWolves,
 } from "../game/enemies";
-import { tryAttack, updateDog, updateProjectiles } from "../game/combat";
+import { tryAttack, updateAdvancedCombat, updateDog, updateProjectiles } from "../game/combat";
 import {
   updateGer,
   updateLevelUp,
@@ -47,6 +49,12 @@ import {
 import { render, type RenderContext } from "../game/render/render";
 import { makeVignette } from "../game/render/lighting";
 import { renderTerrain } from "../game/render/terrain";
+import {
+  createFeeder,
+  emptyCounts,
+  updateProduction,
+  updateWildHorses,
+} from "./livestock";
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
@@ -110,7 +118,16 @@ export function createInitialState(): GameState {
         hunger: 100,
         maxHunger: 100,
       },
-      inventory: { wood: 0, berries: 0 },
+      inventory: {
+        wood: 0,
+        berries: 0,
+        hay: 0,
+        wool: 0,
+        cashmere: 0,
+        milk: 0,
+        felt: 0,
+        aaruul: 0,
+      },
       chopCooldown: 0,
       attackCooldown: 0,
       eatCooldown: 0,
@@ -121,12 +138,31 @@ export function createInitialState(): GameState {
       reachMult: 1,
       cooldownMult: 1,
       warmthResist: 1,
-      gear: { dog: false, horse: false, bow: false, gun: false, axe: false },
+      gear: {
+        dog: false,
+        horse: false,
+        bow: false,
+        gun: false,
+        axe: false,
+        urga: false,
+      },
       horseHp: 0,
       horseMaxHp: 0,
       sleepCooldown: 0,
       moving: false,
       facing: { x: 0, y: 1 },
+      stamina: 100,
+      maxStamina: 100,
+      staminaRegenDelay: 0,
+      meleePhase: "idle",
+      meleeTimer: 0,
+      meleeHitDone: false,
+      attackFacing: { x: 0, y: 1 },
+      dodgePhase: "idle",
+      dodgeTimer: 0,
+      dodgeDirection: { x: 0, y: 1 },
+      parryPhase: "idle",
+      parryTimer: 0,
     },
     world: {
       width: WORLD_W,
@@ -140,21 +176,39 @@ export function createInitialState(): GameState {
         radius: 56,
       },
       fences: [],
-      flock: { total: START_SHEEP, visuals: [] },
+      flock: {
+        counts: { ...emptyCounts(), sheep: START_SHEEP, goat: START_GOATS },
+        total: START_SHEEP + START_GOATS,
+        visuals: [],
+        hunger: 100,
+        starveAcc: 0,
+      },
       wolves: [],
       thieves: [],
       season: "autumn",
       weather: "clear",
-      timeOfDay: 8,
+      timeOfDay: 6.5,
       dayNumber: 1,
       elapsed: 0,
-      nextWolfIn: 18,
-      nextThiefIn: 35,
+      dayPhase: "dawn",
+      flockOut: false,
+      outdoorRiskAcc: 0,
+      nextWolfIn: 72,
+      nextThiefIn: 140,
+      nextWildHorseIn: 25,
       dog: null,
       projectiles: [],
+      campPos: { x: spawn.x, y: spawn.y },
+      gerPacked: false,
+      pastureGrass: 75,
+      pastureSeason: "autumn",
+      feeder: createFeeder(spawn),
+      wildHorses: [],
     },
     fencePreview: false,
     unlimitedWood: false,
+    combatMovementLocked: false,
+    combatDodgeActive: false,
     input: {
       up: false,
       down: false,
@@ -162,6 +216,9 @@ export function createInitialState(): GameState {
       right: false,
       interact: false,
       attack: false,
+      attackPressed: false,
+      dodgePressed: false,
+      parryPressed: false,
       shoot: false,
       lightFire: false,
       buildFence: false,
@@ -169,6 +226,7 @@ export function createInitialState(): GameState {
       debugXp: false,
       debugWood: false,
       herd: false,
+      migrate: false,
       skill1: false,
       skill2: false,
       skill3: false,
@@ -192,8 +250,9 @@ export function createInitialState(): GameState {
       emberAcc: 0,
       dustAcc: 0,
     },
-    message: "10 хоньтой эхэллээ. Жимс идэж, сүргээ хамгаал!",
-    messageTimer: 5,
+    message:
+      "Үүр! Гал түлээд тэжээгчийн дэргэд E — малаа бэлчээрт гарга.",
+    messageTimer: 6,
     score: 0,
     xp: 0,
     level: 1,
@@ -204,6 +263,7 @@ export function createInitialState(): GameState {
     menuIndex: 0,
     pauseIndex: 0,
     shopOpen: false,
+    craftOpen: false,
     gerPlayer: { x: 480, y: 435 },
     gerSleepTimer: 0,
     gerSleepBed: null,
@@ -253,9 +313,17 @@ export function bindInput(getInput: () => InputState): () => void {
         break;
       case "KeyJ":
         input.attack = pressed;
+        if (pressed) input.attackPressed = true;
         break;
       case "KeyK":
         input.shoot = pressed;
+        break;
+      case "ShiftLeft":
+      case "ShiftRight":
+        if (pressed) input.dodgePressed = true;
+        break;
+      case "KeyL":
+        if (pressed) input.parryPressed = true;
         break;
       case "Enter":
         if (pressed) input.confirm = true;
@@ -280,6 +348,9 @@ export function bindInput(getInput: () => InputState): () => void {
         break;
       case "KeyN":
         input.herd = pressed;
+        break;
+      case "KeyG":
+        if (pressed) input.migrate = true;
         break;
       case "Digit1":
       case "Numpad1":
@@ -342,10 +413,11 @@ export function update(state: GameState, dt: number): void {
   } else if (state.phase === "playing" && state.input.pause) {
     state.phase = "paused";
     state.pauseIndex = 0;
+    state.menuScreen = "main";
     state.fencePreview = false;
     sfx("select");
   } else if (
-    (state.phase === "won" || state.phase === "lost") &&
+    state.phase === "lost" &&
     (state.input.confirm || state.input.pause || state.input.mouseClicked)
   ) {
     state.requestRestart = true;
@@ -386,14 +458,18 @@ export function update(state: GameState, dt: number): void {
       sfx("buy");
     }
     updateWeatherCycle(state, dt);
+    updateAdvancedCombat(state, dt);
     updatePlayerMovement(state, dt);
     tryInteract(state);
     tryEatBerry(state);
+    tryMigrateGer(state);
     tryLightCampfire(state);
     tryBuildFence(state);
     tryAttack(state);
     updateGates(state, dt);
     updateFlock(state, dt);
+    updateProduction(state, dt);
+    updateWildHorses(state, dt);
     updateThreatTimers(state, dt);
     updateWolves(state, dt);
     updateThieves(state, dt);
@@ -405,8 +481,7 @@ export function update(state: GameState, dt: number): void {
 
   // Фаз солигдоход нэг удаагийн дуут дохио
   if (state.phase !== phaseBefore) {
-    if (state.phase === "won") sfx("win");
-    else if (state.phase === "lost") sfx("lose");
+    if (state.phase === "lost") sfx("lose");
     else if (state.phase === "levelup") sfx("levelup");
   }
 
@@ -419,6 +494,7 @@ export function update(state: GameState, dt: number): void {
   state.input.buildFence = false;
   state.input.debugXp = false;
   state.input.debugWood = false;
+  state.input.migrate = false;
 }
 
 // ---------------------------------------------------------------------------

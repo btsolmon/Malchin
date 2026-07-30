@@ -1,5 +1,6 @@
 import { COLORS, GameState, Player, VIEW_H, VIEW_W } from "../types";
 import {
+  drawCraft,
   drawShop,
   gerLayout,
   gerProximity,
@@ -636,10 +637,11 @@ export function drawGerInterior(
   }
 
   // Ойролцоох зүйлсийн заавар
-  if (!state.shopOpen && state.gerSleepTimer <= 0) {
+  if (!state.shopOpen && !state.craftOpen && state.gerSleepTimer <= 0) {
     const prox = gerProximity(state);
     let hint = "";
-    if (prox.nearChest) hint = "E — Дэлгүүр нээх";
+    if (prox.nearChest) hint = "E — Авдар (дэлгүүр)";
+    else if (prox.nearAltar) hint = "E — Урлал";
     else if (prox.nearBed)
       hint = state.player.sleepCooldown > 0 ? "Сая унтсан…" : "E — Унтах";
     if (hint) {
@@ -691,7 +693,10 @@ export function drawGerInterior(
   ctx.fillStyle = COLORS.hudAccent;
   ctx.font = "600 14px system-ui, sans-serif";
   ctx.fillText(`Оноо: ${state.score}`, 28, 37);
-  const ownedIcons = SHOP_ITEMS.filter((it) => state.player.gear[it.id])
+  const ownedIcons = SHOP_ITEMS.filter(
+    (it): it is Extract<typeof it, { type: "gear" }> =>
+      it.type === "gear" && state.player.gear[it.id],
+  )
     .map((it) => it.icon)
     .join(" ");
   if (ownedIcons) {
@@ -713,6 +718,7 @@ export function drawGerInterior(
   }
 
   if (state.shopOpen) drawShop(ctx, state);
+  if (state.craftOpen) drawCraft(ctx, state);
 }
 
 /** Дэлгүүрийн цонх — авдар дээр дарахад нээгдэнэ */

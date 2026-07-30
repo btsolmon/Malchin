@@ -4,15 +4,15 @@ import {
   FENCE_BREAK_DPS,
   FENCE_CONTACT_DPS,
   FENCE_KNOCKBACK,
-  MAX_VISUAL_SHEEP,
   PASTURE_RADIUS,
-  WIN_SHEEP,
   WORLD_H,
   WORLD_W,
   type FenceTier,
   type GameState,
-  type Sheep,
+  type HerdAnimal,
+  type Thief,
   type Vector2,
+  type Wolf,
 } from "../game/types";
 import {
   allocId,
@@ -30,86 +30,78 @@ import {
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
+import {
+  penCenter,
+  PEN_RADIUS,
+  threatIntervalMult,
+  winterFenceBreakMult,
+} from "./daycycle";
+import {
+  syncVisualFlock,
+  addLivestock,
+  killHerdVisual,
+  loseLivestock,
+  nearestHerdAnimal,
+} from "./livestock";
 
-export function createVisualSheep(id: number, around: Vector2): Sheep {
-  const ang = Math.random() * Math.PI * 2;
-  const r = randRange(20, PASTURE_RADIUS * 0.7);
-  return {
-    id,
-    pos: {
-      x: around.x + Math.cos(ang) * r,
-      y: around.y + Math.sin(ang) * r,
-    },
-    vel: { x: 0, y: 0 },
-    radius: 10,
-    grazeSeed: Math.random() * 10,
-    hp: 3,
-    flash: 0,
-    face: 1,
-  };
+function enemyCombatLocksMovement(
+  phase: Wolf["combatPhase"] | Thief["combatPhase"] | undefined,
+): boolean {
+  return (
+    phase === "windup" ||
+    phase === "active" ||
+    phase === "recovery" ||
+    phase === "staggered"
+  );
 }
 
-export function syncVisualFlock(state: GameState): void {
-  const { flock } = state.world;
-  const center = pastureCenter(state.world);
-  const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
+// Re-exports for other modules
+export {
+  syncVisualFlock,
+  addLivestock,
+  loseLivestock,
+  killHerdVisual,
+  nearestHerdAnimal,
+};
 
-  while (flock.visuals.length < want) {
-    flock.visuals.push(createVisualSheep(allocId(state), center));
-  }
-  while (flock.visuals.length > want) {
-    flock.visuals.pop();
-  }
-}
-
+/** Хуучин API — хонь нэмэх (өдөр тутмын өсөлт гэх мэт) */
 export function addSheep(state: GameState, n: number): void {
-  state.world.flock.total = Math.min(WIN_SHEEP, state.world.flock.total + n);
-  syncVisualFlock(state);
-  checkWin(state);
+  // Одоо байгаа төрлүүдэд пропорциональ хуваарилна
+  const flock = state.world.flock;
+  if (flock.total <= 0) {
+    addLivestock(state, "sheep", n);
+    return;
+  }
+  let left = n;
+  const kinds = (["sheep", "goat", "cattle", "horse", "camel"] as const).filter(
+    (k) => flock.counts[k] > 0,
+  );
+  for (let i = 0; i < kinds.length; i++) {
+    const k = kinds[i];
+    const share =
+      i === kinds.length - 1
+        ? left
+        : Math.max(0, Math.round((flock.counts[k] / flock.total) * n));
+    const give = Math.min(share, left);
+    if (give > 0) addLivestock(state, k, give);
+    left -= give;
+  }
+  if (left > 0) addLivestock(state, kinds[0] ?? "sheep", left);
 }
 
 export function loseSheep(state: GameState, n: number): number {
-  const lost = Math.min(n, state.world.flock.total);
-  state.world.flock.total -= lost;
-  syncVisualFlock(state);
-  if (state.world.flock.total <= 0) {
-    state.phase = "lost";
-    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
-  }
-  return lost;
+  return loseLivestock(state, n);
 }
 
-/** Тодорхой нэг хонь чонод идэгдэх */
-export function killSheepVisual(state: GameState, sheep: Sheep): void {
-  const flock = state.world.flock;
-  flock.total = Math.max(0, flock.total - 1);
-  const i = flock.visuals.indexOf(sheep);
-  if (i >= 0) flock.visuals.splice(i, 1);
-  syncVisualFlock(state);
-  if (flock.total <= 0) {
-    state.phase = "lost";
-    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
-  }
+export function killSheepVisual(state: GameState, sheep: HerdAnimal): void {
+  killHerdVisual(state, sheep);
 }
 
-export function checkWin(state: GameState): void {
-  if (state.world.flock.total >= WIN_SHEEP) {
-    state.phase = "won";
-    setMessage(state, `Ялалт! ${WIN_SHEEP} хоньтой болоо!`, 99);
-  }
-}
-
-export function nearestSheep(from: Vector2, visuals: Sheep[]): Sheep | null {
-  let best: Sheep | null = null;
-  let bestD = Infinity;
-  for (const s of visuals) {
-    const d = dist(from, s.pos);
-    if (d < bestD) {
-      bestD = d;
-      best = s;
-    }
-  }
-  return best;
+export function nearestSheep(
+  from: Vector2,
+  visuals: HerdAnimal[],
+): HerdAnimal | null {
+  return nearestHerdAnimal(from, visuals);
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +145,14 @@ export function spawnWolf(
     flash: 0,
     face: 1,
     alive: true,
+    posture: 0,
+    maxPosture: bear ? 140 : 100,
+    postureRecoveryDelay: 0,
+    combatPhase: "idle",
+    combatTimer: 0,
+    attackDirection: { x: 0, y: 1 },
+    attackHitDone: false,
+    knockbackResistance: bear ? 0.45 : 0.15,
   });
   sfx("howl");
   setMessage(
@@ -216,12 +216,20 @@ export function spawnThief(state: GameState): void {
     flash: 0,
     face: 1,
     alive: true,
+    posture: 0,
+    maxPosture: 100,
+    postureRecoveryDelay: 0,
+    combatPhase: "idle",
+    combatTimer: 0,
+    attackDirection: { x: 0, y: 1 },
+    attackHitDone: false,
+    knockbackResistance: 0.2,
   });
   sfx("alert");
 
   if (stolen > 0) {
-    spawnText(state, pos, `−${stolen} хонь!`, "#ff8080");
-    setMessage(state, `Хулгайч ${stolen} хонь авч зугтав! Гүйцэж ав!`, 4);
+    spawnText(state, pos, `−${stolen} мал!`, "#ff8080");
+    setMessage(state, `Хулгайч ${stolen} мал авч зугтав! Гүйцэж ав!`, 4);
   } else if (defense.tier3Count < 5) {
     setMessage(state, "Хулгайч ойртлоо — хашаагаа шалга!", 3);
   }
@@ -233,23 +241,27 @@ export function spawnThief(state: GameState): void {
 
 export function updateFlock(state: GameState, dt: number): void {
   const center = pastureCenter(state.world);
+  const pen = penCenter(state.world);
   const { player, world } = state;
   const herding = state.input.herd;
   const drive = normalize(player.facing);
   const dog = world.dog;
+  const out = world.flockOut;
 
   for (const sheep of world.flock.visuals) {
+    const home = out ? center : pen;
+    const homeR = out ? PASTURE_RADIUS : PEN_RADIUS * 0.85;
     const toCenter = normalize({
-      x: center.x - sheep.pos.x,
-      y: center.y - sheep.pos.y,
+      x: home.x - sheep.pos.x,
+      y: home.y - sheep.pos.y,
     });
     const toPlayer = normalize({
       x: player.pos.x - sheep.pos.x,
       y: player.pos.y - sheep.pos.y,
     });
     const wander = {
-      x: Math.sin(world.elapsed * 0.7 + sheep.id) * 0.4,
-      y: Math.cos(world.elapsed * 0.5 + sheep.id * 1.3) * 0.4,
+      x: Math.sin(world.elapsed * 0.7 + sheep.id) * (out ? 0.4 : 0.15),
+      y: Math.cos(world.elapsed * 0.5 + sheep.id * 1.3) * (out ? 0.4 : 0.15),
     };
 
     // Чононоос зугтана
@@ -295,19 +307,45 @@ export function updateFlock(state: GameState, dt: number): void {
       }
     }
 
-    const dCenter = dist(sheep.pos, center);
-    // Туух үед бэлчээрийн таталтыг сулруулна — сүрэг урагш явна
-    const pull = herding
-      ? dCenter > PASTURE_RADIUS * 1.4
-        ? 0.35
-        : 0.05
-      : dCenter > PASTURE_RADIUS
-        ? 1.2
-        : 0.25;
-    const playerPull = herding ? 0 : 0.15;
+    const dCenter = dist(sheep.pos, home);
+    // Бэлчээрт гарсан үед гэрийн дэргэд биш, бэлчээрийн тойрогт тарана
+    let pull: number;
+    let steerX = toCenter.x;
+    let steerY = toCenter.y;
+    if (herding) {
+      pull = dCenter > homeR * 1.4 ? 0.35 : 0.05;
+    } else if (!out) {
+      pull = dCenter > homeR ? 2.4 : 0.6;
+    } else {
+      // Бэлчих цэг — гэрийн эргэн тойронд тархана
+      const ang =
+        world.elapsed * 0.12 + sheep.id * 1.91 + sheep.grazeSeed;
+      const rad =
+        PASTURE_RADIUS * (0.35 + ((sheep.id * 17) % 7) * 0.08);
+      const spot = {
+        x: center.x + Math.cos(ang) * rad,
+        y: center.y + Math.sin(ang * 0.85) * rad * 0.8,
+      };
+      const toSpot = normalize({
+        x: spot.x - sheep.pos.x,
+        y: spot.y - sheep.pos.y,
+      });
+      steerX = toSpot.x;
+      steerY = toSpot.y;
+      const dSpot = dist(sheep.pos, spot);
+      pull = dSpot > 28 ? 1.1 : 0.2;
+      // Гэрт хэт ойртохыг түлхэнэ
+      const dGer = dist(sheep.pos, center);
+      if (dGer < 70) {
+        steerX += (sheep.pos.x - center.x) / Math.max(1, dGer) * 1.5;
+        steerY += (sheep.pos.y - center.y) / Math.max(1, dGer) * 1.5;
+        pull = Math.max(pull, 1.2);
+      }
+    }
+    const playerPull = herding ? 0 : out ? 0.05 : 0.05;
 
     sheep.vel.x +=
-      (toCenter.x * pull +
+      (steerX * pull +
         toPlayer.x * playerPull +
         wander.x +
         fleeX +
@@ -315,7 +353,7 @@ export function updateFlock(state: GameState, dt: number): void {
       40 *
       dt;
     sheep.vel.y +=
-      (toCenter.y * pull +
+      (steerY * pull +
         toPlayer.y * playerPull +
         wander.y +
         fleeY +
@@ -353,7 +391,24 @@ export function damagePlayer(state: GameState, dmg: number): void {
       player.gear.horse = false;
       spawnParticles(state, player.pos, 14, "#6b4a26", { speed: 110 });
       spawnText(state, player.pos, "Морь үхэв!", "#ff8080");
-      setMessage(state, "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.", 3);
+      if (state.world.gerPacked) {
+        // Гэр унана — одоогийн байранд буулгана
+        const pos = {
+          x: clamp(player.pos.x, 120, state.world.width - 120),
+          y: clamp(player.pos.y, 120, state.world.height - 120),
+        };
+        state.world.campPos = { ...pos };
+        state.world.gerPacked = false;
+        state.world.campfire.pos = { x: pos.x + 52, y: pos.y + 14 };
+        state.world.feeder.pos = { x: pos.x - 70, y: pos.y + 48 };
+        setMessage(
+          state,
+          "Морь үхэж гэр унав! Энд буулаа — шинийг авч нүү.",
+          4,
+        );
+      } else {
+        setMessage(state, "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.", 3);
+      }
     }
   }
   player.vitals.health = clamp(
@@ -385,7 +440,7 @@ function collideEntityWithFences(
     if (dist(pos, fence.pos) > radius + fence.radius + 2) continue;
     const tier = fence.tier as FenceTier;
     if (tier > hitTier) hitTier = tier;
-    const breakDps = FENCE_BREAK_DPS[tier][attacker];
+    const breakDps = FENCE_BREAK_DPS[tier][attacker] * winterFenceBreakMult(state.world);
     if (breakDps > 0) {
       fence.hp -= breakDps * dt;
       if (fence.hp <= 0) {
@@ -448,7 +503,8 @@ export function updateWolves(state: GameState, dt: number): void {
     const biteRange = wolf.radius * wolf.scale + (prey ? prey.radius : 0) + 4;
 
     // Олзондоо хүрсэн бол зогсож хазна (мөргөлдөж анивчихгүй)
-    if (dPrey > biteRange - 3) {
+    const combatLocked = enemyCombatLocksMovement(wolf.combatPhase);
+    if (!combatLocked && dPrey > biteRange - 3) {
       wolf.pos.x += dir.x * wolf.speed * dt;
       wolf.pos.y += dir.y * wolf.speed * dt;
     }
@@ -488,7 +544,12 @@ export function updateWolves(state: GameState, dt: number): void {
     }
 
     // Чоно 3, баавгай 2 хазалтаар хонь унагана — ойролцоох хашаа хамгаална
-    if (prey && dPrey < biteRange + 4 && wolf.attackCooldown <= 0) {
+    if (
+      prey &&
+      !combatLocked &&
+      dPrey < biteRange + 4 &&
+      wolf.attackCooldown <= 0
+    ) {
       wolf.attackCooldown = wolf.kind === "bear" ? 1.5 : 1.3;
       const mitigate = sheepFenceMitigation(prey.pos, state.world.fences);
       const block =
@@ -504,45 +565,18 @@ export function updateWolves(state: GameState, dt: number): void {
         spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
         if (prey.hp <= 0) {
           spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
-          spawnText(state, prey.pos, "−1 хонь", "#ff8080");
+          spawnText(state, prey.pos, "−1 мал", "#ff8080");
           killSheepVisual(state, prey);
           setMessage(
             state,
-            wolf.kind === "bear" ? "Баавгай хонь барив!" : "Чоно хонь барив!",
+            wolf.kind === "bear" ? "Баавгай мал барив!" : "Чоно мал барив!",
             2,
           );
         }
       }
     }
 
-    if (
-      dPlayer < wolf.radius * wolf.scale + player.radius + 2 &&
-      wolf.attackCooldown <= 0 &&
-      player.invuln <= 0
-    ) {
-      wolf.attackCooldown = 1.1;
-      player.invuln = 0.6;
-      damagePlayer(state, wolf.damage);
-      const knock = normalize({
-        x: player.pos.x - wolf.pos.x,
-        y: player.pos.y - wolf.pos.y,
-      });
-      player.pos.x += knock.x * 24;
-      player.pos.y += knock.y * 24;
-      state.fx.shake = Math.max(state.fx.shake, 5);
-      state.fx.hurtFlash = 1;
-      sfx("hurt");
-      spawnParticles(state, player.pos, 8, "#d64545", { speed: 90 });
-      spawnText(state, player.pos, `−${wolf.damage}`, "#ff6060");
-      if (player.vitals.health <= 0) {
-        state.phase = "lost";
-        setMessage(
-          state,
-          wolf.kind === "bear" ? "Баавгайд ялагдлаа…" : "Чононд ялагдлаа…",
-          99,
-        );
-      }
-    }
+    // Тоглогч руу цохилт — advanced combat (windup/parry/dodge) хариуцна
   }
 
   state.world.wolves = wolves.filter((w) => w.alive);
@@ -565,37 +599,17 @@ export function updateThieves(state: GameState, dt: number): void {
     if (dPlayer < 70) {
       // Тоглогч ойртвол эргэж зөрүүлж зодолдоно — удаан зугтана
       thief.face = player.pos.x < thief.pos.x ? -1 : 1;
-      thief.pos.x += dir.x * thief.speed * 0.45 * dt;
-      thief.pos.y += dir.y * thief.speed * 0.45 * dt;
-
-      if (
-        dPlayer < thief.radius + player.radius + 6 &&
-        thief.attackCooldown <= 0 &&
-        player.invuln <= 0
-      ) {
-        thief.attackCooldown = 1.1;
-        player.invuln = 0.5;
-        damagePlayer(state, thief.damage);
-        const knock = normalize({
-          x: player.pos.x - thief.pos.x,
-          y: player.pos.y - thief.pos.y,
-        });
-        player.pos.x += knock.x * 20;
-        player.pos.y += knock.y * 20;
-        state.fx.shake = Math.max(state.fx.shake, 4);
-        state.fx.hurtFlash = 1;
-        sfx("hurt");
-        spawnParticles(state, player.pos, 6, "#d64545", { speed: 80 });
-        spawnText(state, player.pos, `−${thief.damage}`, "#ff6060");
-        if (player.vitals.health <= 0 && state.phase === "playing") {
-          state.phase = "lost";
-          setMessage(state, "Хулгайчид зодуулж ялагдлаа…", 99);
-        }
+      if (!enemyCombatLocksMovement(thief.combatPhase)) {
+        thief.pos.x += dir.x * thief.speed * 0.45 * dt;
+        thief.pos.y += dir.y * thief.speed * 0.45 * dt;
       }
+      // Тоглогч руу цохилт — advanced combat хариуцна
     } else {
       if (Math.abs(dir.x) > 0.25) thief.face = dir.x < 0 ? -1 : 1;
-      thief.pos.x += dir.x * thief.speed * dt;
-      thief.pos.y += dir.y * thief.speed * dt;
+      if (!enemyCombatLocksMovement(thief.combatPhase)) {
+        thief.pos.x += dir.x * thief.speed * dt;
+        thief.pos.y += dir.y * thief.speed * dt;
+      }
     }
     const contact = collideEntityWithFences(
       state,
@@ -624,13 +638,13 @@ export function updateThieves(state: GameState, dt: number): void {
         spawnText(
           state,
           thief.pos,
-          recovered > 0 ? `+${recovered} хонь · +${xp} XP` : `+${xp} XP`,
+          recovered > 0 ? `+${recovered} мал · +${xp} XP` : `+${xp} XP`,
           "#b8e8a0",
         );
         setMessage(
           state,
           recovered > 0
-            ? `Хашаа хулгайчийг зогсоов! +${recovered} хонь`
+            ? `Хашаа хулгайчийг зогсоов! +${recovered} мал`
             : "Хашаа хулгайчийг зогсоов!",
           3,
         );
@@ -651,7 +665,7 @@ export function updateThieves(state: GameState, dt: number): void {
       setMessage(
         state,
         lost > 0
-          ? `Хулгайч зугтав… ${lost} хонь үгүй болов.`
+          ? `Хулгайч зугтав… ${lost} мал үгүй болов.`
           : "Хулгайч зугтав.",
         3,
       );
@@ -666,18 +680,19 @@ export function updateThreatTimers(state: GameState, dt: number): void {
   world.nextWolfIn -= dt;
   world.nextThiefIn -= dt;
 
-  const night = isNight(world);
+  const mult = threatIntervalMult(world) * 2;
+  const night = isNight(world) || world.dayPhase === "night";
   if (world.nextWolfIn <= 0) {
-    // 2-р түвшнээс эхлэн заримдаа чонын оронд баавгай гарна
-    const bear = state.level >= 2 && Math.random() < 0.25;
+    const bear = state.level >= 2 && Math.random() < 0.12;
     spawnWolf(state, bear ? "bear" : "wolf");
-    world.nextWolfIn = night ? randRange(10, 18) : randRange(22, 38);
+    const base = night ? randRange(20, 36) : randRange(44, 76);
+    world.nextWolfIn = base * mult;
   }
 
   if (world.nextThiefIn <= 0) {
-    if (!night || Math.random() < 0.35) {
+    if (!night || Math.random() < 0.18) {
       spawnThief(state);
     }
-    world.nextThiefIn = randRange(28, 50);
+    world.nextThiefIn = randRange(56, 100) * mult;
   }
 }
