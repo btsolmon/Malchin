@@ -13,6 +13,7 @@ import { spawnParticles, spawnText } from "../effects";
 import { sfx } from "../audio";
 import { gainXp } from "../player";
 import { addSheep } from "../enemies";
+import { damageRouteEnemy } from "../firstRoute";
 
 export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
   wolf.hp -= dmg;
@@ -92,6 +93,17 @@ export function tryAttack(state: GameState): void {
       });
     }
   }
+  for (const enemy of world.firstRoute.enemies) {
+    if (!enemy.alive) continue;
+    const d = dist(player.pos, enemy.pos);
+    if (d < bestD) {
+      bestD = d;
+      dir = normalize({
+        x: enemy.pos.x - player.pos.x,
+        y: enemy.pos.y - player.pos.y,
+      });
+    }
+  }
   if (dir.x === 0 && dir.y === 0) dir = { x: 1, y: 0 };
 
   const speed = gun ? 540 : 400;
@@ -128,6 +140,16 @@ export function updateProjectiles(state: GameState, dt: number): void {
         if (!t.alive) continue;
         if (dist(p.pos, t.pos) < t.radius + 6) {
           damageThief(state, t, p.dmg);
+          consumed = true;
+          break;
+        }
+      }
+    }
+    if (!consumed) {
+      for (const enemy of world.firstRoute.enemies) {
+        if (!enemy.alive) continue;
+        if (dist(p.pos, enemy.pos) < enemy.radius + 6) {
+          damageRouteEnemy(state, enemy, p.dmg);
           consumed = true;
           break;
         }

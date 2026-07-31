@@ -1074,6 +1074,18 @@ export function drawMinimap(
   for (const t of state.world.thieves) {
     ctx.fillRect(mx + t.pos.x * sx - 1.5, my + t.pos.y * sy - 1.5, 3, 3);
   }
+  // Эхний замын тулалдаанд орсон дайснууд
+  ctx.fillStyle = "#ff9b55";
+  for (const enemy of state.world.firstRoute.enemies) {
+    if (!enemy.alive || !enemy.engaged) continue;
+    const size = enemy.kind === "shulmasynBaatar" ? 4 : 3;
+    ctx.fillRect(
+      mx + enemy.pos.x * sx - size / 2,
+      my + enemy.pos.y * sy - size / 2,
+      size,
+      size,
+    );
+  }
   // Тоглогч
   ctx.fillStyle = "#60c0ff";
   ctx.fillRect(
@@ -1098,6 +1110,13 @@ export function drawThreatArrows(
     threats.push({ pos: w.pos, color: "#ff5050" });
   for (const t of state.world.thieves)
     threats.push({ pos: t.pos, color: "#c080ff" });
+  for (const enemy of state.world.firstRoute.enemies) {
+    if (!enemy.alive || !enemy.engaged) continue;
+    threats.push({
+      pos: enemy.pos,
+      color: enemy.kind === "shulmasynBaatar" ? "#d993ff" : "#ff9b55",
+    });
+  }
 
   for (const th of threats) {
     const sx = th.pos.x - cam.x;
@@ -1274,6 +1293,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["K", "Буудах / Харвах"],
     ["Shift", "Бултах — invuln цонх"],
     ["L", "Сөрөх (parry) — дайралт няцаах"],
+    ["1 / 2", "Модон таяг / Хөх тэнгэрийн сэлэм"],
     ["E", "Мод/жимс/өвс · бэлэн мал · тэжээгч: мал гаргах/оруулах"],
     ["Q", "Жимс эсвэл ааруул идэх"],
     ["F", "Гал түлэх (үүр/шөнө дулаац)"],
@@ -1631,6 +1651,58 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     pad + 62,
   );
 
+  const route = world.firstRoute;
+  const routeText = world.tumurShulmas.defeated
+    ? "Төмөр шулмас дарагдав"
+    : world.tumurShulmas.active
+      ? `Төмөр шулмас · Үе ${world.tumurShulmas.bossPhase}`
+      : route.bossDefeated
+        ? route.swordDrop.collected
+          ? "Хар төмөр хаалга нээгдсэн"
+          : "Mini-boss унав · Сэлмээ ав"
+        : route.bossStarted
+          ? "Mini-boss · Шулмасын баатар"
+          : route.complete
+            ? "Хараалт хаалга нээгдсэн"
+            : `Эхний зам ${route.defeated}/${route.total}`;
+  ctx.font = "700 11px system-ui, sans-serif";
+  const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 22;
+  const routeX = VIEW_W - routeWidth - pad;
+  const routeY = pad + panelH + 8;
+  ctx.fillStyle = "rgba(28,18,13,0.82)";
+  roundRectPath(ctx, routeX, routeY, routeWidth, 25, 12);
+  ctx.fill();
+  ctx.strokeStyle = route.complete
+    ? "rgba(232,197,106,0.68)"
+    : "rgba(255,155,85,0.55)";
+  roundRectPath(ctx, routeX, routeY, routeWidth, 25, 12);
+  ctx.stroke();
+  ctx.fillStyle = route.complete ? "#ffe08a" : "#ffb078";
+  ctx.fillText(routeText, routeX + 11, routeY + 17);
+
+  const weaponText =
+    player.weapon === "skySword"
+      ? "2 · Хөх тэнгэрийн сэлэм"
+      : "1 · Модон таяг";
+  const weaponWidth = Math.ceil(ctx.measureText(weaponText).width) + 22;
+  const weaponX = VIEW_W - weaponWidth - pad;
+  const weaponY = routeY + 31;
+  ctx.fillStyle =
+    player.weapon === "skySword"
+      ? "rgba(26,72,96,0.82)"
+      : "rgba(45,31,20,0.78)";
+  roundRectPath(ctx, weaponX, weaponY, weaponWidth, 25, 12);
+  ctx.fill();
+  ctx.strokeStyle =
+    player.weapon === "skySword"
+      ? "rgba(180,232,255,0.72)"
+      : "rgba(205,165,104,0.52)";
+  roundRectPath(ctx, weaponX, weaponY, weaponWidth, 25, 12);
+  ctx.stroke();
+  ctx.fillStyle =
+    player.weapon === "skySword" ? "#d9f4ff" : "#e5c88d";
+  ctx.fillText(weaponText, weaponX + 11, weaponY + 17);
+
   // Аюулын мэдээлэл
   if (world.wolves.length > 0 || world.thieves.length > 0) {
     const parts: string[] = [];
@@ -1755,15 +1827,16 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.textAlign = "left";
   }
 
-  // Төгсгөлийн дэлгэц — зөвхөн ялагдал
-  if (state.phase === "lost") {
+  // Төгсгөлийн дэлгэц
+  if (state.phase === "won" || state.phase === "lost") {
+    const won = state.phase === "won";
     ctx.fillStyle = "rgba(0,0,0,0.68)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
     ctx.textAlign = "center";
     ctx.font = "bold 44px system-ui, sans-serif";
-    ctx.fillStyle = "#ff6b6b";
-    ctx.fillText("ЯЛАГДЛАА", VIEW_W / 2, VIEW_H / 2 - 30);
+    ctx.fillStyle = won ? "#e8c56a" : "#ff6b6b";
+    ctx.fillText(won ? "ЯЛАЛТ!" : "ЯЛАГДЛАА", VIEW_W / 2, VIEW_H / 2 - 30);
 
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "16px system-ui, sans-serif";

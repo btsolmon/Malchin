@@ -1,10 +1,35 @@
 import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDog, drawFeeder, drawFence, drawFenceGhost, drawGer, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf } from "./entities";
+import { drawBear, drawBerryBush, drawCampfire, drawDog, drawFeeder, drawFence, drawFenceGhost, drawGer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf } from "./entities";
 import { drawGerInterior } from "./ger";
+import {
+  drawPlayerWithSprites,
+  type PlayerSpriteSet,
+} from "./playerSprites";
+import {
+  drawFirstRouteBolts,
+  drawFirstRouteGate,
+  drawFirstRouteHint,
+  drawMiniBossArena,
+  drawMiniBossHud,
+  drawRouteEnemy,
+  drawSwordDrop,
+} from "../firstRoute";
 
 import { drawLighting, drawWeatherFx } from "./lighting";
+import { getCameraShakeOffset } from "../effects";
+import {
+  drawTumurShulmas,
+  drawTumurShulmasArena,
+  drawTumurShulmasExit,
+  drawTumurShulmasGate,
+  drawTumurShulmasHint,
+  drawTumurShulmasHud,
+  drawTumurShulmasNeedles,
+  drawTumurShulmasTelegraphs,
+  type TumurShulmasSpriteSet,
+} from "../tumurShulmas";
 
 export interface RenderContext {
   ctx: CanvasRenderingContext2D;
@@ -12,6 +37,8 @@ export interface RenderContext {
   terrainWinter: HTMLCanvasElement;
   lightCanvas: HTMLCanvasElement;
   vignette: HTMLCanvasElement;
+  playerSprites: PlayerSpriteSet;
+  tumurShulmasSprites: TumurShulmasSpriteSet;
 }
 
 /** Гэрийн дэргэд өвсний овоо */
@@ -52,13 +79,16 @@ function drawHaystack(
 
 export function getCamera(state: GameState): Camera {
   const shake = state.fx.shake;
+  const bossShake = getCameraShakeOffset(state.fx.cameraShake);
   return {
     x:
       clamp(state.player.pos.x - VIEW_W / 2, 0, WORLD_W- VIEW_W) +
-      (shake > 0 ? randRange(-shake, shake) : 0),
+      (shake > 0 ? randRange(-shake, shake) : 0) +
+      bossShake.x,
     y:
       clamp(state.player.pos.y - VIEW_H / 2, 0, WORLD_H - VIEW_H) +
-      (shake > 0 ? randRange(-shake, shake) : 0),
+      (shake > 0 ? randRange(-shake, shake) : 0) +
+      bossShake.y,
   };
 }
 
@@ -71,7 +101,7 @@ export function render(
 
   // Гэрийн дотор — тусдаа дэлгэц
   if (state.phase === "ger") {
-    drawGerInterior(ctx, state, time);
+    drawGerInterior(ctx, state, time, rc.playerSprites);
     return;
   }
 
@@ -81,6 +111,10 @@ export function render(
   // Газар
   const terrain = world.season === "winter" ? rc.terrainWinter : rc.terrain;
   ctx.drawImage(terrain, cam.x, cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+
+  drawTumurShulmasArena(ctx, state, cam, time);
+  drawTumurShulmasTelegraphs(ctx, state, cam, time);
+  drawMiniBossArena(ctx, state, cam, time);
 
   // Салхины хүч (модны найгалт)
   const windAmp =
@@ -186,6 +220,17 @@ export function render(
   }
 
   for (const tree of world.trees) {
+    if (
+      (world.firstRoute.bossStarted &&
+        !world.firstRoute.swordDrop.collected &&
+        dist(tree.pos, world.firstRoute.arenaCenter) <
+          world.firstRoute.arenaRadius + 34) ||
+      (world.tumurShulmas.active &&
+        dist(tree.pos, world.tumurShulmas.arenaCenter) <
+          world.tumurShulmas.arenaRadius + 34)
+    ) {
+      continue;
+    }
     drawables.push({
       y: tree.pos.y,
       key: tree.id,
@@ -193,6 +238,17 @@ export function render(
     });
   }
   for (const bush of world.bushes) {
+    if (
+      (world.firstRoute.bossStarted &&
+        !world.firstRoute.swordDrop.collected &&
+        dist(bush.pos, world.firstRoute.arenaCenter) <
+          world.firstRoute.arenaRadius + 20) ||
+      (world.tumurShulmas.active &&
+        dist(bush.pos, world.tumurShulmas.arenaCenter) <
+          world.tumurShulmas.arenaRadius + 20)
+    ) {
+      continue;
+    }
     drawables.push({
       y: bush.pos.y,
       key: 1000 + bush.id,
@@ -226,6 +282,27 @@ export function render(
       draw: () => drawFenceGhost(ctx, ghostPos, ghostOrient, cam),
     });
   }
+  drawables.push({
+    y: world.firstRoute.gatePos.y,
+    key: 5800,
+    draw: () => drawFirstRouteGate(ctx, state, cam, time),
+  });
+  if (
+    !world.tumurShulmas.active &&
+    (world.firstRoute.bossDefeated || world.tumurShulmas.defeated)
+  ) {
+    drawables.push({
+      y: world.tumurShulmas.gatePos.y,
+      key: 5900,
+      draw: () => drawTumurShulmasGate(ctx, state, cam, time),
+    });
+  } else {
+    drawables.push({
+      y: world.tumurShulmas.exitPos.y,
+      key: 5901,
+      draw: () => drawTumurShulmasExit(ctx, state, cam, time),
+    });
+  }
   for (const sheep of world.flock.visuals) {
     drawables.push({
       y: sheep.pos.y,
@@ -257,6 +334,35 @@ export function render(
       draw: () => drawThief(ctx, thief, cam, time),
     });
   }
+  for (const enemy of world.firstRoute.enemies) {
+    if (!enemy.alive && enemy.deathTimer <= 0) continue;
+    drawables.push({
+      y: enemy.pos.y,
+      key: 7000 + enemy.id,
+      draw: () => drawRouteEnemy(ctx, enemy, cam, time),
+    });
+  }
+  if (world.firstRoute.swordDrop.visible) {
+    drawables.push({
+      y: world.firstRoute.swordDrop.pos.y,
+      key: 12100,
+      draw: () => drawSwordDrop(ctx, state, cam, time),
+    });
+  }
+  if (world.tumurShulmas.active) {
+    drawables.push({
+      y: world.tumurShulmas.pos.y,
+      key: 11900,
+      draw: () =>
+        drawTumurShulmas(
+          ctx,
+          state,
+          cam,
+          time,
+          rc.tumurShulmasSprites,
+        ),
+    });
+  }
   if (world.dog) {
     const dog = world.dog;
     drawables.push({
@@ -268,7 +374,16 @@ export function render(
   drawables.push({
     y: state.player.pos.y,
     key: Number.MAX_SAFE_INTEGER,
-    draw: () => drawPlayer(ctx, state.player, cam, time, world.gerPacked),
+    draw: () =>
+      drawPlayerWithSprites(
+        ctx,
+        state.player,
+        cam,
+        time,
+        rc.playerSprites,
+        state.fx.hurtFlash,
+        world.gerPacked,
+      ),
   });
 
   drawables.sort((a, b) => Math.round(a.y) - Math.round(b.y) || a.key - b.key);
@@ -276,6 +391,8 @@ export function render(
 
   // Сумнууд — бүх объектын дээр
   for (const p of world.projectiles) drawProjectile(ctx, p, cam);
+  drawFirstRouteBolts(ctx, state, cam, time);
+  drawTumurShulmasNeedles(ctx, state, cam);
 
   // Гэрт орох / өвс хадах / тэжээгч / нүүдэл заавар
   if (state.phase === "playing") {
@@ -337,6 +454,16 @@ export function render(
       ctx.textAlign = "left";
     }
   }
+  if (state.phase === "playing") {
+    drawFirstRouteHint(ctx, state, cam);
+    if (
+      world.firstRoute.bossDefeated ||
+      world.tumurShulmas.defeated ||
+      world.tumurShulmas.active
+    ) {
+      drawTumurShulmasHint(ctx, state, cam);
+    }
+  }
 
   // Particles
   for (const p of state.fx.particles) {
@@ -352,6 +479,24 @@ export function render(
       Math.PI * 2,
     );
     ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  for (const soul of state.fx.souls) {
+    const ratio = clamp(soul.life / soul.maxLife, 0, 1);
+    const progress = 1 - ratio;
+    ctx.globalAlpha = ratio * 0.7;
+    ctx.strokeStyle = soul.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(
+      soul.pos.x - cam.x + Math.sin(progress * 10 + soul.seed) * 3.5,
+      soul.pos.y - cam.y,
+      soul.radius * (0.35 + progress * 0.55),
+      0,
+      Math.PI * 2,
+    );
+    ctx.stroke();
   }
   ctx.globalAlpha = 1;
 
@@ -393,10 +538,18 @@ export function render(
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
+  if (state.fx.screenPulse.remaining > 0 && state.fx.screenPulse.duration > 0) {
+    const pulse = state.fx.screenPulse;
+    const ratio = pulse.remaining / pulse.duration;
+    ctx.fillStyle = `rgba(${pulse.color},${pulse.intensity * ratio})`;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
 
   if (state.phase !== "menu") {
     drawThreatArrows(ctx, state, cam);
     drawMinimap(ctx, state, cam);
   }
   drawHud(ctx, state);
+  drawMiniBossHud(ctx, state);
+  drawTumurShulmasHud(ctx, state);
 }
