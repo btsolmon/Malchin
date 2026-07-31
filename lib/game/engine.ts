@@ -59,6 +59,7 @@ import {
 } from "./livestock";
 import {
   createTumurShulmasEncounter,
+  forceStartTumurShulmasBoss,
   loadTumurShulmasSprites,
   updateTumurShulmasEncounter,
 } from "./tumurShulmas";
@@ -287,6 +288,7 @@ export function createInitialState(): GameState {
       eat: false,
       debugXp: false,
       debugWood: false,
+      debugBoss: false,
       herd: false,
       migrate: false,
       skill1: false,
@@ -459,6 +461,10 @@ export function bindInput(getInput: () => InputState): () => void {
       case "Numpad4":
         if (pressed) input.skill4 = true;
         break;
+      case "Digit5":
+      case "Numpad5":
+        if (pressed) input.debugBoss = true;
+        break;
     }
   };
 
@@ -575,6 +581,9 @@ export function update(state: GameState, dt: number): void {
       spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
       sfx("buy");
     }
+    if (state.input.debugBoss) {
+      forceStartTumurShulmasBoss(state);
+    }
     if (state.input.debugWood) {
       state.unlimitedWood = !state.unlimitedWood;
       if (state.unlimitedWood) {
@@ -654,6 +663,7 @@ export function update(state: GameState, dt: number): void {
   state.input.buildFence = false;
   state.input.debugXp = false;
   state.input.debugWood = false;
+  state.input.debugBoss = false;
   state.input.migrate = false;
 }
 

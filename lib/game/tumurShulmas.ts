@@ -948,6 +948,36 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
   return true;
 }
 
+/** Debug / cheat — 5 дарвал шууд Төмөр шулмасын тулаан эхэлнэ */
+export function forceStartTumurShulmasBoss(state: GameState): void {
+  if (state.phase !== "playing" && state.phase !== "spirit") return;
+
+  const encounter = state.world.tumurShulmas;
+  if (encounter.active && !encounter.defeated) {
+    setMessage(state, "Төмөр шулмасын тулаан аль хэдийн үргэлжилж байна.", 2);
+    return;
+  }
+
+  // Тулаанд шаардлагатай нөхцөлийг cheat-ээр бэлдэнэ
+  encounter.unlocked = true;
+  state.player.hasSkySword = true;
+  state.player.weapon = "skySword";
+  if (state.phase === "spirit") state.phase = "playing";
+
+  encounter.active = true;
+  resetEncounter(encounter);
+  resetBossFeedback(state);
+  preparePlayerForArena(state);
+
+  spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
+    speed: 175,
+    size: 3.3,
+  });
+  state.fx.shake = Math.max(state.fx.shake, 11);
+  setMessage(state, "5 · Төмөр шулмасын тулаан эхэллээ!", 3.5);
+  sfx("levelup");
+}
+
 export function drawTumurShulmasArena(
   ctx: CanvasRenderingContext2D,
   state: GameState,

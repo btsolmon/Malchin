@@ -563,6 +563,8 @@ export interface InputState {
   debugXp: boolean;
   /** Debug — . дарж мод хязгааргүй болгох */
   debugWood: boolean;
+  /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
+  debugBoss: boolean;
   /** N барих — хонь туух */
   herd: boolean;
   /** G — гэр хураах / буулгах (нүүдэл) */
