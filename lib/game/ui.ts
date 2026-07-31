@@ -9,6 +9,7 @@ import {
   GATE_PASS_OPEN,
   LIVESTOCK_KINDS,
   LIVESTOCK_MN,
+  PASTURE_RADIUS,
   VIEW_H,
   VIEW_W,
   WORLD_H,
@@ -919,44 +920,170 @@ export function drawBarFancy(
   color: string,
   label: string,
 ): void {
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  roundRectPath(ctx, x, y, w, h, h / 2);
-  ctx.fill();
+  drawRpgBar(ctx, x, y, w, h, ratio, color, label);
+}
 
-  const fillW = w * clamp(ratio, 0, 1);
-  if (fillW > h / 2) {
-    const g = ctx.createLinearGradient(0, y, 0, y + h);
-    g.addColorStop(0, color);
-    g.addColorStop(1, shade(color, -30));
-    ctx.fillStyle = g;
-    roundRectPath(ctx, x, y, fillW, h, h / 2);
-    ctx.fill();
-    // Гялбаа
-    ctx.fillStyle = "rgba(255,255,255,0.22)";
-    roundRectPath(
-      ctx,
-      x + 2,
-      y + 1.5,
-      Math.max(2, fillW - 4),
-      h * 0.35,
-      h * 0.2,
-    );
-    ctx.fill();
+/** Pixel RPG хэлбэрийн тэгш өнцөгт бар (HP/MP маягтай) */
+export function drawRpgBar(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  ratio: number,
+  color: string,
+  label: string,
+): void {
+  const r = clamp(ratio, 0, 1);
+  // Гадна хүрээ
+  ctx.fillStyle = "#1a1520";
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  ctx.fillStyle = "#3a2e48";
+  ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
+  // Хоосон суурь
+  ctx.fillStyle = shade(color, -70);
+  ctx.fillRect(x, y, w, h);
+  // Дүүргэлт
+  const fillW = Math.floor(w * r);
+  if (fillW > 0) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, fillW, h);
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillRect(x, y, fillW, Math.max(2, Math.floor(h * 0.35)));
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(x, y + h - 2, fillW, 2);
   }
+  // Текст
+  ctx.textAlign = "center";
+  ctx.font = "bold 11px 'Courier New', monospace";
+  ctx.strokeStyle = "rgba(0,0,0,0.75)";
+  ctx.lineWidth = 3;
+  ctx.strokeText(label, x + w / 2, y + h - 3);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(label, x + w / 2, y + h - 3);
+  ctx.textAlign = "left";
+}
 
-  ctx.strokeStyle = "rgba(255,255,255,0.18)";
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, x, y, w, h, h / 2);
+function drawLevelBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  level: number,
+): void {
+  const s = 22;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.moveTo(0, -s);
+  ctx.lineTo(s * 0.72, -s * 0.35);
+  ctx.lineTo(s * 0.55, s * 0.55);
+  ctx.lineTo(-s * 0.55, s * 0.55);
+  ctx.lineTo(-s * 0.72, -s * 0.35);
+  ctx.closePath();
+  ctx.fillStyle = "#2a4a88";
+  ctx.fill();
+  ctx.strokeStyle = "#8ec4ff";
+  ctx.lineWidth = 2;
   ctx.stroke();
+  ctx.fillStyle = "#1a2a50";
+  ctx.beginPath();
+  ctx.moveTo(0, -s + 5);
+  ctx.lineTo(s * 0.5, -s * 0.28);
+  ctx.lineTo(s * 0.38, s * 0.35);
+  ctx.lineTo(-s * 0.38, s * 0.35);
+  ctx.lineTo(-s * 0.5, -s * 0.28);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 13px 'Courier New', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(String(level), 0, 5);
+  ctx.textAlign = "left";
+  ctx.restore();
+}
 
-  ctx.fillStyle = COLORS.hudText;
-  ctx.font = "600 11px system-ui, sans-serif";
-  ctx.fillText(label, x + 1, y - 4);
+function drawStatusIcon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  bg: string,
+  draw: () => void,
+): void {
+  ctx.fillStyle = "#1a1520";
+  ctx.fillRect(x - 1, y - 1, size + 2, size + 2);
+  ctx.fillStyle = bg;
+  ctx.fillRect(x, y, size, size);
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
+  ctx.save();
+  ctx.translate(x + size / 2, y + size / 2);
+  draw();
+  ctx.restore();
+}
+
+function drawWoodFrame(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  thickness = 6,
+): void {
+  ctx.fillStyle = "#5a3a22";
+  ctx.fillRect(x - thickness, y - thickness, w + thickness * 2, h + thickness * 2);
+  ctx.fillStyle = "#8a5a32";
+  ctx.fillRect(x - thickness + 2, y - thickness + 2, w + thickness * 2 - 4, h + thickness * 2 - 4);
+  ctx.fillStyle = "#3a2414";
+  ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
+  // Булангийн багана
+  const peg = 5;
+  const pegs = [
+    [x - thickness - 1, y - thickness - 1],
+    [x + w + thickness - peg + 1, y - thickness - 1],
+    [x - thickness - 1, y + h + thickness - peg + 1],
+    [x + w + thickness - peg + 1, y + h + thickness - peg + 1],
+  ];
+  for (const [px, py] of pegs) {
+    ctx.fillStyle = "#6e4428";
+    ctx.fillRect(px, py, peg, peg);
+    ctx.fillStyle = "#c49a6c";
+    ctx.fillRect(px + 1, py + 1, peg - 2, peg - 2);
+  }
+}
+
+function drawHotSlot(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  key: string,
+  icon: string,
+  active = false,
+): void {
+  ctx.fillStyle = active ? "#6a4a28" : "#4a3020";
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = active ? "#3a2818" : "#2a1c12";
+  ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+  ctx.strokeStyle = active ? "#e8c56a" : "#8a6a42";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
+  ctx.font = `${Math.floor(size * 0.45)}px system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#fff";
+  ctx.fillText(icon, x + size / 2, y + size * 0.62);
+  ctx.font = "bold 9px 'Courier New', monospace";
+  ctx.fillStyle = "#e8c56a";
+  ctx.fillText(key, x + size / 2, y + size - 3);
+  ctx.textAlign = "left";
 }
 
 /** Hex өнгийг гэрэлтүүлэх/бараанруулах */
 export function shade(hex: string, amt: number): string {
+  if (!hex.startsWith("#") || hex.length < 7) return hex;
   const n = parseInt(hex.slice(1), 16);
+  if (Number.isNaN(n)) return hex;
   const r = clamp(((n >> 16) & 255) + amt, 0, 255);
   const g = clamp(((n >> 8) & 255) + amt, 0, 255);
   const b = clamp((n & 255) + amt, 0, 255);
@@ -1024,39 +1151,46 @@ export function drawMinimap(
   state: GameState,
   cam: Camera,
 ): void {
-  const mw = 150;
-  const mh = 100;
-  const mx = VIEW_W - mw - 14;
-  const my = VIEW_H - mh - 14;
+  const mw = 128;
+  const mh = 128;
+  const mx = 22;
+  const my = VIEW_H - mh - 28;
   const sx = mw / WORLD_W;
   const sy = mh / WORLD_H;
 
-  ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, mx - 4, my - 4, mw + 8, mh + 8, 6);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(232,197,106,0.3)";
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, mx - 4, my - 4, mw + 8, mh + 8, 6);
-  ctx.stroke();
+  drawWoodFrame(ctx, mx, my, mw, mh, 7);
 
-  ctx.fillStyle = "rgba(70,110,60,0.5)";
+  // Газрын суурь
+  ctx.fillStyle = state.world.season === "winter" ? "#a8b8a0" : "#4a7a3a";
   ctx.fillRect(mx, my, mw, mh);
 
-  // Гэр
-  ctx.fillStyle = "#e8c56a";
-  ctx.fillRect(mx + (WORLD_W / 2) * sx - 2, my + (WORLD_H / 2) * sy - 2, 4, 4);
+  // Бэлчээр
+  const center = pastureCenter(state.world);
+  ctx.fillStyle =
+    state.world.season === "winter"
+      ? "rgba(200,210,215,0.45)"
+      : "rgba(90,140,55,0.55)";
+  ctx.beginPath();
+  ctx.ellipse(
+    mx + center.x * sx,
+    my + center.y * sy,
+    PASTURE_RADIUS * sx,
+    PASTURE_RADIUS * sy * 0.85,
+    0,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
 
-  // Хонь
-  ctx.fillStyle = "#f0ebe3";
+  // Гэр
+  if (!state.world.gerPacked) {
+    ctx.fillStyle = "#e8c56a";
+    ctx.fillRect(mx + center.x * sx - 3, my + center.y * sy - 3, 6, 6);
+  }
+
+  // Мал — улаан цэг (reference шиг)
+  ctx.fillStyle = "#ff6060";
   for (const s of state.world.flock.visuals) {
-    const colors: Record<string, string> = {
-      sheep: "#f0ebe3",
-      goat: "#d0c0a0",
-      cattle: "#8a6a48",
-      horse: "#7a5538",
-      camel: "#c4a06a",
-    };
-    ctx.fillStyle = colors[s.kind] ?? "#f0ebe3";
     ctx.fillRect(mx + s.pos.x * sx - 1, my + s.pos.y * sy - 1, 2, 2);
   }
   // Зэрлэг морь
@@ -1065,20 +1199,20 @@ export function drawMinimap(
     ctx.fillRect(mx + h.pos.x * sx - 1.5, my + h.pos.y * sy - 1.5, 3, 3);
   }
   // Чоно
-  ctx.fillStyle = "#ff5050";
+  ctx.fillStyle = "#ff3030";
   for (const w of state.world.wolves) {
-    ctx.fillRect(mx + w.pos.x * sx - 1.5, my + w.pos.y * sy - 1.5, 3, 3);
+    ctx.fillRect(mx + w.pos.x * sx - 2, my + w.pos.y * sy - 2, 4, 4);
   }
   // Хулгайч
   ctx.fillStyle = "#c080ff";
   for (const t of state.world.thieves) {
-    ctx.fillRect(mx + t.pos.x * sx - 1.5, my + t.pos.y * sy - 1.5, 3, 3);
+    ctx.fillRect(mx + t.pos.x * sx - 2, my + t.pos.y * sy - 2, 4, 4);
   }
-  // Эхний замын тулалдаанд орсон дайснууд
+  // Эхний замын дайснууд
   ctx.fillStyle = "#ff9b55";
   for (const enemy of state.world.firstRoute.enemies) {
     if (!enemy.alive || !enemy.engaged) continue;
-    const size = enemy.kind === "shulmasynBaatar" ? 4 : 3;
+    const size = enemy.kind === "shulmasynBaatar" ? 5 : 3;
     ctx.fillRect(
       mx + enemy.pos.x * sx - size / 2,
       my + enemy.pos.y * sy - size / 2,
@@ -1086,18 +1220,38 @@ export function drawMinimap(
       size,
     );
   }
-  // Тоглогч
-  ctx.fillStyle = "#60c0ff";
+  // Тоглогч — цэнхэр
+  ctx.fillStyle = "#40a0ff";
   ctx.fillRect(
-    mx + state.player.pos.x * sx - 2,
-    my + state.player.pos.y * sy - 2,
-    4,
-    4,
+    mx + state.player.pos.x * sx - 2.5,
+    my + state.player.pos.y * sy - 2.5,
+    5,
+    5,
+  );
+  ctx.strokeStyle = "#fff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    mx + state.player.pos.x * sx - 2.5,
+    my + state.player.pos.y * sy - 2.5,
+    5,
+    5,
   );
 
   // Камерын харах хүрээ
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.lineWidth = 1;
   ctx.strokeRect(mx + cam.x * sx, my + cam.y * sy, VIEW_W * sx, VIEW_H * sy);
+
+  // N S E W
+  ctx.font = "bold 12px 'Courier New', monospace";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ff5050";
+  ctx.fillText("N", mx + mw / 2, my - 10);
+  ctx.fillStyle = "#e8a040";
+  ctx.fillText("S", mx + mw / 2, my + mh + 16);
+  ctx.fillText("W", mx - 12, my + mh / 2 + 4);
+  ctx.fillText("E", mx + mw + 12, my + mh / 2 + 4);
+  ctx.textAlign = "left";
 }
 
 export function drawThreatArrows(
@@ -1407,223 +1561,124 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     return;
   }
 
-  // Зүүн дээд самбар
-  ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, pad, pad, 296, 360, 10);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(232,197,106,0.3)";
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, pad, pad, 296, 360, 10);
-  ctx.stroke();
+  // —— Зүүн дээд: түвшин + 4 үзүүлэлт (pixel RPG) ——
+  const barX = pad + 48;
+  const barW = 168;
+  const barH = 16;
+  const barGap = 20;
+  drawLevelBadge(ctx, pad + 22, pad + 38, state.level);
 
-  drawBarFancy(
+  drawRpgBar(
     ctx,
-    pad + 14,
-    pad + 26,
-    266,
-    12,
+    barX,
+    pad + 12,
+    barW,
+    barH,
     player.vitals.health / player.vitals.maxHealth,
     "#d64545",
-    `Амьдрал ${Math.ceil(player.vitals.health)}`,
+    `${Math.ceil(player.vitals.health)} / ${player.vitals.maxHealth}`,
   );
-  drawBarFancy(
+  drawRpgBar(
     ctx,
-    pad + 14,
-    pad + 58,
-    266,
-    12,
+    barX,
+    pad + 12 + barGap,
+    barW,
+    barH,
     player.stamina / Math.max(1, player.maxStamina),
-    "#5ec8e8",
-    `Тамир ${Math.ceil(player.stamina)}`,
+    "#4ec4f0",
+    `${Math.ceil(player.stamina)} / ${Math.ceil(player.maxStamina)}`,
   );
-  drawBarFancy(
+  drawRpgBar(
     ctx,
-    pad + 14,
-    pad + 90,
-    266,
-    12,
+    barX,
+    pad + 12 + barGap * 2,
+    barW,
+    barH,
     player.vitals.hunger / player.vitals.maxHunger,
-    "#c4a035",
-    `Өлсгөлөн ${Math.ceil(player.vitals.hunger)}`,
+    "#d4a020",
+    `${Math.ceil(player.vitals.hunger)} / ${player.vitals.maxHunger}`,
   );
-  drawBarFancy(
+  drawRpgBar(
     ctx,
-    pad + 14,
-    pad + 122,
-    266,
-    12,
+    barX,
+    pad + 12 + barGap * 3,
+    barW,
+    barH,
     player.vitals.warmth / player.vitals.maxWarmth,
     "#ff9f5a",
-    `Дулаан ${Math.ceil(player.vitals.warmth)}`,
+    `${Math.ceil(player.vitals.warmth)} / ${player.vitals.maxWarmth}`,
   );
-  drawBarFancy(
+
+  // Статус дүрсүүд (buff мөр)
+  const iconY = pad + 12 + barGap * 4 + 4;
+  const iconS = 18;
+  let ix = barX;
+  drawStatusIcon(ctx, ix, iconY, iconS, "#5a4030", () => {
+    ctx.fillStyle = "#f0ebe3";
+    ctx.fillRect(-5, -2, 10, 7);
+    ctx.fillStyle = "#303030";
+    ctx.beginPath();
+    ctx.arc(-3, -4, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 10px 'Courier New', monospace";
+  ctx.fillText(String(world.flock.total), ix + iconS + 3, iconY + 13);
+  ix += iconS + 28;
+
+  if (world.campfire.lit) {
+    drawStatusIcon(ctx, ix, iconY, iconS, "#6a3a10", () => {
+      ctx.fillStyle = "#ff8030";
+      ctx.beginPath();
+      ctx.moveTo(0, 6);
+      ctx.quadraticCurveTo(-6, 0, 0, -7);
+      ctx.quadraticCurveTo(6, 0, 0, 6);
+      ctx.fill();
+    });
+    ix += iconS + 6;
+  }
+  if (player.gear.horse) {
+    drawStatusIcon(ctx, ix, iconY, iconS, "#4a3020", () => {
+      ctx.fillStyle = "#8a6040";
+      ctx.fillRect(-6, -2, 12, 6);
+      ctx.fillRect(4, -6, 4, 5);
+    });
+    ix += iconS + 6;
+  }
+  if (player.gear.dog) {
+    drawStatusIcon(ctx, ix, iconY, iconS, "#403028", () => {
+      ctx.fillStyle = "#c4a060";
+      ctx.beginPath();
+      ctx.arc(0, 0, 5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ix += iconS + 6;
+  }
+  drawStatusIcon(
     ctx,
-    pad + 14,
-    pad + 154,
-    266,
-    12,
-    clamp(world.flock.total / 40, 0, 1),
-    "#d4c4a0",
-    `Мал ${world.flock.total}`,
-  );
-  drawBarFancy(
-    ctx,
-    pad + 14,
-    pad + 186,
-    266,
-    12,
-    clamp(state.xp / state.xpNext, 0, 1),
-    "#9060d0",
-    `Түвшин ${state.level} · XP ${Math.floor(state.xp)} / ${state.xpNext}`,
+    ix,
+    iconY,
+    iconS,
+    player.weapon === "skySword" ? "#1a4860" : "#503828",
+    () => {
+      ctx.strokeStyle = player.weapon === "skySword" ? "#b0e8ff" : "#e0c080";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-5, 5);
+      ctx.lineTo(5, -5);
+      ctx.stroke();
+    },
   );
 
-  // Малын төрөл
-  ctx.font = "600 11px system-ui, sans-serif";
-  let lx = pad + 14;
-  for (const k of LIVESTOCK_KINDS) {
-    const n = world.flock.counts[k];
-    ctx.fillStyle = n >= 1 ? "#a0d890" : "#887860";
-    const label = `${LIVESTOCK_MN[k]} ${n}`;
-    ctx.fillText(label, lx, pad + 210);
-    lx += ctx.measureText(label).width + 10;
-  }
-
-  // Нөөц
-  ctx.font = "600 12px system-ui, sans-serif";
-  ctx.fillStyle = "#c49a6c";
-  ctx.fillText(
-    state.unlimitedWood ? "🪵 ∞" : `🪵 ${player.inventory.wood}`,
-    pad + 14,
-    pad + 228,
-  );
-  ctx.fillStyle = "#e890b0";
-  ctx.fillText(`🍒 ${player.inventory.berries}`, pad + 78, pad + 228);
-  ctx.fillStyle =
-    world.season === "winter" && world.feeder.hay <= 0
-      ? "#ff8080"
-      : "#a8c050";
-  ctx.fillText(`🌾 ${player.inventory.hay}`, pad + 142, pad + 228);
-  ctx.fillStyle = COLORS.hudAccent;
-  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score} оноо`, pad + 200, pad + 228);
-
-  // Өвлийн сүргийн өлсгөлөн / зуны бэлчээр
-  if (world.season === "winter") {
-    drawBarFancy(
-      ctx,
-      pad + 14,
-      pad + 242,
-      266,
-      8,
-      world.flock.hunger / 100,
-      world.flock.hunger < 35 ? "#d64545" : "#9aaa50",
-      `Сүрэг ${Math.ceil(world.flock.hunger)}%`,
-    );
-  } else {
-    ctx.fillStyle = COLORS.hudMuted;
-    ctx.font = "10px system-ui, sans-serif";
-    ctx.fillText(
-      `Бэлчээр ${Math.ceil(world.pastureGrass)}${world.pastureGrass <= 0 ? " (дууссан!)" : ""}`,
-      pad + 14,
-      pad + 250,
-    );
-  }
-
-  ctx.fillStyle =
-    state.unlimitedWood || player.inventory.wood >= FENCE_COST
-      ? "rgba(232,197,106,0.85)"
-      : "rgba(168,152,128,0.7)";
-  ctx.font = "11px system-ui, sans-serif";
-  ctx.fillText(
-    state.fencePreview
-      ? "B — барих · P = цуцлах"
-      : state.unlimitedWood
-        ? "B — preview · дахин B = барих · N — туух"
-        : `B — preview (${FENCE_COST} мод) · дахин B = барих`,
-    pad + 14,
-    pad + 272,
-  );
-
-  // Бүтээгдэхүүн + тэжээгч
-  ctx.font = "600 11px system-ui, sans-serif";
-  ctx.fillStyle = "#e8d8a0";
-  ctx.fillText(
-    `Ноос ${player.inventory.wool} · Ноолуур ${player.inventory.cashmere} · Сүү ${player.inventory.milk}`,
-    pad + 14,
-    pad + 292,
-  );
-  ctx.fillText(
-    `Эсгий ${player.inventory.felt} · Ааруул ${player.inventory.aaruul} · Тэжээгч ${Math.floor(world.feeder.hay)}`,
-    pad + 14,
-    pad + 308,
-  );
-
-  const nearFence = nearestFence(player.pos, world.fences, 64);
-  if (nearFence) {
-    const tier = nearFence.tier;
-    const hpPct = Math.max(0, Math.ceil((nearFence.hp / nearFence.maxHp) * 100));
-    ctx.fillStyle =
-      tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
-    ctx.font = "600 11px system-ui, sans-serif";
-    const gateLabel = nearFence.isGate ? "Хаалга · " : "";
-    ctx.fillText(
-      `${gateLabel}${FENCE_TIER_SHORT[tier]} · ${hpPct}%`,
-      pad + 14,
-      pad + 328,
-    );
-    if (nearFence.isGate) {
-      ctx.fillStyle = COLORS.hudMuted;
-      ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(
-        nearFence.gateOpen >= GATE_PASS_OPEN
-          ? "хаалга нээлттэй"
-          : "хаалга түлхэж нээх",
-        pad + 100,
-        pad + 328,
-      );
-    } else if (tier < 3) {
-      const next = FENCE_UPGRADE_COST[tier as 1 | 2];
-      const parts = [`${next.wood}м`];
-      if (next.score) parts.push(`${next.score}о`);
-      if (next.berries) parts.push(`${next.berries}ж`);
-      ctx.fillStyle = COLORS.hudMuted;
-      ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(
-        `→ ${FENCE_TIER_NAMES[(tier + 1) as 2 | 3]}: ${parts.join("+")}`,
-        pad + 100,
-        pad + 328,
-      );
-    } else {
-      ctx.fillStyle = COLORS.hudMuted;
-      ctx.font = "10px system-ui, sans-serif";
-      ctx.fillText(FENCE_TIER_NAMES[3], pad + 100, pad + 328);
-    }
-  } else {
-    ctx.fillStyle = "rgba(168,152,128,0.75)";
-    ctx.font = "10px system-ui, sans-serif";
-    ctx.fillText(
-      `${FENCE_TIER_NAMES[1]} → ${FENCE_TIER_NAMES[2]} → ${FENCE_TIER_NAMES[3]}`,
-      pad + 14,
-      pad + 328,
-    );
-  }
-
-  // Баруун дээд: цаг агаар + өдрийн фаз
-  const panelW = 210;
-  const panelH = 78;
-  const rx = VIEW_W - panelW - pad;
-  ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, rx, pad, panelW, panelH, 10);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(232,197,106,0.3)";
-  roundRectPath(ctx, rx, pad, panelW, panelH, 10);
-  ctx.stroke();
-
-  drawWeatherIcon(ctx, rx + 22, pad + 29, world.weather);
-  ctx.fillStyle = COLORS.hudText;
-  ctx.font = "600 13px system-ui, sans-serif";
-  ctx.fillText(weatherLabel(world.weather, world.season), rx + 40, pad + 22);
-  ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "12px system-ui, sans-serif";
+  // —— Баруун дээд: цаг агаар + мал ——
+  const wxPanel = VIEW_W - 168 - pad;
+  drawWoodFrame(ctx, wxPanel, pad + 4, 160, 72, 5);
+  ctx.fillStyle = "rgba(20,14,10,0.85)";
+  ctx.fillRect(wxPanel, pad + 4, 160, 72);
+  drawWeatherIcon(ctx, wxPanel + 18, pad + 28, world.weather);
+  ctx.fillStyle = "#ffe9a8";
+  ctx.font = "bold 12px 'Courier New', monospace";
+  ctx.fillText(weatherLabel(world.weather, world.season), wxPanel + 34, pad + 22);
   const phaseIcon =
     world.dayPhase === "night"
       ? "🌙"
@@ -1632,10 +1687,12 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
         : world.dayPhase === "dawn"
           ? "🌄"
           : "☀️";
+  ctx.fillStyle = "#d8c8a8";
+  ctx.font = "11px 'Courier New', monospace";
   ctx.fillText(
-    `${phaseIcon} ${dayPhaseLabel(world.dayPhase)} · ${formatClock(world.timeOfDay)}`,
-    rx + 40,
-    pad + 42,
+    `${phaseIcon} ${dayPhaseLabel(world.dayPhase)} ${formatClock(world.timeOfDay)}`,
+    wxPanel + 10,
+    pad + 44,
   );
   ctx.fillStyle =
     world.flockOut &&
@@ -1644,11 +1701,13 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       : world.flockOut
         ? "#a0d890"
         : "#c4b898";
-  ctx.font = "600 11px system-ui, sans-serif";
+  ctx.font = "bold 11px 'Courier New', monospace";
   ctx.fillText(
-    world.flockOut ? "Мал: бэлчээрт" : "Мал: хашаанд",
-    rx + 40,
-    pad + 62,
+    world.flockOut
+      ? `Мал ${world.flock.total} · бэлчээр`
+      : `Мал ${world.flock.total} · хашаа`,
+    wxPanel + 10,
+    pad + 64,
   );
 
   const route = world.firstRoute;
@@ -1665,95 +1724,184 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
           : route.complete
             ? "Хараалт хаалга нээгдсэн"
             : `Эхний зам ${route.defeated}/${route.total}`;
-  ctx.font = "700 11px system-ui, sans-serif";
-  const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 22;
+  ctx.font = "bold 11px 'Courier New', monospace";
+  const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 16;
   const routeX = VIEW_W - routeWidth - pad;
-  const routeY = pad + panelH + 8;
-  ctx.fillStyle = "rgba(28,18,13,0.82)";
-  roundRectPath(ctx, routeX, routeY, routeWidth, 25, 12);
-  ctx.fill();
+  const routeY = pad + 92;
+  ctx.fillStyle = "rgba(28,18,13,0.88)";
+  ctx.fillRect(routeX, routeY, routeWidth, 22);
   ctx.strokeStyle = route.complete
-    ? "rgba(232,197,106,0.68)"
+    ? "rgba(232,197,106,0.7)"
     : "rgba(255,155,85,0.55)";
-  roundRectPath(ctx, routeX, routeY, routeWidth, 25, 12);
-  ctx.stroke();
+  ctx.strokeRect(routeX + 0.5, routeY + 0.5, routeWidth - 1, 21);
   ctx.fillStyle = route.complete ? "#ffe08a" : "#ffb078";
-  ctx.fillText(routeText, routeX + 11, routeY + 17);
+  ctx.fillText(routeText, routeX + 8, routeY + 15);
 
-  const weaponText =
-    player.weapon === "skySword"
-      ? "2 · Хөх тэнгэрийн сэлэм"
-      : "1 · Модон таяг";
-  const weaponWidth = Math.ceil(ctx.measureText(weaponText).width) + 22;
-  const weaponX = VIEW_W - weaponWidth - pad;
-  const weaponY = routeY + 31;
-  ctx.fillStyle =
-    player.weapon === "skySword"
-      ? "rgba(26,72,96,0.82)"
-      : "rgba(45,31,20,0.78)";
-  roundRectPath(ctx, weaponX, weaponY, weaponWidth, 25, 12);
-  ctx.fill();
-  ctx.strokeStyle =
-    player.weapon === "skySword"
-      ? "rgba(180,232,255,0.72)"
-      : "rgba(205,165,104,0.52)";
-  roundRectPath(ctx, weaponX, weaponY, weaponWidth, 25, 12);
-  ctx.stroke();
-  ctx.fillStyle =
-    player.weapon === "skySword" ? "#d9f4ff" : "#e5c88d";
-  ctx.fillText(weaponText, weaponX + 11, weaponY + 17);
+  // —— Доод төв: EXP + hotbar ——
+  const expW = 280;
+  const expX = (VIEW_W - expW) / 2;
+  const expY = VIEW_H - 78;
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 11px 'Courier New', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(
+    `EXP ${Math.floor(state.xp)} / ${state.xpNext}`,
+    VIEW_W / 2,
+    expY - 4,
+  );
+  ctx.textAlign = "left";
+  drawRpgBar(
+    ctx,
+    expX,
+    expY,
+    expW,
+    10,
+    clamp(state.xp / state.xpNext, 0, 1),
+    "#e8c040",
+    "",
+  );
 
-  // Аюулын мэдээлэл
+  const slots: Array<{ key: string; icon: string; active: boolean }> = [
+    { key: "J", icon: "👊", active: player.meleePhase !== "idle" },
+    {
+      key: "K",
+      icon: player.gear.gun ? "🔫" : player.gear.bow ? "🏹" : "—",
+      active: !!state.input.shoot,
+    },
+    { key: "⇧", icon: "💨", active: player.dodgePhase !== "idle" },
+    { key: "L", icon: "🛡", active: player.parryPhase !== "idle" },
+    { key: "E", icon: "🖐", active: false },
+    { key: "Q", icon: "🍒", active: false },
+    { key: "F", icon: "🔥", active: world.campfire.lit },
+    { key: "B", icon: "🪵", active: state.fencePreview },
+  ];
+  const slotSize = 34;
+  const slotGap = 4;
+  const hotW = slots.length * (slotSize + slotGap) - slotGap + 10;
+  const hotX = (VIEW_W - hotW) / 2;
+  const hotY = VIEW_H - 58;
+  drawWoodFrame(ctx, hotX, hotY, hotW, slotSize + 8, 4);
+  ctx.fillStyle = "#2a1c12";
+  ctx.fillRect(hotX, hotY, hotW, slotSize + 8);
+  slots.forEach((s, i) => {
+    drawHotSlot(
+      ctx,
+      hotX + 5 + i * (slotSize + slotGap),
+      hotY + 4,
+      slotSize,
+      s.key,
+      s.icon,
+      s.active,
+    );
+  });
+
+  // —— Баруун доод: нөөц ——
+  const qSize = 36;
+  const qY = VIEW_H - qSize - 20;
+  const qItems: Array<{ icon: string; val: string }> = [
+    {
+      icon: "🪵",
+      val: state.unlimitedWood ? "∞" : String(player.inventory.wood),
+    },
+    { icon: "🍒", val: String(player.inventory.berries) },
+    { icon: "🌾", val: String(player.inventory.hay) },
+  ];
+  const qW = qItems.length * (qSize + 4) - 4 + 8;
+  const qX = VIEW_W - qW - 16;
+  drawWoodFrame(ctx, qX, qY, qW, qSize + 8, 4);
+  ctx.fillStyle = "#2a1c12";
+  ctx.fillRect(qX, qY, qW, qSize + 8);
+  qItems.forEach((it, i) => {
+    const sx = qX + 4 + i * (qSize + 4);
+    drawHotSlot(ctx, sx, qY + 4, qSize, it.val, it.icon, false);
+  });
+
+  // Малын төрөл + нэмэлт мэдээлэл
+  ctx.font = "bold 10px 'Courier New', monospace";
+  let lx = barX;
+  const ly = iconY + iconS + 16;
+  for (const k of LIVESTOCK_KINDS) {
+    const n = world.flock.counts[k];
+    if (n <= 0) continue;
+    ctx.fillStyle = "#c8e0a8";
+    const label = `${LIVESTOCK_MN[k]}${n}`;
+    ctx.fillText(label, lx, ly);
+    lx += ctx.measureText(label).width + 8;
+  }
+
+  ctx.font = "10px 'Courier New', monospace";
+  if (world.season === "winter") {
+    ctx.fillStyle = world.flock.hunger < 35 ? "#ff8080" : "#a8c050";
+    ctx.fillText(`Сүрэг ${Math.ceil(world.flock.hunger)}%`, barX, ly + 14);
+  } else {
+    ctx.fillStyle = COLORS.hudMuted;
+    ctx.fillText(
+      `Бэлчээр ${Math.ceil(world.pastureGrass)}${world.pastureGrass <= 0 ? "!" : ""}`,
+      barX,
+      ly + 14,
+    );
+  }
+
+  ctx.fillStyle = "#e8c56a";
+  ctx.font = "bold 11px 'Courier New', monospace";
+  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score}`, barX, ly + 28);
+
+  ctx.fillStyle = "#d8c898";
+  ctx.font = "10px 'Courier New', monospace";
+  ctx.fillText(
+    `Ноос${player.inventory.wool} Ноол${player.inventory.cashmere} Сүү${player.inventory.milk}`,
+    barX,
+    ly + 42,
+  );
+
+  const nearFence = nearestFence(player.pos, world.fences, 64);
+  if (nearFence) {
+    const tier = nearFence.tier;
+    const hpPct = Math.max(0, Math.ceil((nearFence.hp / nearFence.maxHp) * 100));
+    ctx.fillStyle =
+      tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
+    ctx.font = "bold 10px 'Courier New', monospace";
+    ctx.fillText(
+      `${nearFence.isGate ? "Хаалга " : ""}${FENCE_TIER_SHORT[tier]} ${hpPct}%`,
+      barX,
+      ly + 56,
+    );
+  }
+
   if (world.wolves.length > 0 || world.thieves.length > 0) {
     const parts: string[] = [];
     if (world.wolves.length) parts.push(`Чоно ${world.wolves.length}`);
     if (world.thieves.length) {
       const stolen = world.thieves.reduce((s, t) => s + t.stolen, 0);
-      parts.push(`Хулгайч (−${stolen} мал)`);
+      parts.push(`Хулгайч (−${stolen})`);
     }
     const text = parts.join("  ·  ");
-    ctx.font = "600 13px system-ui, sans-serif";
+    ctx.font = "bold 13px 'Courier New', monospace";
     const tw = ctx.measureText(text).width;
-    ctx.fillStyle = "rgba(120,20,20,0.8)";
-    roundRectPath(ctx, VIEW_W / 2 - tw / 2 - 14, pad, tw + 28, 30, 15);
-    ctx.fill();
+    ctx.fillStyle = "rgba(120,20,20,0.85)";
+    ctx.fillRect(VIEW_W / 2 - tw / 2 - 12, pad, tw + 24, 26);
+    ctx.strokeStyle = "#ff8080";
+    ctx.strokeRect(VIEW_W / 2 - tw / 2 - 12.5, pad + 0.5, tw + 23, 25);
     ctx.fillStyle = "#ffc0c0";
-    ctx.fillText(text, VIEW_W / 2 - tw / 2, pad + 20);
+    ctx.fillText(text, VIEW_W / 2 - tw / 2, pad + 18);
   }
 
-  // Эзэмшсэн эд зүйлс — зүүн доод булан
-  const gearIcons = SHOP_ITEMS.filter(
-    (it): it is Extract<ShopItem, { type: "gear" }> =>
-      it.type === "gear" && player.gear[it.id],
-  )
-    .map((it) => it.icon)
-    .join(" ");
-  if (gearIcons) {
-    ctx.font = "15px system-ui, sans-serif";
-    const gw = ctx.measureText(gearIcons).width;
-    ctx.fillStyle = "rgba(12,10,8,0.72)";
-    roundRectPath(ctx, 14, VIEW_H - 46, gw + 26, 32, 16);
-    ctx.fill();
-    ctx.fillText(gearIcons, 27, VIEW_H - 24);
-  }
-
-  // Мессеж
   if (state.messageTimer > 0 && state.message && state.phase === "playing") {
     const alpha = clamp(state.messageTimer / 0.4, 0, 1);
-    ctx.font = "14px system-ui, sans-serif";
+    ctx.font = "13px 'Courier New', monospace";
     const tw = ctx.measureText(state.message).width;
-    const mx = (VIEW_W - tw) / 2 - 14;
-    const my = VIEW_H - 46;
+    const mx = (VIEW_W - tw) / 2 - 12;
+    const my = VIEW_H - 108;
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(12,10,8,0.78)";
-    roundRectPath(ctx, mx, my, tw + 28, 30, 15);
-    ctx.fill();
+    ctx.fillStyle = "rgba(12,10,8,0.82)";
+    ctx.fillRect(mx, my, tw + 24, 26);
+    ctx.strokeStyle = "rgba(232,197,106,0.45)";
+    ctx.strokeRect(mx + 0.5, my + 0.5, tw + 23, 25);
     ctx.fillStyle = COLORS.hudText;
-    ctx.fillText(state.message, mx + 14, my + 20);
+    ctx.fillText(state.message, mx + 12, my + 17);
     ctx.globalAlpha = 1;
   }
 
-  // Пауз дэлгэц — үргэлжлүүлэх / тохиргоо / удирдлага / үндсэн цэс
   if (state.phase === "paused") {
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -1784,7 +1932,6 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     }
   }
 
-  // Түвшин ахих — ур чадвар сонгох дэлгэц
   if (state.phase === "levelup") {
     ctx.fillStyle = "rgba(0,0,0,0.62)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -1827,39 +1974,33 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.textAlign = "left";
   }
 
-  // Төгсгөлийн дэлгэц
   if (state.phase === "won" || state.phase === "lost") {
     const won = state.phase === "won";
-    ctx.fillStyle = "rgba(0,0,0,0.68)";
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-
     ctx.textAlign = "center";
-    ctx.font = "bold 44px system-ui, sans-serif";
-    ctx.fillStyle = won ? "#e8c56a" : "#ff6b6b";
+    ctx.fillStyle = won ? "#e8c56a" : "#ff8080";
+    ctx.font = "bold 48px system-ui, sans-serif";
     ctx.fillText(won ? "ЯЛАЛТ!" : "ЯЛАГДЛАА", VIEW_W / 2, VIEW_H / 2 - 30);
-
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "16px system-ui, sans-serif";
     ctx.fillText(state.message, VIEW_W / 2, VIEW_H / 2 + 8);
     ctx.fillStyle = COLORS.hudMuted;
-    ctx.font = "14px system-ui, sans-serif";
+    ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(
-      `Түвшин: ${state.level} · Өдөр: ${state.world.dayNumber} · Мал: ${state.world.flock.total} · Оноо: ${state.score}`,
+      `Оноо ${state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );
-    ctx.fillStyle = COLORS.hudAccent;
-    ctx.font = "600 15px system-ui, sans-serif";
     ctx.fillText("Enter / P — үндсэн цэс", VIEW_W / 2, VIEW_H / 2 + 70);
     ctx.textAlign = "left";
   }
+
+  if (state.phase === "ger") {
+    if (state.shopOpen) drawShop(ctx, state);
+    else if (state.craftOpen) drawCraft(ctx, state);
+  }
 }
-
-// ---------------------------------------------------------------------------
-// Гэрийн дотор
-// ---------------------------------------------------------------------------
-
-/** Монгол гэрийн дотор — тооно, унь, хана, зуух, авдар, ор */
 
 export function drawShop(
   ctx: CanvasRenderingContext2D,
