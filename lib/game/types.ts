@@ -553,8 +553,8 @@ export const HAY_GRASS_COST = 6;
 export const HAY_PER_SHEEP_PER_DAY = 0.18;
 /** Бэлчээрт 1 мал 1 өдөрт идэх өвс */
 export const GRAZE_PER_ANIMAL_PER_DAY = 0.85;
-/** Тоглоомын нэг өдрийн бодит хугацаа (сек) — 24 сек = 1 өдөр */
-export const DAY_LENGTH_SEC = 24;
+/** Тоглоомын нэг өдрийн бодит хугацаа (сек) — 4 мин = 1 өдөр */
+export const DAY_LENGTH_SEC = 240;
 /** Бэлчээрээс өвс хадах зай (гэрийн гадна) */
 export const HAY_HARVEST_RADIUS = PASTURE_RADIUS + 28;
 
