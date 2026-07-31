@@ -14,7 +14,7 @@ import {
   type Vector2,
 } from "./types";
 import { dist, setMessage, updateGates } from "./utils";
-import { spawnText, updateEffects } from "./effects";
+import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
   ensureAudio,
   loadAudioSettings,
@@ -39,7 +39,8 @@ import {
   updateThreatTimers,
   updateWolves,
 } from "../game/enemies";
-import { tryAttack, updateAdvancedCombat, updateDog, updateProjectiles } from "../game/combat";
+import { updateCombat } from "../game/combat/expanded";
+import { updateDog, updateProjectiles } from "../game/combat";
 import {
   updateGer,
   updateLevelUp,
@@ -55,6 +56,18 @@ import {
   updateProduction,
   updateWildHorses,
 } from "./livestock";
+import {
+  createTumurShulmasEncounter,
+  loadTumurShulmasSprites,
+  updateTumurShulmasEncounter,
+} from "./tumurShulmas";
+import { trySwitchPlayerWeapon } from "./combat/playerWeapon";
+import { loadPlayerSprites } from "./render/playerSprites";
+import {
+  createFirstRoute,
+  tryInteractFirstRoute,
+  updateFirstRoute,
+} from "./firstRoute";
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
@@ -107,6 +120,7 @@ export function createInitialState(): GameState {
 
   const state: GameState = {
     player: {
+      attackVariant: 2,
       pos: { x: spawn.x, y: spawn.y + 60 },
       speed: 155,
       radius: 14,
@@ -154,6 +168,12 @@ export function createInitialState(): GameState {
       stamina: 100,
       maxStamina: 100,
       staminaRegenDelay: 0,
+      combatPhase: "idle",
+      combatTimer: 0,
+      attackHitDone: false,
+      parryArmed: false,
+      weapon: "staff",
+      hasSkySword: false,
       meleePhase: "idle",
       meleeTimer: 0,
       meleeHitDone: false,
@@ -198,6 +218,8 @@ export function createInitialState(): GameState {
       nextWildHorseIn: 25,
       dog: null,
       projectiles: [],
+      firstRoute: createFirstRoute(spawn),
+      tumurShulmas: createTumurShulmasEncounter(),
       campPos: { x: spawn.x, y: spawn.y },
       gerPacked: false,
       pastureGrass: 75,
@@ -217,7 +239,9 @@ export function createInitialState(): GameState {
       interact: false,
       attack: false,
       attackPressed: false,
+      dodge: false,
       dodgePressed: false,
+      parry: false,
       parryPressed: false,
       shoot: false,
       lightFire: false,
@@ -245,6 +269,14 @@ export function createInitialState(): GameState {
     fx: {
       particles: [],
       texts: [],
+      souls: [],
+      cameraShake: { remaining: 0, duration: 0, strength: 0 },
+      screenPulse: {
+        remaining: 0,
+        duration: 0,
+        intensity: 0,
+        color: "190,24,30",
+      },
       shake: 0,
       hurtFlash: 0,
       emberAcc: 0,
@@ -320,10 +352,16 @@ export function bindInput(getInput: () => InputState): () => void {
         break;
       case "ShiftLeft":
       case "ShiftRight":
-        if (pressed) input.dodgePressed = true;
+        if (pressed) {
+          input.dodge = true;
+          input.dodgePressed = true;
+        }
         break;
       case "KeyL":
-        if (pressed) input.parryPressed = true;
+        if (pressed) {
+          input.parry = true;
+          input.parryPressed = true;
+        }
         break;
       case "Enter":
         if (pressed) input.confirm = true;
@@ -374,9 +412,13 @@ export function bindInput(getInput: () => InputState): () => void {
   const onKeyDown = (e: KeyboardEvent): void => {
     setKey(e.code, true);
     if (
-      ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
-        e.code,
-      )
+      [
+        "Space",
+        "ArrowUp",
+        "ArrowDown",
+        "ArrowLeft",
+        "ArrowRight",
+      ].includes(e.code)
     ) {
       e.preventDefault();
     }
@@ -417,7 +459,7 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
     sfx("select");
   } else if (
-    state.phase === "lost" &&
+    (state.phase === "won" || state.phase === "lost") &&
     (state.input.confirm || state.input.pause || state.input.mouseClicked)
   ) {
     state.requestRestart = true;
@@ -432,13 +474,20 @@ export function update(state: GameState, dt: number): void {
   state.input.mouseMoved = false;
   state.input.mouseClicked = false;
 
-  // Shop шууд сонголтын товчнууд (1–4) — ур чадварт ашиглагдахгүй
+  // Талд 1 = таяг, 2 = mini-boss-оос авсан Хөх тэнгэрийн сэлэм.
+  // Гэрийн shop дотор 1–4 нь хуучнаараа шууд худалдан авалт.
+  if (state.phase === "playing") {
+    trySwitchPlayerWeapon(state);
+  }
   state.input.skill1 = false;
   state.input.skill2 = false;
   state.input.skill3 = false;
   state.input.skill4 = false;
 
-  if (state.phase === "playing") {
+  const hitStopped =
+    state.phase === "playing" && updateHitStop(state, dt);
+
+  if (state.phase === "playing" && !hitStopped) {
     if (state.input.debugXp) {
       state.score += 1000;
       spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
@@ -458,30 +507,37 @@ export function update(state: GameState, dt: number): void {
       sfx("buy");
     }
     updateWeatherCycle(state, dt);
-    updateAdvancedCombat(state, dt);
+    updateCombat(state, dt);
     updatePlayerMovement(state, dt);
-    tryInteract(state);
+    const usedRouteInteraction = tryInteractFirstRoute(state);
+    if (!usedRouteInteraction) tryInteract(state);
     tryEatBerry(state);
     tryMigrateGer(state);
     tryLightCampfire(state);
     tryBuildFence(state);
-    tryAttack(state);
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
     updateWildHorses(state, dt);
-    updateThreatTimers(state, dt);
-    updateWolves(state, dt);
-    updateThieves(state, dt);
-    updateDog(state, dt);
-    updateProjectiles(state, dt);
-    updateSurvival(state, dt);
-    if (state.messageTimer > 0) state.messageTimer -= dt;
+    updateFirstRoute(state, dt);
+    updateTumurShulmasEncounter(state, dt);
+    // Boss-ийн death frame дээр "won" болсон бол дараагийн survival/threat
+    // систем ялалтын төлөвийг "lost"-оор дарж болохгүй.
+    if (state.phase === "playing") {
+      updateThreatTimers(state, dt);
+      updateWolves(state, dt);
+      updateThieves(state, dt);
+      updateDog(state, dt);
+      updateProjectiles(state, dt);
+      updateSurvival(state, dt);
+      if (state.messageTimer > 0) state.messageTimer -= dt;
+    }
   }
 
   // Фаз солигдоход нэг удаагийн дуут дохио
   if (state.phase !== phaseBefore) {
-    if (state.phase === "lost") sfx("lose");
+    if (state.phase === "won") sfx("win");
+    else if (state.phase === "lost") sfx("lose");
     else if (state.phase === "levelup") sfx("levelup");
   }
 
@@ -489,6 +545,12 @@ export function update(state: GameState, dt: number): void {
 
   // Нэг удаагийн үйлдлийн товчнуудыг frame бүрийн төгсгөлд цэвэрлэнэ
   state.input.interact = false;
+  state.input.attack = false;
+  state.input.attackPressed = false;
+  state.input.dodge = false;
+  state.input.dodgePressed = false;
+  state.input.parry = false;
+  state.input.parryPressed = false;
   state.input.eat = false;
   state.input.lightFire = false;
   state.input.buildFence = false;
@@ -536,6 +598,8 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
       return c;
     })(),
     vignette: makeVignette(),
+    playerSprites: loadPlayerSprites(),
+    tumurShulmasSprites: loadTumurShulmasSprites(),
   };
 
   let state = createInitialState();

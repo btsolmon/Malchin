@@ -7,12 +7,16 @@ export type GamePhase =
   | "menu"
   | "playing"
   | "paused"
+  | "won"
   | "lost"
   | "levelup"
   | "ger";
 
 /** Дэлгүүрээс авч болох эд зүйлс */
 export type GearId = "dog" | "horse" | "bow" | "gun" | "axe" | "urga";
+export type CombatPhase = "idle" | "startup" | "active" | "recovery";
+export type AttackVariant = 0 | 1 | 2;
+export type PlayerWeapon = "staff" | "skySword";
 
 /** 5 хошуу мал */
 export type LivestockKind = "sheep" | "goat" | "cattle" | "horse" | "camel";
@@ -65,6 +69,8 @@ export interface Inventory {
 }
 
 export interface Player {
+  /** Шинэ тулааны 3 цохилтын ээлж. */
+  attackVariant: AttackVariant;
   pos: Vector2;
   speed: number;
   radius: number;
@@ -97,6 +103,13 @@ export interface Player {
   stamina: number;
   maxStamina: number;
   staminaRegenDelay: number;
+  /** ZIP тулааны модульд ашиглагдах фаз; хуучин melee фазтай зэрэгцэн хадгална. */
+  combatPhase: CombatPhase;
+  combatTimer: number;
+  attackHitDone: boolean;
+  parryArmed: boolean;
+  weapon: PlayerWeapon;
+  hasSkySword: boolean;
   meleePhase: "idle" | "startup" | "active" | "recovery";
   meleeTimer: number;
   meleeHitDone: boolean;
@@ -233,7 +246,18 @@ export interface Wolf {
   /** Тулааны posture / фаз */
   posture: number;
   maxPosture: number;
+  /** Шинэ enemy AI-ийн posture нөхөгдөх саатал. */
+  postureRegenDelay: number;
   postureRecoveryDelay: number;
+  attackPhase:
+    | "chasing"
+    | "windup"
+    | "leaping"
+    | "grabbing"
+    | "recovery"
+    | "stunned";
+  attackKind: "leap" | "claw" | "bearGrab" | "bearSwipe";
+  attackTimer: number;
   combatPhase: "idle" | "windup" | "active" | "recovery" | "staggered";
   combatTimer: number;
   attackDirection: Vector2;
@@ -290,6 +314,142 @@ export interface Projectile {
   kind: "arrow" | "bullet";
 }
 
+export type RouteEnemyKind =
+  | "talynHaragch"
+  | "shulmasynHuu"
+  | "shidetHarvaach"
+  | "shulmasynZarts"
+  | "shulmasynBaatar";
+
+export type RouteEnemyAttackKind =
+  | "melee"
+  | "rush"
+  | "bolt"
+  | "bossOverhead"
+  | "bossCharge"
+  | "bossSweep";
+
+export type RouteEnemyPhase =
+  | "idle"
+  | "chasing"
+  | "windup"
+  | "attacking"
+  | "recovery"
+  | "retreating"
+  | "stunned";
+
+export interface RouteEnemy {
+  id: number;
+  kind: RouteEnemyKind;
+  pos: Vector2;
+  spawnPos: Vector2;
+  vel: Vector2;
+  facing: 1 | -1;
+  radius: number;
+  speed: number;
+  hp: number;
+  maxHp: number;
+  posture: number;
+  maxPosture: number;
+  postureRegenDelay: number;
+  damage: number;
+  aggroRange: number;
+  attackRange: number;
+  attackCooldown: number;
+  phase: RouteEnemyPhase;
+  phaseTimer: number;
+  attackDirection: Vector2;
+  retreatDirection: Vector2;
+  attackKind: RouteEnemyAttackKind;
+  attackIndex: number;
+  attackHitDone: boolean;
+  flash: number;
+  deathTimer: number;
+  alive: boolean;
+  engaged: boolean;
+}
+
+export interface RouteBolt {
+  pos: Vector2;
+  vel: Vector2;
+  radius: number;
+  damage: number;
+  life: number;
+}
+
+export interface FirstRoute {
+  active: boolean;
+  complete: boolean;
+  introductionShown: boolean;
+  gateMessageShown: boolean;
+  startX: number;
+  gatePos: Vector2;
+  gateRadius: number;
+  arenaCenter: Vector2;
+  arenaRadius: number;
+  bossStarted: boolean;
+  bossDefeated: boolean;
+  swordDrop: {
+    pos: Vector2;
+    visible: boolean;
+    collected: boolean;
+  };
+  enemies: RouteEnemy[];
+  bolts: RouteBolt[];
+  defeated: number;
+  total: number;
+}
+
+export type TumurShulmasPhase =
+  | "sealed"
+  | "summoning"
+  | "idle"
+  | "walking"
+  | "claw"
+  | "needle"
+  | "ironBloom"
+  | "phaseShift"
+  | "stagger"
+  | "death";
+
+export interface TumurNeedle {
+  pos: Vector2;
+  vel: Vector2;
+  radius: number;
+  damage: number;
+  life: number;
+}
+
+export interface TumurShulmasEncounter {
+  gatePos: Vector2;
+  gateRadius: number;
+  arenaCenter: Vector2;
+  arenaRadius: number;
+  exitPos: Vector2;
+  unlocked: boolean;
+  active: boolean;
+  defeated: boolean;
+  phase: TumurShulmasPhase;
+  phaseTimer: number;
+  cycleIndex: number;
+  pos: Vector2;
+  facing: Vector2;
+  attackDirection: Vector2;
+  attackHitDone: boolean;
+  attackCooldown: number;
+  hp: number;
+  maxHp: number;
+  posture: number;
+  maxPosture: number;
+  postureRegenDelay: number;
+  bossPhase: 1 | 2;
+  ward: number;
+  maxWard: number;
+  phaseShifted: boolean;
+  flash: number;
+  needles: TumurNeedle[];
+}
+
 export interface World {
   width: number;
   height: number;
@@ -302,6 +462,10 @@ export interface World {
   thieves: Thief[];
   dog: Dog | null;
   projectiles: Projectile[];
+  /** Гэрээс Хар төмөр хаалга хүртэлх замын дайснууд ба mini-boss. */
+  firstRoute: FirstRoute;
+  /** Тусдаа Төмөр шулмасын boss encounter. */
+  tumurShulmas: TumurShulmasEncounter;
   season: Season;
   weather: WeatherKind;
   timeOfDay: number;
@@ -337,8 +501,12 @@ export interface InputState {
   attack: boolean;
   /** J — нэг frame melee */
   attackPressed: boolean;
+  /** Шинэ combat модульд зориулсан нэг удаагийн dodge оролт. */
+  dodge: boolean;
   /** Shift — булт */
   dodgePressed: boolean;
+  /** Шинэ combat модульд зориулсан нэг удаагийн parry оролт. */
+  parry: boolean;
   /** L — сөрөх (parry) */
   parryPressed: boolean;
   /** K — буу / нум харвах */
@@ -393,9 +561,34 @@ export interface FloatingText {
   color: string;
 }
 
+export interface SoulEffect {
+  pos: Vector2;
+  life: number;
+  maxLife: number;
+  radius: number;
+  color: string;
+  seed: number;
+}
+
+export interface CameraShakeState {
+  remaining: number;
+  duration: number;
+  strength: number;
+}
+
+export interface ScreenPulseState {
+  remaining: number;
+  duration: number;
+  intensity: number;
+  color: string;
+}
+
 export interface Effects {
   particles: Particle[];
   texts: FloatingText[];
+  souls: SoulEffect[];
+  cameraShake: CameraShakeState;
+  screenPulse: ScreenPulseState;
   /** Дэлгэцийн доргилтын хүч */
   shake: number;
   /** Цохиулах үеийн улаан ирмэг */

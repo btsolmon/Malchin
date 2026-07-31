@@ -155,6 +155,8 @@ export type SfxName =
   | "swing"
   | "hit"
   | "kill"
+  | "wolfDeath"
+  | "parry"
   | "chop"
   | "berry"
   | "eat"
@@ -187,6 +189,14 @@ export function sfx(name: SfxName): void {
     case "kill":
       tone(500, 0.28, "sawtooth", 0.22, 90);
       noiseBurst(0.2, 700, 0.18);
+      break;
+    case "wolfDeath":
+      tone(440, 0.32, "sawtooth", 0.2, 75);
+      noiseBurst(0.18, 620, 0.16);
+      break;
+    case "parry":
+      tone(1180, 0.08, "square", 0.2, 760);
+      noiseBurst(0.06, 2400, 0.16);
       break;
     case "chop":
       noiseBurst(0.07, 650, 0.38);

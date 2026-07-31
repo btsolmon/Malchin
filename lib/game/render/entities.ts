@@ -1140,6 +1140,69 @@ export function drawWildHorse(
   ctx.textAlign = "left";
 }
 
+function drawEnemyCombatFeedback(
+  ctx: CanvasRenderingContext2D,
+  enemy: Wolf,
+  x: number,
+  y: number,
+  scale: number,
+  time: number,
+): void {
+  const stunned = enemy.attackPhase === "stunned";
+  if (enemy.attackPhase === "windup" || enemy.attackPhase === "leaping") {
+    const grab = enemy.attackKind === "bearGrab";
+    const warningWindow = enemy.kind === "bear" ? 0.24 : 0.22;
+    const parryNow = !grab && enemy.attackTimer <= warningWindow;
+    const color = grab ? "#d26cff" : parryNow ? "#ff4a42" : "#ffd35a";
+    const pulse = 1 + Math.sin(time * 18) * 0.08;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = parryNow ? 3 : 2;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(x, y, (enemy.radius * scale + 9) * pulse, 0, Math.PI * 2);
+    ctx.stroke();
+    const direction = enemy.attackDirection;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(
+      x + direction.x * (enemy.radius * scale + 28),
+      y + direction.y * (enemy.radius * scale + 28),
+    );
+    ctx.stroke();
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(grab ? "DODGE" : parryNow ? "PARRY" : "!", x, y - 30 * scale);
+    ctx.restore();
+  }
+
+  if (enemy.posture < enemy.maxPosture || stunned) {
+    const width = Math.max(28, 28 * scale);
+    const top = y - 25 * scale;
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    roundRectPath(ctx, x - width / 2, top, width, 3.5, 1.5);
+    ctx.fill();
+    ctx.fillStyle = stunned ? "#ffe08a" : "#d7b35b";
+    roundRectPath(
+      ctx,
+      x - width / 2,
+      top,
+      width * Math.max(0, enemy.posture / enemy.maxPosture),
+      3.5,
+      1.5,
+    );
+    ctx.fill();
+    if (stunned) {
+      ctx.fillStyle = "#ffe08a";
+      ctx.font = "bold 10px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("J — ТӨГСГӨЛ", x, top - 4);
+      ctx.textAlign = "left";
+    }
+  }
+}
+
 export function drawWolf(
   ctx: CanvasRenderingContext2D,
   wolf: Wolf,
@@ -1251,6 +1314,7 @@ export function drawWolf(
     );
     ctx.fill();
   }
+  drawEnemyCombatFeedback(ctx, wolf, x, y, s, time);
 }
 
 /** Баавгай — чононоос хоёр дахин том, хүчтэй араатан */
@@ -1370,6 +1434,7 @@ export function drawBear(
     );
     ctx.fill();
   }
+  drawEnemyCombatFeedback(ctx, bear, x, y, s, time);
 }
 
 export function drawThief(
@@ -1816,6 +1881,27 @@ export function drawPlayer(
   }
 
   if (riding) ctx.restore();
+  if (player.parryPhase === "startup" || player.parryPhase === "active") {
+    const angle = Math.atan2(player.facing.y, player.facing.x);
+    ctx.save();
+    ctx.strokeStyle =
+      player.parryPhase === "active" ? "#9de9ff" : "#e8f7ff";
+    ctx.lineWidth = player.parryPhase === "active" ? 4 : 2;
+    ctx.globalAlpha = 0.85;
+    ctx.beginPath();
+    ctx.arc(x, y - 4, 25, angle - 0.9, angle + 0.9);
+    ctx.stroke();
+    ctx.restore();
+  }
+  if (player.dodgePhase === "dodging") {
+    ctx.save();
+    ctx.strokeStyle = "rgba(184,232,255,0.7)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y - 2, 17, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
 }
 

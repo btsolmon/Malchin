@@ -26,7 +26,6 @@ import {
   pushOutOfFences,
   randRange,
   setMessage,
-  sheepFenceMitigation,
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
@@ -43,6 +42,7 @@ import {
   loseLivestock,
   nearestHerdAnimal,
 } from "./livestock";
+import { updateWolves as updateCombatWolves } from "./combat/enemyBehaviors";
 
 function enemyCombatLocksMovement(
   phase: Wolf["combatPhase"] | Thief["combatPhase"] | undefined,
@@ -145,9 +145,13 @@ export function spawnWolf(
     flash: 0,
     face: 1,
     alive: true,
-    posture: 0,
-    maxPosture: bear ? 140 : 100,
+    posture: bear ? 140 : 60,
+    maxPosture: bear ? 140 : 60,
+    postureRegenDelay: 0,
     postureRecoveryDelay: 0,
+    attackPhase: "chasing",
+    attackKind: "leap",
+    attackTimer: 0,
     combatPhase: "idle",
     combatTimer: 0,
     attackDirection: { x: 0, y: 1 },
@@ -473,41 +477,24 @@ function collideEntityWithFences(
 }
 
 export function updateWolves(state: GameState, dt: number): void {
-  const { wolves, flock } = state.world;
-  const player = state.player;
-
-  for (const wolf of wolves) {
+  for (const wolf of state.world.wolves) {
     if (!wolf.alive) continue;
-    wolf.attackCooldown = Math.max(0, wolf.attackCooldown - dt);
-    wolf.flash = Math.max(0, wolf.flash - dt);
-
-    const prey = nearestSheep(wolf.pos, flock.visuals);
-    const target = prey?.pos ?? pastureCenter(state.world);
-
-    const dPlayer = dist(wolf.pos, player.pos);
-    let dir: Vector2;
-    if (dPlayer < 50 && wolf.hp < wolf.maxHp * 0.4) {
-      dir = normalize({
-        x: wolf.pos.x - player.pos.x,
-        y: wolf.pos.y - player.pos.y,
-      });
-    } else {
-      dir = normalize({ x: target.x - wolf.pos.x, y: target.y - wolf.pos.y });
+    const contact = collideEntityWithFences(
+      state,
+      wolf.pos,
+      wolf.radius * wolf.scale,
+      wolf.kind === "bear" ? "bear" : "wolf",
+      0,
+    );
+    if (contact.hitTier >= 2) {
+      wolf.attackCooldown = Math.max(wolf.attackCooldown, 0.2);
     }
+  }
 
-    wolf.vel = dir;
-    // Харах чигийг зөөлөн солино — олз дээрээ чичрэхгүй
-    if (Math.abs(dir.x) > 0.25) wolf.face = dir.x < 0 ? -1 : 1;
+  updateCombatWolves(state, dt);
 
-    const dPrey = prey ? dist(wolf.pos, prey.pos) : Infinity;
-    const biteRange = wolf.radius * wolf.scale + (prey ? prey.radius : 0) + 4;
-
-    // Олзондоо хүрсэн бол зогсож хазна (мөргөлдөж анивчихгүй)
-    const combatLocked = enemyCombatLocksMovement(wolf.combatPhase);
-    if (!combatLocked && dPrey > biteRange - 3) {
-      wolf.pos.x += dir.x * wolf.speed * dt;
-      wolf.pos.y += dir.y * wolf.speed * dt;
-    }
+  for (const wolf of state.world.wolves) {
+    if (!wolf.alive) continue;
     const contact = collideEntityWithFences(
       state,
       wolf.pos,
@@ -542,44 +529,9 @@ export function updateWolves(state: GameState, dt: number): void {
         );
       }
     }
-
-    // Чоно 3, баавгай 2 хазалтаар хонь унагана — ойролцоох хашаа хамгаална
-    if (
-      prey &&
-      !combatLocked &&
-      dPrey < biteRange + 4 &&
-      wolf.attackCooldown <= 0
-    ) {
-      wolf.attackCooldown = wolf.kind === "bear" ? 1.5 : 1.3;
-      const mitigate = sheepFenceMitigation(prey.pos, state.world.fences);
-      const block =
-        contact.hitTier >= 3 ? 0.08 : contact.hitTier >= 2 ? 0.55 : 1;
-      const dmg = (wolf.kind === "bear" ? 1.5 : 1) * mitigate * block;
-      if (dmg < 0.12) {
-        spawnText(state, prey.pos, "Хашаа хамгааллаа", "#a8d8ff");
-        spawnParticles(state, wolf.pos, 3, "#90c8e8", { speed: 40 });
-      } else {
-        prey.hp -= dmg;
-        prey.flash = 0.18;
-        sfx("baa");
-        spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
-        if (prey.hp <= 0) {
-          spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
-          spawnText(state, prey.pos, "−1 мал", "#ff8080");
-          killSheepVisual(state, prey);
-          setMessage(
-            state,
-            wolf.kind === "bear" ? "Баавгай мал барив!" : "Чоно мал барив!",
-            2,
-          );
-        }
-      }
-    }
-
-    // Тоглогч руу цохилт — advanced combat (windup/parry/dodge) хариуцна
   }
 
-  state.world.wolves = wolves.filter((w) => w.alive);
+  state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
 }
 
 export function updateThieves(state: GameState, dt: number): void {
@@ -603,7 +555,30 @@ export function updateThieves(state: GameState, dt: number): void {
         thief.pos.x += dir.x * thief.speed * 0.45 * dt;
         thief.pos.y += dir.y * thief.speed * 0.45 * dt;
       }
-      // Тоглогч руу цохилт — advanced combat хариуцна
+      if (
+        dPlayer < thief.radius + player.radius + 6 &&
+        thief.attackCooldown <= 0 &&
+        player.invuln <= 0
+      ) {
+        thief.attackCooldown = 1.1;
+        player.invuln = 0.5;
+        damagePlayer(state, thief.damage);
+        const knock = normalize({
+          x: player.pos.x - thief.pos.x,
+          y: player.pos.y - thief.pos.y,
+        });
+        player.pos.x += knock.x * 20;
+        player.pos.y += knock.y * 20;
+        state.fx.shake = Math.max(state.fx.shake, 4);
+        state.fx.hurtFlash = 1;
+        sfx("hurt");
+        spawnParticles(state, player.pos, 6, "#d64545", { speed: 80 });
+        spawnText(state, player.pos, `−${thief.damage}`, "#ff6060");
+        if (player.vitals.health <= 0 && state.phase === "playing") {
+          state.phase = "lost";
+          setMessage(state, "Хулгайчид зодуулж ялагдлаа…", 99);
+        }
+      }
     } else {
       if (Math.abs(dir.x) > 0.25) thief.face = dir.x < 0 ? -1 : 1;
       if (!enemyCombatLocksMovement(thief.combatPhase)) {
