@@ -3,6 +3,7 @@ import {
   Camera,
   Campfire,
   Dog,
+  type Elder,
   type Fence,
   Player,
   Projectile,
@@ -10,6 +11,7 @@ import {
   Thief,
   Tree,
   type Vector2,
+  type WorldRock,
   Wolf,
 } from "../types";
 import { clamp, roundRectPath } from "../utils";
@@ -112,6 +114,9 @@ export function drawTree(
     ctx.beginPath();
     ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2);
     ctx.fill();
+    if (tree.riddleHost && !tree.riddleSolved) {
+      drawRiddleGlow(ctx, x, y - 6, time, tree.id);
+    }
     return;
   }
 
@@ -153,12 +158,17 @@ export function drawTree(
     roundRectPath(ctx, x - bw / 2, y - 46, (bw * tree.hp) / tree.maxHp, 5, 2);
     ctx.fill();
   }
+
+  if (tree.riddleHost && !tree.riddleSolved) {
+    drawRiddleGlow(ctx, x, y - 18, time, tree.id);
+  }
 }
 
 export function drawBerryBush(
   ctx: CanvasRenderingContext2D,
   bush: BerryBush,
   cam: Camera,
+  time = 0,
 ): void {
   const x = bush.pos.x - cam.x;
   const y = bush.pos.y - cam.y;
@@ -204,6 +214,10 @@ export function drawBerryBush(
       ctx.arc(bx - 0.8, by - 0.8, 1, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  if (bush.riddleHost && !bush.riddleSolved) {
+    drawRiddleGlow(ctx, x, y - 10, time, bush.id);
   }
 }
 
@@ -2161,4 +2175,260 @@ export function drawProjectile(
     ctx.stroke();
   }
   ctx.restore();
+}
+
+export function drawRiddleGlow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+  id: number,
+): void {
+  const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + id);
+  ctx.fillStyle = `rgba(232,197,106,${0.25 + pulse * 0.3})`;
+  ctx.beginPath();
+  ctx.arc(x, y, 10 + pulse * 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = `rgba(255,220,100,${0.45 + pulse * 0.4})`;
+  ctx.beginPath();
+  ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+export function drawWorldRock(
+  ctx: CanvasRenderingContext2D,
+  rock: WorldRock,
+  cam: Camera,
+  time: number,
+): void {
+  const x = rock.pos.x - cam.x;
+  const y = rock.pos.y - cam.y;
+  const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + rock.id);
+  drawShadow(ctx, x, y + 2, 14, 6);
+
+  const g = ctx.createLinearGradient(x - 14, y - 12, x + 12, y + 8);
+  g.addColorStop(0, rock.riddleSolved ? "#6a655c" : "#8a8478");
+  g.addColorStop(1, rock.riddleSolved ? "#4a4640" : "#5c564c");
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.moveTo(x - 13, y + 5);
+  ctx.quadraticCurveTo(x - 16, y - 8, x - 2, y - 14);
+  ctx.quadraticCurveTo(x + 12, y - 12, x + 14, y + 3);
+  ctx.quadraticCurveTo(x + 5, y + 10, x - 13, y + 5);
+  ctx.fill();
+
+  if (!rock.riddleSolved) {
+    drawRiddleGlow(ctx, x + 1, y - 5, time, rock.id);
+  }
+}
+
+/** Задарсан өвөрмөц гэр — хана нурсан, тооно хажуу тийш */
+export function drawDismantledGer(
+  ctx: CanvasRenderingContext2D,
+  pos: Vector2,
+  cam: Camera,
+  time: number,
+): void {
+  const x = pos.x - cam.x;
+  const y = pos.y - cam.y;
+  const sway = Math.sin(time * 0.8) * 0.6;
+
+  drawShadow(ctx, x, y + 18, 48, 14);
+
+  // Шал / буурь
+  ctx.fillStyle = "rgba(90,70,45,0.45)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 16, 46, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Унасан хананы хэсэг (зүүн)
+  ctx.fillStyle = "#c8bca8";
+  ctx.beginPath();
+  ctx.moveTo(x - 42, y + 10);
+  ctx.lineTo(x - 38 + sway, y - 18);
+  ctx.lineTo(x - 8, y - 8);
+  ctx.lineTo(x - 14, y + 14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(120,90,50,0.45)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Баруун хагас хана — хазайсан
+  ctx.fillStyle = "#d8cdb8";
+  ctx.beginPath();
+  ctx.moveTo(x + 8, y + 12);
+  ctx.lineTo(x + 36, y + 6);
+  ctx.lineTo(x + 40, y - 10);
+  ctx.lineTo(x + 12, y - 4);
+  ctx.closePath();
+  ctx.fill();
+
+  // Дээврийн яс / унасан мод
+  ctx.strokeStyle = "#6a4a28";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x - 30, y - 6);
+  ctx.quadraticCurveTo(x - 4, y - 28, x + 22, y - 8);
+  ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x - 10, y + 8);
+  ctx.lineTo(x + 18, y - 22);
+  ctx.stroke();
+
+  // Тооно — хажуу тийш унасан
+  ctx.fillStyle = "#a07040";
+  ctx.beginPath();
+  ctx.ellipse(x + 26, y - 16, 7, 5, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#5a3820";
+  ctx.beginPath();
+  ctx.ellipse(x + 26, y - 16, 3, 2.2, 0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Хуучин бүслүүр
+  ctx.strokeStyle = "rgba(140,100,50,0.5)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x - 36, y + 2);
+  ctx.quadraticCurveTo(x, y - 4, x + 30, y + 4);
+  ctx.stroke();
+}
+
+/** Өвгөн — ширэн дэвсгэр дээр завилж, буурал сахалтай */
+export function drawElder(
+  ctx: CanvasRenderingContext2D,
+  elder: Elder,
+  cam: Camera,
+  time: number,
+): void {
+  const x = elder.pos.x - cam.x;
+  const y = elder.pos.y - cam.y;
+  const breath = Math.sin(time * 1.6) * 0.8;
+  const beardGlow = 0.25 + 0.2 * Math.sin(time * 2.1);
+
+  // Ширэн дэвсгэр
+  drawShadow(ctx, x, y + 10, 28, 10);
+  ctx.fillStyle = "#5a3a22";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 8, 26, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(200,160,90,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(x, y + 8, 22, 6, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Сууж буй дээл (хөх-бор)
+  const deel = ctx.createLinearGradient(x - 16, y - 8, x + 16, y + 10);
+  deel.addColorStop(0, "#3a4a62");
+  deel.addColorStop(0.5, "#4a5a48");
+  deel.addColorStop(1, "#3a3830");
+  ctx.fillStyle = deel;
+  ctx.beginPath();
+  ctx.ellipse(x, y + 2 + breath * 0.1, 15, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Хүзүүвч захарсан
+  ctx.strokeStyle = "#8a7050";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x - 8, y - 6);
+  ctx.quadraticCurveTo(x, y - 10, x + 8, y - 6);
+  ctx.stroke();
+  // Эртний хээ
+  ctx.strokeStyle = "rgba(200,160,80,0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - 6, y + 2);
+  ctx.lineTo(x + 6, y + 2);
+  ctx.moveTo(x, y - 2);
+  ctx.lineTo(x, y + 6);
+  ctx.stroke();
+
+  // Бүс + бөөгийн толь
+  ctx.fillStyle = "#6a4828";
+  ctx.fillRect(x - 12, y + 4, 24, 3);
+  ctx.fillStyle = "#c8a860";
+  ctx.beginPath();
+  ctx.arc(x + 10, y + 5, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#7ec8ff";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x + 10, y + 5, 2, 0, Math.PI * 2);
+  ctx.stroke();
+  // Хөөрөг
+  ctx.fillStyle = "#8a6030";
+  ctx.beginPath();
+  ctx.ellipse(x - 10, y + 6, 3, 2.2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Толгой
+  ctx.fillStyle = "#c49a72";
+  ctx.beginPath();
+  ctx.ellipse(x, y - 14 + breath * 0.15, 7.5, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Шанаа
+  ctx.fillStyle = "#a87850";
+  ctx.beginPath();
+  ctx.ellipse(x - 5.5, y - 12, 2.2, 3, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 5.5, y - 12, 2.2, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Үс сүлжих (орой)
+  ctx.fillStyle = "#d8d0c0";
+  ctx.beginPath();
+  ctx.arc(x, y - 22, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#a89880";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x, y - 22);
+  ctx.lineTo(x + 1, y - 28);
+  ctx.stroke();
+
+  // Буурал сахал + бага зэрэг туяа
+  if (elder.eyeMode !== "idle") {
+    ctx.fillStyle = `rgba(180,210,255,${beardGlow * 0.35})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 4, 11, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = "#e8e4dc";
+  ctx.beginPath();
+  ctx.moveTo(x - 7, y - 10);
+  ctx.quadraticCurveTo(x - 10, y + 2, x, y + 6);
+  ctx.quadraticCurveTo(x + 10, y + 2, x + 7, y - 10);
+  ctx.quadraticCurveTo(x, y - 2, x - 7, y - 10);
+  ctx.fill();
+
+  // Нүд
+  const eyeY = y - 15;
+  if (elder.eyeMode === "idle") {
+    ctx.strokeStyle = "#2a2018";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x - 4, eyeY);
+    ctx.quadraticCurveTo(x - 2.5, eyeY + 1.2, x - 1, eyeY);
+    ctx.moveTo(x + 1, eyeY);
+    ctx.quadraticCurveTo(x + 2.5, eyeY + 1.2, x + 4, eyeY);
+    ctx.stroke();
+  } else {
+    const glow =
+      elder.eyeMode === "spirit"
+        ? `rgba(100,180,255,${0.55 + beardGlow * 0.4})`
+        : `rgba(255,200,80,${0.55 + beardGlow * 0.4})`;
+    const pupil = elder.eyeMode === "spirit" ? "#7ec8ff" : "#e8c56a";
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x - 2.5, eyeY, 3.5, 0, Math.PI * 2);
+    ctx.arc(x + 2.5, eyeY, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = pupil;
+    ctx.beginPath();
+    ctx.arc(x - 2.5, eyeY, 1.6, 0, Math.PI * 2);
+    ctx.arc(x + 2.5, eyeY, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }

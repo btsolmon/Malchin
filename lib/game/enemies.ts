@@ -43,6 +43,7 @@ import {
   nearestHerdAnimal,
 } from "./livestock";
 import { updateWolves as updateCombatWolves } from "./combat/enemyBehaviors";
+import { handlePlayerDeath } from "./spirit";
 
 function enemyCombatLocksMovement(
   phase: Wolf["combatPhase"] | Thief["combatPhase"] | undefined,
@@ -574,9 +575,8 @@ export function updateThieves(state: GameState, dt: number): void {
         sfx("hurt");
         spawnParticles(state, player.pos, 6, "#d64545", { speed: 80 });
         spawnText(state, player.pos, `−${thief.damage}`, "#ff6060");
-        if (player.vitals.health <= 0 && state.phase === "playing") {
-          state.phase = "lost";
-          setMessage(state, "Хулгайчид зодуулж ялагдлаа…", 99);
+        if (player.vitals.health <= 0) {
+          handlePlayerDeath(state, "Хулгайчид зодуулж ялагдлаа…");
         }
       }
     } else {

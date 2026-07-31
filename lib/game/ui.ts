@@ -1853,6 +1853,12 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     barX,
     ly + 42,
   );
+  ctx.fillStyle = "#a8c8e8";
+  ctx.fillText(
+    `Сүнс ${state.spiritPoints} · Тэжээгч ${Math.floor(world.feeder.hay)}`,
+    barX,
+    ly + 56,
+  );
 
   const nearFence = nearestFence(player.pos, world.fences, 64);
   if (nearFence) {
@@ -1864,7 +1870,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `${nearFence.isGate ? "Хаалга " : ""}${FENCE_TIER_SHORT[tier]} ${hpPct}%`,
       barX,
-      ly + 56,
+      ly + 70,
     );
   }
 
@@ -1886,7 +1892,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(text, VIEW_W / 2 - tw / 2, pad + 18);
   }
 
-  if (state.messageTimer > 0 && state.message && state.phase === "playing") {
+  if (
+    state.messageTimer > 0 &&
+    state.message &&
+    (state.phase === "playing" || state.phase === "spirit")
+  ) {
     const alpha = clamp(state.messageTimer / 0.4, 0, 1);
     ctx.font = "13px 'Courier New', monospace";
     const tw = ctx.measureText(state.message).width;

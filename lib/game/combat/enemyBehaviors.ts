@@ -57,6 +57,7 @@ import {
   loseLivestock,
   syncVisualFlock as syncLivestockVisuals,
 } from "../livestock";
+import { handlePlayerDeath } from "../spirit";
 
 export function createVisualSheep(id: number, around: Vector2): Sheep {
   const ang = Math.random() * Math.PI * 2;
@@ -739,12 +740,10 @@ function damagePlayerFromWolf(
   spawnParticles(state, player.pos, 8, "#d64545", { speed: 90 });
   spawnText(state, player.pos, `−${resolvedDamage}`, "#ff6060");
 
-  if (player.vitals.health <= 0 && state.phase === "playing") {
-    state.phase = "lost";
-    setMessage(
+  if (player.vitals.health <= 0) {
+    handlePlayerDeath(
       state,
       wolf.kind === "bear" ? "Баавгайд ялагдлаа…" : "Чононд ялагдлаа…",
-      99,
     );
   }
 
@@ -889,9 +888,8 @@ function finishPlayerFromBearGrab(
     size: 3,
   });
 
-  if (state.phase === "playing") {
-    state.phase = "lost";
-    setMessage(state, "Баавгайн дайралтад бариуллаа…", 99);
+  if (state.phase === "playing" || state.phase === "spirit") {
+    handlePlayerDeath(state, "Баавгайн дайралтад бариуллаа…");
   }
 }
 
@@ -1479,8 +1477,8 @@ function updateNormalWolfChasing(
   const flock = state.world.flock;
   const dPlayer = dist(wolf.pos, player.pos);
 
-  // Player is the priority target while close enough.
-  if (dPlayer <= WOLF_PLAYER_AGGRO_RANGE) {
+  // Player is the priority target while close enough (spirit: always).
+  if (state.phase === "spirit" || dPlayer <= WOLF_PLAYER_AGGRO_RANGE) {
     const toPlayer = normalize({
       x: player.pos.x - wolf.pos.x,
       y: player.pos.y - wolf.pos.y,
@@ -1657,9 +1655,8 @@ export function updateThieves(state: GameState, dt: number): void {
         sfx("hurt");
         spawnParticles(state, player.pos, 6, "#d64545", { speed: 80 });
         spawnText(state, player.pos, `−${thief.damage}`, "#ff6060");
-        if (player.vitals.health <= 0 && state.phase === "playing") {
-          state.phase = "lost";
-          setMessage(state, "Хулгайчид зодуулж ялагдлаа…", 99);
+        if (player.vitals.health <= 0) {
+          handlePlayerDeath(state, "Хулгайчид зодуулж ялагдлаа…");
         }
       }
     } else {

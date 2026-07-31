@@ -37,6 +37,7 @@ body {
 }
 
 .herder-stage-wrap {
+  position: relative;
   width: 100%;
   height: 100%;
   display: flex;
@@ -53,3 +54,237 @@ body {
   image-rendering: pixelated;
   outline: none;
 }
+
+.elder-backdrop,
+.riddle-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(6, 8, 14, 0.55);
+  pointer-events: auto;
+}
+
+.elder-panel,
+.riddle-panel {
+  width: min(520px, 92%);
+  max-height: min(480px, 90%);
+  overflow: auto;
+  border: 1px solid rgba(232, 197, 106, 0.55);
+  background:
+    linear-gradient(180deg, rgba(36, 28, 18, 0.97), rgba(18, 14, 10, 0.98));
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+  color: #f2e8d5;
+}
+
+.elder-panel.elder-eyes-spirit {
+  border-color: rgba(126, 200, 255, 0.7);
+  box-shadow: 0 0 28px rgba(80, 140, 220, 0.25);
+}
+
+.elder-panel.elder-eyes-rare {
+  border-color: rgba(232, 197, 106, 0.9);
+  box-shadow: 0 0 24px rgba(232, 197, 106, 0.2);
+}
+
+.elder-panel-inner,
+.riddle-panel-inner {
+  padding: 18px 20px 16px;
+}
+
+.elder-eyebrow,
+.riddle-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--herder-muted);
+}
+
+.elder-title,
+.riddle-title {
+  margin: 4px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--herder-gold);
+}
+
+.elder-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.elder-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 12px;
+  color: #d8c898;
+}
+
+.elder-spirit {
+  color: #7ec8ff;
+}
+
+.elder-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 12px;
+}
+
+.elder-tabs button,
+.elder-trades button,
+.elder-next,
+.elder-dismiss,
+.elder-dialogue-list button,
+.riddle-option,
+.riddle-close,
+.riddle-dismiss {
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(232, 197, 106, 0.35);
+  background: rgba(40, 30, 18, 0.9);
+  color: #f2e8d5;
+  padding: 8px 12px;
+}
+
+.elder-tabs button.active {
+  background: rgba(232, 197, 106, 0.18);
+  border-color: var(--herder-gold);
+  color: var(--herder-gold);
+}
+
+.elder-trades,
+.elder-dialogue-list,
+.riddle-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.elder-trades li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.elder-trades li.rare {
+  border-color: rgba(126, 200, 255, 0.35);
+}
+
+.elder-trade-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.elder-trade-info span {
+  color: var(--herder-muted);
+  font-size: 12px;
+}
+
+.elder-trades button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.elder-dialogue-title {
+  margin: 0 0 8px;
+  color: var(--herder-gold);
+  font-weight: 700;
+}
+
+.elder-speaker {
+  margin: 0;
+  font-size: 12px;
+  color: #b8d0ff;
+}
+
+.elder-stage {
+  margin: 6px 0;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--herder-muted);
+}
+
+.elder-dialogue-line {
+  margin: 8px 0 14px;
+  line-height: 1.45;
+  font-size: 14px;
+}
+
+.elder-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.elder-dismiss,
+.riddle-dismiss {
+  margin-top: 14px;
+  width: 100%;
+  color: var(--herder-muted);
+}
+
+.riddle-question {
+  margin: 12px 0 16px;
+  line-height: 1.45;
+  font-size: 15px;
+}
+
+.riddle-option {
+  width: 100%;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.riddle-letter {
+  flex: 0 0 auto;
+  color: var(--herder-gold);
+  font-weight: 700;
+}
+
+.riddle-feedback {
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.riddle-feedback-wrong {
+  color: #ff8080;
+}
+
+.riddle-feedback-ok {
+  color: #8fd48f;
+  font-weight: 700;
+}
+
+.riddle-explain,
+.riddle-reward {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #d8c898;
+}
+
+.riddle-close {
+  margin-top: 14px;
+  width: 100%;
+  border-color: var(--herder-gold);
+  color: var(--herder-gold);
+}
+

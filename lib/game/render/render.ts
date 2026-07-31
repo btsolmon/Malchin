@@ -1,7 +1,7 @@
 import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDog, drawFeeder, drawFence, drawFenceGhost, drawGer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf } from "./entities";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
 import { drawGerInterior } from "./ger";
 import {
   drawPlayerWithSprites,
@@ -30,6 +30,9 @@ import {
   drawTumurShulmasTelegraphs,
   type TumurShulmasSpriteSet,
 } from "../tumurShulmas";
+import { nearestRiddleHost, spotKindLabel } from "../riddles";
+import { nearElder } from "../elder";
+import { drawSpiritOverlay } from "../spirit";
 
 export interface RenderContext {
   ctx: CanvasRenderingContext2D;
@@ -252,9 +255,26 @@ export function render(
     drawables.push({
       y: bush.pos.y,
       key: 1000 + bush.id,
-      draw: () => drawBerryBush(ctx, bush, cam),
+      draw: () => drawBerryBush(ctx, bush, cam, time),
     });
   }
+  for (const rock of world.rocks) {
+    drawables.push({
+      y: rock.pos.y,
+      key: 7000 + rock.id,
+      draw: () => drawWorldRock(ctx, rock, cam, time),
+    });
+  }
+  drawables.push({
+    y: world.elder.gerPos.y,
+    key: -6,
+    draw: () => drawDismantledGer(ctx, world.elder.gerPos, cam, time),
+  });
+  drawables.push({
+    y: world.elder.pos.y,
+    key: -5,
+    draw: () => drawElder(ctx, world.elder, cam, time),
+  });
   if (!world.gerPacked) {
     drawables.push({
       y: world.campfire.pos.y,
@@ -395,7 +415,21 @@ export function render(
   drawTumurShulmasNeedles(ctx, state, cam);
 
   // Гэрт орох / өвс хадах / тэжээгч / нүүдэл заавар
-  if (state.phase === "playing") {
+  if (state.phase === "spirit") {
+    const tx = state.player.pos.x - cam.x;
+    const ty = state.player.pos.y - 42 - cam.y;
+    ctx.textAlign = "center";
+    ctx.font = "600 12px system-ui, sans-serif";
+    ctx.strokeStyle = "rgba(0,0,0,0.7)";
+    ctx.lineWidth = 3;
+    const tip = state.spiritCleared
+      ? "E — бодит ертөнц рүү буцах"
+      : "Сүнсний дайснууд · E/P — гарах";
+    ctx.strokeText(tip, tx, ty);
+    ctx.fillStyle = "#a8d4ff";
+    ctx.fillText(tip, tx, ty);
+    ctx.textAlign = "left";
+  } else if (state.phase === "playing") {
     const c = pastureCenter(world);
     const gp = gerDoorPos(world);
     const dGer = dist(state.player.pos, gp);
@@ -436,22 +470,53 @@ export function render(
       ctx.fillStyle = "#c8e070";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
-    } else if (
-      dist(state.player.pos, c) < HAY_HARVEST_RADIUS &&
-      canHarvestHay(world.season) &&
-      world.pastureGrass >= HAY_GRASS_COST
-    ) {
-      const tx = state.player.pos.x - cam.x;
-      const ty = state.player.pos.y - 36 - cam.y;
+    } else if (nearElder(state)) {
+      const tx = world.elder.pos.x - cam.x;
+      const ty = world.elder.pos.y - 36 - cam.y;
       ctx.textAlign = "center";
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      const tip = `E — Өвс хадах (${Math.ceil(world.pastureGrass)})`;
+      const tip = "E — Өвгөнтэй ярих / арилжаа";
       ctx.strokeText(tip, tx, ty);
-      ctx.fillStyle = "#c8e070";
+      ctx.fillStyle = "#b8d0ff";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
+    } else {
+      const nearRiddle = nearestRiddleHost(
+        state.player.pos,
+        world,
+        state.player.radius + 28,
+      );
+      if (nearRiddle && !nearRiddle.solved) {
+        const tx = nearRiddle.pos.x - cam.x;
+        const ty = nearRiddle.pos.y - 28 - cam.y;
+        ctx.textAlign = "center";
+        ctx.font = "600 11px system-ui, sans-serif";
+        ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.lineWidth = 3;
+        const tip = `E — ${spotKindLabel(nearRiddle.kind)} · асуулт`;
+        ctx.strokeText(tip, tx, ty);
+        ctx.fillStyle = "#ffe9a8";
+        ctx.fillText(tip, tx, ty);
+        ctx.textAlign = "left";
+      } else if (
+        dist(state.player.pos, c) < HAY_HARVEST_RADIUS &&
+        canHarvestHay(world.season) &&
+        world.pastureGrass >= HAY_GRASS_COST
+      ) {
+        const tx = state.player.pos.x - cam.x;
+        const ty = state.player.pos.y - 36 - cam.y;
+        ctx.textAlign = "center";
+        ctx.font = "600 11px system-ui, sans-serif";
+        ctx.strokeStyle = "rgba(0,0,0,0.7)";
+        ctx.lineWidth = 3;
+        const tip = `E — Өвс хадах (${Math.ceil(world.pastureGrass)})`;
+        ctx.strokeText(tip, tx, ty);
+        ctx.fillStyle = "#c8e070";
+        ctx.fillText(tip, tx, ty);
+        ctx.textAlign = "left";
+      }
     }
   }
   if (state.phase === "playing") {
@@ -515,9 +580,11 @@ export function render(
   }
   ctx.globalAlpha = 1;
 
-  // Гэрэлтүүлэг + цаг агаар
-  drawLighting(ctx, rc.lightCanvas, state, cam, time);
-  drawWeatherFx(ctx, world, time);
+  // Гэрэлтүүлэг + цаг агаар (сүнсний орноос гадна)
+  if (state.phase !== "spirit") {
+    drawLighting(ctx, rc.lightCanvas, state, cam, time);
+    drawWeatherFx(ctx, world, time);
+  }
 
   // Vignette
   ctx.drawImage(rc.vignette, 0, 0, VIEW_W, VIEW_H);
@@ -544,6 +611,8 @@ export function render(
     ctx.fillStyle = `rgba(${pulse.color},${pulse.intensity * ratio})`;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
+
+  drawSpiritOverlay(ctx, state, VIEW_W, VIEW_H);
 
   if (state.phase !== "menu") {
     drawThreatArrows(ctx, state, cam);

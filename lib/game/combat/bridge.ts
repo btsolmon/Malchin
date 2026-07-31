@@ -5,6 +5,7 @@ import { normalize, setMessage } from "../utils";
 import { spawnParticles, spawnText } from "../effects";
 import { sfx } from "../audio";
 import { damagePlayer } from "../enemies";
+import { handlePlayerDeath } from "../spirit";
 import { damageThief, damageWolf } from "./weapons";
 import {
   performCriticalHit,
@@ -256,16 +257,12 @@ function makeHooks(state: GameState, refs: EnemyRef[]): CombatHooks {
     },
     applyPlayerDamage: (damage) => {
       damagePlayer(state, damage);
-      if (state.player.vitals.health <= 0 && state.phase === "playing") {
-        state.phase = "lost";
-        setMessage(state, "Тулаанд ялагдлаа…", 99);
+      if (state.player.vitals.health <= 0) {
+        handlePlayerDeath(state, "Тулаанд ялагдлаа…");
       }
     },
     onPlayerKilled: () => {
-      if (state.phase === "playing") {
-        state.phase = "lost";
-        setMessage(state, "Тулаанд ялагдлаа…", 99);
-      }
+      handlePlayerDeath(state, "Тулаанд ялагдлаа…");
     },
   };
 }

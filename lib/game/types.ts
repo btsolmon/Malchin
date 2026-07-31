@@ -10,7 +10,10 @@ export type GamePhase =
   | "won"
   | "lost"
   | "levelup"
-  | "ger";
+  | "ger"
+  | "riddle"
+  | "elder"
+  | "spirit";
 
 /** Дэлгүүрээс авч болох эд зүйлс */
 export type GearId = "dog" | "horse" | "bow" | "gun" | "axe" | "urga";
@@ -40,6 +43,35 @@ export const LIVESTOCK_MN: Record<LivestockKind, string> = {
 export interface Vector2 {
   x: number;
   y: number;
+}
+
+/** Өвгөн — задарсан гэрийн дэргэд завилж сууна */
+export interface Elder {
+  pos: Vector2;
+  /** Задарсан өвөрмөц гэрийн байрлал */
+  gerPos: Vector2;
+  radius: number;
+  /** Нүдний туяа: idle / сүнсний яриа / ховор бараа */
+  eyeMode: "idle" | "spirit" | "rare";
+}
+
+/** Оньсогын асуулттай объектын төрөл */
+export type RiddleHostKind = "rock" | "tree" | "bush";
+
+export interface RiddleHostRef {
+  kind: RiddleHostKind;
+  id: number;
+}
+
+/** Том чулуу — зөвхөн оньсогын асуулт */
+export interface WorldRock {
+  id: number;
+  pos: Vector2;
+  radius: number;
+  /** Зөв хариулсны дараа true — дахин асуухгүй */
+  riddleSolved: boolean;
+  /** Анх нээхэд оноогдсон оньсогын id (буруу хариулбал ижил хэвээр) */
+  riddleId: string | null;
 }
 
 export interface Vitals {
@@ -128,6 +160,10 @@ export interface Tree {
   maxHp: number;
   radius: number;
   respawnIn: number;
+  /** Оньсогын асуулттай мод */
+  riddleHost: boolean;
+  riddleSolved: boolean;
+  riddleId: string | null;
 }
 
 export interface BerryBush {
@@ -137,6 +173,10 @@ export interface BerryBush {
   maxBerries: number;
   radius: number;
   respawnIn: number;
+  /** Оньсогын асуулттай бут */
+  riddleHost: boolean;
+  riddleSolved: boolean;
+  riddleId: string | null;
 }
 
 export interface Campfire {
@@ -462,6 +502,10 @@ export interface World {
   thieves: Thief[];
   dog: Dog | null;
   projectiles: Projectile[];
+  /** Оньсогын чулуунууд */
+  rocks: WorldRock[];
+  /** Өвгөн NPC */
+  elder: Elder;
   /** Гэрээс Хар төмөр хаалга хүртэлх замын дайснууд ба mini-boss. */
   firstRoute: FirstRoute;
   /** Тусдаа Төмөр шулмасын boss encounter. */
@@ -644,6 +688,24 @@ export interface GameState {
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
   combatDodgeActive: boolean;
   nextEntityId: number;
+  /** Идэвхтэй оньсогын id (phase === "riddle") */
+  activeRiddleId: string | null;
+  activeRiddleHost: RiddleHostRef | null;
+  riddleFeedback: "idle" | "wrong" | "correct";
+  /** Сүнс = нэмэлт амь (өвгөнтэй арилжаанаас) */
+  spiritPoints: number;
+  elderTab: "trade" | "talk";
+  elderDialogueId: string | null;
+  elderDialogueLine: number;
+  elderShowingChoices: boolean;
+  elderHeardDialogues: string[];
+  /** Сүнсний ертөнцийн шилжилтийн манан (сек) */
+  spiritTransition: number;
+  spiritReturnPos: Vector2 | null;
+  spiritCleared: boolean;
+  /** Сүнс рүү орохоос өмнөх дайснууд */
+  spiritSavedWolves: Wolf[] | null;
+  spiritSavedThieves: Thief[] | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -66,6 +66,9 @@ import {
   nearestReadyAnimal,
   tryCatchWildHorse,
 } from "./livestock";
+import { nearestRiddleHost, openRiddleAtHost, spotKindLabel } from "./riddles";
+import { nearElder, openElder } from "./elder";
+import { handlePlayerDeath } from "./spirit";
 
 export const SKILL_POOL: Skill[] = [
   {
@@ -359,6 +362,35 @@ export function tryInteract(state: GameState): void {
     state.gerPlayer = { x: 480, y: 435 };
     state.input.interact = false;
     sfx("select");
+    return;
+  }
+
+  // Өвгөн — арилжаа / яриа
+  if (nearElder(state)) {
+    openElder(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  // Оньсогын асуулт (мод / бут / чулуу)
+  const riddleHost = nearestRiddleHost(
+    player.pos,
+    world,
+    player.radius + 28,
+  );
+  if (riddleHost) {
+    if (riddleHost.solved) {
+      setMessage(
+        state,
+        `${spotKindLabel(riddleHost.kind)} — асуулт аль хэдийн хариулагдсан.`,
+        2,
+      );
+    } else {
+      openRiddleAtHost(state, riddleHost);
+    }
+    player.chopCooldown = 0.3;
+    state.input.interact = false;
     return;
   }
 
@@ -779,9 +811,8 @@ export function updateSurvival(state: GameState, dt: number): void {
       0,
       player.vitals.maxHealth,
     );
-    if (player.vitals.health <= 0 && state.phase === "playing") {
-      state.phase = "lost";
-      setMessage(state, "Хүйтэнд нэрвэгдлээ…", 99);
+    if (player.vitals.health <= 0) {
+      handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
     }
   }
 
@@ -796,9 +827,8 @@ export function updateSurvival(state: GameState, dt: number): void {
       0,
       player.vitals.maxHealth,
     );
-    if (player.vitals.health <= 0 && state.phase === "playing") {
-      state.phase = "lost";
-      setMessage(state, "Өлсөж үхлээ… Жимс түүж ид!", 99);
+    if (player.vitals.health <= 0) {
+      handlePlayerDeath(state, "Өлсөж үхлээ… Жимс түүж ид!");
     }
   }
 

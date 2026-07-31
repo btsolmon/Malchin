@@ -23,6 +23,7 @@ import {
   startMusic,
 } from "../game/audio";
 import {
+  maybeLevelUp,
   tryBuildFence,
   tryEatBerry,
   tryInteract,
@@ -68,6 +69,28 @@ import {
   tryInteractFirstRoute,
   updateFirstRoute,
 } from "./firstRoute";
+import {
+  closeRiddle,
+  assignRiddlesToWorld,
+  getRiddleUiSnapshot,
+  submitRiddleAnswer,
+  type RiddleUiSnapshot,
+} from "./riddles";
+import {
+  advanceElderDialogue,
+  chooseElderOption,
+  closeElder,
+  createElder,
+  getElderUiSnapshot,
+  setElderTab,
+  startElderDialogue,
+  tradeWithElder,
+  type ElderChoiceId,
+  type ElderTab,
+  type ElderUiSnapshot,
+} from "./elder";
+import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
+
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
@@ -83,7 +106,17 @@ export function createTrees(count: number): Tree[] {
       attempts++;
     } while (dist(pos, center) < 220 && attempts < 40);
 
-    trees.push({ id: i, pos, hp: 3, maxHp: 3, radius: 18, respawnIn: 0 });
+    trees.push({
+      id: i,
+      pos,
+      hp: 3,
+      maxHp: 3,
+      radius: 18,
+      respawnIn: 0,
+      riddleHost: false,
+      riddleSolved: false,
+      riddleId: null,
+    });
   }
   return trees;
 }
@@ -110,6 +143,9 @@ export function createBushes(count: number): BerryBush[] {
       maxBerries: 5,
       radius: 16,
       respawnIn: 0,
+      riddleHost: false,
+      riddleSolved: false,
+      riddleId: null,
     });
   }
   return bushes;
@@ -205,6 +241,8 @@ export function createInitialState(): GameState {
       },
       wolves: [],
       thieves: [],
+      rocks: [],
+      elder: { ...createElder(spawn), eyeMode: "idle" as const },
       season: "autumn",
       weather: "clear",
       timeOfDay: 6.5,
@@ -301,8 +339,23 @@ export function createInitialState(): GameState {
     gerSleepBed: null,
     requestRestart: false,
     nextEntityId: 100,
+    activeRiddleId: null,
+    activeRiddleHost: null,
+    riddleFeedback: "idle",
+    spiritPoints: 0,
+    elderTab: "trade",
+    elderDialogueId: null,
+    elderDialogueLine: 0,
+    elderShowingChoices: false,
+    elderHeardDialogues: [],
+    spiritTransition: 0,
+    spiritReturnPos: null,
+    spiritCleared: false,
+    spiritSavedWolves: null,
+    spiritSavedThieves: null,
   };
 
+  assignRiddlesToWorld(state.world, spawn, 11);
   syncVisualFlock(state);
   return state;
 }
@@ -449,6 +502,34 @@ export function update(state: GameState, dt: number): void {
   } else if (state.phase === "ger") {
     updateGer(state, dt);
     state.fencePreview = false;
+  } else if (state.phase === "riddle") {
+    // React modal хариуцна — P дарвал хаана
+    if (state.input.pause) {
+      closeRiddle(state);
+      maybeLevelUp(state);
+    }
+    state.fencePreview = false;
+  } else if (state.phase === "elder") {
+    // React ElderModal хариуцна — P/Esc дарвал хаана
+    if (state.input.pause && !state.elderShowingChoices) {
+      closeElder(state);
+    }
+    state.fencePreview = false;
+  } else if (state.phase === "spirit") {
+    state.fencePreview = false;
+    if (
+      state.input.pause ||
+      state.input.interact ||
+      (state.spiritCleared && state.input.confirm)
+    ) {
+      exitSpiritWorld(
+        state,
+        state.input.pause ? "Сүнсний орноос гарлаа." : undefined,
+      );
+      state.input.pause = false;
+      state.input.interact = false;
+      state.input.confirm = false;
+    }
   } else if (state.phase === "levelup") {
     updateLevelUp(state);
     state.fencePreview = false;
@@ -476,7 +557,7 @@ export function update(state: GameState, dt: number): void {
 
   // Талд 1 = таяг, 2 = mini-boss-оос авсан Хөх тэнгэрийн сэлэм.
   // Гэрийн shop дотор 1–4 нь хуучнаараа шууд худалдан авалт.
-  if (state.phase === "playing") {
+  if (state.phase === "playing" || state.phase === "spirit") {
     trySwitchPlayerWeapon(state);
   }
   state.input.skill1 = false;
@@ -485,7 +566,8 @@ export function update(state: GameState, dt: number): void {
   state.input.skill4 = false;
 
   const hitStopped =
-    state.phase === "playing" && updateHitStop(state, dt);
+    (state.phase === "playing" || state.phase === "spirit") &&
+    updateHitStop(state, dt);
 
   if (state.phase === "playing" && !hitStopped) {
     if (state.input.debugXp) {
@@ -532,6 +614,22 @@ export function update(state: GameState, dt: number): void {
       updateSurvival(state, dt);
       if (state.messageTimer > 0) state.messageTimer -= dt;
     }
+  } else if (state.phase === "spirit" && !hitStopped) {
+    // Бодит дэлхийн цаг / мал / цаг агаар зогсоно — зөвхөн тулаан
+    updateSpiritWorld(state, dt);
+    if (state.phase === "spirit") {
+      updateCombat(state, dt);
+      updatePlayerMovement(state, dt);
+      updateWolves(state, dt);
+      updateDog(state, dt);
+      updateProjectiles(state, dt);
+      if (state.messageTimer > 0) state.messageTimer -= dt;
+    }
+  }
+
+  // Шилжилтийн манан — playing дээр ч үлдэгдэл байж болно
+  if (state.phase === "playing" && state.spiritTransition > 0) {
+    state.spiritTransition = Math.max(0, state.spiritTransition - dt);
   }
 
   // Фаз солигдоход нэг удаагийн дуут дохио
@@ -565,10 +663,26 @@ export function update(state: GameState, dt: number): void {
 
 export interface HerderGameHandle {
   destroy: () => void;
+  submitRiddleAnswer: (optionIndex: number) => void;
+  closeRiddleModal: () => void;
+  setElderTab: (tab: ElderTab) => void;
+  tradeWithElder: (itemId: string) => void;
+  startElderDialogue: (id: string) => void;
+  advanceElderDialogue: () => void;
+  chooseElderOption: (id: ElderChoiceId) => void;
+  closeElderModal: () => void;
+}
+
+export interface MountHerderOptions {
+  onRiddleUi?: (snapshot: RiddleUiSnapshot) => void;
+  onElderUi?: (snapshot: ElderUiSnapshot) => void;
 }
 
 /** Canvas дээр тоглоом эхлүүлнэ. Unmount үед destroy() дуудна. */
-export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
+export function mountHerderGame(
+  canvas: HTMLCanvasElement,
+  options: MountHerderOptions = {},
+): HerderGameHandle {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context дэмжигдэхгүй");
 
@@ -604,6 +718,39 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
 
   let state = createInitialState();
   const unbindInput = bindInput(() => state.input);
+  let lastRiddleKey = "";
+  let lastElderKey = "";
+
+  const notifyRiddleUi = (): void => {
+    if (!options.onRiddleUi) return;
+    const snap = getRiddleUiSnapshot(state);
+    const key = snap.open
+      ? `${snap.question}|${snap.feedback}|${snap.options.join("~")}`
+      : "closed";
+    if (key === lastRiddleKey) return;
+    lastRiddleKey = key;
+    options.onRiddleUi(snap);
+  };
+
+  const notifyElderUi = (): void => {
+    if (!options.onElderUi) return;
+    const snap = getElderUiSnapshot(state);
+    const key = snap.open
+      ? [
+          snap.tab,
+          snap.eyeMode,
+          snap.spiritPoints,
+          snap.score,
+          snap.trades.map((t) => `${t.id}:${t.have}`).join(","),
+          snap.activeDialogue
+            ? `${snap.activeDialogue.id}:${snap.activeDialogue.beatIndex}:${snap.activeDialogue.showingChoices}`
+            : "none",
+        ].join("|")
+      : "closed";
+    if (key === lastElderKey) return;
+    lastElderKey = key;
+    options.onElderUi(snap);
+  };
 
   // Хулгана — canvas координат руу хөрвүүлнэ
   const toView = (e: PointerEvent): { x: number; y: number } => {
@@ -620,6 +767,8 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
     state.input.mouseMoved = true;
   };
   const onPointerDown = (e: PointerEvent): void => {
+    // React modal үед canvas click хэрэггүй
+    if (state.phase === "riddle" || state.phase === "elder") return;
     const p = toView(e);
     state.input.mouseX = p.x;
     state.input.mouseY = p.y;
@@ -650,6 +799,10 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
 
     if (state.requestRestart) {
       state = createInitialState();
+      lastRiddleKey = "";
+      lastElderKey = "";
+      options.onRiddleUi?.({ open: false });
+      options.onElderUi?.({ open: false });
     }
 
     const phaseBefore = state.phase;
@@ -658,6 +811,8 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
     if (phaseBefore === "menu" && state.phase === "playing") {
       enterBrowserFullscreen();
     }
+    notifyRiddleUi();
+    notifyElderUi();
     render(rc, state, now / 1000);
     raf = requestAnimationFrame(frame);
   };
@@ -674,6 +829,41 @@ export function mountHerderGame(canvas: HTMLCanvasElement): HerderGameHandle {
       window.removeEventListener("keydown", unlockAudio);
       window.removeEventListener("pointerdown", unlockAudio);
       shutdownAudio();
+      options.onRiddleUi?.({ open: false });
+      options.onElderUi?.({ open: false });
+    },
+    submitRiddleAnswer: (optionIndex: number) => {
+      submitRiddleAnswer(state, optionIndex);
+      notifyRiddleUi();
+    },
+    closeRiddleModal: () => {
+      closeRiddle(state);
+      maybeLevelUp(state);
+      notifyRiddleUi();
+    },
+    setElderTab: (tab: ElderTab) => {
+      setElderTab(state, tab);
+      notifyElderUi();
+    },
+    tradeWithElder: (itemId: string) => {
+      tradeWithElder(state, itemId);
+      notifyElderUi();
+    },
+    startElderDialogue: (id: string) => {
+      startElderDialogue(state, id);
+      notifyElderUi();
+    },
+    advanceElderDialogue: () => {
+      advanceElderDialogue(state);
+      notifyElderUi();
+    },
+    chooseElderOption: (id: ElderChoiceId) => {
+      chooseElderOption(state, id);
+      notifyElderUi();
+    },
+    closeElderModal: () => {
+      closeElder(state);
+      notifyElderUi();
     },
   };
 }
