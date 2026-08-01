@@ -1,7 +1,8 @@
 import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
-import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
+import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
+import { horseHitchRail, nearMountHorse } from "../player";
 import { drawGerInterior } from "./ger";
 import {
   drawPlayerWithSprites,
@@ -263,6 +264,38 @@ export function render(
     });
   }
 
+  // Мал гаргах/оруулах цэг — гал ба тэвшин гол
+  if (!world.gerPacked) {
+    const gate = flockGatePos(world);
+    drawables.push({
+      y: gate.y,
+      key: -6,
+      draw: () => {
+        const gx = gate.x - cam.x;
+        const gy = gate.y - cam.y;
+        // Хоёр богино шон + завсар (хаалганы мөр)
+        ctx.fillStyle = "rgba(20,25,15,0.22)";
+        ctx.beginPath();
+        ctx.ellipse(gx, gy + 4, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        for (const ox of [-10, 10] as const) {
+          ctx.fillStyle = "#5a3a1e";
+          ctx.fillRect(gx + ox - 2, gy - 14, 4, 16);
+          ctx.fillStyle = "#7a5230";
+          ctx.fillRect(gx + ox - 1.2, gy - 13, 2, 14);
+        }
+        ctx.strokeStyle = "rgba(90,60,30,0.45)";
+        ctx.lineWidth = 1.4;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(gx - 8, gy - 4);
+        ctx.lineTo(gx + 8, gy - 4);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      },
+    });
+  }
+
   for (const tree of world.trees) {
     if (
       (world.firstRoute.bossStarted &&
@@ -442,6 +475,61 @@ export function render(
       draw: () => drawDog(ctx, dog, cam, time),
     });
   }
+  // Морьны уяа — морь авсны дараа гэрийн зүүн урд (хоёр шон + урт уяа)
+  if (
+    !world.gerPacked &&
+    state.player.gear.horse &&
+    state.player.horseHp > 0
+  ) {
+    const rail = horseHitchRail(world);
+    drawables.push({
+      y: Math.max(rail.left.y, rail.right.y),
+      key: -5,
+      draw: () => drawHorseHitch(ctx, rail.left, rail.right, cam),
+    });
+  }
+
+  // Буусан / уясан унах морь
+  if (world.mountHorse && !state.player.riding) {
+    const mh = world.mountHorse;
+    drawables.push({
+      y: mh.pos.y,
+      key: 4990,
+      draw: () => {
+        const hx = mh.pos.x - cam.x;
+        const hy = mh.pos.y - cam.y;
+        drawHorse(ctx, hx, hy + 2, mh.face, time, false, false);
+        if (mh.tied) {
+          // Уяанаас морь руу богино оосор
+          const rail = horseHitchRail(world);
+          const ax = (rail.left.x + rail.right.x) / 2 - cam.x;
+          const ay = (rail.left.y + rail.right.y) / 2 - 22 - cam.y;
+          ctx.strokeStyle = "rgba(55,40,22,0.5)";
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.quadraticCurveTo(
+            (ax + hx) / 2 + 4,
+            (ay + hy) / 2 + 6,
+            hx - mh.face * 6,
+            hy - 2,
+          );
+          ctx.stroke();
+          ctx.strokeStyle = "#c4a06a";
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.quadraticCurveTo(
+            (ax + hx) / 2 + 4,
+            (ay + hy) / 2 + 6,
+            hx - mh.face * 6,
+            hy - 2,
+          );
+          ctx.stroke();
+        }
+      },
+    });
+  }
   drawables.push({
     y: state.player.pos.y,
     key: Number.MAX_SAFE_INTEGER,
@@ -495,6 +583,8 @@ export function render(
     const gp = gerDoorPos(world);
     const dGer = dist(state.player.pos, gp);
     const dFeed = dist(state.player.pos, world.feeder.pos);
+    const gate = flockGatePos(world);
+    const dGate = dist(state.player.pos, gate);
     if (world.gerPacked) {
       const tx = state.player.pos.x - cam.x;
       const ty = state.player.pos.y - 40 - cam.y;
@@ -513,9 +603,24 @@ export function render(
       ctx.font = "600 12px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      ctx.strokeText("E — Гэрт орох · G — моринд ачих", tx, ty);
+      const tip = state.player.riding
+        ? "E — Гэрт орох · H — бууж уях · G — моринд ачих"
+        : "E — Гэрт орох · G — моринд ачих";
+      ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#ffe9a8";
-      ctx.fillText("E — Гэрт орох · G — моринд ачих", tx, ty);
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (dGate < FLOCK_GATE_RADIUS + 12) {
+      const tx = gate.x - cam.x;
+      const ty = gate.y - 28 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const tip = world.flockOut ? "E — Мал оруулах" : "E — Мал гаргах";
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#c8e070";
+      ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (dFeed < world.feeder.radius + 28) {
       const tx = world.feeder.pos.x - cam.x;
@@ -524,11 +629,36 @@ export function render(
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      const tip = world.flockOut
-        ? `E — Мал оруулах / өвс (${Math.floor(world.feeder.hay)})`
-        : `E — Мал гаргах / өвс (${Math.floor(world.feeder.hay)})`;
+      const hayInv = state.player.inventory.hay;
+      const tip =
+        hayInv > 0
+          ? `E — Тэвшид өвс хийх (${hayInv})`
+          : "E — Өвс хадаад тэвшид хий";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e070";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (
+      state.player.gear.horse &&
+      state.player.horseHp > 0 &&
+      (state.player.riding || nearMountHorse(state, 60))
+    ) {
+      const tipPos = state.player.riding
+        ? state.player.pos
+        : (world.mountHorse?.pos ?? state.player.pos);
+      const tx = tipPos.x - cam.x;
+      const ty = tipPos.y - 40 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const tip = state.player.riding
+        ? "H — морьноос буух"
+        : world.mountHorse?.tied
+          ? "H — морь унах"
+          : "H — морь унах · гэрийн дэргэд уягдана";
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (nearElder(state)) {
@@ -572,7 +702,7 @@ export function render(
         ctx.font = "600 11px system-ui, sans-serif";
         ctx.strokeStyle = "rgba(0,0,0,0.7)";
         ctx.lineWidth = 3;
-        const tip = `E — Өвс хадах (${Math.ceil(world.pastureGrass)})`;
+        const tip = "E — Өвс хадах";
         ctx.strokeText(tip, tx, ty);
         ctx.fillStyle = "#c8e070";
         ctx.fillText(tip, tx, ty);

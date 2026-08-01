@@ -20,10 +20,12 @@ import {
   type Fence,
   type FenceTier,
   type GameState,
+  type MountHorse,
   type Player,
   type Skill,
   type Tree,
   type Vector2,
+  type World,
 } from "../game/types";
 import {
   allocId,
@@ -294,7 +296,7 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
 
   if (player.moving) {
     player.facing = n;
-    let spd = player.speed * (player.gear.horse ? 1.5 : 1);
+    let spd = player.speed * (player.riding ? 1.5 : 1);
     // Усанд арай удаан (гатлах газар бараг хэвийн)
     if (inWater) {
       spd *= isAtRiverFord(player.pos.y) ? 0.88 : 0.68;
@@ -315,6 +317,133 @@ function clampPlayerToWorld(
 ): void {
   player.pos.x = clamp(player.pos.x, player.radius, width - player.radius);
   player.pos.y = clamp(player.pos.y, player.radius, height - player.radius);
+}
+
+/** Гэрийн зүүн урд — хоёр шонтой уяа (хаалгын эсрэг / зүүн тал) */
+export function horseHitchRail(world: World): {
+  left: Vector2;
+  right: Vector2;
+  /** Морь уягдах цэг (уяаны урд) */
+  tie: Vector2;
+} {
+  const c = pastureCenter(world);
+  // Гэр зураг: drawGer(c.x - 46, …) — зүүн талд уяа (нэг уяаны зайгаар хол)
+  const midX = c.x - 192;
+  const midY = c.y + 48;
+  const half = 42;
+  return {
+    left: { x: midX - half, y: midY + 3 },
+    right: { x: midX + half, y: midY },
+    tie: { x: midX - 4, y: midY + 22 },
+  };
+}
+
+/** Морь уягдах байрлал */
+export function horseHitchPos(world: World): Vector2 {
+  return horseHitchRail(world).tie;
+}
+
+export function nearMountHorse(
+  state: GameState,
+  radius = 52,
+): MountHorse | null {
+  const h = state.world.mountHorse;
+  if (!h) return null;
+  return dist(state.player.pos, h.pos) < radius ? h : null;
+}
+
+/** Морьноос бууж гадаа үлдээх / уях */
+export function dismountHorse(
+  state: GameState,
+  opts?: { tie?: boolean },
+): void {
+  const player = state.player;
+  if (!player.gear.horse || !player.riding || player.horseHp <= 0) return;
+
+  const nearGer =
+    !state.world.gerPacked &&
+    (dist(player.pos, gerDoorPos(state.world)) < 110 ||
+      dist(player.pos, horseHitchPos(state.world)) < 85);
+  const tie = opts?.tie ?? nearGer;
+  const hitch = horseHitchPos(state.world);
+  // Уясан үед гэр рүү (баруун тийш) харна; буусан үед тоглогчийн чиг
+  const face: 1 | -1 = tie
+    ? 1
+    : player.facing.x < 0
+      ? -1
+      : 1;
+  const pos = tie
+    ? hitch
+    : { x: player.pos.x + face * 18, y: player.pos.y + 6 };
+
+  player.riding = false;
+  state.world.mountHorse = { pos, face, tied: tie };
+  sfx("select");
+  if (tie) {
+    spawnText(state, pos, "Морь уялаа", "#c8e0ff");
+    setMessage(state, "Морьноос бууж уяан дээр уялаа. H — дахин унах.", 2.8);
+  } else {
+    spawnText(state, pos, "Буулаа", "#e8c56a");
+    setMessage(state, "Морьноос буулаа. Гэрийн уяан дэргэд бууваас уягдана.", 2.8);
+  }
+}
+
+/** Гэрт орохдоо морийг гадаа уяна */
+export function hitchHorseOutside(state: GameState): void {
+  const player = state.player;
+  if (!player.gear.horse || player.horseHp <= 0) return;
+  if (player.riding) {
+    dismountHorse(state, { tie: true });
+    return;
+  }
+  const h = state.world.mountHorse;
+  if (!h) return;
+  h.pos = horseHitchPos(state.world);
+  h.face = 1;
+  h.tied = true;
+}
+
+/** H — унах / буух */
+export function tryHorseMount(state: GameState): void {
+  if (!state.input.horseMount) return;
+  if (state.phase !== "playing") {
+    state.input.horseMount = false;
+    return;
+  }
+
+  const player = state.player;
+  state.input.horseMount = false;
+
+  if (!player.gear.horse) {
+    setMessage(state, "Унах морь алга — авдраас ав.", 2);
+    return;
+  }
+  if (player.horseHp <= 0) {
+    setMessage(state, "Морь үхсэн — дэлгүүрээс шинээр ав.", 2.5);
+    return;
+  }
+  if (state.world.gerPacked && player.riding) {
+    setMessage(state, "Гэр моринд ачсан — эхлээд G-ээр буулга.", 2.5);
+    return;
+  }
+
+  if (player.riding) {
+    dismountHorse(state);
+    return;
+  }
+
+  const horse = nearMountHorse(state, 56);
+  if (!horse) {
+    setMessage(state, "Морь ойрхон байх ёстой — гадаа уясан морь руу оч.", 2.5);
+    return;
+  }
+
+  player.riding = true;
+  player.facing = { x: horse.face, y: 0 };
+  state.world.mountHorse = null;
+  sfx("select");
+  spawnText(state, player.pos, "Уналаа", "#e8c56a");
+  setMessage(state, "Морь уналаа. H — буух (гэрийн дэргэд уягдана).", 2.5);
 }
 
 export function nearestAliveTree(player: Player, trees: Tree[]): Tree | null {
@@ -356,6 +485,7 @@ export function tryInteract(state: GameState): void {
   const center = pastureCenter(world);
   const gerPos = gerDoorPos(world);
   if (!world.gerPacked && dist(player.pos, gerPos) < 62) {
+    hitchHorseOutside(state);
     state.phase = "ger";
     state.shopOpen = false;
     state.craftOpen = false;
@@ -421,23 +551,16 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  // Тэвшид өвс хийх эсвэл мал гаргах/оруулах
+  // Мал гаргах/оруулах — гал ба тэвшин гол
+  if (tryToggleFlockPen(state)) {
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  // Тэвшид зөвхөн өвс хийх
   const feeder = world.feeder;
   if (dist(player.pos, feeder.pos) < feeder.radius + player.radius + 18) {
-    // Орой/шөнө эсвэл мал гадаа — эхлээд гаргах/оруулах
-    const phase = getDayPhase(world.timeOfDay, world.season);
-    if (
-      !world.flockOut ||
-      phase === "evening" ||
-      phase === "night" ||
-      phase === "dawn"
-    ) {
-      if (tryToggleFlockPen(state)) {
-        player.chopCooldown = 0.35;
-        state.input.interact = false;
-        return;
-      }
-    }
     depositHayToFeeder(state, 5);
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -502,7 +625,6 @@ export function tryInteract(state: GameState): void {
       "#7a9a45",
       { speed: 55, size: 2.2 },
     );
-    spawnText(state, player.pos, `+${add} өвс`, "#b8d060");
     return;
   }
 
@@ -1021,8 +1143,12 @@ export function tryMigrateGer(state: GameState): void {
     );
     return;
   }
+  if (!player.riding) {
+    setMessage(state, "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
+    return;
+  }
   if (world.flockOut) {
-    setMessage(state, "Эхлээд малыг хашаанд оруул (тэвш E), дараа нь G.", 3);
+    setMessage(state, "Эхлээд малыг хашаанд оруул (гал–тэвшин гол E), дараа нь G.", 3);
     return;
   }
   const ger = gerDoorPos(world);

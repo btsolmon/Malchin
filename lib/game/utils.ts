@@ -51,6 +51,18 @@ export function gerDoorPos(world: World): Vector2 {
   return { x: c.x, y: c.y - 20 };
 }
 
+/** Мал гаргах/оруулах цэг — гал ба тэвшин голд, жаахан урагш */
+export function flockGatePos(world: World): Vector2 {
+  const fire = world.campfire.pos;
+  const feed = world.feeder.pos;
+  return {
+    x: (fire.x + feed.x) * 0.5,
+    y: (fire.y + feed.y) * 0.5 + 22,
+  };
+}
+
+export const FLOCK_GATE_RADIUS = 36;
+
 export function roundRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,

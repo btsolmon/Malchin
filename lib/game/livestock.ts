@@ -287,7 +287,7 @@ export function updateProduction(state: GameState, dt: number): void {
 export function createFeeder(center: Vector2): Feeder {
   return {
     pos: { x: center.x - 70, y: center.y + 48 },
-    hay: 12,
+    hay: 0,
     maxHay: MAX_FEEDER_HAY,
     radius: 22,
   };

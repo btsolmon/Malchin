@@ -40,6 +40,14 @@ export const LIVESTOCK_MN: Record<LivestockKind, string> = {
   camel: "тэмээ",
 };
 
+export const LIVESTOCK_EMOJI: Record<LivestockKind, string> = {
+  sheep: "🐑",
+  goat: "🐐",
+  cattle: "🐄",
+  horse: "🐴",
+  camel: "🐪",
+};
+
 export interface Vector2 {
   x: number;
   y: number;
@@ -127,6 +135,8 @@ export interface Player {
   /** Морины амь — морь цохилтын дийлэнхийг өөр дээрээ авна */
   horseHp: number;
   horseMaxHp: number;
+  /** Унах морь дээр сууж байгаа эсэх (gear.horse = эзэмшил) */
+  riding: boolean;
   /** Дахин унтаж болох хүртэлх хугацаа */
   sleepCooldown: number;
   moving: boolean;
@@ -534,6 +544,16 @@ export interface World {
   pastureSeason: Season | null;
   feeder: Feeder;
   wildHorses: WildHorse[];
+  /** Буусан / гадаа уясан унах морь (riding=false үед) */
+  mountHorse: MountHorse | null;
+}
+
+/** Тоглогчийн унах морь — буусан эсвэл уясан */
+export interface MountHorse {
+  pos: Vector2;
+  face: 1 | -1;
+  /** Гэрийн гадаа уясан */
+  tied: boolean;
 }
 
 export interface InputState {
@@ -569,6 +589,8 @@ export interface InputState {
   herd: boolean;
   /** G — гэр хураах / буулгах (нүүдэл) */
   migrate: boolean;
+  /** H — морь унах / буух / уях */
+  horseMount: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
@@ -666,6 +688,8 @@ export interface GameState {
   xpNext: number;
   skillChoices: Skill[];
   phase: GamePhase;
+  /** Паузаас буцах фаз (playing / spirit) */
+  pauseReturnPhase: GamePhase;
   menuScreen: MenuScreen;
   menuIndex: number;
   pauseIndex: number;

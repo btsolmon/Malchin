@@ -617,7 +617,7 @@ export function drawGerInterior(
     const walker: Player = {
       ...state.player,
       pos: state.gerPlayer,
-      gear: { ...state.player.gear, horse: false },
+      riding: false,
       invuln: 0,
       attackAnim: 0,
     };

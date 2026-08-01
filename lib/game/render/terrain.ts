@@ -9,7 +9,6 @@ import { randRange } from "../utils";
 import {
   DESERT_Y,
   FOREST_Y,
-  MOUNTAIN_X,
   RIVER_FORD_HALF,
   RIVER_FORD_Y,
   riverCenterX,
@@ -26,9 +25,9 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
   // —— Төв тал (steppe) суурь ——
   const base = ctx.createLinearGradient(0, 0, 0, WORLD_H);
   if (winter) {
-    base.addColorStop(0, "#b8c8b4");
+    base.addColorStop(0, "#b0c0ac");
     base.addColorStop(0.5, "#a8bba6");
-    base.addColorStop(1, "#c4c0a8");
+    base.addColorStop(1, "#c0bca4");
   } else {
     base.addColorStop(0, "#4a7840");
     base.addColorStop(0.45, "#4b7d44");
@@ -37,34 +36,39 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, WORLD_W, WORLD_H);
 
-  // —— Хойд ой (forest floor) ——
-  const forestH = FOREST_Y + 90;
-  const forestGrad = ctx.createLinearGradient(0, 0, 0, forestH);
+  // —— Хойд ой — өргөн зөөлөн уусгалт ——
+  const forestFade = FOREST_Y + WORLD_H * 0.14;
+  const forestGrad = ctx.createLinearGradient(0, 0, 0, forestFade);
   if (winter) {
-    forestGrad.addColorStop(0, "#6a7a68");
-    forestGrad.addColorStop(0.7, "#8a9a82");
+    forestGrad.addColorStop(0, "#5e6e5c");
+    forestGrad.addColorStop(0.22, "#6a7a68");
+    forestGrad.addColorStop(0.48, "rgba(106,122,104,0.72)");
+    forestGrad.addColorStop(0.72, "rgba(138,154,130,0.32)");
     forestGrad.addColorStop(1, "rgba(138,154,130,0)");
   } else {
-    forestGrad.addColorStop(0, "#1e3a1c");
-    forestGrad.addColorStop(0.55, "#2d5228");
-    forestGrad.addColorStop(1, "rgba(45,82,40,0)");
+    forestGrad.addColorStop(0, "#152a14");
+    forestGrad.addColorStop(0.2, "#1e3a1c");
+    forestGrad.addColorStop(0.45, "rgba(45,82,40,0.75)");
+    forestGrad.addColorStop(0.7, "rgba(55,100,50,0.35)");
+    forestGrad.addColorStop(1, "rgba(55,100,50,0)");
   }
   ctx.fillStyle = forestGrad;
-  ctx.fillRect(0, 0, WORLD_W, forestH);
+  ctx.fillRect(0, 0, WORLD_W, forestFade);
 
-  // Ойн титэм толбо
-  const canopyCount = winter ? 90 : 140;
+  // Ойн титэм толбо — уусгалтын бүсэд бүдгэрнэ
+  const canopyCount = winter ? 100 : 160;
   for (let i = 0; i < canopyCount; i++) {
     const x = Math.random() * WORLD_W;
-    const y = Math.random() * (FOREST_Y + 40);
-    const r = randRange(28, 70);
+    const y = Math.random() * forestFade * 0.92;
+    const edge = Math.max(0, 1 - y / forestFade);
+    const r = randRange(30, 78);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     if (winter) {
-      g.addColorStop(0, "rgba(90,110,88,0.45)");
+      g.addColorStop(0, `rgba(90,110,88,${0.38 * edge})`);
       g.addColorStop(1, "rgba(90,110,88,0)");
     } else {
-      g.addColorStop(0, "rgba(28,70,30,0.55)");
-      g.addColorStop(0.5, "rgba(40,90,42,0.28)");
+      g.addColorStop(0, `rgba(28,70,30,${0.5 * edge})`);
+      g.addColorStop(0.55, `rgba(40,90,42,${0.22 * edge})`);
       g.addColorStop(1, "rgba(40,90,42,0)");
     }
     ctx.fillStyle = g;
@@ -73,31 +77,37 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
     ctx.fill();
   }
 
-  // —— Өмнөд цөл ——
-  const desertTop = DESERT_Y - 100;
+  // —— Өмнөд цөл — өргөн зөөлөн уусгалт ——
+  const desertFade = WORLD_H * 0.14;
+  const desertTop = DESERT_Y - desertFade;
   const desertGrad = ctx.createLinearGradient(0, desertTop, 0, WORLD_H);
   if (winter) {
     desertGrad.addColorStop(0, "rgba(180,175,150,0)");
-    desertGrad.addColorStop(0.35, "#c8c0a0");
+    desertGrad.addColorStop(0.28, "rgba(200,192,160,0.3)");
+    desertGrad.addColorStop(0.52, "rgba(200,192,160,0.72)");
+    desertGrad.addColorStop(0.78, "#c8c0a0");
     desertGrad.addColorStop(1, "#b8ae8e");
   } else {
     desertGrad.addColorStop(0, "rgba(194,168,110,0)");
-    desertGrad.addColorStop(0.3, "#c4a66e");
-    desertGrad.addColorStop(0.7, "#d4b878");
+    desertGrad.addColorStop(0.25, "rgba(196,166,110,0.28)");
+    desertGrad.addColorStop(0.48, "rgba(196,166,110,0.7)");
+    desertGrad.addColorStop(0.72, "#c4a66e");
+    desertGrad.addColorStop(0.9, "#d4b878");
     desertGrad.addColorStop(1, "#e0c888");
   }
   ctx.fillStyle = desertGrad;
   ctx.fillRect(0, desertTop, WORLD_W, WORLD_H - desertTop);
 
-  // Цөлийн элсэн долгион
-  for (let i = 0; i < 55; i++) {
+  // Цөлийн элсэн долгион — уусгалтын бүсэд бүдгэрнэ
+  for (let i = 0; i < 70; i++) {
     const x = Math.random() * WORLD_W;
-    const y = DESERT_Y + Math.random() * (WORLD_H - DESERT_Y);
-    const rx = randRange(40, 120);
-    const ry = randRange(10, 28);
+    const y = desertTop + Math.random() * (WORLD_H - desertTop);
+    const edge = Math.min(1, Math.max(0, (y - desertTop) / desertFade));
+    const rx = randRange(45, 130);
+    const ry = randRange(12, 30);
     ctx.fillStyle = winter
-      ? "rgba(200,190,160,0.22)"
-      : "rgba(220,190,120,0.28)";
+      ? `rgba(200,190,160,${0.18 * edge})`
+      : `rgba(220,190,120,${0.24 * edge})`;
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, randRange(-0.3, 0.3), 0, Math.PI * 2);
     ctx.fill();
@@ -105,79 +115,27 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
 
   // Сийрэг цөлийн бут (зурсан)
   if (!winter) {
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 55; i++) {
       const x = Math.random() * WORLD_W;
-      const y = DESERT_Y + 40 + Math.random() * (WORLD_H - DESERT_Y - 60);
-      ctx.strokeStyle = "rgba(90,110,50,0.55)";
+      const y = DESERT_Y + 30 + Math.random() * (WORLD_H - DESERT_Y - 50);
+      ctx.strokeStyle = "rgba(90,110,50,0.45)";
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x + randRange(-4, 4), y - randRange(6, 12));
       ctx.stroke();
-      ctx.fillStyle = "rgba(110,130,55,0.4)";
+      ctx.fillStyle = "rgba(110,130,55,0.32)";
       ctx.beginPath();
       ctx.arc(x + randRange(-3, 3), y - randRange(8, 14), randRange(3, 6), 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
-  // —— Баруун уул / хад ——
-  const mtnW = MOUNTAIN_X + 110;
-  const mtnGrad = ctx.createLinearGradient(0, 0, mtnW, 0);
-  if (winter) {
-    mtnGrad.addColorStop(0, "#7a7e82");
-    mtnGrad.addColorStop(0.55, "#8e9290");
-    mtnGrad.addColorStop(1, "rgba(142,146,144,0)");
-  } else {
-    mtnGrad.addColorStop(0, "#5a5854");
-    mtnGrad.addColorStop(0.45, "#6e6a60");
-    mtnGrad.addColorStop(1, "rgba(110,106,96,0)");
-  }
-  ctx.fillStyle = mtnGrad;
-  ctx.fillRect(0, 0, mtnW, WORLD_H);
-
-  // Хадны хэлбэр / хадан хавцал
-  for (let i = 0; i < 28; i++) {
-    const x = randRange(20, MOUNTAIN_X - 10);
-    const y = randRange(40, WORLD_H - 40);
-    const w = randRange(28, 70);
-    const h = randRange(40, 110);
-    ctx.fillStyle = winter ? "rgba(90,95,100,0.55)" : "rgba(55,52,48,0.55)";
-    ctx.beginPath();
-    ctx.moveTo(x, y + h);
-    ctx.lineTo(x + w * 0.15, y);
-    ctx.lineTo(x + w * 0.55, y + h * 0.12);
-    ctx.lineTo(x + w, y + h * 0.08);
-    ctx.lineTo(x + w * 0.85, y + h);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = winter ? "rgba(200,210,220,0.2)" : "rgba(160,150,140,0.22)";
-    ctx.beginPath();
-    ctx.moveTo(x + w * 0.15, y);
-    ctx.lineTo(x + w * 0.4, y + h * 0.4);
-    ctx.lineTo(x + w * 0.55, y + h * 0.12);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  // Уулын чулуунууд
-  for (let i = 0; i < 80; i++) {
-    const x = Math.random() * (MOUNTAIN_X + 60);
-    const y = Math.random() * WORLD_H;
-    const r = randRange(4, 14);
-    ctx.fillStyle = "rgba(0,0,0,0.2)";
-    ctx.beginPath();
-    ctx.ellipse(x + 1.5, y + 1.5, r, r * 0.65, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = winter ? "#9aa4a8" : "#7a7870";
-    ctx.beginPath();
-    ctx.ellipse(x, y, r, r * 0.65, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // —— Баруун уул/хад хасагдсан — тал газрын суурь бүх өргөнд үргэлжилнэ ——
 
   // —— Тал газрын өнгөний толбо ——
-  for (let i = 0; i < 90; i++) {
-    const x = MOUNTAIN_X + Math.random() * (WORLD_W - MOUNTAIN_X - 200);
+  for (let i = 0; i < 110; i++) {
+    const x = Math.random() * WORLD_W;
     const y = FOREST_Y + Math.random() * (DESERT_Y - FOREST_Y);
     const r = randRange(60, 200);
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
@@ -200,11 +158,10 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
 
   // Өвсний ширхэг — тал + ойн зах
   ctx.lineWidth = 1;
-  for (let i = 0; i < 6200; i++) {
+  for (let i = 0; i < 7200; i++) {
     const x = Math.random() * WORLD_W;
     const y = Math.random() * WORLD_H;
-    if (y > DESERT_Y + 40 && x > MOUNTAIN_X) continue;
-    if (x < MOUNTAIN_X * 0.7) continue;
+    if (y > DESERT_Y + 40) continue;
     const h = randRange(3, 7);
     const lean = randRange(-2, 2);
     const inForest = y < FOREST_Y;
@@ -219,9 +176,9 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
     ctx.stroke();
   }
 
-  // Тал газрын чулуу
-  for (let i = 0; i < 40; i++) {
-    const x = MOUNTAIN_X + Math.random() * (WORLD_W - MOUNTAIN_X - 250);
+  // Тал газрын чулуу (сийрэг)
+  for (let i = 0; i < 35; i++) {
+    const x = 80 + Math.random() * (WORLD_W - 160);
     const y = FOREST_Y + Math.random() * (DESERT_Y - FOREST_Y);
     const r = randRange(3, 8);
     ctx.fillStyle = "rgba(0,0,0,0.16)";
@@ -237,8 +194,8 @@ export function renderTerrain(winter: boolean): HTMLCanvasElement {
   // Цэцэг — зөвхөн тал
   if (!winter) {
     const petals = ["#f5f0e0", "#f0d060", "#e890b0", "#c8d8f8"];
-    for (let i = 0; i < 160; i++) {
-      const x = MOUNTAIN_X + 40 + Math.random() * (WORLD_W * 0.45);
+    for (let i = 0; i < 180; i++) {
+      const x = 60 + Math.random() * (WORLD_W - 120);
       const y = FOREST_Y + 30 + Math.random() * (DESERT_Y - FOREST_Y - 60);
       const c = petals[Math.floor(Math.random() * petals.length)]!;
       ctx.strokeStyle = "rgba(50,90,45,0.7)";
@@ -317,26 +274,34 @@ function buildRiverPath(
 }
 
 function drawRiver(ctx: CanvasRenderingContext2D, winter: boolean): void {
-  // Нойтон эрэг — цөл/талийн элс/шороотой ойролцоо
-  buildRiverPath(ctx, 20);
-  ctx.fillStyle = winter ? "#8a8574" : "#7a6a4e";
-  ctx.fill();
+  // Нойтон эрэг — өргөн зөөлөн уусгалт
+  for (const [margin, alpha] of [
+    [36, 0.16],
+    [26, 0.26],
+    [18, 0.38],
+  ] as const) {
+    buildRiverPath(ctx, margin);
+    ctx.fillStyle = winter
+      ? `rgba(138,133,116,${alpha})`
+      : `rgba(122,106,78,${alpha})`;
+    ctx.fill();
+  }
 
   // Эргийн зөөлөн толбо (нойтон элс / хайрга)
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 90; i++) {
     const y = Math.random() * WORLD_H;
     const cx = riverCenterX(y);
     const half = riverHalfWidth(y);
     const side = Math.random() < 0.5 ? -1 : 1;
-    const x = cx + side * (half + randRange(2, 16));
-    const rx = randRange(10, 28);
-    const ry = randRange(5, 14);
+    const x = cx + side * (half + randRange(0, 28));
+    const rx = randRange(14, 36);
+    const ry = randRange(7, 18);
     const g = ctx.createRadialGradient(x, y, 0, x, y, rx);
     if (winter) {
-      g.addColorStop(0, "rgba(150,145,125,0.35)");
+      g.addColorStop(0, "rgba(150,145,125,0.28)");
       g.addColorStop(1, "rgba(150,145,125,0)");
     } else {
-      g.addColorStop(0, "rgba(160,130,85,0.38)");
+      g.addColorStop(0, "rgba(160,130,85,0.3)");
       g.addColorStop(1, "rgba(160,130,85,0)");
     }
     ctx.fillStyle = g;
@@ -349,6 +314,14 @@ function drawRiver(ctx: CanvasRenderingContext2D, winter: boolean): void {
   buildRiverPath(ctx, 0);
   ctx.fillStyle = winter ? "#6a8a94" : "#5a8a9a";
   ctx.fill();
+
+  // Усны захыг зөөлөн гэрэлтүүлэх
+  buildRiverPath(ctx, -4);
+  ctx.strokeStyle = winter
+    ? "rgba(150,175,180,0.2)"
+    : "rgba(142,184,196,0.22)";
+  ctx.lineWidth = 10;
+  ctx.stroke();
 
   // Гүнзгий төв / гүехэн зах — ургамал шиг радиал толбо
   for (let y = 0; y < WORLD_H; y += 28) {

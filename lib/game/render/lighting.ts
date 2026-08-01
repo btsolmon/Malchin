@@ -152,8 +152,8 @@ function drawRainFx(ctx: CanvasRenderingContext2D, time: number): void {
   ctx.fillStyle = "rgba(18,26,42,0.18)";
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-  // Салхины налуу — frame бүрт тогтмол (flip хийхгүй)
-  const windX = -0.38;
+  // Салхины налуу — хөдөлгөөнтэй ижил тийш (+x = баруун тийш ташуу)
+  const windX = 0.42;
   const lenBg = 10;
   const lenMid = 14;
   const lenFg = 18;

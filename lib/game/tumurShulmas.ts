@@ -22,6 +22,14 @@ import {
 } from "./effects";
 import { clamp, dist, normalize, setMessage } from "./utils";
 import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
+import { riverCenterX, RIVER_HALF_W } from "./biomes";
+
+function eastArenaX(y: number, margin = 170): number {
+  return Math.min(
+    WORLD_W - 120,
+    Math.max(120, riverCenterX(y) + RIVER_HALF_W + margin),
+  );
+}
 
 export type TumurShulmasSpriteName =
   | "idle"
@@ -67,8 +75,8 @@ const BOSS_ANIMATION_SPECS: Record<TumurShulmasSpriteName, BossAnimationSpec> =
 const FRAME_SIZE = 128;
 const DRAW_SIZE = 166;
 const BOSS_RADIUS = 38;
-const BOSS_SPEED_PHASE_1 = 64;
-const BOSS_SPEED_PHASE_2 = 83;
+const BOSS_SPEED_PHASE_1 = 92;
+const BOSS_SPEED_PHASE_2 = 118;
 const CLAW_REACH = 98;
 const CLAW_DAMAGE_PHASE_1 = 18;
 const CLAW_DAMAGE_PHASE_2 = 25;
@@ -77,11 +85,11 @@ const NEEDLE_DAMAGE_PHASE_2 = 16;
 
 const PHASE_DURATION: Record<TumurShulmasPhase, number> = {
   sealed: 0,
-  summoning: 1.45,
-  idle: 0.52,
-  walking: 1.65,
+  summoning: 1.1,
+  idle: 0.28,
+  walking: 2.4,
   claw: 0.9,
-  needle: 1.22,
+  needle: 1.1,
   ironBloom: 1.38,
   phaseShift: 1.55,
   stagger: 1.45,
@@ -89,12 +97,15 @@ const PHASE_DURATION: Record<TumurShulmasPhase, number> = {
 };
 
 export function createTumurShulmasEncounter(): TumurShulmasEncounter {
+  // Голын зүүн эрэг — Хараалт хаалгын цаана / урагш
+  const gateY = WORLD_H * 0.58;
+  const arenaY = WORLD_H - 360;
   const arenaCenter = {
-    x: WORLD_W - 320,
-    y: WORLD_H - 320,
+    x: eastArenaX(arenaY, 180),
+    y: arenaY,
   };
   return {
-    gatePos: { x: WORLD_W - 300, y: 590 },
+    gatePos: { x: eastArenaX(gateY, 155), y: gateY },
     gateRadius: 72,
     arenaCenter,
     arenaRadius: 285,
@@ -509,22 +520,31 @@ function chooseAttack(state: GameState): void {
     encounter.facing,
   );
 
-  if (distance <= CLAW_REACH + state.player.radius + BOSS_RADIUS) {
+  const meleeRange = CLAW_REACH + state.player.radius + BOSS_RADIUS;
+
+  // Ойрхон бол үргэлж сарвуу
+  if (distance <= meleeRange + 8) {
     enterPhase(encounter, "claw");
     return;
   }
 
-  if (encounter.bossPhase === 2 && Math.random() < 0.3) {
+  // Хэт хол бол гүйж ойрт
+  if (distance > 260) {
+    enterPhase(encounter, "walking");
+    return;
+  }
+
+  if (encounter.bossPhase === 2 && Math.random() < 0.34) {
     enterPhase(encounter, "ironBloom");
     return;
   }
 
-  if (distance <= 290) {
+  // Дунд зай — зүү эсвэл ойртоод сарвуу
+  if (Math.random() < 0.55) {
     enterPhase(encounter, "needle");
-    return;
+  } else {
+    enterPhase(encounter, "walking");
   }
-
-  enterPhase(encounter, "walking");
 }
 
 function resolveClaw(state: GameState): void {
@@ -779,8 +799,8 @@ export function updateTumurShulmasEncounter(
     const progress = phaseProgress(encounter);
     encounter.pos.y = encounter.arenaCenter.y - 45 + (1 - progress) * 18;
     if (encounter.phaseTimer <= 0) {
-      enterPhase(encounter, "idle", 0.8);
-      encounter.attackCooldown = 0.8;
+      enterPhase(encounter, "idle", 0.2);
+      encounter.attackCooldown = 0.15;
       spawnText(
         state,
         encounter.pos,
@@ -876,20 +896,21 @@ export function updateTumurShulmasEncounter(
   }
 
   const distanceToPlayer = dist(encounter.pos, state.player.pos);
+  const meleeRange = CLAW_REACH + state.player.radius + BOSS_RADIUS;
+
   if (encounter.phase === "walking") {
     moveTowardPlayer(state, dt);
-    if (
-      encounter.phaseTimer <= 0 ||
-      distanceToPlayer <= CLAW_REACH + state.player.radius + BOSS_RADIUS
-    ) {
+    // Ойртсон эсвэл алхах хугацаа дууссан бол дайрна
+    if (distanceToPlayer <= meleeRange + 6 || encounter.phaseTimer <= 0) {
       chooseAttack(state);
     }
     return;
   }
 
   if (encounter.phase === "idle") {
+    // Idle-д зогсохгүй — шууд ойртох эсвэл дайрах
     if (encounter.phaseTimer <= 0 && encounter.attackCooldown <= 0) {
-      if (distanceToPlayer > 190 && Math.random() < 0.58) {
+      if (distanceToPlayer > meleeRange + 4) {
         enterPhase(encounter, "walking");
       } else {
         chooseAttack(state);
@@ -955,32 +976,87 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
   return true;
 }
 
-/** Debug / cheat — 5 дарвал шууд Төмөр шулмасын тулаан эхэлнэ */
+/** Debug / cheat — 5 дарвал шулмасын сүнс рүү орно; дахин 5 = босс тулаан */
 export function forceStartTumurShulmasBoss(state: GameState): void {
   if (state.phase !== "playing" && state.phase !== "spirit") return;
 
   const encounter = state.world.tumurShulmas;
-  if (encounter.active && !encounter.defeated) {
-    setMessage(state, "Төмөр шулмасын тулаан аль хэдийн үргэлжилж байна.", 2);
+  const route = state.world.firstRoute;
+  const inShulmas =
+    state.phase === "spirit" && state.spiritMode === "shulmas";
+
+  // Аль хэдийн босс тулаан үргэлжилж байвал аренад аваачина
+  if (
+    inShulmas &&
+    encounter.active &&
+    !encounter.defeated &&
+    encounter.phase !== "death" &&
+    encounter.phase !== "sealed"
+  ) {
+    preparePlayerForArena(state);
+    setMessage(state, "Төмөр шулмасын аренад буцлаа.", 2);
     return;
   }
 
+  // Сүнсэнд байгаа үед 5 дахин дарвал шууд босс эхэлнэ
+  if (inShulmas) {
+    encounter.unlocked = true;
+    encounter.defeated = false;
+    encounter.active = true;
+    state.player.hasSkySword = true;
+    state.player.weapon = "skySword";
+    resetEncounter(encounter);
+    resetBossFeedback(state);
+    preparePlayerForArena(state);
+    spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
+      speed: 175,
+      size: 3.3,
+    });
+    state.fx.shake = Math.max(state.fx.shake, 11);
+    setMessage(state, "5 · Төмөр шулмасын тулаан эхэллээ!", 3.5);
+    sfx("levelup");
+    return;
+  }
+
+  // Бодит ертөнцөөс 5 — сүнс рүү орж туслах + хаалгануудтай замд аваачина
   encounter.unlocked = true;
+  encounter.defeated = false;
+  encounter.active = false;
+  encounter.phase = "sealed";
   state.player.hasSkySword = true;
   state.player.weapon = "skySword";
 
   enterShulmasSpirit(state);
-  encounter.active = true;
-  resetEncounter(encounter);
-  resetBossFeedback(state);
-  preparePlayerForArena(state);
 
-  spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
-    speed: 175,
-    size: 3.3,
+  // Голын цаана, эхний туслахын ойрд
+  const anchor =
+    route.enemies.find((e) => e.alive && e.kind !== "shulmasynBaatar") ??
+    null;
+  if (anchor) {
+    state.player.pos = {
+      x: anchor.spawnPos.x - 70,
+      y: anchor.spawnPos.y,
+    };
+  } else {
+    state.player.pos = {
+      x: route.gatePos.x - 90,
+      y: route.gatePos.y + 40,
+    };
+  }
+  state.player.facing = { x: 1, y: 0 };
+  state.player.moving = false;
+  state.player.vitals.health = state.player.vitals.maxHealth;
+  resetBossFeedback(state);
+
+  spawnParticles(state, state.player.pos, 28, "#a8d4ff", {
+    speed: 140,
+    size: 2.8,
   });
-  state.fx.shake = Math.max(state.fx.shake, 11);
-  setMessage(state, "5 · Шулмасын сүнсний оронд тулаан эхэллээ!", 3.5);
+  setMessage(
+    state,
+    "Шулмасын сүнсний орон · туслахууд ба хаалганууд голын цаана. 5 дахин — шууд босс.",
+    5,
+  );
   sfx("levelup");
 }
 

@@ -21,7 +21,17 @@ import {
 } from "./effects";
 import { gainXp } from "./player";
 import { clamp, dist, normalize, setMessage } from "./utils";
+import { riverCenterX, RIVER_HALF_W } from "./biomes";
 import { tryInteractTumurShulmasGate } from "./tumurShulmas";
+
+/** Голын зүүн эрэг — туслахууд энд зогсоно */
+function eastOfRiver(y: number, margin = 70): number {
+  return clamp(
+    riverCenterX(y) + RIVER_HALF_W + margin,
+    120,
+    WORLD_W - 80,
+  );
+}
 
 function routeOf(state: GameState): FirstRoute {
   return state.world.firstRoute;
@@ -163,49 +173,42 @@ function createEnemy(
 }
 
 export function createFirstRoute(spawn: Vector2): FirstRoute {
-  const enemies: RouteEnemy[] = [
-    createEnemy(6001, "talynHaragch", {
-      x: clamp(spawn.x + 520, 80, WORLD_W - 80),
-      y: clamp(spawn.y + 72, 80, WORLD_H - 80),
-    }),
-    createEnemy(6002, "shulmasynHuu", {
-      x: clamp(spawn.x + 710, 80, WORLD_W - 80),
-      y: clamp(spawn.y - 132, 80, WORLD_H - 80),
-    }),
-    createEnemy(6003, "shidetHarvaach", {
-      x: clamp(spawn.x + 885, 80, WORLD_W - 80),
-      y: clamp(spawn.y + 86, 80, WORLD_H - 80),
-    }),
-    createEnemy(6004, "shulmasynZarts", {
-      x: clamp(spawn.x + 1035, 80, WORLD_W - 80),
-      y: clamp(spawn.y - 104, 80, WORLD_H - 80),
-    }),
-    createEnemy(6005, "talynHaragch", {
-      x: clamp(spawn.x + 1065, 80, WORLD_W - 80),
-      y: clamp(spawn.y + 126, 80, WORLD_H - 80),
-    }),
+  // Туслахууд — голын цаана (зүүн эрэг), фордоос урагш/хойш тархсан
+  const slots: Array<{ kind: RouteEnemyKind; y: number; margin: number }> = [
+    { kind: "talynHaragch", y: spawn.y - 180, margin: 55 },
+    { kind: "shulmasynHuu", y: spawn.y - 40, margin: 95 },
+    { kind: "shidetHarvaach", y: spawn.y + 90, margin: 70 },
+    { kind: "shulmasynZarts", y: spawn.y + 220, margin: 110 },
+    { kind: "talynHaragch", y: spawn.y + 340, margin: 65 },
   ];
+
+  const enemies: RouteEnemy[] = slots.map((slot, i) => {
+    const y = clamp(slot.y, 100, WORLD_H - 100);
+    return createEnemy(6001 + i, slot.kind, {
+      x: eastOfRiver(y, slot.margin),
+      y,
+    });
+  });
+
+  const gateY = clamp(spawn.y + 420, 120, WORLD_H - 140);
+  const gateX = eastOfRiver(gateY, 140);
+  const arenaY = clamp(WORLD_H - 380, 200, WORLD_H - 200);
+  const arenaX = eastOfRiver(arenaY, 160);
 
   return {
     active: true,
     complete: false,
     introductionShown: false,
     gateMessageShown: false,
-    startX: clamp(spawn.x + 350, 80, WORLD_W - 80),
-    gatePos: {
-      x: Math.min(WORLD_W - 105, spawn.x + 1180),
-      y: clamp(spawn.y, 90, WORLD_H - 90),
-    },
+    startX: clamp(riverCenterX(spawn.y) - 40, 80, WORLD_W - 80),
+    gatePos: { x: gateX, y: gateY },
     gateRadius: 74,
-    arenaCenter: {
-      x: WORLD_W - 300,
-      y: 330,
-    },
+    arenaCenter: { x: arenaX, y: arenaY },
     arenaRadius: 225,
     bossStarted: false,
     bossDefeated: false,
     swordDrop: {
-      pos: { x: WORLD_W - 300, y: 330 },
+      pos: { x: arenaX, y: arenaY },
       visible: false,
       collected: false,
     },
@@ -1198,8 +1201,9 @@ export function updateFirstRoute(state: GameState, dt: number): void {
   if (!route.active) return;
 
   completeRouteIfCleared(state);
-  // Туслахууд зөвхөн шулмасын сүнсний оронд хөдөлнө
-  if (state.phase !== "spirit" || state.spiritMode !== "shulmas") return;
+
+  // Туслахууд зөвхөн шулмасын сүнсний оронд
+  if (!inShulmasSpirit(state)) return;
 
   if (
     !route.introductionShown &&
@@ -1208,13 +1212,12 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     route.introductionShown = true;
     setMessage(
       state,
-      "Шулмасын сүнсний зам: 4 төрлийн туслахыг давж, хараалт хаалгад хүр.",
+      "Шулмасын сүнсний зам: туслахуудыг давж, хараалт хаалгад хүр.",
       4,
     );
   }
 
   updateRouteBolts(state, dt);
-  if (state.phase !== "spirit") return;
   for (const enemy of route.enemies) {
     if (!enemy.alive) {
       enemy.deathTimer = Math.max(0, enemy.deathTimer - dt);
@@ -1244,7 +1247,6 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       enemy.engaged = true;
       updateMiniBoss(state, enemy, dt);
       resolvePlayerBodyContact(state, enemy);
-      if (!inShulmasSpirit(state)) return;
       continue;
     }
 
@@ -1300,7 +1302,6 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       updateMeleeRouteEnemy(state, enemy, dt);
     }
     resolvePlayerBodyContact(state, enemy);
-    if (!inShulmasSpirit(state)) return;
   }
 
   completeRouteIfCleared(state);

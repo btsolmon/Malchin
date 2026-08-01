@@ -10,6 +10,8 @@ import {
 import {
   clamp,
   dist,
+  FLOCK_GATE_RADIUS,
+  flockGatePos,
   isNight,
   pastureCenter,
   setMessage,
@@ -168,11 +170,11 @@ function pullFlockToPen(state: GameState, strength: number): void {
   }
 }
 
-/** Тэвшийн дэргэд E — мал гаргах / оруулах */
+/** Гал–тэвшин голын цэгт E — мал гаргах / оруулах */
 export function tryToggleFlockPen(state: GameState): boolean {
   const { player, world } = state;
-  const feeder = world.feeder;
-  if (dist(player.pos, feeder.pos) > feeder.radius + player.radius + 28) {
+  const gate = flockGatePos(world);
+  if (dist(player.pos, gate) > FLOCK_GATE_RADIUS + player.radius) {
     return false;
   }
 
@@ -181,7 +183,7 @@ export function tryToggleFlockPen(state: GameState): boolean {
   if (!world.flockOut) {
     world.flockOut = true;
     sfx("select");
-    spawnText(state, feeder.pos, "Мал бэлчээрт!", "#b8e8a0");
+    spawnText(state, gate, "Мал бэлчээрт!", "#b8e8a0");
     setMessage(state, "Мал бэлчээрт гарлаа. Орой хашаанд оруул!", 3);
     return true;
   }
@@ -193,7 +195,7 @@ export function tryToggleFlockPen(state: GameState): boolean {
   pullFlockToPen(state, 0.85);
   world.flockOut = false;
   sfx("select");
-  spawnText(state, feeder.pos, "Мал хашаанд", "#e8c56a");
+  spawnText(state, gate, "Мал хашаанд", "#e8c56a");
   setMessage(state, "Мал хашаандаа орлоо.", 2.5);
   return true;
 }

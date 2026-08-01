@@ -383,7 +383,7 @@ function drawSelectedSprite(
 ): void {
   const x = player.pos.x - cam.x;
   const y = player.pos.y - cam.y;
-  const riding = player.gear.horse;
+  const riding = player.riding;
 
   if (riding) {
     const horseFlip = player.facing.x < 0 ? -1 : 1;
@@ -453,7 +453,7 @@ function drawSkySwordOverlay(
 ): void {
   if (!player.hasSkySword || player.weapon !== "skySword") return;
 
-  const ridingOffset = player.gear.horse ? -14 : 0;
+  const ridingOffset = player.riding ? -14 : 0;
   const x = player.pos.x - cam.x;
   const y = player.pos.y - cam.y + ridingOffset - 8;
   const direction =
@@ -644,7 +644,7 @@ export function drawPlayerSwordAttackEffect(
   const row = Math.min(spriteRow(direction), availableRows - 1);
   const x = player.pos.x - cam.x;
   const y =
-    player.pos.y - cam.y + (player.gear.horse ? -14 : 0);
+    player.pos.y - cam.y + (player.riding ? -14 : 0);
 
   ctx.save();
   ctx.translate(x, y);

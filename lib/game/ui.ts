@@ -7,6 +7,7 @@ import {
   FENCE_TIER_SHORT,
   FENCE_UPGRADE_COST,
   GATE_PASS_OPEN,
+  LIVESTOCK_EMOJI,
   LIVESTOCK_KINDS,
   LIVESTOCK_MN,
   PASTURE_RADIUS,
@@ -35,6 +36,12 @@ import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
 import { addLivestock } from "./livestock";
 import { dayPhaseLabel } from "./daycycle";
+import {
+  DESERT_Y,
+  FOREST_Y,
+  RIVER_HALF_W,
+  riverCenterX,
+} from "./biomes";
 
 export interface UiButton {
   x: number;
@@ -593,6 +600,14 @@ export function buyItem(state: GameState, idx: number): void {
   if (item.id === "horse") {
     state.player.horseHp = 80;
     state.player.horseMaxHp = 80;
+    state.player.riding = true;
+    state.world.mountHorse = null;
+    setMessage(
+      state,
+      "Унах морь авлаа! Гэрийн зүүн урд уяа бослоо. H — бууж уях.",
+      3.5,
+    );
+    return;
   }
   setMessage(state, `${item.name} худалдаж авлаа!`, 3);
 }
@@ -837,7 +852,8 @@ export function updatePauseMenu(state: GameState): void {
   if (input.pause) activate = 0;
 
   if (activate === 0) {
-    state.phase = "playing";
+    state.phase =
+      state.pauseReturnPhase === "spirit" ? "spirit" : "playing";
     state.menuScreen = "main";
     sfx("select");
   } else if (activate === 1) {
@@ -1170,36 +1186,167 @@ export function drawMinimap(
 
   drawWoodFrame(ctx, mx, my, mw, mh, 7);
 
-  // Газрын суурь
-  ctx.fillStyle = state.world.season === "winter" ? "#a8b8a0" : "#4a7a3a";
+  // ===== Биом газрын зураг — маш зөөлөн уусгалттай =====
+  const winter = state.world.season === "winter";
+  const steppe = winter ? "#a8b8a0" : "#5a8a42";
+  const forest = winter ? "#6a8a72" : "#2f5a32";
+  const desert = winter ? "#c4b89a" : "#c9a86a";
+  const riverDeep = winter ? "#6a8aa0" : "#2f6a88";
+  const riverLite = winter ? "rgba(170,205,225,0.4)" : "rgba(130,195,215,0.38)";
+
+  // Төв тал суурь
+  ctx.fillStyle = steppe;
   ctx.fillRect(mx, my, mw, mh);
 
-  // Бэлчээр
-  const center = pastureCenter(state.world);
-  ctx.fillStyle =
-    state.world.season === "winter"
-      ? "rgba(200,210,215,0.45)"
-      : "rgba(90,140,55,0.55)";
-  ctx.beginPath();
-  ctx.ellipse(
-    mx + center.x * sx,
-    my + center.y * sy,
-    PASTURE_RADIUS * sx,
-    PASTURE_RADIUS * sy * 0.85,
-    0,
-    0,
-    Math.PI * 2,
-  );
-  ctx.fill();
+  // Хойд ой — өргөн зөөлөн уусгалт
+  {
+    const fh = FOREST_Y * sy;
+    const fade = Math.max(28, mh * 0.22);
+    const g = ctx.createLinearGradient(mx, my, mx, my + fh + fade);
+    g.addColorStop(0, forest);
+    g.addColorStop(0.35, forest);
+    g.addColorStop(0.65, winter ? "rgba(106,138,114,0.4)" : "rgba(47,90,50,0.38)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(mx, my, mw, fh + fade);
+    for (let i = 0; i < 26; i++) {
+      const fx = mx + ((i * 37 + 11) % mw);
+      const fy = my + ((i * 19 + 7) % Math.max(4, fh + fade * 0.35));
+      const edge = clamp(1 - (fy - my) / (fh + fade * 0.5), 0, 1);
+      const a = (0.08 + (i % 4) * 0.035) * edge;
+      if (a < 0.02) continue;
+      ctx.fillStyle = winter
+        ? `rgba(70,100,80,${a})`
+        : `rgba(22,58,30,${a})`;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 1.6 + (i % 3) * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
-  // Гэр
+  // Өмнөд элс — өргөн зөөлөн уусгалт
+  {
+    const desertTop = my + DESERT_Y * sy;
+    const fade = Math.max(28, mh * 0.22);
+    const g = ctx.createLinearGradient(
+      mx,
+      desertTop - fade,
+      mx,
+      my + mh,
+    );
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(0.4, winter ? "rgba(196,184,154,0.35)" : "rgba(201,168,106,0.32)");
+    g.addColorStop(0.7, desert);
+    g.addColorStop(1, desert);
+    ctx.fillStyle = g;
+    ctx.fillRect(mx, desertTop - fade, mw, my + mh - (desertTop - fade));
+    for (let i = 0; i < 16; i++) {
+      const dx = mx + 6 + ((i * 29) % (mw - 12));
+      const dy =
+        desertTop - fade * 0.25 + ((i * 17) % Math.max(6, my + mh - desertTop + fade * 0.25));
+      const edge = clamp((dy - (desertTop - fade)) / fade, 0, 1);
+      const a = 0.12 * edge;
+      if (a < 0.02) continue;
+      ctx.fillStyle = winter
+        ? `rgba(175,160,125,${a})`
+        : `rgba(175,135,65,${a})`;
+      ctx.beginPath();
+      ctx.ellipse(dx, dy, 5.5 + (i % 3), 2.2, 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Зүүн гол — зөөлөн өргөн урсгал
+  {
+    const riverSteps = 32;
+    // Маш өргөн бүдэг эрэг
+    ctx.strokeStyle = winter ? "rgba(120,155,175,0.22)" : "rgba(80,145,170,0.22)";
+    ctx.lineWidth = Math.max(8, RIVER_HALF_W * sx * 5);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let i = 0; i <= riverSteps; i++) {
+      const wy = (i / riverSteps) * WORLD_H;
+      const px = mx + riverCenterX(wy) * sx;
+      const py = my + wy * sy;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // Дунд давхарга
+    ctx.strokeStyle = winter ? "rgba(110,145,165,0.4)" : "rgba(55,120,150,0.42)";
+    ctx.lineWidth = Math.max(4.5, RIVER_HALF_W * sx * 3);
+    ctx.beginPath();
+    for (let i = 0; i <= riverSteps; i++) {
+      const wy = (i / riverSteps) * WORLD_H;
+      const px = mx + riverCenterX(wy) * sx;
+      const py = my + wy * sy;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // Гүн гол
+    ctx.strokeStyle = riverDeep;
+    ctx.globalAlpha = 0.72;
+    ctx.lineWidth = Math.max(2.4, RIVER_HALF_W * sx * 1.7);
+    ctx.beginPath();
+    for (let i = 0; i <= riverSteps; i++) {
+      const wy = (i / riverSteps) * WORLD_H;
+      const px = mx + riverCenterX(wy) * sx;
+      const py = my + wy * sy;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // Гэрэлт гол
+    ctx.strokeStyle = riverLite;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = Math.max(1, RIVER_HALF_W * sx * 0.55);
+    ctx.beginPath();
+    for (let i = 0; i <= riverSteps; i++) {
+      const wy = (i / riverSteps) * WORLD_H;
+      const px = mx + riverCenterX(wy) * sx;
+      const py = my + wy * sy;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Бэлчээр — өргөн ууссан
+  const center = pastureCenter(state.world);
+  {
+    const rx = PASTURE_RADIUS * sx;
+    const ry = PASTURE_RADIUS * sy * 0.85;
+    const cx = mx + center.x * sx;
+    const cy = my + center.y * sy;
+    const pg = ctx.createRadialGradient(cx, cy, rx * 0.15, cx, cy, rx * 1.15);
+    if (winter) {
+      pg.addColorStop(0, "rgba(210,218,220,0.42)");
+      pg.addColorStop(0.45, "rgba(200,210,215,0.22)");
+      pg.addColorStop(0.78, "rgba(200,210,215,0.08)");
+      pg.addColorStop(1, "rgba(200,210,215,0)");
+    } else {
+      pg.addColorStop(0, "rgba(110,160,65,0.42)");
+      pg.addColorStop(0.45, "rgba(100,150,60,0.2)");
+      pg.addColorStop(0.78, "rgba(100,150,60,0.07)");
+      pg.addColorStop(1, "rgba(100,150,60,0)");
+    }
+    ctx.fillStyle = pg;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx * 1.15, ry * 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Гэр — бүдэг цэнхэр
   if (!state.world.gerPacked) {
-    ctx.fillStyle = "#e8c56a";
+    ctx.fillStyle = "#6a98b0";
     ctx.fillRect(mx + center.x * sx - 3, my + center.y * sy - 3, 6, 6);
   }
 
-  // Мал — улаан цэг (reference шиг)
-  ctx.fillStyle = "#ff6060";
+  // Мал — цагаан
+  ctx.fillStyle = "#ffffff";
   for (const s of state.world.flock.visuals) {
     ctx.fillRect(mx + s.pos.x * sx - 1, my + s.pos.y * sy - 1, 2, 2);
   }
@@ -1207,6 +1354,12 @@ export function drawMinimap(
   ctx.fillStyle = "#e8c56a";
   for (const h of state.world.wildHorses) {
     ctx.fillRect(mx + h.pos.x * sx - 1.5, my + h.pos.y * sy - 1.5, 3, 3);
+  }
+  // Унах морь (буусан / уясан)
+  if (state.world.mountHorse && !state.player.riding) {
+    const mh = state.world.mountHorse;
+    ctx.fillStyle = mh.tied ? "#8ab4d8" : "#c8a060";
+    ctx.fillRect(mx + mh.pos.x * sx - 2, my + mh.pos.y * sy - 2, 4, 4);
   }
   // Чоно
   ctx.fillStyle = "#ff3030";
@@ -1230,15 +1383,15 @@ export function drawMinimap(
       size,
     );
   }
-  // Тоглогч — цэнхэр
-  ctx.fillStyle = "#40a0ff";
+  // Тоглогч — тод хөх
+  ctx.fillStyle = "#1a6eff";
   ctx.fillRect(
     mx + state.player.pos.x * sx - 2.5,
     my + state.player.pos.y * sy - 2.5,
     5,
     5,
   );
-  ctx.strokeStyle = "#fff";
+  ctx.strokeStyle = "#c8e0ff";
   ctx.lineWidth = 1;
   ctx.strokeRect(
     mx + state.player.pos.x * sx - 2.5,
@@ -1458,12 +1611,13 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["Shift", "Бултах — invuln цонх"],
     ["L", "Сөрөх (parry) — дайралт няцаах"],
     ["1 / 2", "Нударга / Хөх тэнгэрийн сэлэм"],
-    ["E", "Мод / жимс / өвс / тэвш / мал гаргах/оруулах"],
+    ["E", "Мод / жимс / өвс / тэвш / мал гаргах·оруулах (гал–тэвшин гол)"],
     ["Q", "Жимс / ааруул идэх"],
     ["F", "Гал түлэх"],
     ["B", "Хашаа барих / шинэчлэх"],
     ["N", "Мал туух"],
     ["G", "Гэр моринд ачих / буулгах"],
+    ["H", "Морь унах / буух (гэрийн дэргэд уяна)"],
     ["P", "Түр зогсоох"],
   ];
   const boxW = 520;
@@ -1605,72 +1759,32 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     `${Math.ceil(player.vitals.warmth)} / ${player.vitals.maxWarmth}`,
   );
 
-  // Статус дүрсүүд (buff мөр)
+  // Статус дүрсүүд (buff мөр) — эможи
   const iconY = pad + 12 + barGap * 4 + 4;
   const iconS = 18;
   let ix = barX;
-  drawStatusIcon(ctx, ix, iconY, iconS, "#5a4030", () => {
-    ctx.fillStyle = "#f0ebe3";
-    ctx.fillRect(-5, -2, 10, 7);
-    ctx.fillStyle = "#303030";
-    ctx.beginPath();
-    ctx.arc(-3, -4, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 10px 'Courier New', monospace";
-  ctx.fillText(String(world.flock.total), ix + iconS + 3, iconY + 13);
-  ix += iconS + 28;
+  ctx.textAlign = "left";
 
-  if (world.campfire.lit) {
-    drawStatusIcon(ctx, ix, iconY, iconS, "#6a3a10", () => {
-      ctx.fillStyle = "#ff8030";
-      ctx.beginPath();
-      ctx.moveTo(0, 6);
-      ctx.quadraticCurveTo(-6, 0, 0, -7);
-      ctx.quadraticCurveTo(6, 0, 0, 6);
-      ctx.fill();
-    });
-    ix += iconS + 6;
-  }
   if (player.gear.horse) {
-    drawStatusIcon(ctx, ix, iconY, iconS, "#4a3020", () => {
-      ctx.fillStyle = "#8a6040";
-      ctx.fillRect(-6, -2, 12, 6);
-      ctx.fillRect(4, -6, 4, 5);
-    });
+    ctx.font = `${iconS - 2}px system-ui, sans-serif`;
+    ctx.fillText(player.riding ? "🏇" : "🐎", ix, iconY + iconS - 2);
     ix += iconS + 6;
   }
   if (player.gear.dog) {
-    drawStatusIcon(ctx, ix, iconY, iconS, "#403028", () => {
-      ctx.fillStyle = "#c4a060";
-      ctx.beginPath();
-      ctx.arc(0, 0, 5, 0, Math.PI * 2);
-      ctx.fill();
-    });
+    ctx.font = `${iconS - 2}px system-ui, sans-serif`;
+    ctx.fillText("🐕", ix, iconY + iconS - 2);
     ix += iconS + 6;
   }
-  drawStatusIcon(
-    ctx,
-    ix,
-    iconY,
-    iconS,
-    player.weapon === "skySword" ? "#1a4860" : "#503828",
-    () => {
-      ctx.strokeStyle = player.weapon === "skySword" ? "#b0e8ff" : "#e0c080";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-5, 5);
-      ctx.lineTo(5, -5);
-      ctx.stroke();
-    },
-  );
+  if (player.weapon === "skySword") {
+    ctx.font = `${iconS - 2}px system-ui, sans-serif`;
+    ctx.fillText("⚔️", ix, iconY + iconS - 2);
+  }
 
-  // —— Баруун дээд: цаг агаар + мал ——
+  // —— Баруун дээд: цаг агаар ——
   const wxPanel = VIEW_W - 168 - pad;
-  drawWoodFrame(ctx, wxPanel, pad + 4, 160, 72, 5);
+  drawWoodFrame(ctx, wxPanel, pad + 4, 160, 52, 5);
   ctx.fillStyle = "rgba(20,14,10,0.85)";
-  ctx.fillRect(wxPanel, pad + 4, 160, 72);
+  ctx.fillRect(wxPanel, pad + 4, 160, 52);
   drawWeatherIcon(ctx, wxPanel + 18, pad + 28, world.weather);
   ctx.fillStyle = "#ffe9a8";
   ctx.font = "bold 12px 'Courier New', monospace";
@@ -1694,21 +1808,6 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     wxPanel + 10,
     pad + 44,
   );
-  ctx.fillStyle =
-    world.flockOut &&
-    (world.dayPhase === "evening" || world.dayPhase === "night")
-      ? "#ff9080"
-      : world.flockOut
-        ? "#a0d890"
-        : "#c4b898";
-  ctx.font = "bold 11px 'Courier New', monospace";
-  ctx.fillText(
-    world.flockOut
-      ? `Мал ${world.flock.total} · бэлчээр`
-      : `Мал ${world.flock.total} · хашаа`,
-    wxPanel + 10,
-    pad + 64,
-  );
 
   const route = world.firstRoute;
   const routeText = world.tumurShulmas.defeated
@@ -1727,7 +1826,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.font = "bold 11px 'Courier New', monospace";
   const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 16;
   const routeX = VIEW_W - routeWidth - pad;
-  const routeY = pad + 92;
+  const routeY = pad + 72;
   ctx.fillStyle = "rgba(28,18,13,0.88)";
   ctx.fillRect(routeX, routeY, routeWidth, 22);
   ctx.strokeStyle = route.complete
@@ -1816,48 +1915,42 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     drawHotSlot(ctx, sx, qY + 4, qSize, it.val, it.icon, false);
   });
 
-  // Малын төрөл + нэмэлт мэдээлэл
-  ctx.font = "bold 10px 'Courier New', monospace";
+  // Малын төрөл — эможи + тоо (нэг мөр дээш)
+  ctx.font = "13px system-ui, sans-serif";
   let lx = barX;
-  const ly = iconY + iconS + 16;
+  const hasBuff =
+    player.gear.horse || player.gear.dog || player.weapon === "skySword";
+  const ly = hasBuff ? iconY + iconS + 2 : iconY + 12;
   for (const k of LIVESTOCK_KINDS) {
     const n = world.flock.counts[k];
     if (n <= 0) continue;
+    const emoji = LIVESTOCK_EMOJI[k];
+    ctx.fillText(emoji, lx, ly);
+    lx += 16;
     ctx.fillStyle = "#c8e0a8";
-    const label = `${LIVESTOCK_MN[k]}${n}`;
-    ctx.fillText(label, lx, ly);
-    lx += ctx.measureText(label).width + 8;
-  }
-
-  ctx.font = "10px 'Courier New', monospace";
-  if (world.season === "winter") {
-    ctx.fillStyle = world.flock.hunger < 35 ? "#ff8080" : "#a8c050";
-    ctx.fillText(`Сүрэг ${Math.ceil(world.flock.hunger)}%`, barX, ly + 14);
-  } else {
-    ctx.fillStyle = COLORS.hudMuted;
-    ctx.fillText(
-      `Бэлчээр ${Math.ceil(world.pastureGrass)}${world.pastureGrass <= 0 ? "!" : ""}`,
-      barX,
-      ly + 14,
-    );
+    ctx.font = "bold 10px 'Courier New', monospace";
+    const num = String(n);
+    ctx.fillText(num, lx, ly);
+    lx += ctx.measureText(num).width + 10;
+    ctx.font = "13px system-ui, sans-serif";
   }
 
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 11px 'Courier New', monospace";
-  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score}`, barX, ly + 28);
+  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score}`, barX, ly + 14);
 
   ctx.fillStyle = "#d8c898";
   ctx.font = "10px 'Courier New', monospace";
   ctx.fillText(
     `Ноос${player.inventory.wool} Ноол${player.inventory.cashmere} Сүү${player.inventory.milk}`,
     barX,
-    ly + 42,
+    ly + 28,
   );
   ctx.fillStyle = "#a8c8e8";
   ctx.fillText(
     `Сүнс ${state.spiritPoints} · Тэвш ${Math.floor(world.feeder.hay)}`,
     barX,
-    ly + 56,
+    ly + 42,
   );
 
   const nearFence = nearestFence(player.pos, world.fences, 64);

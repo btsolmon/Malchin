@@ -1,11 +1,9 @@
 import { WORLD_H, WORLD_W, type Vector2 } from "./types";
 
-/** Хойд ой — дээд бүс */
-export const FOREST_Y = WORLD_H * 0.34;
-/** Өмнөд цөл — доод бүс */
-export const DESERT_Y = WORLD_H * 0.66;
-/** Баруун уул/хад */
-export const MOUNTAIN_X = WORLD_W * 0.28;
+/** Хойд ой — дээд бүс (өмнөхөөс ~2× нарийн) */
+export const FOREST_Y = WORLD_H * 0.17;
+/** Өмнөд цөл — доод бүс (өмнөхөөс ~2× нарийн) */
+export const DESERT_Y = WORLD_H * 0.83;
 /** Зүүн голын төв шугам (ойролцоо) */
 export const RIVER_BASE_X = WORLD_W * 0.78;
 export const RIVER_HALF_W = 38;
@@ -85,31 +83,23 @@ export function applyRiverCurrent(
   return true;
 }
 
-export type BiomeKind = "steppe" | "forest" | "desert" | "mountain" | "riverbank";
+export type BiomeKind = "steppe" | "forest" | "desert" | "riverbank";
 
 export function biomeAt(x: number, y: number): BiomeKind {
   if (isInRiver({ x, y }, 8)) return "riverbank";
-  if (x < MOUNTAIN_X) return "mountain";
   if (y < FOREST_Y) return "forest";
   if (y > DESERT_Y) return "desert";
   return "steppe";
 }
 
-/** Мод — голдуу хойд ой, уулсын зах */
+/** Мод — голдуу хойд ой, талд цөөн */
 export function sampleTreePos(center: Vector2): Vector2 {
   const roll = Math.random();
-  if (roll < 0.62) {
+  if (roll < 0.78) {
     // Хойд ой
     return {
       x: 60 + Math.random() * (WORLD_W - 120),
       y: 50 + Math.random() * (FOREST_Y + 80),
-    };
-  }
-  if (roll < 0.82) {
-    // Баруун уулсын ой
-    return {
-      x: 50 + Math.random() * (MOUNTAIN_X + 40),
-      y: 80 + Math.random() * (WORLD_H - 160),
     };
   }
   // Ховор тал газрын мод
@@ -132,14 +122,14 @@ export function sampleTreePos(center: Vector2): Vector2 {
 /** Жимсний бут — тал + цөлийн зах, ойд цөөн */
 export function sampleBushPos(center: Vector2): Vector2 {
   const roll = Math.random();
-  if (roll < 0.45) {
+  if (roll < 0.5) {
     // Тал газар
     return {
-      x: MOUNTAIN_X + 40 + Math.random() * (RIVER_BASE_X - MOUNTAIN_X - 120),
+      x: 80 + Math.random() * (RIVER_BASE_X - 160),
       y: FOREST_Y + 40 + Math.random() * (DESERT_Y - FOREST_Y - 80),
     };
   }
-  if (roll < 0.75) {
+  if (roll < 0.78) {
     // Өмнөд цөлийн зах / сийрэг бут
     return {
       x: 80 + Math.random() * (WORLD_W - 160),
@@ -153,23 +143,15 @@ export function sampleBushPos(center: Vector2): Vector2 {
   };
 }
 
-/** Оньсогын чулуу — голдуу баруун уул */
+/** Оньсогын чулуу — тал газарт сийрэг */
 export function sampleRockPos(camp: Vector2): Vector2 {
-  const roll = Math.random();
   let pos: Vector2;
   let attempts = 0;
   do {
-    if (roll < 0.7) {
-      pos = {
-        x: 80 + Math.random() * (MOUNTAIN_X + 120),
-        y: 100 + Math.random() * (WORLD_H - 200),
-      };
-    } else {
-      pos = {
-        x: 100 + Math.random() * (WORLD_W - 200),
-        y: 100 + Math.random() * (WORLD_H - 200),
-      };
-    }
+    pos = {
+      x: 100 + Math.random() * (WORLD_W - 200),
+      y: FOREST_Y + 40 + Math.random() * (DESERT_Y - FOREST_Y - 80),
+    };
     attempts++;
   } while (
     (Math.hypot(pos.x - camp.x, pos.y - camp.y) < 280 ||

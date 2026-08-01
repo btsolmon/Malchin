@@ -29,6 +29,79 @@ export function drawShadow(
   ctx.fill();
 }
 
+/** Хоёр том шон + урт уяа — гэрийн хажууд морь уях */
+export function drawHorseHitch(
+  ctx: CanvasRenderingContext2D,
+  left: Vector2,
+  right: Vector2,
+  cam: Camera,
+): void {
+  const lx = left.x - cam.x;
+  const ly = left.y - cam.y;
+  const rx = right.x - cam.x;
+  const ry = right.y - cam.y;
+  const postH = 34;
+
+  const drawPost = (px: number, py: number) => {
+    drawShadow(ctx, px, py + 4, 7, 3.2);
+    // Шон
+    const wood = ctx.createLinearGradient(px - 4, py - postH, px + 4, py);
+    wood.addColorStop(0, "#8a6540");
+    wood.addColorStop(0.45, "#6a4a2c");
+    wood.addColorStop(1, "#4a3218");
+    ctx.fillStyle = wood;
+    ctx.beginPath();
+    ctx.moveTo(px - 3.5, py + 3);
+    ctx.lineTo(px - 4.2, py - postH + 4);
+    ctx.lineTo(px + 4.2, py - postH + 4);
+    ctx.lineTo(px + 3.5, py + 3);
+    ctx.closePath();
+    ctx.fill();
+    // Толгой / орой
+    ctx.fillStyle = "#5a3c22";
+    ctx.beginPath();
+    ctx.ellipse(px, py - postH + 2, 5.5, 3.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#3a2814";
+    ctx.beginPath();
+    ctx.ellipse(px, py - postH + 1, 3.2, 1.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Уяаны цагираг
+    ctx.strokeStyle = "#c0a060";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(px, py - postH + 12, 3.2, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+
+  drawPost(lx, ly);
+  drawPost(rx, ry);
+
+  // Урт уяа — хоёр шонгоос унжсан
+  const ropeY = (ly + ry) / 2 - postH + 12;
+  const midX = (lx + rx) / 2;
+  const sag = 10;
+  ctx.strokeStyle = "rgba(55,40,22,0.55)";
+  ctx.lineWidth = 3.4;
+  ctx.beginPath();
+  ctx.moveTo(lx, ly - postH + 12);
+  ctx.quadraticCurveTo(midX, ropeY + sag + 1.5, rx, ry - postH + 12);
+  ctx.stroke();
+  ctx.strokeStyle = "#c4a06a";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(lx, ly - postH + 12);
+  ctx.quadraticCurveTo(midX, ropeY + sag, rx, ry - postH + 12);
+  ctx.stroke();
+  // Уяаны зөөлөн гэрэл
+  ctx.strokeStyle = "rgba(232,210,160,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx, ly - postH + 11);
+  ctx.quadraticCurveTo(midX, ropeY + sag - 1.5, rx, ry - postH + 11);
+  ctx.stroke();
+}
+
 export function drawGer(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -488,15 +561,15 @@ export function drawFence(
 
   ctx.save();
   ctx.translate(x, y);
-  if (ns) ctx.rotate(Math.PI / 2);
-  drawShadow(ctx, 0, 5, 18, 5);
+  if (ns) drawShadow(ctx, 0, 2, 6, 16);
+  else drawShadow(ctx, 0, 5, 18, 5);
 
   if (tier === 1) {
-    drawFenceWoodEW(ctx, 0, 0, fence.isGate, open);
+    drawFenceWood(ctx, 0, 0, ns, fence.isGate, open);
   } else if (tier === 2) {
-    drawFenceBarbedEW(ctx, 0, 0, fence.isGate, open);
+    drawFenceBarbed(ctx, 0, 0, ns, fence.isGate, open);
   } else {
-    drawFenceElectricEW(ctx, 0, 0, time, fence.id, fence.isGate, open);
+    drawFenceElectric(ctx, 0, 0, ns, time, fence.id, fence.isGate, open);
   }
 
   ctx.restore();
@@ -529,11 +602,6 @@ export function drawFenceGhost(
   ctx.save();
   ctx.globalAlpha = 0.55;
   ctx.translate(x, y);
-  if (ns) ctx.rotate(Math.PI / 2);
-
-  ctx.fillStyle = "rgba(255,255,255,0.28)";
-  roundRectPath(ctx, -15, -3, 30, 9, 3);
-  ctx.fill();
 
   const post = (px: number, py: number): void => {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
@@ -542,17 +610,25 @@ export function drawFenceGhost(
     ctx.fillRect(px - 1.6, py - 17, 2.2, 18);
   };
 
-  post(-12, 0);
-  post(12, 0);
   ctx.strokeStyle = "rgba(255,255,255,0.7)";
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(-11, -14);
-  ctx.lineTo(11, -14);
-  ctx.moveTo(-11, -7);
-  ctx.lineTo(11, -7);
-  ctx.stroke();
+  if (ns) {
+    post(0, 0);
+    ctx.beginPath();
+    ctx.moveTo(0, -26);
+    ctx.lineTo(0, 6);
+    ctx.stroke();
+  } else {
+    post(-12, 0);
+    post(12, 0);
+    ctx.beginPath();
+    ctx.moveTo(-11, -14);
+    ctx.lineTo(11, -14);
+    ctx.moveTo(-11, -7);
+    ctx.lineTo(11, -7);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -566,17 +642,74 @@ function drawWoodPost(
   ctx.fillRect(px - 2.2, py - 18, 4.4, 20);
   ctx.fillStyle = "#7a5230";
   ctx.fillRect(px - 1.6, py - 17, 2.2, 18);
-  ctx.fillStyle = "#3d2814";
+  // Дээд орой — хурц гурвалжин өргөс
+  ctx.fillStyle = "#4a3018";
   ctx.beginPath();
-  ctx.moveTo(px - 2.6, py - 18);
-  ctx.lineTo(px, py - 22);
-  ctx.lineTo(px + 2.6, py - 18);
+  ctx.moveTo(px - 3.2, py - 18);
+  ctx.lineTo(px, py - 26);
+  ctx.lineTo(px + 3.2, py - 18);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#8a6238";
+  ctx.beginPath();
+  ctx.moveTo(px - 1.4, py - 18);
+  ctx.lineTo(px, py - 24);
+  ctx.lineTo(px + 1.4, py - 18);
   ctx.closePath();
   ctx.fill();
 }
 
-/** Ижил модон төмөр — урт (урд) */
-function drawWoodRails(
+/** Дээд төмөр дээрх гурвалжин өргөсүүд */
+function drawRailSpikesEW(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  x1: number,
+  py: number,
+): void {
+  ctx.fillStyle = "#5a3a1e";
+  for (let sx = x0 + 2; sx <= x1 - 2; sx += 4.5) {
+    ctx.beginPath();
+    ctx.moveTo(sx - 1.8, py - 15);
+    ctx.lineTo(sx, py - 21);
+    ctx.lineTo(sx + 1.8, py - 15);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.fillStyle = "#7a5230";
+  for (let sx = x0 + 2; sx <= x1 - 2; sx += 4.5) {
+    ctx.beginPath();
+    ctx.moveTo(sx - 0.9, py - 15);
+    ctx.lineTo(sx, py - 19.5);
+    ctx.lineTo(sx + 0.9, py - 15);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawRailSpikesNS(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  yTop: number,
+): void {
+  // Босоо сегментийн дээд үзүүрт гурвалжин өргөс
+  ctx.fillStyle = "#4a3018";
+  ctx.beginPath();
+  ctx.moveTo(px - 3.2, yTop - 14);
+  ctx.lineTo(px, yTop - 22);
+  ctx.lineTo(px + 3.2, yTop - 14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#8a6238";
+  ctx.beginPath();
+  ctx.moveTo(px - 1.4, yTop - 14);
+  ctx.lineTo(px, yTop - 20);
+  ctx.lineTo(px + 1.4, yTop - 14);
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** Хэвтээ төмөр — зүүн-баруун */
+function drawWoodRailsEW(
   ctx: CanvasRenderingContext2D,
   x0: number,
   x1: number,
@@ -599,6 +732,30 @@ function drawWoodRails(
   ctx.moveTo(x0, py - 8);
   ctx.lineTo(x1, py - 8);
   ctx.stroke();
+  drawRailSpikesEW(ctx, x0, x1, py);
+}
+
+/** Босоо сегмент — голын ганц төмөр (зүүн/баруун хос биш) */
+function drawWoodRailsNS(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  yTop: number,
+  yBot: number,
+): void {
+  ctx.strokeStyle = "#6b4524";
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(px, yTop - 14);
+  ctx.lineTo(px, yBot - 7);
+  ctx.stroke();
+  ctx.strokeStyle = "#8a6238";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(px + 1.2, yTop - 14);
+  ctx.lineTo(px + 1.2, yBot - 7);
+  ctx.stroke();
+  drawRailSpikesNS(ctx, px, yTop);
 }
 
 /** Хаалганы хавтан — hinge-ээс эргэнэ (open 0..1) */
@@ -606,29 +763,55 @@ function drawGateSwing(
   ctx: CanvasRenderingContext2D,
   drawPanel: (ctx: CanvasRenderingContext2D) => void,
   open: number,
+  ns = false,
 ): void {
-  const hingeX = -11;
+  const hingeX = ns ? 0 : -11;
+  const hingeY = ns ? -11 : 0;
   ctx.save();
-  ctx.translate(hingeX, 0);
+  ctx.translate(hingeX, hingeY);
   ctx.rotate(-open * (Math.PI / 2) * 0.92);
-  ctx.translate(-hingeX, 0);
+  ctx.translate(-hingeX, -hingeY);
   drawPanel(ctx);
   ctx.restore();
 }
 
-function drawFenceWoodEW(
+function drawFenceWood(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
+  ns: boolean,
   isGate: boolean,
   open: number,
 ): void {
+  if (ns) {
+    // Голд ганц шон + хойд/өмнөд тийш нэг төмөр
+    if (isGate) {
+      drawGateSwing(
+        ctx,
+        (c) => {
+          drawWoodRailsNS(c, x, y - 12, y + 12);
+          c.strokeStyle = "#5a3a1e";
+          c.lineWidth = 2;
+          c.beginPath();
+          c.moveTo(x + 5, y - 4);
+          c.lineTo(x + 5, y + 8);
+          c.stroke();
+        },
+        open,
+        true,
+      );
+    } else {
+      drawWoodRailsNS(ctx, x, y - 12, y + 12);
+    }
+    drawWoodPost(ctx, x, y);
+    return;
+  }
+
   drawWoodPost(ctx, x - 12, y);
   drawWoodPost(ctx, x + 12, y);
   if (isGate) {
     drawGateSwing(ctx, (c) => {
-      drawWoodRails(c, x - 11, x + 11, y);
-      // Хаалганы босоо бариул
+      drawWoodRailsEW(c, x - 11, x + 11, y);
       c.strokeStyle = "#5a3a1e";
       c.lineWidth = 2;
       c.beginPath();
@@ -637,7 +820,7 @@ function drawFenceWoodEW(
       c.stroke();
     }, open);
   } else {
-    drawWoodRails(ctx, x - 11, x + 11, y);
+    drawWoodRailsEW(ctx, x - 11, x + 11, y);
   }
 }
 
@@ -651,11 +834,24 @@ function drawBarbedPost(
   ctx.fillRect(px - 2, py - 19, 4, 21);
   ctx.fillStyle = "#6a6a6a";
   ctx.fillRect(px - 1.4, py - 18, 2, 19);
+  // Дээд орой — төмөр гурвалжин өргөс
   ctx.fillStyle = "#2a2a2a";
-  ctx.fillRect(px - 2.4, py - 20, 4.8, 3);
+  ctx.beginPath();
+  ctx.moveTo(px - 3.4, py - 19);
+  ctx.lineTo(px, py - 27);
+  ctx.lineTo(px + 3.4, py - 19);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#9a9a9a";
+  ctx.beginPath();
+  ctx.moveTo(px - 1.5, py - 19);
+  ctx.lineTo(px, py - 25);
+  ctx.lineTo(px + 1.5, py - 19);
+  ctx.closePath();
+  ctx.fill();
 }
 
-function drawBarbedPanel(
+function drawBarbedPanelEW(
   ctx: CanvasRenderingContext2D,
   x0: number,
   x1: number,
@@ -695,27 +891,80 @@ function drawBarbedPanel(
   }
 }
 
-function drawFenceBarbedEW(
+function drawBarbedPanelNS(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  yTop: number,
+  yBot: number,
+): void {
+  const y0 = yTop - 15;
+  const y1 = yBot - 3;
+  const mid = (y0 + y1) / 2;
+  const half = (y1 - y0) / 2;
+  ctx.strokeStyle = "#8a8a8a";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(px, y0);
+  ctx.lineTo(px, y1);
+  ctx.stroke();
+  ctx.strokeStyle = "#b0b0b0";
+  ctx.lineWidth = 1;
+  const step = half > 8 ? 4 : 5;
+  for (let i = -half + 2; i <= half - 2; i += step) {
+    ctx.beginPath();
+    ctx.moveTo(px - 4, mid + i - 2);
+    ctx.lineTo(px + 4, mid + i + 2);
+    ctx.moveTo(px + 4, mid + i - 2);
+    ctx.lineTo(px - 4, mid + i + 2);
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#d0d0d0";
+  const barbStep = half > 8 ? 5 : 4;
+  for (let i = -half + 1; i <= half - 1; i += barbStep) {
+    ctx.beginPath();
+    ctx.arc(px, mid + i, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawFenceBarbed(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
+  ns: boolean,
   isGate: boolean,
   open: number,
 ): void {
+  if (ns) {
+    if (isGate) {
+      drawGateSwing(
+        ctx,
+        (c) => drawBarbedPanelNS(c, x, y - 12, y + 12),
+        open,
+        true,
+      );
+    } else {
+      drawBarbedPanelNS(ctx, x, y - 12, y + 12);
+    }
+    drawBarbedPost(ctx, x, y);
+    return;
+  }
+
   drawBarbedPost(ctx, x - 12, y);
   drawBarbedPost(ctx, x + 12, y);
   if (isGate) {
-    drawGateSwing(ctx, (c) => drawBarbedPanel(c, x - 11, x + 11, y), open);
+    drawGateSwing(ctx, (c) => drawBarbedPanelEW(c, x - 11, x + 11, y), open);
   } else {
-    drawBarbedPanel(ctx, x - 11, x + 11, y);
+    drawBarbedPanelEW(ctx, x - 11, x + 11, y);
   }
 }
 
 /** Дээд шат — чулуун суурь + цахилгаан утас */
-function drawFenceElectricEW(
+function drawFenceElectric(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
+  ns: boolean,
   time: number,
   id: number,
   isGate: boolean,
@@ -732,12 +981,20 @@ function drawFenceElectricEW(
     ctx.fillRect(sx, sy - 6 + sh - 2, sw, 2);
   };
 
-  for (const [sx, sy, sw, sh] of [
-    [-11, -2, 10, 8],
-    [-1, -3, 11, 9],
-    [8, -1, 8, 7],
-  ] as const) {
-    drawStones(x + sx, y + sy, sw, sh);
+  if (ns) {
+    for (const [sx, sy, sw, sh] of [
+      [-5, -4, 10, 9],
+    ] as const) {
+      drawStones(x + sx, y + sy, sw, sh);
+    }
+  } else {
+    for (const [sx, sy, sw, sh] of [
+      [-11, -2, 10, 8],
+      [-1, -3, 11, 9],
+      [8, -1, 8, 7],
+    ] as const) {
+      drawStones(x + sx, y + sy, sw, sh);
+    }
   }
 
   const drawWires = (c: CanvasRenderingContext2D): void => {
@@ -746,23 +1003,30 @@ function drawFenceElectricEW(
     c.shadowColor = "#6ad0ff";
     c.shadowBlur = 4 + pulse * 4;
     c.beginPath();
-    c.moveTo(x - 12, y - 16);
-    c.lineTo(x + 12, y - 16);
-    c.moveTo(x - 12, y - 10);
-    c.lineTo(x + 12, y - 10);
+    if (ns) {
+      c.moveTo(x, y - 16);
+      c.lineTo(x, y + 8);
+    } else {
+      c.moveTo(x - 12, y - 16);
+      c.lineTo(x + 12, y - 16);
+      c.moveTo(x - 12, y - 10);
+      c.lineTo(x + 12, y - 10);
+    }
     c.stroke();
     c.shadowBlur = 0;
   };
 
   if (isGate) {
-    drawGateSwing(ctx, drawWires, open);
+    drawGateSwing(ctx, drawWires, open, ns);
   } else {
     drawWires(ctx);
   }
 
   if (pulse > 0.85 && open < 0.5) {
-    const sx = x + Math.sin(time * 12 + id) * 8;
-    const sy = y - 13;
+    const sx = ns
+      ? x + Math.sin(time * 12 + id) * 3
+      : x + Math.sin(time * 12 + id) * 8;
+    const sy = ns ? y + Math.cos(time * 10 + id) * 6 : y - 13;
     ctx.fillStyle = "#e8f8ff";
     ctx.beginPath();
     ctx.arc(sx, sy, 1.8, 0, Math.PI * 2);
@@ -1896,7 +2160,7 @@ export function drawPlayer(
   }
 
   // Морьтой бол морио зураад, малчнаа дээр нь өргөж зурна
-  const riding = player.gear.horse;
+  const riding = player.riding;
   if (riding) {
     drawHorse(ctx, x, y + 2, flip, time, player.moving, gerPacked);
     // Морины амь — шархадсан үед л харагдана

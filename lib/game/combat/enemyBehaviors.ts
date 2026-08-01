@@ -314,13 +314,15 @@ export function updateFlock(state: GameState, dt: number): void {
  */
 export function damagePlayer(state: GameState, dmg: number): void {
   const player = state.player;
-  if (player.gear.horse && player.horseHp > 0) {
+  if (player.riding && player.horseHp > 0) {
     const horseShare = Math.round(dmg * 0.6);
     player.horseHp -= horseShare;
     dmg -= horseShare;
     if (player.horseHp <= 0) {
       player.horseHp = 0;
       player.gear.horse = false;
+      player.riding = false;
+      state.world.mountHorse = null;
       spawnParticles(state, player.pos, 14, "#6b4a26", { speed: 110 });
       spawnText(state, player.pos, "Морь үхэв!", "#ff8080");
       if (state.world.gerPacked) {

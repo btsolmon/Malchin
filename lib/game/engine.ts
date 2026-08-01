@@ -27,6 +27,7 @@ import {
   maybeLevelUp,
   tryBuildFence,
   tryEatBerry,
+  tryHorseMount,
   tryInteract,
   tryLightCampfire,
   tryMigrateGer,
@@ -200,6 +201,7 @@ export function createInitialState(): GameState {
       },
       horseHp: 0,
       horseMaxHp: 0,
+      riding: false,
       sleepCooldown: 0,
       moving: false,
       facing: { x: 0, y: 1 },
@@ -266,6 +268,7 @@ export function createInitialState(): GameState {
       pastureSeason: "autumn",
       feeder: createFeeder(spawn),
       wildHorses: [],
+      mountHorse: null,
     },
     fencePreview: false,
     unlimitedWood: false,
@@ -292,6 +295,7 @@ export function createInitialState(): GameState {
       debugBoss: false,
       herd: false,
       migrate: false,
+      horseMount: false,
       skill1: false,
       skill2: false,
       skill3: false,
@@ -332,6 +336,7 @@ export function createInitialState(): GameState {
     xpNext: 90,
     skillChoices: [],
     phase: "menu",
+    pauseReturnPhase: "playing",
     menuScreen: "main",
     menuIndex: 0,
     pauseIndex: 0,
@@ -447,6 +452,9 @@ export function bindInput(getInput: () => InputState): () => void {
       case "KeyG":
         if (pressed) input.migrate = true;
         break;
+      case "KeyH":
+        if (pressed) input.horseMount = true;
+        break;
       case "Digit1":
       case "Numpad1":
         if (pressed) input.skill1 = true;
@@ -525,7 +533,8 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "spirit") {
     state.fencePreview = false;
-    // Шулмасын горимд E = хаалга/сэлэм/буцах (tryInteract) — энд шууд гаргахгүй
+    // Шулмасын горимд P = пауз (босс тулаанд гарахгүй).
+    // Ердийн сүнс (purge) дээр P/E = гарах.
     if (state.spiritMode === "purge") {
       if (
         state.input.pause ||
@@ -541,13 +550,18 @@ export function update(state: GameState, dt: number): void {
         state.input.confirm = false;
       }
     } else if (state.input.pause) {
-      exitSpiritWorld(state, "Сүнсний орноос гарлаа.");
+      state.pauseReturnPhase = "spirit";
+      state.phase = "paused";
+      state.pauseIndex = 0;
+      state.menuScreen = "main";
       state.input.pause = false;
+      sfx("select");
     }
   } else if (state.phase === "levelup") {
     updateLevelUp(state);
     state.fencePreview = false;
   } else if (state.phase === "playing" && state.input.pause) {
+    state.pauseReturnPhase = "playing";
     state.phase = "paused";
     state.pauseIndex = 0;
     state.menuScreen = "main";
@@ -611,6 +625,7 @@ export function update(state: GameState, dt: number): void {
     const usedRouteInteraction = tryInteractFirstRoute(state);
     if (!usedRouteInteraction) tryInteract(state);
     tryEatBerry(state);
+    tryHorseMount(state);
     tryMigrateGer(state);
     tryLightCampfire(state);
     tryBuildFence(state);
@@ -682,6 +697,7 @@ export function update(state: GameState, dt: number): void {
   state.input.debugWood = false;
   state.input.debugBoss = false;
   state.input.migrate = false;
+  state.input.horseMount = false;
 
   // Hitstop үед тулааны оролтыг хадгална — дараагийн frame-д боловсруулна
   if (!hitStopped) {
