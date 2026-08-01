@@ -18,6 +18,7 @@ import {
 } from "../firstRoute";
 
 import { drawLighting, drawWeatherFx } from "./lighting";
+import { drawRiverFlowOverlay } from "./terrain";
 import { getCameraShakeOffset } from "../effects";
 import {
   drawTumurShulmas,
@@ -114,10 +115,15 @@ export function render(
   // Газар
   const terrain = world.season === "winter" ? rc.terrainWinter : rc.terrain;
   ctx.drawImage(terrain, cam.x, cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+  drawRiverFlowOverlay(ctx, cam, time, world.season === "winter");
 
-  drawTumurShulmasArena(ctx, state, cam, time);
-  drawTumurShulmasTelegraphs(ctx, state, cam, time);
-  drawMiniBossArena(ctx, state, cam, time);
+  const inShulmasSpirit =
+    state.phase === "spirit" && state.spiritMode === "shulmas";
+  if (inShulmasSpirit) {
+    drawTumurShulmasArena(ctx, state, cam, time);
+    drawTumurShulmasTelegraphs(ctx, state, cam, time);
+    drawMiniBossArena(ctx, state, cam, time);
+  }
 
   // Салхины хүч (модны найгалт)
   const windAmp =
@@ -137,7 +143,8 @@ export function render(
 
   const center = pastureCenter(world);
 
-  // Бэлчээр — өвс идэгдэх тусам буйр шиг бор хөрсний толбо аажмаар илэрнэ
+  // Бэлчээр — өвс идэгдэх тусам гэрийн буурь шиг бүдэг бор хөрс илэрнэ
+  // Өнгө: terrain гэрийн шороон талбай (#6f5742) — тод шавар шиг биш
   if (!world.gerPacked && world.season !== "winter") {
     const fill = clamp(
       world.pastureGrass / Math.max(1, MAX_PASTURE_GRASS),
@@ -163,26 +170,54 @@ export function render(
         const px = gx + Math.cos(a) * rr * rx;
         const py = gy + Math.sin(a) * rr * ry;
         const pr = (13 + (i % 4) * 7) * (0.45 + local * 0.55);
-        const soil = ctx.createRadialGradient(px, py, pr * 0.15, px, py, pr);
-        soil.addColorStop(0, `rgba(124,94,60,${0.5 + local * 0.3})`);
-        soil.addColorStop(0.7, `rgba(112,84,54,${0.35 + local * 0.25})`);
-        soil.addColorStop(1, "rgba(112,84,54,0)");
+        // Зөөлөн радиал — ирмэг дээр хурдан бүдгэрнэ (хатуу диск биш)
+        const soil = ctx.createRadialGradient(px, py, 0, px, py, pr);
+        soil.addColorStop(0, `rgba(111,87,66,${0.22 + local * 0.16})`);
+        soil.addColorStop(0.45, `rgba(104,80,60,${0.14 + local * 0.1})`);
+        soil.addColorStop(0.78, `rgba(95,72,54,${0.06 + local * 0.05})`);
+        soil.addColorStop(1, "rgba(95,72,54,0)");
         ctx.fillStyle = soil;
         ctx.beginPath();
-        ctx.ellipse(px, py, pr, pr * 0.7, a * 0.4, 0, Math.PI * 2);
+        // Бага зэрэг жигд бус эллипс — геометрийн төгс тойрог биш
+        const wobble = 0.88 + ((i * 37) % 11) * 0.012;
+        ctx.ellipse(
+          px,
+          py,
+          pr * wobble,
+          pr * (0.62 + ((i * 13) % 7) * 0.02),
+          a * 0.4 + (i % 5) * 0.15,
+          0,
+          Math.PI * 2,
+        );
         ctx.fill();
       }
 
-      // Бүрэн шавхагдахад толбууд нийлж нэг буйр болно
+      // Бүрэн шавхагдахад толбууд нийлж нэг буйр болно — зөөлөн, ирмэгээ уусгасан
       if (depleted > 0.8) {
         const w = clamp((depleted - 0.8) / 0.2, 0, 1);
-        const wash = ctx.createRadialGradient(gx, gy, rx * 0.1, gx, gy, rx);
-        wash.addColorStop(0, `rgba(118,88,56,${0.55 * w})`);
-        wash.addColorStop(0.75, `rgba(112,84,54,${0.4 * w})`);
-        wash.addColorStop(1, "rgba(112,84,54,0)");
+        const wash = ctx.createRadialGradient(gx, gy, 0, gx, gy, rx);
+        wash.addColorStop(0, `rgba(111,87,66,${0.28 * w})`);
+        wash.addColorStop(0.35, `rgba(104,80,60,${0.18 * w})`);
+        wash.addColorStop(0.65, `rgba(95,72,54,${0.08 * w})`);
+        wash.addColorStop(0.88, `rgba(90,70,52,${0.03 * w})`);
+        wash.addColorStop(1, "rgba(90,70,52,0)");
         ctx.fillStyle = wash;
+        // Жигд бус ирмэг — долгионтой зам (төгс эллипс биш)
         ctx.beginPath();
-        ctx.ellipse(gx, gy, rx, ry, 0, 0, Math.PI * 2);
+        const steps = 48;
+        for (let s = 0; s <= steps; s++) {
+          const t = (s / steps) * Math.PI * 2;
+          const edge =
+            1 +
+            Math.sin(t * 3.0 + 0.7) * 0.04 +
+            Math.sin(t * 5.0 + 1.9) * 0.025 +
+            Math.sin(t * 7.0 + 0.3) * 0.015;
+          const x = gx + Math.cos(t) * rx * edge;
+          const y = gy + Math.sin(t) * ry * edge;
+          if (s === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
         ctx.fill();
       }
     }
@@ -192,7 +227,13 @@ export function render(
     drawables.push({
       y: center.y - 20,
       key: -2,
-      draw: () => drawGer(ctx, center.x - 46 - cam.x, center.y - 26 - cam.y),
+      draw: () =>
+        drawGer(
+          ctx,
+          center.x - 46 - cam.x,
+          center.y - 26 - cam.y,
+          world.season === "winter",
+        ),
     });
   }
   // Хураасан гэр морь дээр — drawPlayer/drawHorse зурна
@@ -213,7 +254,7 @@ export function render(
     });
   }
 
-  // Тэжээгч
+  // Тэвш
   if (!world.gerPacked) {
     drawables.push({
       y: world.feeder.pos.y,
@@ -302,26 +343,26 @@ export function render(
       draw: () => drawFenceGhost(ctx, ghostPos, ghostOrient, cam),
     });
   }
-  drawables.push({
-    y: world.firstRoute.gatePos.y,
-    key: 5800,
-    draw: () => drawFirstRouteGate(ctx, state, cam, time),
-  });
-  if (
-    !world.tumurShulmas.active &&
-    (world.firstRoute.bossDefeated || world.tumurShulmas.defeated)
-  ) {
+  // Хараалт / Хар төмөр хаалга — зөвхөн шулмасын сүнсний оронд
+  if (state.phase === "spirit" && state.spiritMode === "shulmas") {
     drawables.push({
-      y: world.tumurShulmas.gatePos.y,
-      key: 5900,
-      draw: () => drawTumurShulmasGate(ctx, state, cam, time),
+      y: world.firstRoute.gatePos.y,
+      key: 5800,
+      draw: () => drawFirstRouteGate(ctx, state, cam, time),
     });
-  } else {
-    drawables.push({
-      y: world.tumurShulmas.exitPos.y,
-      key: 5901,
-      draw: () => drawTumurShulmasExit(ctx, state, cam, time),
-    });
+    if (world.tumurShulmas.active) {
+      drawables.push({
+        y: world.tumurShulmas.exitPos.y,
+        key: 5901,
+        draw: () => drawTumurShulmasExit(ctx, state, cam, time),
+      });
+    } else {
+      drawables.push({
+        y: world.tumurShulmas.gatePos.y,
+        key: 5900,
+        draw: () => drawTumurShulmasGate(ctx, state, cam, time),
+      });
+    }
   }
   for (const sheep of world.flock.visuals) {
     drawables.push({
@@ -355,6 +396,8 @@ export function render(
     });
   }
   for (const enemy of world.firstRoute.enemies) {
+    // Туслахууд зөвхөн шулмасын сүнсний оронд харагдана
+    if (state.phase !== "spirit" || state.spiritMode !== "shulmas") continue;
     if (!enemy.alive && enemy.deathTimer <= 0) continue;
     drawables.push({
       y: enemy.pos.y,
@@ -362,14 +405,22 @@ export function render(
       draw: () => drawRouteEnemy(ctx, enemy, cam, time),
     });
   }
-  if (world.firstRoute.swordDrop.visible) {
+  if (
+    world.firstRoute.swordDrop.visible &&
+    state.phase === "spirit" &&
+    state.spiritMode === "shulmas"
+  ) {
     drawables.push({
       y: world.firstRoute.swordDrop.pos.y,
       key: 12100,
       draw: () => drawSwordDrop(ctx, state, cam, time),
     });
   }
-  if (world.tumurShulmas.active) {
+  if (
+    world.tumurShulmas.active &&
+    state.phase === "spirit" &&
+    state.spiritMode === "shulmas"
+  ) {
     drawables.push({
       y: world.tumurShulmas.pos.y,
       key: 11900,
@@ -411,10 +462,12 @@ export function render(
 
   // Сумнууд — бүх объектын дээр
   for (const p of world.projectiles) drawProjectile(ctx, p, cam);
-  drawFirstRouteBolts(ctx, state, cam, time);
-  drawTumurShulmasNeedles(ctx, state, cam);
+  if (state.phase === "spirit" && state.spiritMode === "shulmas") {
+    drawFirstRouteBolts(ctx, state, cam, time);
+    drawTumurShulmasNeedles(ctx, state, cam);
+  }
 
-  // Гэрт орох / өвс хадах / тэжээгч / нүүдэл заавар
+  // Гэрт орох / өвс хадах / тэвш / нүүдэл заавар
   if (state.phase === "spirit") {
     const tx = state.player.pos.x - cam.x;
     const ty = state.player.pos.y - 42 - cam.y;
@@ -422,11 +475,19 @@ export function render(
     ctx.font = "600 12px system-ui, sans-serif";
     ctx.strokeStyle = "rgba(0,0,0,0.7)";
     ctx.lineWidth = 3;
-    const tip = state.spiritCleared
-      ? "E — бодит ертөнц рүү буцах"
-      : "Сүнсний дайснууд · E/P — гарах";
+    const tip =
+      state.spiritMode === "shulmas"
+        ? state.spiritCleared
+          ? "E — бодит ертөнц рүү буцах"
+          : world.tumurShulmas.active
+            ? "Төмөр шулмастай тулаан · дуустал гарахгүй"
+            : "Шулмасын туслахууд · E — буцах"
+        : state.spiritCleared
+          ? "E — бодит ертөнц рүү буцах"
+          : "Сүнсний дайснууд · E/P — гарах";
     ctx.strokeText(tip, tx, ty);
-    ctx.fillStyle = "#a8d4ff";
+    ctx.fillStyle =
+      state.spiritMode === "shulmas" ? "#ffb0a8" : "#a8d4ff";
     ctx.fillText(tip, tx, ty);
     ctx.textAlign = "left";
   } else if (state.phase === "playing") {
@@ -521,13 +582,9 @@ export function render(
   }
   if (state.phase === "playing") {
     drawFirstRouteHint(ctx, state, cam);
-    if (
-      world.firstRoute.bossDefeated ||
-      world.tumurShulmas.defeated ||
-      world.tumurShulmas.active
-    ) {
-      drawTumurShulmasHint(ctx, state, cam);
-    }
+  } else if (state.phase === "spirit" && state.spiritMode === "shulmas") {
+    drawFirstRouteHint(ctx, state, cam);
+    drawTumurShulmasHint(ctx, state, cam);
   }
 
   // Particles
@@ -619,6 +676,8 @@ export function render(
     drawMinimap(ctx, state, cam);
   }
   drawHud(ctx, state);
-  drawMiniBossHud(ctx, state);
-  drawTumurShulmasHud(ctx, state);
+  if (state.phase === "spirit" && state.spiritMode === "shulmas") {
+    drawMiniBossHud(ctx, state);
+    drawTumurShulmasHud(ctx, state);
+  }
 }

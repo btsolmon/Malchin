@@ -33,65 +33,251 @@ export function drawGer(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
+  winterClosed = false,
 ): void {
+  // Тоглоомын зөөлөн градиент хэв маягт буулгасан, жишээ зургийн элементтэй гэр:
+  // хөх дээврийн хээ, улаан цагираг тооно, алтан хана мод, улаан хаалга
+  const NAVY = "#3c5680";
+  const NAVY_DEEP = "#2e4368";
+  const RED = "#b04a32";
+  const GOLD = "#c9a04e";
+  const GREEN = "#5f7e46";
+  const SOFT_LINE = "rgba(120,100,70,0.45)";
+
   drawShadow(ctx, x, y + 26, 52, 14);
 
-  // Их бие (цагаан эсгий)
+  const baseY = y + 24;
+  const wallTopY = y - 4;
+  const peakY = y - 42;
+
+  // ===== Ханын их бие — цагаан эсгий (зөөлөн градиент) =====
   const bodyG = ctx.createLinearGradient(x - 46, y, x + 46, y);
   bodyG.addColorStop(0, "#cfc8b8");
   bodyG.addColorStop(0.5, "#f2ecdc");
   bodyG.addColorStop(1, "#d8d0c0");
   ctx.fillStyle = bodyG;
   ctx.beginPath();
-  ctx.moveTo(x - 46, y + 24);
-  ctx.lineTo(x - 46, y - 4);
-  ctx.quadraticCurveTo(x, y - 12, x + 46, y - 4);
-  ctx.lineTo(x + 46, y + 24);
+  ctx.moveTo(x - 46, baseY);
+  ctx.lineTo(x - 46, wallTopY);
+  ctx.quadraticCurveTo(x, wallTopY - 8, x + 46, wallTopY);
+  ctx.lineTo(x + 46, baseY);
   ctx.closePath();
   ctx.fill();
 
-  // Дээвэр
-  const roofG = ctx.createLinearGradient(x, y - 40, x, y - 2);
+  // ===== Эсгий давхаргын зөөлөн шугамууд (3) =====
+  ctx.strokeStyle = SOFT_LINE;
+  ctx.lineWidth = 1.5;
+  for (const oy of [5, 12, 19]) {
+    ctx.beginPath();
+    ctx.moveTo(x - 45, y + oy);
+    ctx.quadraticCurveTo(x, y + oy - 4, x + 45, y + oy);
+    ctx.stroke();
+  }
+
+  // ===== Зүүн доод — зун эсгий сөхөгдөж алтан хана мод харагдана,
+  // өвөлд хаяа битүү шуугддаг =====
+  if (!winterClosed) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x - 46, y + 6);
+    ctx.lineTo(x - 46, baseY);
+    ctx.lineTo(x - 14, baseY);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = "#4a3c28";
+    ctx.fillRect(x - 46, y + 4, 34, 22);
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 1.7;
+    ctx.lineCap = "round";
+    for (let i = -3; i < 7; i++) {
+      const ox = x - 46 + i * 6;
+      ctx.beginPath();
+      ctx.moveTo(ox, y + 4);
+      ctx.lineTo(ox + 22, baseY + 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ox + 22, y + 4);
+      ctx.lineTo(ox, baseY + 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Сөхөгдсөн эсгийн зөөлөн давхарга
+    ctx.fillStyle = "#ece5d2";
+    ctx.beginPath();
+    ctx.moveTo(x - 46, y + 3);
+    ctx.quadraticCurveTo(x - 30, y + 8, x - 18, y + 18);
+    ctx.quadraticCurveTo(x - 15, y + 20, x - 13, baseY);
+    ctx.lineTo(x - 19, baseY);
+    ctx.quadraticCurveTo(x - 28, y + 15, x - 38, y + 9);
+    ctx.quadraticCurveTo(x - 42, y + 7, x - 46, y + 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = SOFT_LINE;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  } else {
+    // Өвөл — хаяа битүү: суурийг тойрсон зузаан эсгий хормой
+    ctx.fillStyle = "#e6dfcc";
+    ctx.beginPath();
+    ctx.moveTo(x - 46, baseY - 6);
+    ctx.quadraticCurveTo(x, baseY - 9, x + 46, baseY - 6);
+    ctx.lineTo(x + 46, baseY);
+    ctx.lineTo(x - 46, baseY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = SOFT_LINE;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x - 46, baseY - 6);
+    ctx.quadraticCurveTo(x, baseY - 9, x + 46, baseY - 6);
+    ctx.stroke();
+    // Хормойг дарсан цасны намуухан хунгар
+    ctx.fillStyle = "rgba(244,246,250,0.7)";
+    ctx.beginPath();
+    ctx.ellipse(x - 30, baseY + 1, 15, 3.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 26, baseY + 1, 18, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // ===== Дээвэр — цагаан эсгий конус (зөөлөн градиент) =====
+  const roofG = ctx.createLinearGradient(x, peakY, x, wallTopY);
   roofG.addColorStop(0, "#f8f2e2");
   roofG.addColorStop(1, "#d0c8b4");
   ctx.fillStyle = roofG;
   ctx.beginPath();
-  ctx.moveTo(x - 50, y - 2);
-  ctx.quadraticCurveTo(x, y - 46, x + 50, y - 2);
+  ctx.moveTo(x - 50, wallTopY + 1);
+  ctx.quadraticCurveTo(x - 18, peakY + 4, x - 6, peakY);
+  ctx.lineTo(x + 6, peakY);
+  ctx.quadraticCurveTo(x + 18, peakY + 4, x + 50, wallTopY + 1);
+  ctx.quadraticCurveTo(x, wallTopY - 9, x - 50, wallTopY + 1);
   ctx.closePath();
   ctx.fill();
 
-  // Тооно
-  ctx.fillStyle = "#b8845a";
+  // ===== Дээвэр/хананы зааг — намуухан хөх тууз =====
+  ctx.strokeStyle = "rgba(60,86,128,0.85)";
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.arc(x, y - 32, 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#7a5230";
-  ctx.beginPath();
-  ctx.arc(x, y - 32, 3, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(x - 47, wallTopY + 1);
+  ctx.quadraticCurveTo(x, wallTopY - 7, x + 47, wallTopY + 1);
+  ctx.stroke();
 
-  // Бүслүүр оосор
-  ctx.strokeStyle = "rgba(160,110,60,0.5)";
-  ctx.lineWidth = 2;
-  for (const oy of [4, 12]) {
+  // ===== Дээврийн хөх хээ — оройг бүрхэж, доод ирмэг нь дэгээт =====
+  {
+    const motifG = ctx.createLinearGradient(x, peakY, x, y - 8);
+    motifG.addColorStop(0, NAVY);
+    motifG.addColorStop(1, NAVY_DEEP);
+    ctx.fillStyle = motifG;
     ctx.beginPath();
-    ctx.moveTo(x - 46, y + oy);
-    ctx.quadraticCurveTo(x, y + oy - 5, x + 46, y + oy);
-    ctx.stroke();
+    // Зүүн налуу дагаж дээшээ
+    ctx.moveTo(x - 30, y - 18);
+    ctx.quadraticCurveTo(x - 15, peakY + 3, x - 6, peakY);
+    ctx.lineTo(x + 6, peakY);
+    ctx.quadraticCurveTo(x + 15, peakY + 3, x + 30, y - 18);
+    // Баруун дэгээ — доош бөхийж мушгирна
+    ctx.quadraticCurveTo(x + 32, y - 12, x + 25, y - 11);
+    ctx.quadraticCurveTo(x + 19, y - 11, x + 18, y - 16);
+    // Дотогшоо залгиур сүүл рүү
+    ctx.quadraticCurveTo(x + 13, y - 21, x + 8, y - 18);
+    ctx.quadraticCurveTo(x + 3, y - 14, x, y - 7);
+    ctx.quadraticCurveTo(x - 3, y - 14, x - 8, y - 18);
+    ctx.quadraticCurveTo(x - 13, y - 21, x - 18, y - 16);
+    ctx.quadraticCurveTo(x - 19, y - 11, x - 25, y - 11);
+    ctx.quadraticCurveTo(x - 32, y - 12, x - 30, y - 18);
+    ctx.closePath();
+    ctx.fill();
+
+    // Дэгээний мушгиа толгойнууд
+    ctx.beginPath();
+    ctx.arc(x - 24, y - 12, 3.4, 0, Math.PI * 2);
+    ctx.arc(x + 24, y - 12, 3.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e9e2cf";
+    ctx.beginPath();
+    ctx.arc(x - 23, y - 13, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + 23, y - 13, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Хээний доторх цайвар завсарууд — хээ амьсгалтай харагдана
+    ctx.fillStyle = "rgba(240,234,218,0.85)";
+    ctx.beginPath();
+    ctx.ellipse(x - 13, peakY + 9, 5.5, 3, -0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(x + 13, peakY + 9, 5.5, 3, 0.55, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Хаалга
-  ctx.fillStyle = "#a04820";
-  ctx.fillRect(x - 9, y + 2, 18, 22);
-  ctx.strokeStyle = "#5a2810";
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x - 9, y + 2, 18, 22);
-  ctx.strokeStyle = "#c86830";
+  // ===== Тооно — улаан цагираг, хөх дотор, хигээстэй =====
+  const toonoY = peakY - 1;
+  ctx.fillStyle = NAVY_DEEP;
   ctx.beginPath();
-  ctx.moveTo(x, y + 2);
-  ctx.lineTo(x, y + 24);
+  ctx.ellipse(x, toonoY, 9, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(40,35,30,0.55)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(x, toonoY);
+    ctx.lineTo(x + Math.cos(a) * 8, toonoY + Math.sin(a) * 4.3);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = RED;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.ellipse(x, toonoY, 9, 5, 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.fillStyle = "#3a332c";
+  ctx.beginPath();
+  ctx.ellipse(x, toonoY, 2.2, 1.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // ===== Яндан — босоо хоолой (зөөлөн бараан) =====
+  ctx.fillStyle = "#3a3632";
+  ctx.fillRect(x - 2, toonoY - 16, 4, 14);
+  ctx.fillStyle = "rgba(255,250,235,0.25)";
+  ctx.fillRect(x - 2, toonoY - 16, 1.3, 14);
+
+  // ===== Хаалга — улаан хүрээ, алтан дотор, ногоон самбар =====
+  {
+    const dw = 22;
+    const dh = 23;
+    const dx = x - dw / 2;
+    const dy = y + 2;
+    ctx.fillStyle = RED;
+    ctx.fillRect(dx, dy, dw, dh);
+    ctx.strokeStyle = "rgba(90,40,24,0.7)";
+    ctx.lineWidth = 1.3;
+    ctx.strokeRect(dx, dy, dw, dh);
+    // Алтан дотор самбар
+    const ix = dx + 3;
+    const iy = dy + 2.5;
+    const iw = dw - 6;
+    const ih = dh - 5;
+    ctx.fillStyle = GOLD;
+    ctx.fillRect(ix, iy, iw, ih);
+    // Хоёр эгнээ × гурван ногоон босоо самбар
+    const slotW = (iw - 7) / 3;
+    const slotH = ih / 2 - 3.4;
+    for (let row = 0; row < 2; row++) {
+      const sy = iy + 1.8 + row * (ih / 2);
+      for (let col = 0; col < 3; col++) {
+        const sx = ix + 1.8 + col * (slotW + 1.7);
+        ctx.fillStyle = GREEN;
+        ctx.fillRect(sx, sy, slotW, slotH);
+        ctx.strokeStyle = "rgba(60,50,30,0.5)";
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(sx, sy, slotW, slotH);
+      }
+    }
+    // Дунд хөндлөн улаан хуваалт
+    ctx.fillStyle = RED;
+    ctx.fillRect(ix, iy + ih / 2 - 1, iw, 2);
+  }
 }
 
 export function drawTree(
@@ -1571,6 +1757,123 @@ export function drawThief(
   ctx.fill();
 }
 
+/**
+ * Side patches + pigtails — paint BEFORE the head disk so they peek
+ * from behind the circular silhouette (not over the face).
+ * `cx, hy` = head center.
+ */
+export function drawHerderHairBack(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  hy: number,
+  _flip = 1,
+  time = 0,
+): void {
+  const hair = "#1a1410";
+  const tie = "#e8e4dc";
+
+  // Side circular patches + small pigtails (absolute L/R; sit behind head disk)
+  for (const side of [-1, 1] as const) {
+    const sx = cx + side * 5.35;
+    const sy = hy - 2.6;
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 2.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    const sway = Math.sin(time * 5 + side * 1.7) * 0.45;
+    const midX = sx + side * 3.2;
+    const midY = sy + 0.8;
+    const tipX = sx + side * 5.8;
+    const tipY = sy + 2.4 + sway;
+
+    ctx.strokeStyle = hair;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(sx + side * 1.1, sy + 0.35);
+    ctx.quadraticCurveTo(midX, midY, tipX, tipY);
+    ctx.stroke();
+
+    // Soft tip bulb
+    ctx.fillStyle = hair;
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 1.45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Light hair tie near the patch
+    const tx = sx + side * 2.35;
+    ctx.strokeStyle = tie;
+    ctx.lineWidth = 1.35;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(tx, sy - 0.35);
+    ctx.lineTo(tx, sy + 1.55);
+    ctx.stroke();
+    // Tiny knot highlight
+    ctx.fillStyle = "#f4f0e8";
+    ctx.beginPath();
+    ctx.arc(tx, sy + 0.55, 0.55, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/**
+ * Central forehead tuft — paint AFTER the head disk (and face), so bangs
+ * sit on the forehead above the eyes.
+ */
+export function drawHerderHairFront(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  hy: number,
+  flip = 1,
+): void {
+  const hair = "#1a1410";
+  const hairDeep = "#0c0a08";
+  const fx = 0.5 * flip;
+  const bx = cx + fx;
+
+  // Front central tuft — short bangs high on forehead (clear of eyes ~hy-0.8)
+  ctx.fillStyle = hair;
+  ctx.beginPath();
+  ctx.moveTo(bx - 1.9, hy - 4.35);
+  ctx.quadraticCurveTo(bx - 0.7, hy - 5.55, bx, hy - 5.35);
+  ctx.quadraticCurveTo(bx + 0.7, hy - 5.55, bx + 1.9, hy - 4.35);
+  // Jagged bang tips — bottom edge stays above the eye area
+  ctx.lineTo(bx + 1.45, hy - 2.95);
+  ctx.lineTo(bx + 0.55, hy - 3.55);
+  ctx.lineTo(bx, hy - 2.7);
+  ctx.lineTo(bx - 0.55, hy - 3.55);
+  ctx.lineTo(bx - 1.45, hy - 2.95);
+  ctx.closePath();
+  ctx.fill();
+
+  // Depth lines in the bangs
+  ctx.strokeStyle = hairDeep;
+  ctx.lineWidth = 0.55;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(bx - 0.35, hy - 4.7);
+  ctx.lineTo(bx - 0.2, hy - 3.15);
+  ctx.moveTo(bx + 0.45, hy - 4.7);
+  ctx.lineTo(bx + 0.3, hy - 3.3);
+  ctx.stroke();
+}
+
+/**
+ * Full hair pass when no head disk is interleaved (back then front).
+ */
+export function drawHerderHair(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  hy: number,
+  flip = 1,
+  time = 0,
+): void {
+  drawHerderHairBack(ctx, cx, hy, flip, time);
+  drawHerderHairFront(ctx, cx, hy, flip);
+}
+
 export function drawPlayer(
   ctx: CanvasRenderingContext2D,
   player: Player,
@@ -1671,8 +1974,9 @@ export function drawPlayer(
   ctx.lineTo(x + 9, y + 1);
   ctx.stroke();
 
-  // Толгой
+  // Толгой — үсний ард хэсэг → бүрэн тойрог → нүүр → духны өрөв
   const hdy = y - 15 - bob;
+  drawHerderHairBack(ctx, x, hdy, flip, time);
   ctx.fillStyle = "#e0b890";
   ctx.beginPath();
   ctx.arc(x, hdy, 6, 0, Math.PI * 2);
@@ -1731,46 +2035,8 @@ export function drawPlayer(
   ctx.arc(x + fx + 3.6, hdy + 1.4, 1.4, 0, Math.PI * 2);
   ctx.fill();
 
-  // Монгол малгай — шовгор оройтой, эргэсэн хүрээтэй лоовууз
-  const my2 = hdy - 4;
-  // Шовгор орой
-  ctx.fillStyle = "#a82424";
-  ctx.beginPath();
-  ctx.moveTo(x - 6, my2 - 1);
-  ctx.quadraticCurveTo(x - 3, my2 - 7.5, x, my2 - 10);
-  ctx.quadraticCurveTo(x + 3, my2 - 7.5, x + 6, my2 - 1);
-  ctx.closePath();
-  ctx.fill();
-  // Оройн алтан шугам (жанжин малгайн хээ)
-  ctx.strokeStyle = "#e8c56a";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x - 3.5, my2 - 3);
-  ctx.quadraticCurveTo(x, my2 - 6.5, x + 3.5, my2 - 3);
-  ctx.stroke();
-  // Эргэсэн үслэг хүрээ
-  ctx.fillStyle = "#5a3c22";
-  roundRectPath(ctx, x - 7, my2 - 2, 14, 4.2, 2);
-  ctx.fill();
-  ctx.fillStyle = "#7a5636";
-  roundRectPath(ctx, x - 7, my2 - 2, 14, 1.8, 1);
-  ctx.fill();
-  // Оройн улаан залаа + алтан товгор
-  ctx.fillStyle = "#e8c56a";
-  ctx.beginPath();
-  ctx.arc(x, my2 - 10.5, 1.6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#d03030";
-  ctx.lineWidth = 1.4;
-  ctx.beginPath();
-  ctx.moveTo(x, my2 - 9.5);
-  ctx.quadraticCurveTo(
-    x - 3 * flip,
-    my2 - 7,
-    x - 4 * flip,
-    my2 - 3.5 + Math.sin(time * 6) * 0.6,
-  );
-  ctx.stroke();
+  // Духны өрөв — толгойн дээр, нүднээс дээш
+  drawHerderHairFront(ctx, x, hdy, flip);
 
   const ang = Math.atan2(player.facing.y, player.facing.x);
   const hasGun = player.gear.gun;
@@ -1977,22 +2243,36 @@ export function drawHorse(
     ctx.moveTo(bx + 8, by + 4);
     ctx.lineTo(x + 6, y - 2);
     ctx.stroke();
-    // Эсгий ачаа / гэр
-    ctx.fillStyle = "#e8e0d0";
+    // Эсгий ачаа / гэр — шинэ өнгөний схемтэй тааруулсан
+    ctx.fillStyle = "#f7f4ec";
     ctx.beginPath();
     ctx.ellipse(bx, by, 11, 8, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#d0c8b4";
+    ctx.fillStyle = "#f7f4ec";
     ctx.beginPath();
     ctx.moveTo(bx - 12, by - 2);
     ctx.quadraticCurveTo(bx, by - 16, bx + 12, by - 2);
     ctx.closePath();
     ctx.fill();
-    ctx.fillStyle = "#a82424";
+    // Хөх хээ
+    ctx.strokeStyle = "#1a3d7a";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(bx, by - 14);
+    ctx.quadraticCurveTo(bx - 4, by - 6, bx - 8, by - 2);
+    ctx.moveTo(bx, by - 14);
+    ctx.quadraticCurveTo(bx + 4, by - 6, bx + 8, by - 2);
+    ctx.stroke();
+    // Тооно улаан
+    ctx.fillStyle = "#d42028";
     ctx.beginPath();
     ctx.arc(bx, by - 12, 3.5, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#8a6238";
+    ctx.fillStyle = "#1a3d7a";
+    ctx.beginPath();
+    ctx.arc(bx, by - 12, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1a1a1e";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.ellipse(bx, by, 11, 8, 0, 0, Math.PI * 2);
@@ -2129,7 +2409,7 @@ export function drawDog(
   }
 }
 
-/** Нум сум / бууны сум */
+/** Нум сум / бууны сум / сүнсний сум */
 export function drawProjectile(
   ctx: CanvasRenderingContext2D,
   p: Projectile,
@@ -2141,7 +2421,30 @@ export function drawProjectile(
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(ang);
-  if (p.kind === "arrow") {
+  if (p.kind === "spiritBolt") {
+    ctx.shadowColor = "rgba(120,210,255,0.85)";
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = "rgba(160,230,255,0.55)";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.lineTo(4, 0);
+    ctx.stroke();
+    ctx.strokeStyle = "#9ee8ff";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-8, 0);
+    ctx.lineTo(6, 0);
+    ctx.stroke();
+    ctx.fillStyle = "#e8f8ff";
+    ctx.beginPath();
+    ctx.moveTo(9, 0);
+    ctx.lineTo(3, -3);
+    ctx.lineTo(3, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  } else if (p.kind === "arrow") {
     ctx.strokeStyle = "#c8a060";
     ctx.lineWidth = 2;
     ctx.beginPath();

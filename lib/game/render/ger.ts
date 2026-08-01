@@ -8,6 +8,7 @@ import {
   SHOP_ITEMS,
 } from "../ui";
 import { roundRectPath } from "../utils";
+import { drawHerderHairBack, drawHerderHairFront } from "./entities";
 import {
   drawPlayerWithSprites,
   type PlayerSpriteSet,
@@ -64,8 +65,9 @@ export function drawSleepingHerder(
   ctx.lineTo(9, 1);
   ctx.stroke();
 
-  // Толгой
+  // Толгой — ард үс → бүрэн тойрог → нүүр → духны өрөв
   const hy = -14 + breath * 0.1;
+  drawHerderHairBack(ctx, 0, hy, 1, time);
   ctx.fillStyle = "#e0b890";
   ctx.beginPath();
   ctx.arc(0, hy, 6, 0, Math.PI * 2);
@@ -81,21 +83,8 @@ export function drawSleepingHerder(
   ctx.quadraticCurveTo(2, hy + 0.8, 3.2, hy - 0.5);
   ctx.stroke();
 
-  // Монгол малгай
-  ctx.fillStyle = "#a82424";
-  ctx.beginPath();
-  ctx.moveTo(-6, hy - 3);
-  ctx.quadraticCurveTo(-3, hy - 9, 0, hy - 11);
-  ctx.quadraticCurveTo(3, hy - 9, 6, hy - 3);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#5a3c22";
-  roundRectPath(ctx, -7, hy - 4, 14, 3.8, 2);
-  ctx.fill();
-  ctx.fillStyle = "#e8c56a";
-  ctx.beginPath();
-  ctx.arc(0, hy - 11.5, 1.5, 0, Math.PI * 2);
-  ctx.fill();
+  // Духны өрөв — толгойн дээр
+  drawHerderHairFront(ctx, 0, hy, 1);
 
   ctx.restore();
 

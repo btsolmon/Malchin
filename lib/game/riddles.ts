@@ -3,6 +3,7 @@
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
 import { setMessage } from "./utils";
+import { sampleRockPos } from "./biomes";
 import type {
   GameState,
   RiddleHostKind,
@@ -10,7 +11,6 @@ import type {
   Vector2,
   World,
 } from "./types";
-import { WORLD_H, WORLD_W } from "./types";
 
 export interface RiddleReward {
   /** Зөвхөн оноо (state.score) */
@@ -260,15 +260,7 @@ export function assignRiddlesToWorld(
 
   world.rocks = [];
   for (let i = 0; i < rockCount; i++) {
-    let pos: Vector2 = { x: camp.x, y: camp.y };
-    let attempts = 0;
-    do {
-      pos = {
-        x: 100 + Math.random() * (WORLD_W - 200),
-        y: 100 + Math.random() * (WORLD_H - 200),
-      };
-      attempts++;
-    } while (Math.hypot(pos.x - camp.x, pos.y - camp.y) < 280 && attempts < 50);
+    const pos = sampleRockPos(camp);
 
     world.rocks.push({
       id: 7000 + i,

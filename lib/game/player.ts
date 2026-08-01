@@ -44,6 +44,7 @@ import {
   setMessage,
   wouldCloseFenceLoop,
 } from "./utils";
+import { applyRiverCurrent, isAtRiverFord, isInRiver } from "./biomes";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import { addSheep, loseSheep } from "./enemies";
@@ -206,7 +207,7 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
       setMessage(
         state,
         hay > 0
-          ? "Өвөл ирлээ! Бэлчээр хөлдөв. Тэжээгч + гал бэлд."
+          ? "Өвөл ирлээ! Бэлчээр хөлдөв. Тэвш + гал бэлд."
           : "Өвөл ирлээ! Өвсгүй — мал өлсөх, чи даарах аюултай!",
         5,
       );
@@ -254,6 +255,8 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
 
 export function updatePlayerMovement(state: GameState, dt: number): void {
   const { player, input, world } = state;
+  const inWater =
+    state.phase === "playing" && isInRiver(player.pos, player.radius * 0.2);
 
   // Dodge үед advanced combat өөрөө хөдөлгөнө
   if (state.combatDodgeActive) {
@@ -267,23 +270,17 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
       player.radius,
       world.height - player.radius,
     );
+    if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 0.85);
+    clampPlayerToWorld(player, world.width, world.height);
     collidePlayerWithGates(state);
     return;
   }
 
-  // Melee / parry үед хэвийн алхалт түгжинэ
+  // Melee / parry үед хэвийн алхалт түгжинэ — урсгал үргэлжилнэ
   if (state.combatMovementLocked) {
     player.moving = false;
-    player.pos.x = clamp(
-      player.pos.x,
-      player.radius,
-      world.width - player.radius,
-    );
-    player.pos.y = clamp(
-      player.pos.y,
-      player.radius,
-      world.height - player.radius,
-    );
+    if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 1);
+    clampPlayerToWorld(player, world.width, world.height);
     collidePlayerWithGates(state);
     return;
   }
@@ -297,23 +294,27 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
 
   if (player.moving) {
     player.facing = n;
-    const spd = player.speed * (player.gear.horse ? 1.5 : 1);
+    let spd = player.speed * (player.gear.horse ? 1.5 : 1);
+    // Усанд арай удаан (гатлах газар бараг хэвийн)
+    if (inWater) {
+      spd *= isAtRiverFord(player.pos.y) ? 0.88 : 0.68;
+    }
     player.pos.x += n.x * spd * dt;
     player.pos.y += n.y * spd * dt;
   }
 
-  player.pos.x = clamp(
-    player.pos.x,
-    player.radius,
-    world.width - player.radius,
-  );
-  player.pos.y = clamp(
-    player.pos.y,
-    player.radius,
-    world.height - player.radius,
-  );
-
+  if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 1);
+  clampPlayerToWorld(player, world.width, world.height);
   collidePlayerWithGates(state);
+}
+
+function clampPlayerToWorld(
+  player: Player,
+  width: number,
+  height: number,
+): void {
+  player.pos.x = clamp(player.pos.x, player.radius, width - player.radius);
+  player.pos.y = clamp(player.pos.y, player.radius, height - player.radius);
 }
 
 export function nearestAliveTree(player: Player, trees: Tree[]): Tree | null {
@@ -420,7 +421,7 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  // Тэжээгчид өвс хийх эсвэл мал гаргах/оруулах
+  // Тэвшид өвс хийх эсвэл мал гаргах/оруулах
   const feeder = world.feeder;
   if (dist(player.pos, feeder.pos) < feeder.radius + player.radius + 18) {
     // Орой/шөнө эсвэл мал гадаа — эхлээд гаргах/оруулах
@@ -828,7 +829,7 @@ export function updateSurvival(state: GameState, dt: number): void {
       player.vitals.maxHealth,
     );
     if (player.vitals.health <= 0) {
-      handlePlayerDeath(state, "Өлсөж үхлээ… Жимс түүж ид!");
+      handlePlayerDeath(state, "Өлсөж үхлээ…");
     }
   }
 
@@ -855,16 +856,8 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
 
   if (player.chopCooldown > 0) player.chopCooldown -= dt;
-  if (player.attackCooldown > 0) player.attackCooldown -= dt;
   if (player.eatCooldown > 0) player.eatCooldown -= dt;
-  if (player.attackAnim > 0) {
-    player.attackAnim -= dt;
-    if (player.attackAnim <= 0) {
-      player.attackAnim = 0;
-      player.attackMelee = false;
-    }
-  }
-  if (player.invuln > 0) player.invuln -= dt;
+  // attackCooldown / attackAnim / invuln — updateCombat (playing+spirit)
   if (player.sleepCooldown > 0) player.sleepCooldown -= dt;
 }
 
@@ -881,7 +874,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
     (flock.total * GRAZE_PER_ANIMAL_PER_DAY) / DAY_LENGTH_SEC;
 
   if (world.season === "winter") {
-    // Өвөл бэлчээр хөлдөнө — зөвхөн тэжээгч
+    // Өвөл бэлчээр хөлдөнө — зөвхөн тэвш
     world.pastureGrass = 0;
     const hadHay = feeder.hay > 0;
     const feed = Math.min(feeder.hay, needPerSec * dt);
@@ -892,7 +885,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
       flock.starveAcc = 0;
     } else if (feeder.hay <= 0) {
       if (hadHay && feed > 0) {
-        setMessage(state, "Тэжээгч хоосон — мал өлсөж байна!", 4);
+        setMessage(state, "Тэвш хоосон — мал өлсөж байна!", 4);
       }
       flock.hunger = clamp(flock.hunger - 4.5 * dt, 0, 100);
       if (flock.hunger < 35) {
@@ -909,7 +902,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
               "#ff9080",
             );
             sfx("baa");
-            setMessage(state, "Мал өлсөж үхэж байна! Тэжээгчид өвс хий!", 3.5);
+            setMessage(state, "Мал өлсөж үхэж байна! Тэвшид өвс хий!", 3.5);
           }
         }
       }
@@ -930,14 +923,14 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
         world.pastureGrass = 0;
         setMessage(
           state,
-          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (G) шинэ бэлчээр рүү нүү, эсвэл тэжээгч ашигла.",
+          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (G) шинэ бэлчээр рүү нүү, эсвэл тэвш ашигла.",
           5,
         );
         sfx("alert");
       }
       flock.starveAcc = 0;
     } else {
-      // Өвсгүй бэлчээр — тэжээгч эсвэл өлсөнө
+      // Өвсгүй бэлчээр — тэвш эсвэл өлсөнө
       if (feeder.hay > 0) {
         const snack = Math.min(feeder.hay, needPerSec * dt);
         feeder.hay -= snack;
@@ -961,7 +954,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
       }
     }
   } else {
-    // Хашаанд — тэжээгчээс бага зэрэг, бэлчээр идэхгүй
+    // Хашаанд — тэвшээс бага зэрэг, бэлчээр идэхгүй
     if (feeder.hay > 0) {
       const snack = Math.min(feeder.hay, needPerSec * 0.5 * dt);
       feeder.hay -= snack;
@@ -1012,7 +1005,7 @@ export function tryMigrateGer(state: GameState): void {
     setMessage(
       state,
       world.season === "winter"
-        ? "Шинэ бууц! Өвөл — тэжээгч бэлд."
+        ? "Шинэ бууц! Өвөл — тэвш бэлд."
         : `Шинэ бэлчээр! Өвс ${Math.floor(world.pastureGrass)}. Хашаа дахин босго.`,
       4.5,
     );
@@ -1029,7 +1022,7 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (world.flockOut) {
-    setMessage(state, "Эхлээд малыг хашаанд оруул (тэжээгчид E), дараа нь G.", 3);
+    setMessage(state, "Эхлээд малыг хашаанд оруул (тэвш E), дараа нь G.", 3);
     return;
   }
   const ger = gerDoorPos(world);

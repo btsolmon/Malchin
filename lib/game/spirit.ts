@@ -39,7 +39,8 @@ export function handlePlayerDeath(state: GameState, reason: string): void {
   setMessage(state, reason, 99);
 }
 
-export function enterSpiritWorld(state: GameState): void {
+function stashRealWorldThreats(state: GameState): void {
+  if (state.phase === "spirit") return;
   state.spiritReturnPos = { ...state.player.pos };
   state.spiritSavedWolves = state.world.wolves.map(cloneWolf);
   state.spiritSavedThieves = state.world.thieves.map((t) => ({
@@ -49,17 +50,44 @@ export function enterSpiritWorld(state: GameState): void {
     escapeTarget: { ...t.escapeTarget },
     attackDirection: { ...t.attackDirection },
   }));
-
-  // Бодит дэлхийн дайснуудыг түр арилгана — цаг зогссон, малд аюулгүй
   state.world.wolves = [];
   state.world.thieves = [];
+}
 
+function resetPlayerCombatForSpirit(state: GameState): void {
+  const player = state.player;
+  player.stamina = player.maxStamina;
+  player.staminaRegenDelay = 0;
+  player.combatPhase = "idle";
+  player.combatTimer = 0;
+  player.attackCooldown = 0;
+  player.attackHitDone = false;
+  player.attackAnim = 0;
+  player.attackMelee = false;
+  player.parryPhase = "idle";
+  player.parryTimer = 0;
+  player.parryArmed = false;
+  player.dodgePhase = "idle";
+  player.dodgeTimer = 0;
+  state.combatMovementLocked = false;
+  state.combatDodgeActive = false;
+}
+
+/** Ердийн сүнсний орон — чоно цэвэрлэх */
+export function enterSpiritWorld(state: GameState): void {
+  if (state.phase === "spirit" && state.spiritMode === "purge") return;
+
+  stashRealWorldThreats(state);
+  state.world.wolves = [];
+  state.world.thieves = [];
   spawnSpiritEnemies(state);
 
   state.phase = "spirit";
+  state.spiritMode = "purge";
   state.spiritTransition = 1.2;
   state.spiritCleared = false;
   state.world.elder.eyeMode = "spirit";
+  resetPlayerCombatForSpirit(state);
   sfx("howl");
   setMessage(
     state,
@@ -68,8 +96,56 @@ export function enterSpiritWorld(state: GameState): void {
   );
 }
 
+/**
+ * Шулмасын сүнсний орон — Төмөр шулмас / туслахууд энд л байдаг.
+ * Бодит ертөнцийн чоно/хулгайчийг түр хадгална, ердийн сүнсний чоно spawn хийхгүй.
+ */
+export function enterShulmasSpirit(state: GameState): void {
+  if (state.phase === "spirit" && state.spiritMode === "shulmas") return;
+
+  stashRealWorldThreats(state);
+  state.world.wolves = [];
+  state.world.thieves = [];
+
+  state.phase = "spirit";
+  state.spiritMode = "shulmas";
+  state.spiritTransition = 1.15;
+  state.spiritCleared = false;
+  state.world.elder.eyeMode = "spirit";
+
+  // Тулаанд бэлэн: тэнхэл нөхөгдөнө, зэвсэггүй ч сүнсний сум (K) ажиллана
+  resetPlayerCombatForSpirit(state);
+
+  sfx("howl");
+  setMessage(
+    state,
+    "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум.",
+    4.5,
+  );
+}
+
 export function exitSpiritWorld(state: GameState, msg?: string): void {
   if (state.phase !== "spirit" && !state.spiritReturnPos) return;
+
+  const tumur = state.world.tumurShulmas;
+  // Boss тулаан дуусаагүй бол сүнснээс гарахыг хориглоно
+  if (
+    state.spiritMode === "shulmas" &&
+    tumur.active &&
+    !tumur.defeated &&
+    tumur.phase !== "death"
+  ) {
+    setMessage(state, "Тулаан дуусах хүртэл сүнсний оронгоос гарч чадахгүй.", 2.4);
+    sfx("move");
+    return;
+  }
+
+  // Тулаан дууссан бол ареныйг хаана
+  if (tumur.active && tumur.defeated) {
+    tumur.active = false;
+    tumur.phase = "sealed";
+    tumur.phaseTimer = 0;
+  }
 
   state.world.wolves = (state.spiritSavedWolves ?? []).map(cloneWolf);
   state.world.thieves = (state.spiritSavedThieves ?? []).map((t) => ({
@@ -83,19 +159,34 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
   state.spiritSavedThieves = null;
 
   if (state.spiritReturnPos) {
-    state.player.pos = { ...state.spiritReturnPos };
+    // Шулмасын ареныйн дараа хаалганы дэргэд буцаана
+    if (state.spiritMode === "shulmas" && tumur.defeated) {
+      state.player.pos = {
+        x: tumur.gatePos.x,
+        y: tumur.gatePos.y + 62,
+      };
+    } else {
+      state.player.pos = { ...state.spiritReturnPos };
+    }
   }
   state.spiritReturnPos = null;
+  const wasCleared = state.spiritCleared;
+  const wasShulmas = state.spiritMode === "shulmas";
   state.spiritCleared = false;
+  state.spiritMode = "purge";
   state.spiritTransition = 0.85;
   state.phase = "playing";
   state.world.elder.eyeMode = "idle";
   setMessage(
     state,
     msg ??
-      (state.spiritCleared
-        ? "Сүнсний орноос буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ."
-        : "Бэлтгэл хийгээд дахин ир."),
+      (wasShulmas
+        ? tumur.defeated
+          ? "Шулмасын орноос буцлаа. Бодит ертөнц сэргэв."
+          : "Шулмасын сүнсний орноос буцлаа."
+        : wasCleared
+          ? "Сүнсний орноос буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ."
+          : "Бэлтгэл хийгээд дахин ир."),
     4,
   );
   sfx("select");
@@ -157,6 +248,31 @@ export function updateSpiritWorld(state: GameState, dt: number): void {
     state.spiritTransition = Math.max(0, state.spiritTransition - dt);
   }
 
+  // Шулмасын горимд «цэвэрлэсэн»-ийг boss/зам тодорхойлно
+  if (state.spiritMode === "shulmas") {
+    const tumur = state.world.tumurShulmas;
+    const route = state.world.firstRoute;
+    if (tumur.active) {
+      state.spiritCleared = tumur.defeated;
+      return;
+    }
+    const aliveHelpers = route.enemies.filter((e) => e.alive).length;
+    if (
+      !state.spiritCleared &&
+      aliveHelpers === 0 &&
+      (!route.bossStarted || route.bossDefeated)
+    ) {
+      state.spiritCleared = true;
+      setMessage(
+        state,
+        "Шулмасын туслахууд унав. E — бодит ертөнц рүү буцах · хаалга руу оч.",
+        5,
+      );
+      sfx("levelup");
+    }
+    return;
+  }
+
   const alive = state.world.wolves.filter((w) => w.alive);
   if (!state.spiritCleared && alive.length === 0) {
     state.spiritCleared = true;
@@ -174,9 +290,12 @@ export function drawSpiritOverlay(
 ): void {
   const inSpirit = state.phase === "spirit";
   const t = state.spiritTransition;
+  const shulmas = inSpirit && state.spiritMode === "shulmas";
 
   if (inSpirit) {
-    ctx.fillStyle = "rgba(20, 40, 90, 0.38)";
+    ctx.fillStyle = shulmas
+      ? "rgba(55, 12, 28, 0.42)"
+      : "rgba(20, 40, 90, 0.38)";
     ctx.fillRect(0, 0, viewW, viewH);
     const g = ctx.createRadialGradient(
       viewW / 2,
@@ -186,22 +305,33 @@ export function drawSpiritOverlay(
       viewH / 2,
       Math.max(viewW, viewH) * 0.7,
     );
-    g.addColorStop(0, "rgba(80,140,220,0.05)");
-    g.addColorStop(1, "rgba(8,16,48,0.45)");
+    if (shulmas) {
+      g.addColorStop(0, "rgba(180,40,50,0.06)");
+      g.addColorStop(1, "rgba(28,4,12,0.5)");
+    } else {
+      g.addColorStop(0, "rgba(80,140,220,0.05)");
+      g.addColorStop(1, "rgba(8,16,48,0.45)");
+    }
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, viewW, viewH);
   }
 
   if (t > 0) {
     const a = Math.min(1, t > 0.6 ? (1.2 - t) / 0.4 : t / 0.6);
-    ctx.fillStyle = `rgba(40, 90, 180, ${0.55 * a})`;
+    ctx.fillStyle = shulmas
+      ? `rgba(120, 20, 40, ${0.55 * a})`
+      : `rgba(40, 90, 180, ${0.55 * a})`;
     ctx.fillRect(0, 0, viewW, viewH);
     if (a > 0.35) {
       ctx.textAlign = "center";
       ctx.fillStyle = `rgba(200,230,255,${a})`;
       ctx.font = "bold 28px system-ui, sans-serif";
       ctx.fillText(
-        inSpirit || t > 0.5 ? "СҮНСНИЙ ОРОН" : "БОДИТ ЕРТӨНЦ",
+        inSpirit || t > 0.5
+          ? shulmas
+            ? "ШУЛМАСЫН СҮНСНИЙ ОРОН"
+            : "СҮНСНИЙ ОРОН"
+          : "БОДИТ ЕРТӨНЦ",
         viewW / 2,
         viewH / 2,
       );

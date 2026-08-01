@@ -21,6 +21,7 @@ import {
   triggerHitStop,
 } from "./effects";
 import { clamp, dist, normalize, setMessage } from "./utils";
+import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
 
 export type TumurShulmasSpriteName =
   | "idle"
@@ -293,7 +294,10 @@ function preparePlayerForArena(state: GameState): void {
   state.player.meleePhase = "idle";
   state.player.meleeTimer = 0;
   state.player.meleeHitDone = false;
+  state.player.attackCooldown = 0;
+  state.player.attackAnim = 0;
   state.player.attackMelee = false;
+  state.player.attackHitDone = false;
   state.player.dodgePhase = "idle";
   state.player.dodgeTimer = 0;
   state.player.parryPhase = "idle";
@@ -359,7 +363,13 @@ function damagePlayer(
 ): boolean {
   const player = state.player;
   const encounter = state.world.tumurShulmas;
-  if (player.invuln > 0 || state.phase !== "playing") return false;
+  // Boss зөвхөн сүнсний оронд байдаг — playing шалгалт тулааныг унтраадаг байсан
+  if (
+    player.invuln > 0 ||
+    (state.phase !== "playing" && state.phase !== "spirit")
+  ) {
+    return false;
+  }
 
   const healthBefore = player.vitals.health;
   damagePastoralPlayer(state, damage);
@@ -715,7 +725,9 @@ export function updateTumurShulmasEncounter(
   dt: number,
 ): void {
   const encounter = state.world.tumurShulmas;
-  if (!encounter.active || state.phase !== "playing") return;
+  // Зөвхөн сүнсний оронд идэвхтэй
+  if (!encounter.active || state.phase !== "spirit") return;
+  if (state.spiritMode !== "shulmas") return;
 
   confineToArena(
     state.player.pos,
@@ -733,7 +745,7 @@ export function updateTumurShulmasEncounter(
     encounter.needles = [];
   } else {
     updateNeedles(state, dt);
-    if (state.phase !== "playing") return;
+    if (state.phase !== "spirit") return;
   }
   encounter.flash = Math.max(0, encounter.flash - dt * 4.5);
   encounter.attackCooldown = Math.max(0, encounter.attackCooldown - dt);
@@ -753,11 +765,11 @@ export function updateTumurShulmasEncounter(
       state.fx.shake = Math.max(state.fx.shake, 14);
       startCameraShake(state, 0.48, 12);
       state.score += 1200;
-      state.phase = "won";
+      state.spiritCleared = true;
       setMessage(
         state,
-        "Наян есөн шидтэй Төмөр Шулмасын тамир барагдаж, гол тасрав..",
-        99,
+        "Наян есөн шидтэй Төмөр Шулмасын тамир барагдаж, гол тасрав. E — бодит ертөнц рүү буцах.",
+        8,
       );
     }
     return;
@@ -905,13 +917,7 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
       encounter.active = false;
       encounter.phase = "sealed";
       encounter.phaseTimer = 0;
-      state.player.pos = {
-        x: encounter.gatePos.x,
-        y: encounter.gatePos.y + 62,
-      };
-      state.player.facing = { x: 0, y: -1 };
-      setMessage(state, "Төмөр шулмасын ордноос буцлаа.", 2.5);
-      sfx("move");
+      exitSpiritWorld(state, "Төмөр шулмасын ордноос буцлаа.");
       return true;
     }
     return false;
@@ -933,6 +939,7 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
     return true;
   }
 
+  enterShulmasSpirit(state);
   encounter.active = true;
   resetEncounter(encounter);
   resetBossFeedback(state);
@@ -943,7 +950,7 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
     size: 3.3,
   });
   state.fx.shake = Math.max(state.fx.shake, 11);
-  setMessage(state, "Хар төмөр хаалга нээгдэж, boss тулаан эхэллээ.", 4);
+  setMessage(state, "Сүнсний оронд Хар төмөр хаалга нээгдэж, boss тулаан эхэллээ.", 4);
   sfx("levelup");
   return true;
 }
@@ -958,12 +965,11 @@ export function forceStartTumurShulmasBoss(state: GameState): void {
     return;
   }
 
-  // Тулаанд шаардлагатай нөхцөлийг cheat-ээр бэлдэнэ
   encounter.unlocked = true;
   state.player.hasSkySword = true;
   state.player.weapon = "skySword";
-  if (state.phase === "spirit") state.phase = "playing";
 
+  enterShulmasSpirit(state);
   encounter.active = true;
   resetEncounter(encounter);
   resetBossFeedback(state);
@@ -974,7 +980,7 @@ export function forceStartTumurShulmasBoss(state: GameState): void {
     size: 3.3,
   });
   state.fx.shake = Math.max(state.fx.shake, 11);
-  setMessage(state, "5 · Төмөр шулмасын тулаан эхэллээ!", 3.5);
+  setMessage(state, "5 · Шулмасын сүнсний оронд тулаан эхэллээ!", 3.5);
   sfx("levelup");
 }
 

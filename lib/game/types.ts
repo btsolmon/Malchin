@@ -86,7 +86,7 @@ export interface Vitals {
 export interface Inventory {
   wood: number;
   berries: number;
-  /** Тэжээгчид хийх хадгалсан өвс */
+  /** Тэвшид хийх хадгалсан өвс */
   hay: number;
   /** Хонь / тэмээний ноос (хоньны ноос зөвхөн зун) */
   wool: number;
@@ -245,7 +245,7 @@ export interface Flock {
   starveAcc: number;
 }
 
-/** Бэлчээрийн дэргэдэх өвсний тэжээгч */
+/** Бэлчээрийн дэргэдэх өвсний тэвш */
 export interface Feeder {
   pos: Vector2;
   hay: number;
@@ -345,13 +345,13 @@ export interface Dog {
   flash: number;
 }
 
-/** Нум сум, бууны сум */
+/** Нум сум, бууны сум, сүнсний сум */
 export interface Projectile {
   pos: Vector2;
   vel: Vector2;
   dmg: number;
   life: number;
-  kind: "arrow" | "bullet";
+  kind: "arrow" | "bullet" | "spiritBolt";
 }
 
 export type RouteEnemyKind =
@@ -705,6 +705,12 @@ export interface GameState {
   spiritTransition: number;
   spiritReturnPos: Vector2 | null;
   spiritCleared: boolean;
+  /**
+   * Сүнсний горим:
+   * - purge — ердийн сүнсний дайснууд
+   * - shulmas — Төмөр шулмас / туслах нарын орон
+   */
+  spiritMode: "purge" | "shulmas";
   /** Сүнс рүү орохоос өмнөх дайснууд */
   spiritSavedWolves: Wolf[] | null;
   spiritSavedThieves: Thief[] | null;
@@ -716,8 +722,9 @@ export interface GameState {
 
 export const VIEW_W = 960;
 export const VIEW_H = 540;
-export const WORLD_W = 2400;
-export const WORLD_H = 1600;
+/** Томруулсан газрын хэмжээ (~1.5×) — бүс нутгийн биомтой */
+export const WORLD_W = 3600;
+export const WORLD_H = 2400;
 export const START_SHEEP = 2;
 export const START_GOATS = 2;
 export const MAX_VISUAL_SHEEP = 36;
@@ -806,7 +813,7 @@ export const MAX_HAY = 150;
 export const MAX_PASTURE_GRASS = 100;
 /** Нэг хадалтад зарцуулах бэлчээрийн өвс */
 export const HAY_GRASS_COST = 6;
-/** Нэг хонинд өдөрт хэрэгтэй өвс (өвөл тэжээгч) */
+/** Нэг хонинд өдөрт хэрэгтэй өвс (өвөл тэвш) */
 export const HAY_PER_SHEEP_PER_DAY = 0.18;
 /** Бэлчээрт 1 мал 1 өдөрт идэх өвс */
 export const GRAZE_PER_ANIMAL_PER_DAY = 0.85;

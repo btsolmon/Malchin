@@ -27,6 +27,10 @@ function routeOf(state: GameState): FirstRoute {
   return state.world.firstRoute;
 }
 
+function inShulmasSpirit(state: GameState): boolean {
+  return state.phase === "spirit" && state.spiritMode === "shulmas";
+}
+
 interface RouteEnemyConfig {
   hp: number;
   posture: number;
@@ -106,11 +110,11 @@ const ROUTE_ENEMY_LABELS: Record<RouteEnemyKind, string> = {
 };
 
 const ROUTE_ENEMY_COLORS: Record<RouteEnemyKind, string> = {
-  talynHaragch: "#7b4a38",
-  shulmasynHuu: "#6f6258",
-  shidetHarvaach: "#6f4b91",
-  shulmasynZarts: "#4d3a32",
-  shulmasynBaatar: "#3a2738",
+  talynHaragch: "#5a3a2e",
+  shulmasynHuu: "#4a3834",
+  shidetHarvaach: "#3d2a55",
+  shulmasynZarts: "#3a322c",
+  shulmasynBaatar: "#2a1c28",
 };
 
 function createEnemy(
@@ -298,7 +302,7 @@ function damagePlayerFromRouteEnemy(
   knockback: number,
 ): boolean {
   const player = state.player;
-  if (player.invuln > 0 || state.phase !== "playing") return false;
+  if (player.invuln > 0 || !inShulmasSpirit(state)) return false;
 
   const healthBefore = player.vitals.health;
   damagePastoralPlayer(state, damage);
@@ -1194,7 +1198,8 @@ export function updateFirstRoute(state: GameState, dt: number): void {
   if (!route.active) return;
 
   completeRouteIfCleared(state);
-  if (state.phase !== "playing") return;
+  // Туслахууд зөвхөн шулмасын сүнсний оронд хөдөлнө
+  if (state.phase !== "spirit" || state.spiritMode !== "shulmas") return;
 
   if (
     !route.introductionShown &&
@@ -1203,13 +1208,13 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     route.introductionShown = true;
     setMessage(
       state,
-      "Эхний зам: 4 төрлийн дайсныг давж, хараалт хаалгад хүр.",
+      "Шулмасын сүнсний зам: 4 төрлийн туслахыг давж, хараалт хаалгад хүр.",
       4,
     );
   }
 
   updateRouteBolts(state, dt);
-  if (state.phase !== "playing") return;
+  if (state.phase !== "spirit") return;
   for (const enemy of route.enemies) {
     if (!enemy.alive) {
       enemy.deathTimer = Math.max(0, enemy.deathTimer - dt);
@@ -1239,7 +1244,7 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       enemy.engaged = true;
       updateMiniBoss(state, enemy, dt);
       resolvePlayerBodyContact(state, enemy);
-      if (state.phase !== "playing") return;
+      if (!inShulmasSpirit(state)) return;
       continue;
     }
 
@@ -1295,7 +1300,7 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       updateMeleeRouteEnemy(state, enemy, dt);
     }
     resolvePlayerBodyContact(state, enemy);
-    if (state.phase !== "playing") return;
+    if (!inShulmasSpirit(state)) return;
   }
 
   completeRouteIfCleared(state);
@@ -1307,6 +1312,12 @@ export function tryInteractFirstRoute(state: GameState): boolean {
 
   const route = routeOf(state);
   const encounter = state.world.tumurShulmas;
+
+  // Сүнсний ангал хасагдсан — бодит ертөнцөд хаалга байхгүй
+  if (state.phase === "playing") return false;
+
+  if (!inShulmasSpirit(state)) return false;
+
   const nearFinalGate =
     !encounter.active &&
     dist(state.player.pos, encounter.gatePos) <=
@@ -1520,132 +1531,442 @@ function drawRouteTelegraph(
   ctx.restore();
 }
 
+/** Талын харагч — нарийхан тал нутгийн сүнс: урт гар, хоосон нүд, өөдөс нөмрөг */
+function drawStalkerEnemy(
+  ctx: CanvasRenderingContext2D,
+  enemy: RouteEnemy,
+  flash: boolean,
+  time: number,
+): void {
+  const sway = Math.sin(time * 3.2) * 0.04;
+  ctx.rotate(sway);
+
+  // Өөдөс нөмрөгийн сүүдэр
+  ctx.fillStyle = flash ? "rgba(246,238,227,0.35)" : "rgba(28,18,14,0.55)";
+  ctx.beginPath();
+  ctx.moveTo(-18, -8);
+  ctx.quadraticCurveTo(-28, 4, -16, 12);
+  ctx.lineTo(-6, 10);
+  ctx.quadraticCurveTo(-14, 0, -8, -10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(10, -6);
+  ctx.quadraticCurveTo(26, 6, 18, 14);
+  ctx.lineTo(6, 10);
+  ctx.quadraticCurveTo(14, 2, 4, -8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Нарийхан бие
+  const bodyGrad = ctx.createLinearGradient(0, -36, 0, 10);
+  bodyGrad.addColorStop(0, flash ? "#f0e6d8" : "#6a4538");
+  bodyGrad.addColorStop(0.55, flash ? "#e8dcc8" : "#4a3028");
+  bodyGrad.addColorStop(1, flash ? "#d8c8b0" : "#2e1c18");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.moveTo(-7, 8);
+  ctx.lineTo(-9, -18);
+  ctx.quadraticCurveTo(-6, -38, 0, -40);
+  ctx.quadraticCurveTo(6, -38, 9, -18);
+  ctx.lineTo(7, 8);
+  ctx.quadraticCurveTo(0, 12, -7, 8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Урт гар / сарвуу
+  ctx.strokeStyle = flash ? "#fff4e8" : "#3a241c";
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-6, -22);
+  ctx.quadraticCurveTo(-18, -8, -22, 6);
+  ctx.moveTo(6, -20);
+  ctx.quadraticCurveTo(16, -6, 20, 4);
+  ctx.stroke();
+  ctx.fillStyle = flash ? "#ffe8d0" : "#5a3828";
+  for (const claw of [
+    [-24, 8],
+    [-20, 10],
+    [-22, 5],
+    [22, 6],
+    [18, 9],
+    [24, 4],
+  ] as const) {
+    ctx.beginPath();
+    ctx.moveTo(claw[0], claw[1]);
+    ctx.lineTo(claw[0] + (claw[0] < 0 ? -5 : 5), claw[1] + 4);
+    ctx.lineTo(claw[0] + (claw[0] < 0 ? 2 : -2), claw[1] + 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Толгой — урт, хоосон нүд
+  ctx.fillStyle = flash ? "#f6eee3" : "#7a5544";
+  ctx.beginPath();
+  ctx.ellipse(0, -46, 7, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = flash ? "#2a1810" : "#120c0a";
+  ctx.beginPath();
+  ctx.ellipse(-2.5, -48, 2.2, 3.2, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(3, -48, 2.2, 3.2, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  const eyePulse = 0.55 + Math.sin(time * 7) * 0.35;
+  ctx.fillStyle = `rgba(255,200,90,${eyePulse})`;
+  ctx.shadowColor = "rgba(255,180,60,0.8)";
+  ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.arc(-2.5, -48, 1.2, 0, Math.PI * 2);
+  ctx.arc(3, -48, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Жад
+  ctx.strokeStyle = flash ? "#ffffff" : "#6a5040";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(8, -28);
+  ctx.lineTo(26, 4);
+  ctx.stroke();
+  ctx.fillStyle = flash ? "#fff" : "#c8b878";
+  ctx.beginPath();
+  ctx.moveTo(24, 0);
+  ctx.lineTo(32, 8);
+  ctx.lineTo(22, 7);
+  ctx.closePath();
+  ctx.fill();
+
+  if (enemy.phase === "windup") {
+    ctx.strokeStyle = `rgba(242,196,90,${0.45 + Math.sin(time * 12) * 0.15})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, -18, 38, -0.7, 0.7);
+    ctx.stroke();
+  }
+}
+
+/** Шулмасын зарц — төмөр хуягт том зарц, хүнд чулуун / төмөр алх */
+function drawBruteEnemy(
+  ctx: CanvasRenderingContext2D,
+  enemy: RouteEnemy,
+  flash: boolean,
+  time: number,
+): void {
+  // Бөөн сүүдэр
+  ctx.fillStyle = "rgba(10,8,6,0.4)";
+  ctx.beginPath();
+  ctx.ellipse(0, 10, 26, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Хүнд бие — төмөр хавтан
+  const plate = ctx.createLinearGradient(-20, -40, 20, 8);
+  plate.addColorStop(0, flash ? "#f0e8dc" : "#5a5048");
+  plate.addColorStop(0.4, flash ? "#e0d4c4" : "#3a322c");
+  plate.addColorStop(1, flash ? "#c8b8a4" : "#1e1814");
+  ctx.fillStyle = plate;
+  ctx.beginPath();
+  ctx.moveTo(-20, 8);
+  ctx.lineTo(-22, -12);
+  ctx.lineTo(-16, -36);
+  ctx.lineTo(16, -36);
+  ctx.lineTo(22, -12);
+  ctx.lineTo(20, 8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Хуягны хавтан
+  ctx.strokeStyle = flash ? "rgba(255,255,255,0.5)" : "rgba(90,80,70,0.7)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-14, -28);
+  ctx.lineTo(14, -28);
+  ctx.moveTo(-16, -16);
+  ctx.lineTo(16, -16);
+  ctx.moveTo(-18, -4);
+  ctx.lineTo(18, -4);
+  ctx.stroke();
+  ctx.fillStyle = flash ? "#d8d0c8" : "#2a2420";
+  ctx.beginPath();
+  ctx.moveTo(-6, -32);
+  ctx.lineTo(0, -20);
+  ctx.lineTo(6, -32);
+  ctx.closePath();
+  ctx.fill();
+
+  // Том мөр
+  ctx.fillStyle = flash ? "#e8dcc8" : "#4a4038";
+  ctx.beginPath();
+  ctx.ellipse(-18, -28, 8, 6, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(18, -28, 8, 6, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Толгой — дуулга
+  ctx.fillStyle = flash ? "#f6eee3" : "#6a5a4e";
+  ctx.beginPath();
+  ctx.arc(0, -46, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = flash ? "#fff" : "#2a221c";
+  ctx.beginPath();
+  ctx.moveTo(-12, -48);
+  ctx.lineTo(-8, -60);
+  ctx.lineTo(0, -54);
+  ctx.lineTo(8, -60);
+  ctx.lineTo(12, -48);
+  ctx.lineTo(10, -42);
+  ctx.lineTo(-10, -42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = flash ? "#ff8080" : "#c04040";
+  ctx.beginPath();
+  ctx.arc(-3.5, -46, 1.8, 0, Math.PI * 2);
+  ctx.arc(4, -46, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Хүнд алх
+  ctx.save();
+  ctx.translate(16, -22);
+  ctx.rotate(enemy.phase === "windup" ? -0.55 : 0.25);
+  ctx.strokeStyle = flash ? "#ffffff" : "#4a3830";
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(8, 28);
+  ctx.stroke();
+  ctx.fillStyle = flash ? "#e8e0d8" : "#5a5048";
+  ctx.beginPath();
+  ctx.moveTo(0, 24);
+  ctx.lineTo(22, 20);
+  ctx.lineTo(24, 36);
+  ctx.lineTo(-2, 38);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = flash ? "#fff" : "#3a3028";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  if (enemy.phase === "windup") {
+    ctx.strokeStyle = `rgba(242,196,90,${0.45 + Math.sin(time * 12) * 0.15})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, -12, 48, -0.7, 0.7);
+    ctx.stroke();
+  }
+}
+
 function drawBasicRouteEnemy(
   ctx: CanvasRenderingContext2D,
   enemy: RouteEnemy,
   flash: boolean,
   time: number,
 ): void {
-  const baseColor = flash
-    ? "#f6eee3"
-    : ROUTE_ENEMY_COLORS[enemy.kind];
-  const heavy = enemy.kind === "shulmasynZarts";
-  const bodyWidth = heavy ? 19 : 14;
-  const bodyTop = heavy ? -34 : -27;
-
-  ctx.fillStyle = baseColor;
-  ctx.beginPath();
-  ctx.moveTo(-bodyWidth, 8);
-  ctx.lineTo(-bodyWidth + 4, bodyTop);
-  ctx.lineTo(bodyWidth - 4, bodyTop);
-  ctx.lineTo(bodyWidth, 8);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = flash ? "#fff7eb" : heavy ? "#b17d5d" : "#b98763";
-  ctx.beginPath();
-  ctx.arc(0, bodyTop - 10, heavy ? 11 : 8, 0, Math.PI * 2);
-  ctx.fill();
-
-  if (enemy.kind === "talynHaragch") {
-    ctx.strokeStyle = flash ? "#fff" : "#8b663f";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(7, -20);
-    ctx.lineTo(24, 8);
-    ctx.stroke();
-    ctx.fillStyle = "#c7b075";
-    ctx.beginPath();
-    ctx.moveTo(22, 5);
-    ctx.lineTo(28, 12);
-    ctx.lineTo(20, 11);
-    ctx.closePath();
-    ctx.fill();
+  if (enemy.kind === "shulmasynZarts") {
+    drawBruteEnemy(ctx, enemy, flash, time);
   } else {
-    ctx.fillStyle = flash ? "#ffffff" : "#66564d";
-    ctx.fillRect(-17, -22, 34, 8);
-    ctx.strokeStyle = flash ? "#ffffff" : "#5f4635";
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.moveTo(12, -25);
-    ctx.lineTo(27, 8);
-    ctx.stroke();
-    ctx.fillStyle = "#7a6a58";
-    ctx.fillRect(22, -1, 13, 12);
-  }
-
-  if (enemy.phase === "windup") {
-    ctx.strokeStyle = `rgba(242,196,90,${0.45 + Math.sin(time * 12) * 0.15})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, -12, heavy ? 48 : 38, -0.7, 0.7);
-    ctx.stroke();
+    drawStalkerEnemy(ctx, enemy, flash, time);
   }
 }
 
+/** Шулмасын хүү — бөхийж гүйдэг, эрүү, өргөс, довтолгооны мөр */
 function drawRushEnemy(
   ctx: CanvasRenderingContext2D,
   enemy: RouteEnemy,
   flash: boolean,
 ): void {
   const rushing = enemy.phase === "attacking";
-  if (rushing) ctx.rotate(-0.18);
-  ctx.fillStyle = flash ? "#f6eee3" : ROUTE_ENEMY_COLORS.shulmasynHuu;
+  if (rushing) {
+    // Хөдөлгөөний мөр
+    ctx.fillStyle = flash
+      ? "rgba(246,238,227,0.25)"
+      : "rgba(80,40,35,0.35)";
+    for (let i = 1; i <= 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(-10 - i * 8, -6 + i, 10 - i, 14 - i * 2, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.rotate(-0.22);
+  }
+
+  // Бөхийсон бие
+  const hide = ctx.createRadialGradient(-2, -10, 4, 0, -8, 22);
+  hide.addColorStop(0, flash ? "#f0e4d4" : "#6a4a40");
+  hide.addColorStop(0.6, flash ? "#d8c4b0" : "#3a2824");
+  hide.addColorStop(1, flash ? "#c0a890" : "#1a100e");
+  ctx.fillStyle = hide;
   ctx.beginPath();
-  ctx.ellipse(0, -8, 16, 22, 0, 0, Math.PI * 2);
+  ctx.ellipse(2, -6, 15, 18, -0.35, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = flash ? "#ffffff" : "#94877a";
+
+  // Нурууны өргөс
+  ctx.fillStyle = flash ? "#fff0e0" : "#2a1814";
+  for (const [sx, sy, sh] of [
+    [-4, -22, 10],
+    [2, -26, 14],
+    [8, -20, 9],
+    [12, -12, 7],
+  ] as const) {
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + 3, sy - sh);
+    ctx.lineTo(sx + 7, sy + 2);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Толгой + эрүү
+  ctx.fillStyle = flash ? "#f6eee3" : "#5a4038";
   ctx.beginPath();
-  ctx.arc(4, -29, 10, 0, Math.PI * 2);
+  ctx.ellipse(10, -22, 11, 9, 0.15, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = flash ? "#ffffff" : "#d8d0c4";
+  ctx.fillStyle = flash ? "#e8d0c0" : "#3a2820";
+  ctx.beginPath();
+  ctx.moveTo(14, -18);
+  ctx.lineTo(26, -14);
+  ctx.lineTo(24, -8);
+  ctx.lineTo(12, -12);
+  ctx.closePath();
+  ctx.fill();
+  // Шүд
+  ctx.fillStyle = flash ? "#ffffff" : "#e8dcc8";
+  ctx.beginPath();
+  ctx.moveTo(16, -16);
+  ctx.lineTo(18, -11);
+  ctx.lineTo(19, -16);
+  ctx.moveTo(20, -15);
+  ctx.lineTo(22, -10);
+  ctx.lineTo(23, -15);
+  ctx.fill();
+
+  // Улаан нүд
+  ctx.shadowColor = "rgba(255,60,40,0.9)";
+  ctx.shadowBlur = 5;
+  ctx.fillStyle = flash ? "#ff9090" : "#e84838";
+  ctx.beginPath();
+  ctx.arc(14, -25, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Сарвуутай гар
+  ctx.strokeStyle = flash ? "#fff" : "#4a3028";
   ctx.lineWidth = 3;
+  ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(-9, -20);
-  ctx.lineTo(-18, -3);
-  ctx.moveTo(10, -18);
-  ctx.lineTo(19, -2);
+  ctx.moveTo(-4, -8);
+  ctx.lineTo(-16, 4);
+  ctx.moveTo(6, -4);
+  ctx.lineTo(18, 6);
   ctx.stroke();
-  ctx.fillStyle = "#e54d4d";
-  ctx.fillRect(6, -32, 2, 2);
+  ctx.fillStyle = flash ? "#ffe8d8" : "#6a4030";
+  ctx.beginPath();
+  ctx.moveTo(-18, 4);
+  ctx.lineTo(-24, 10);
+  ctx.lineTo(-14, 9);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(20, 6);
+  ctx.lineTo(28, 12);
+  ctx.lineTo(18, 11);
+  ctx.closePath();
+  ctx.fill();
 }
 
+/** Шидэт харваач — араг яс/бүрхүүл, сүнсний нум, хөндийн гэрэл */
 function drawArcher(
   ctx: CanvasRenderingContext2D,
   flash: boolean,
   time: number,
 ): void {
-  ctx.fillStyle = flash
-    ? "#f6eee3"
-    : ROUTE_ENEMY_COLORS.shidetHarvaach;
+  const voidPulse = 0.35 + Math.sin(time * 5) * 0.15;
+
+  // Хөндийн аура
+  ctx.fillStyle = `rgba(100,60,160,${voidPulse * 0.45})`;
   ctx.beginPath();
-  ctx.moveTo(-15, 7);
-  ctx.lineTo(-10, -28);
-  ctx.lineTo(10, -28);
-  ctx.lineTo(15, 7);
+  ctx.ellipse(0, -16, 22, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Өөдөс нөмрөг
+  const robe = ctx.createLinearGradient(0, -40, 0, 10);
+  robe.addColorStop(0, flash ? "#e8dcf0" : "#4a3568");
+  robe.addColorStop(0.5, flash ? "#d0c0e0" : "#2a1c3a");
+  robe.addColorStop(1, flash ? "#b0a0c0" : "#120c1a");
+  ctx.fillStyle = robe;
+  ctx.beginPath();
+  ctx.moveTo(-14, 8);
+  ctx.quadraticCurveTo(-20, -10, -12, -32);
+  ctx.lineTo(12, -32);
+  ctx.quadraticCurveTo(20, -10, 14, 8);
+  ctx.lineTo(6, 4);
+  ctx.lineTo(0, 10);
+  ctx.lineTo(-6, 4);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = flash ? "#fff8ef" : "#36273f";
+
+  // Араг ясны хавирга
+  ctx.strokeStyle = flash ? "rgba(255,255,255,0.55)" : "rgba(180,160,200,0.35)";
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 4; i++) {
+    const yy = -24 + i * 6;
+    ctx.beginPath();
+    ctx.moveTo(-8, yy);
+    ctx.quadraticCurveTo(0, yy + 2, 8, yy);
+    ctx.stroke();
+  }
+
+  // Бүрхүүлт толгой
+  ctx.fillStyle = flash ? "#f0e8f8" : "#1a1224";
   ctx.beginPath();
-  ctx.arc(0, -32, 9, 0, Math.PI * 2);
+  ctx.moveTo(-11, -34);
+  ctx.quadraticCurveTo(-14, -52, 0, -56);
+  ctx.quadraticCurveTo(14, -52, 11, -34);
+  ctx.lineTo(8, -30);
+  ctx.lineTo(-8, -30);
+  ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = flash ? "#ffffff" : "#8d6a45";
-  ctx.lineWidth = 3;
+  // Нүүрний сүүдэр
+  ctx.fillStyle = flash ? "#c8b8d8" : "#0a0610";
   ctx.beginPath();
-  ctx.moveTo(10, -23);
-  ctx.lineTo(21, 8);
+  ctx.ellipse(0, -40, 6, 7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowColor = "rgba(180,100,255,0.95)";
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = `rgba(200,140,255,${0.7 + Math.sin(time * 8) * 0.3})`;
+  ctx.beginPath();
+  ctx.arc(-2.5, -41, 1.8, 0, Math.PI * 2);
+  ctx.arc(3, -41, 1.8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Сүнсний нум
+  ctx.strokeStyle = flash ? "#e8d0ff" : "#8a60c0";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(18, -12, 16, -1.1, 1.1);
   ctx.stroke();
-  const glow = 4 + Math.sin(time * 9) * 1.5;
-  ctx.fillStyle = "rgba(185,135,255,0.35)";
+  ctx.strokeStyle = flash ? "rgba(255,255,255,0.6)" : "rgba(160,120,220,0.5)";
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.arc(20, -2, glow + 4, 0, Math.PI * 2);
+  ctx.moveTo(18, -26);
+  ctx.lineTo(18, 2);
+  ctx.stroke();
+
+  // Хөндийн сумны үзүүр
+  const glow = 4 + Math.sin(time * 9) * 1.5;
+  ctx.shadowColor = "rgba(160,80,255,0.9)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = `rgba(185,135,255,${0.4 + voidPulse * 0.3})`;
+  ctx.beginPath();
+  ctx.arc(20, -2, glow + 5, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#c8a5ff";
+  ctx.fillStyle = "#d8b0ff";
   ctx.beginPath();
   ctx.arc(20, -2, glow, 0, Math.PI * 2);
   ctx.fill();
+  ctx.shadowBlur = 0;
 }
 
+/** Шулмасын баатар — эвэртэй сүнс-баатар, хар аура, том зэвсэг */
 function drawMiniBossBody(
   ctx: CanvasRenderingContext2D,
   enemy: RouteEnemy,
@@ -1655,39 +1976,104 @@ function drawMiniBossBody(
   if (attacking && enemy.attackKind === "bossCharge") {
     ctx.rotate(0.16);
   }
-  ctx.fillStyle = "rgba(12,8,16,0.42)";
+
+  // Харанхуй аура
+  const aura = ctx.createRadialGradient(0, -30, 8, 0, -20, 55);
+  aura.addColorStop(0, flash ? "rgba(255,240,220,0.2)" : "rgba(80,30,60,0.45)");
+  aura.addColorStop(0.6, flash ? "rgba(200,160,140,0.08)" : "rgba(40,15,35,0.25)");
+  aura.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = aura;
+  ctx.beginPath();
+  ctx.ellipse(0, -20, 48, 58, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(12,8,16,0.5)";
   ctx.beginPath();
   ctx.ellipse(0, 10, 38, 12, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = flash
-    ? "#f6eee3"
-    : ROUTE_ENEMY_COLORS.shulmasynBaatar;
+
+  // Хуягт бие — сүнс-баатар
+  const armor = ctx.createLinearGradient(-30, -50, 30, 10);
+  armor.addColorStop(0, flash ? "#f0e4d8" : "#4a3048");
+  armor.addColorStop(0.35, flash ? "#d8c8b8" : "#2a1c28");
+  armor.addColorStop(1, flash ? "#b8a898" : "#120c14");
+  ctx.fillStyle = armor;
   ctx.beginPath();
-  ctx.moveTo(-28, 10);
-  ctx.lineTo(-23, -48);
+  ctx.moveTo(-26, 10);
+  ctx.lineTo(-28, -8);
+  ctx.lineTo(-22, -48);
+  ctx.lineTo(0, -52);
   ctx.lineTo(22, -48);
-  ctx.lineTo(31, 10);
+  ctx.lineTo(30, -8);
+  ctx.lineTo(28, 10);
+  ctx.quadraticCurveTo(0, 16, -26, 10);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = flash ? "#fff7ef" : "#6d4c69";
-  ctx.fillRect(-25, -32, 49, 11);
-  ctx.fillStyle = flash ? "#fff2e4" : "#b57a62";
+
+  // Хуягны чимэг
+  ctx.strokeStyle = flash ? "rgba(255,255,255,0.45)" : "rgba(120,70,100,0.55)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(0, -61, 15, 0, Math.PI * 2);
+  ctx.moveTo(-18, -40);
+  ctx.lineTo(0, -28);
+  ctx.lineTo(18, -40);
+  ctx.moveTo(-20, -22);
+  ctx.lineTo(20, -22);
+  ctx.moveTo(-22, -8);
+  ctx.lineTo(22, -8);
+  ctx.stroke();
+  ctx.fillStyle = flash ? "#e8d0c0" : "#6a3050";
+  ctx.beginPath();
+  ctx.moveTo(-8, -36);
+  ctx.lineTo(0, -18);
+  ctx.lineTo(8, -36);
+  ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = flash ? "#ffffff" : "#241a2b";
+
+  // Мөрний эвэр/хавтан
+  ctx.fillStyle = flash ? "#e0d4c8" : "#3a2838";
   ctx.beginPath();
-  ctx.moveTo(-17, -68);
-  ctx.lineTo(-8, -82);
-  ctx.lineTo(-2, -68);
-  ctx.lineTo(8, -82);
+  ctx.moveTo(-28, -42);
+  ctx.lineTo(-38, -52);
+  ctx.lineTo(-34, -36);
+  ctx.lineTo(-22, -38);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(28, -42);
+  ctx.lineTo(38, -52);
+  ctx.lineTo(34, -36);
+  ctx.lineTo(22, -38);
+  ctx.closePath();
+  ctx.fill();
+
+  // Толгой + эвэртэй дуулга
+  ctx.fillStyle = flash ? "#f6eee3" : "#6a4a58";
+  ctx.beginPath();
+  ctx.arc(0, -62, 14, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = flash ? "#ffffff" : "#1a1018";
+  ctx.beginPath();
+  ctx.moveTo(-16, -68);
+  ctx.lineTo(-22, -88);
+  ctx.lineTo(-8, -74);
+  ctx.lineTo(-2, -92);
+  ctx.lineTo(4, -74);
+  ctx.lineTo(12, -90);
   ctx.lineTo(18, -68);
-  ctx.lineTo(14, -56);
-  ctx.lineTo(-14, -56);
+  ctx.lineTo(14, -54);
+  ctx.lineTo(-14, -54);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = "#ef5f67";
-  ctx.fillRect(5, -64, 3, 3);
+  // Нүдний ан цав
+  ctx.fillStyle = flash ? "#ff6060" : "#c02838";
+  ctx.shadowColor = "rgba(220,40,50,0.9)";
+  ctx.shadowBlur = 7;
+  ctx.beginPath();
+  ctx.ellipse(-5, -62, 4, 1.8, 0, 0, Math.PI * 2);
+  ctx.ellipse(6, -62, 4, 1.8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
 
   let weaponAngle = 0.18;
   if (enemy.phase === "windup") {
@@ -1708,15 +2094,37 @@ function drawMiniBossBody(
   ctx.save();
   ctx.translate(18, -39);
   ctx.rotate(weaponAngle);
-  ctx.strokeStyle = flash ? "#ffffff" : "#5e463d";
-  ctx.lineWidth = 9;
+  // Том сэлэм / жад
+  ctx.strokeStyle = flash ? "#ffffff" : "#2a1c24";
+  ctx.lineWidth = 10;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(0, -8);
-  ctx.lineTo(6, 48);
+  ctx.moveTo(0, -10);
+  ctx.lineTo(8, 52);
   ctx.stroke();
-  ctx.fillStyle = flash ? "#ffffff" : "#766274";
-  ctx.fillRect(-5, 37, 23, 18);
+  ctx.strokeStyle = flash ? "#e8d0e0" : "#7a6078";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(1, -6);
+  ctx.lineTo(7, 48);
+  ctx.stroke();
+  // Ирний үзүүр
+  ctx.fillStyle = flash ? "#fff" : "#c8b0c0";
+  ctx.beginPath();
+  ctx.moveTo(4, -14);
+  ctx.lineTo(12, -2);
+  ctx.lineTo(-2, 0);
+  ctx.closePath();
+  ctx.fill();
+  // Бариул
+  ctx.fillStyle = flash ? "#ffffff" : "#5a4050";
+  ctx.beginPath();
+  ctx.moveTo(-8, 40);
+  ctx.lineTo(22, 36);
+  ctx.lineTo(24, 48);
+  ctx.lineTo(-6, 52);
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 }
 
@@ -2088,6 +2496,9 @@ export function drawFirstRouteHint(
   cam: Camera,
 ): void {
   const route = routeOf(state);
+
+  if (!inShulmasSpirit(state)) return;
+
   const drop = route.swordDrop;
   if (
     drop.visible &&
@@ -2118,7 +2529,7 @@ export function drawFirstRouteHint(
   const y = route.gatePos.y - cam.y - 104;
   const text = route.complete
     ? "E — Mini-boss-ийн талбайг шалгах"
-    : `E — Түгжээ шалгах (${route.enemies.filter((enemy) => enemy.alive).length} үлдсэн)`;
+    : `E — Хараалт хаалга (${route.enemies.filter((enemy) => enemy.alive).length} үлдсэн)`;
   ctx.textAlign = "center";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.8)";

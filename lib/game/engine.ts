@@ -14,6 +14,7 @@ import {
   type Vector2,
 } from "./types";
 import { dist, setMessage, updateGates } from "./utils";
+import { isInRiver, sampleBushPos, sampleTreePos } from "./biomes";
 import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
   ensureAudio,
@@ -100,12 +101,12 @@ export function createTrees(count: number): Tree[] {
     let pos: Vector2;
     let attempts = 0;
     do {
-      pos = {
-        x: 80 + Math.random() * (WORLD_W - 160),
-        y: 80 + Math.random() * (WORLD_H - 160),
-      };
+      pos = sampleTreePos(center);
       attempts++;
-    } while (dist(pos, center) < 220 && attempts < 40);
+    } while (
+      (dist(pos, center) < 220 || isInRiver(pos, 45)) &&
+      attempts < 50
+    );
 
     trees.push({
       id: i,
@@ -130,12 +131,12 @@ export function createBushes(count: number): BerryBush[] {
     let pos: Vector2;
     let attempts = 0;
     do {
-      pos = {
-        x: 80 + Math.random() * (WORLD_W - 160),
-        y: 80 + Math.random() * (WORLD_H - 160),
-      };
+      pos = sampleBushPos(center);
       attempts++;
-    } while (dist(pos, center) < 140 && attempts < 40);
+    } while (
+      (dist(pos, center) < 140 || isInRiver(pos, 40)) &&
+      attempts < 50
+    );
 
     bushes.push({
       id: 1000 + i,
@@ -224,8 +225,8 @@ export function createInitialState(): GameState {
     world: {
       width: WORLD_W,
       height: WORLD_H,
-      trees: createTrees(40),
-      bushes: createBushes(28),
+      trees: createTrees(72),
+      bushes: createBushes(36),
       campfire: {
         pos: { x: spawn.x + 52, y: spawn.y + 14 },
         lit: false,
@@ -323,7 +324,7 @@ export function createInitialState(): GameState {
       dustAcc: 0,
     },
     message:
-      "Үүр! Гал түлээд тэжээгчийн дэргэд E — малаа бэлчээрт гарга.",
+      "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
     messageTimer: 6,
     score: 0,
     xp: 0,
@@ -353,6 +354,7 @@ export function createInitialState(): GameState {
     spiritTransition: 0,
     spiritReturnPos: null,
     spiritCleared: false,
+    spiritMode: "purge",
     spiritSavedWolves: null,
     spiritSavedThieves: null,
   };
@@ -523,18 +525,24 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "spirit") {
     state.fencePreview = false;
-    if (
-      state.input.pause ||
-      state.input.interact ||
-      (state.spiritCleared && state.input.confirm)
-    ) {
-      exitSpiritWorld(
-        state,
-        state.input.pause ? "Сүнсний орноос гарлаа." : undefined,
-      );
+    // Шулмасын горимд E = хаалга/сэлэм/буцах (tryInteract) — энд шууд гаргахгүй
+    if (state.spiritMode === "purge") {
+      if (
+        state.input.pause ||
+        state.input.interact ||
+        (state.spiritCleared && state.input.confirm)
+      ) {
+        exitSpiritWorld(
+          state,
+          state.input.pause ? "Сүнсний орноос гарлаа." : undefined,
+        );
+        state.input.pause = false;
+        state.input.interact = false;
+        state.input.confirm = false;
+      }
+    } else if (state.input.pause) {
+      exitSpiritWorld(state, "Сүнсний орноос гарлаа.");
       state.input.pause = false;
-      state.input.interact = false;
-      state.input.confirm = false;
     }
   } else if (state.phase === "levelup") {
     updateLevelUp(state);
@@ -629,7 +637,22 @@ export function update(state: GameState, dt: number): void {
     if (state.phase === "spirit") {
       updateCombat(state, dt);
       updatePlayerMovement(state, dt);
-      updateWolves(state, dt);
+      if (state.spiritMode === "shulmas") {
+        const usedRouteInteraction = tryInteractFirstRoute(state);
+        if (!usedRouteInteraction) {
+          // E — цэвэрлэсний дараа буцах / хаалга
+          if (state.input.interact && state.spiritCleared) {
+            exitSpiritWorld(state);
+            state.input.interact = false;
+          } else {
+            tryInteract(state);
+          }
+        }
+        updateFirstRoute(state, dt);
+        updateTumurShulmasEncounter(state, dt);
+      } else {
+        updateWolves(state, dt);
+      }
       updateDog(state, dt);
       updateProjectiles(state, dt);
       if (state.messageTimer > 0) state.messageTimer -= dt;
@@ -652,12 +675,6 @@ export function update(state: GameState, dt: number): void {
 
   // Нэг удаагийн үйлдлийн товчнуудыг frame бүрийн төгсгөлд цэвэрлэнэ
   state.input.interact = false;
-  state.input.attack = false;
-  state.input.attackPressed = false;
-  state.input.dodge = false;
-  state.input.dodgePressed = false;
-  state.input.parry = false;
-  state.input.parryPressed = false;
   state.input.eat = false;
   state.input.lightFire = false;
   state.input.buildFence = false;
@@ -665,6 +682,16 @@ export function update(state: GameState, dt: number): void {
   state.input.debugWood = false;
   state.input.debugBoss = false;
   state.input.migrate = false;
+
+  // Hitstop үед тулааны оролтыг хадгална — дараагийн frame-д боловсруулна
+  if (!hitStopped) {
+    state.input.attack = false;
+    state.input.attackPressed = false;
+    state.input.dodge = false;
+    state.input.dodgePressed = false;
+    state.input.parry = false;
+    state.input.parryPressed = false;
+  }
 }
 
 // ---------------------------------------------------------------------------

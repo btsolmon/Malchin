@@ -9,6 +9,7 @@ import {
   type Wolf,
 } from "../types";
 import { clamp, dist, normalize, setMessage } from "../utils";
+import { applyRiverCurrent } from "../biomes";
 import {
   spawnImpactBurst,
   spawnParticles,
@@ -257,6 +258,7 @@ function updateDodge(state: GameState, dt: number): boolean {
     player.radius,
     world.height - player.radius,
   );
+  if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 0.7);
   if (player.dodgeTimer <= 0) {
     player.dodgePhase = "recovery";
     player.dodgeTimer = DODGE_RECOVERY_SECONDS;
@@ -928,14 +930,19 @@ function tryRangedAttack(state: GameState): boolean {
   if (player.dodgePhase !== "idle") return false;
   if (player.parryPhase !== "idle") return false;
   if (player.attackCooldown > 0) return false;
-  if (!state.input.shoot || (!player.gear.gun && !player.gear.bow)) {
-    return false;
-  }
+  if (!state.input.shoot) return false;
 
   const gun = player.gear.gun;
-  const range = gun ? 300 : 200;
+  const bow = player.gear.bow;
+  // Сүнсний оронд зэвсэггүй ч сүнсний сум харваж болно
+  const spiritBolt =
+    !gun && !bow && state.phase === "spirit";
+  if (!gun && !bow && !spiritBolt) return false;
 
-  player.attackCooldown = (gun ? 0.8 : 0.55) * player.cooldownMult;
+  const range = gun ? 300 : spiritBolt ? 240 : 200;
+
+  player.attackCooldown =
+    (gun ? 0.8 : spiritBolt ? 0.48 : 0.55) * player.cooldownMult;
   player.attackMelee = false;
   player.attackAnim = 0.18;
 
@@ -992,16 +999,16 @@ function tryRangedAttack(state: GameState): boolean {
 
   dir = safeFacing(dir);
 
-  const speed = gun ? 540 : 400;
+  const speed = gun ? 540 : spiritBolt ? 420 : 400;
   world.projectiles.push({
     pos: {
       x: player.pos.x + dir.x * 14,
       y: player.pos.y - 8 + dir.y * 14,
     },
     vel: { x: dir.x * speed, y: dir.y * speed },
-    dmg: (gun ? 40 : 24) * player.damageMult,
+    dmg: (gun ? 40 : spiritBolt ? 22 : 24) * player.damageMult,
     life: range / speed + 0.15,
-    kind: gun ? "bullet" : "arrow",
+    kind: gun ? "bullet" : spiritBolt ? "spiritBolt" : "arrow",
   });
 
   sfx(gun ? "gunshot" : "shoot");
@@ -1009,13 +1016,39 @@ function tryRangedAttack(state: GameState): boolean {
 }
 
 /**
+ * Тулааны таймер — playing ба spirit хоёуланд updateCombat дуудагдана.
+ * (updateSurvival зөвхөн playing дээр ажилладаг тул энд байх ёстой —
+ *  үгүй бол spirit-д attackCooldown буурахгүй, J/K нэг удаа л ажиллана.)
+ */
+function tickCombatTimers(state: GameState, dt: number): void {
+  const { player } = state;
+  if (!Number.isFinite(dt) || dt <= 0) return;
+
+  if (player.attackCooldown > 0) {
+    player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+  }
+  if (player.attackAnim > 0) {
+    player.attackAnim = Math.max(0, player.attackAnim - dt);
+    if (player.attackAnim <= 0) {
+      player.attackAnim = 0;
+      player.attackMelee = false;
+    }
+  }
+  if (player.invuln > 0) {
+    player.invuln = Math.max(0, player.invuln - dt);
+  }
+}
+
+/**
  * Engine game loop-оос frame бүр дуудна.
  *
- * 1. Тэнхэлийн regeneration
- * 2. Одоогийн melee phase
- * 3. Idle үед шинэ K/J оролт
+ * 1. Тулааны таймер (cooldown / anim / invuln)
+ * 2. Тэнхэлийн regeneration
+ * 3. Одоогийн melee phase
+ * 4. Idle үед шинэ K/J оролт
  */
 export function updateCombat(state: GameState, dt: number): void {
+  tickCombatTimers(state, dt);
   updateStamina(state, dt);
 
   if (state.input.dodge) {
@@ -1047,9 +1080,12 @@ export function updateCombat(state: GameState, dt: number): void {
   }
 
   if (tryRangedAttack(state)) return;
-  if (!input.attack) return;
+
+  // attackPressed — hitstop/frame алдагдлаас хамгаалах edge
+  if (!input.attack && !input.attackPressed) return;
 
   input.attack = false;
+  input.attackPressed = false;
   beginMeleeAttack(state);
   state.combatMovementLocked = player.combatPhase !== "idle";
 }
@@ -1101,7 +1137,7 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
   }
 }
 
-/** Сумнуудын хөдөлгөөн ба мөргөлт */
+/** Сумнуудын хөдөлгөөн ба мөргөлт (weapons.ts-тай ижил зорилтот) */
 export function updateProjectiles(state: GameState, dt: number): void {
   const { world } = state;
 
@@ -1130,6 +1166,30 @@ export function updateProjectiles(state: GameState, dt: number): void {
           consumed = true;
           break;
         }
+      }
+    }
+
+    if (!consumed) {
+      for (const enemy of world.firstRoute.enemies) {
+        if (!enemy.alive) continue;
+        if (dist(projectile.pos, enemy.pos) < enemy.radius + 6) {
+          damageRouteEnemy(state, enemy, projectile.dmg);
+          consumed = true;
+          break;
+        }
+      }
+    }
+
+    if (!consumed) {
+      const boss = world.tumurShulmas;
+      if (
+        boss.active &&
+        !boss.defeated &&
+        boss.phase !== "death" &&
+        dist(projectile.pos, boss.pos) < 48
+      ) {
+        damageTumurShulmasFromPlayer(state, projectile.dmg, 10, false);
+        consumed = true;
       }
     }
 

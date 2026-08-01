@@ -9,11 +9,13 @@ import {
   type Wolf,
 } from "../types";
 import { clamp, dist, normalize, pastureCenter, setMessage } from "../utils";
+import { applyRiverCurrent } from "../biomes";
 import { spawnParticles, spawnText } from "../effects";
 import { sfx } from "../audio";
 import { gainXp } from "../player";
 import { addSheep } from "../enemies";
 import { damageRouteEnemy } from "../firstRoute";
+import { damageTumurShulmasFromPlayer } from "../tumurShulmas";
 
 export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
   wolf.hp -= dmg;
@@ -155,6 +157,18 @@ export function updateProjectiles(state: GameState, dt: number): void {
         }
       }
     }
+    if (!consumed) {
+      const boss = world.tumurShulmas;
+      if (
+        boss.active &&
+        !boss.defeated &&
+        boss.phase !== "death" &&
+        dist(p.pos, boss.pos) < 48
+      ) {
+        damageTumurShulmasFromPlayer(state, p.dmg, 10, false);
+        consumed = true;
+      }
+    }
     if (consumed) p.life = 0;
   }
   world.projectiles = world.projectiles.filter((p) => p.life > 0);
@@ -284,6 +298,7 @@ export function updateDog(state: GameState, dt: number): void {
     }
   }
 
+  if (state.phase === "playing") applyRiverCurrent(dog.pos, dt, 0.55);
   dog.pos.x = clamp(dog.pos.x, 20, WORLD_W - 20);
   dog.pos.y = clamp(dog.pos.y, 20, WORLD_H - 20);
 }

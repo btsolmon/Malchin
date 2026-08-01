@@ -1,4 +1,4 @@
-// 5 хошуу мал — тоолол, бүтээгдэхүүн, тэжээгч, уурга
+// 5 хошуу мал — тоолол, бүтээгдэхүүн, тэвш, уурга
 
 import {
   LIVESTOCK_KINDS,
@@ -302,15 +302,15 @@ export function depositHayToFeeder(state: GameState, amount = 5): boolean {
   }
   const space = feeder.maxHay - feeder.hay;
   if (space <= 0) {
-    setMessage(state, "Тэжээгч дүүрэн.", 1.5);
+    setMessage(state, "Тэвш дүүрэн.", 1.5);
     return false;
   }
   const move = Math.min(amount, inv.hay, space);
   inv.hay -= move;
   feeder.hay += move;
   sfx("chop");
-  spawnText(state, feeder.pos, `+${move} өвс → тэжээгч`, "#b8d060");
-  setMessage(state, `Тэжээгчид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})`, 2);
+  spawnText(state, feeder.pos, `+${move} өвс → тэвш`, "#b8d060");
+  setMessage(state, `Тэвшид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})`, 2);
   return true;
 }
 

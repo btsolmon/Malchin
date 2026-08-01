@@ -209,7 +209,7 @@ export function updateMenu(state: GameState): void {
       state.phase = "playing";
       setMessage(
         state,
-        "Үүр! Гал түлээд тэжээгчийн дэргэд E — малаа бэлчээрт гарга.",
+        "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
         6,
       );
       sfx("select");
@@ -276,7 +276,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "dog",
     icon: "🐕",
     name: "Нохой",
-    desc: "Сүргийг чононоос өөрөө хамгаална",
+    desc: "Сүргийг чононоос хамгаална",
     price: 300,
   },
   {
@@ -316,7 +316,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "urga",
     icon: "🪢",
     name: "Уурга",
-    desc: "Зэрлэг морийг ойртож E-ээр барина",
+    desc: "Зэрлэг морийг уургална",
     price: 180,
   },
   {
@@ -324,7 +324,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     kind: "cattle",
     icon: "🐄",
     name: "Үхэр",
-    desc: "Сүрэгт үхэр нэмнэ · сүү өгнө",
+    desc: "Сүргийн үхэр · сүү өгнө",
     price: 220,
   },
   {
@@ -340,7 +340,7 @@ export const SHOP_ITEMS: ShopItem[] = [
     kind: "camel",
     icon: "🐪",
     name: "Тэмээ",
-    desc: "Сүрэгт тэмээ · сүү/ноос",
+    desc: "Сүргийн тэмээ · сүү/ноос",
     price: 400,
   },
   {
@@ -769,7 +769,7 @@ export function updateGer(state: GameState, dt: number): void {
   if (input.interact && prox.nearBed) {
     state.input.interact = false;
     if (player.sleepCooldown > 0) {
-      setMessage(state, "Сая унтсан — жаахан хүлээ.", 2);
+      setMessage(state, "Саяхан унтсан шүү дээ.", 2);
       sfx("move");
     } else {
       const bed = prox.nearBedL ? lay.bedL : lay.bedR;
@@ -779,7 +779,7 @@ export function updateGer(state: GameState, dt: number): void {
       state.gerPlayer.y = bed.y + bed.h * 0.38;
       player.moving = false;
       sfx("select");
-      setMessage(state, "Зөөлөн орон… унтаж байна…", 5);
+      setMessage(state, "Унтаж байна…", 5);
     }
     return;
   }
@@ -1032,9 +1032,19 @@ function drawWoodFrame(
   thickness = 6,
 ): void {
   ctx.fillStyle = "#5a3a22";
-  ctx.fillRect(x - thickness, y - thickness, w + thickness * 2, h + thickness * 2);
+  ctx.fillRect(
+    x - thickness,
+    y - thickness,
+    w + thickness * 2,
+    h + thickness * 2,
+  );
   ctx.fillStyle = "#8a5a32";
-  ctx.fillRect(x - thickness + 2, y - thickness + 2, w + thickness * 2 - 4, h + thickness * 2 - 4);
+  ctx.fillRect(
+    x - thickness + 2,
+    y - thickness + 2,
+    w + thickness * 2 - 4,
+    h + thickness * 2 - 4,
+  );
   ctx.fillStyle = "#3a2414";
   ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
   // Булангийн багана
@@ -1447,28 +1457,13 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["K", "Буудах / Харвах"],
     ["Shift", "Бултах — invuln цонх"],
     ["L", "Сөрөх (parry) — дайралт няцаах"],
-    ["1 / 2", "Модон таяг / Хөх тэнгэрийн сэлэм"],
-    ["E", "Мод/жимс/өвс · бэлэн мал · тэжээгч: мал гаргах/оруулах"],
-    ["Q", "Жимс эсвэл ааруул идэх"],
-    ["F", "Гал түлэх (үүр/шөнө дулаац)"],
-    ["B", "Хашаа preview → дахин B барих/шинэчлэх"],
-    ["", `  ① ${FENCE_TIER_NAMES[1]} — ${FENCE_COST} мод`],
-    [
-      "",
-      `  ② ${FENCE_TIER_NAMES[2]} — ${u1.wood} мод + ${u1.score} оноо`,
-    ],
-    [
-      "",
-      `  ③ ${FENCE_TIER_NAMES[3]} — ${u2.wood} мод + ${u2.score} оноо + ${u2.berries} жимс (түв. ${u2.minLevel}+)`,
-    ],
-    ["N", "Мал туух — орой хашаанд оруулахад"],
-    ["G", "Гэр моринд ачих / буулгах (унах морь заавал)"],
-    ["", "Өдөр ~4 мин: Үүр→Өдөр→Орой→Шөнө"],
-    ["", "Мал бэлчээрт өвс иднэ · дууссан бол хөрс харагдана"],
-    ["", "Өвс улирал солигдоход л дахин ургана · нүүдэлд морь"],
-    ["", "Ямааны ноолуур — хавар · хоньны ноос — зун"],
-    [".", "Мод/түлээ хязгааргүй"],
-    ["5", "Төмөр шулмасын boss тулаан (шууд)"],
+    ["1 / 2", "Нударга / Хөх тэнгэрийн сэлэм"],
+    ["E", "Мод / жимс / өвс / тэвш / мал гаргах/оруулах"],
+    ["Q", "Жимс / ааруул идэх"],
+    ["F", "Гал түлэх"],
+    ["B", "Хашаа барих / шинэчлэх"],
+    ["N", "Мал туух"],
+    ["G", "Гэр моринд ачих / буулгах"],
     ["P", "Түр зогсоох"],
   ];
   const boxW = 520;
@@ -1504,11 +1499,11 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
   drawMenuTitle(ctx, "БАГИЙНХАН");
 
   const lines: Array<[string, string]> = [
-    ["Тоглоомын цөм", "Цолмон"],
-    ["Survival механик", "Мянганнаст"],
+    ["Тоглоомын цөм (Core Mechanics)", "Цолмон"],
+    ["Амьд үлдэх систем (Survival Mechanics)", "Мянганнаст"],
     ["Дайсан ба AI", "Билгүүнтөгс"],
-    ["Тулааны механик", "Баярцогт"],
-    ["График", "Номин"],
+    ["Тулааны систем (Combat Mechanics)", "Баярцогт"],
+    ["График дизайн ба Визуал стиль", "Номин"],
     ["UI/UX ба дуу", "Тэмүүлэн"],
   ];
 
@@ -1679,7 +1674,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawWeatherIcon(ctx, wxPanel + 18, pad + 28, world.weather);
   ctx.fillStyle = "#ffe9a8";
   ctx.font = "bold 12px 'Courier New', monospace";
-  ctx.fillText(weatherLabel(world.weather, world.season), wxPanel + 34, pad + 22);
+  ctx.fillText(
+    weatherLabel(world.weather, world.season),
+    wxPanel + 34,
+    pad + 22,
+  );
   const phaseIcon =
     world.dayPhase === "night"
       ? "🌙"
@@ -1856,7 +1855,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
   ctx.fillStyle = "#a8c8e8";
   ctx.fillText(
-    `Сүнс ${state.spiritPoints} · Тэжээгч ${Math.floor(world.feeder.hay)}`,
+    `Сүнс ${state.spiritPoints} · Тэвш ${Math.floor(world.feeder.hay)}`,
     barX,
     ly + 56,
   );
@@ -1864,9 +1863,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   const nearFence = nearestFence(player.pos, world.fences, 64);
   if (nearFence) {
     const tier = nearFence.tier;
-    const hpPct = Math.max(0, Math.ceil((nearFence.hp / nearFence.maxHp) * 100));
-    ctx.fillStyle =
-      tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
+    const hpPct = Math.max(
+      0,
+      Math.ceil((nearFence.hp / nearFence.maxHp) * 100),
+    );
+    ctx.fillStyle = tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
     ctx.font = "bold 10px 'Courier New', monospace";
     ctx.fillText(
       `${nearFence.isGate ? "Хаалга " : ""}${FENCE_TIER_SHORT[tier]} ${hpPct}%`,
@@ -2085,11 +2086,7 @@ export function drawShop(
     ctx.fillText(item.desc, r.x + 48, r.y + 38);
 
     ctx.textAlign = "right";
-    ctx.fillStyle = owned
-      ? "#a0d890"
-      : afford
-        ? "#ffd060"
-        : "#e07070";
+    ctx.fillStyle = owned ? "#a0d890" : afford ? "#ffd060" : "#e07070";
     ctx.font = "600 13px system-ui, sans-serif";
     ctx.fillText(rightLabel, r.x + r.w - 14, r.y + 30);
     ctx.textAlign = "left";
@@ -2138,12 +2135,11 @@ export function drawCraft(
     const selected = state.menuIndex === i;
     let can = true;
     for (const [k, need] of Object.entries(recipe.need)) {
-      if ((inv[k as "wool" | "cashmere" | "milk"] ?? 0) < (need ?? 0)) can = false;
+      if ((inv[k as "wool" | "cashmere" | "milk"] ?? 0) < (need ?? 0))
+        can = false;
     }
 
-    ctx.fillStyle = selected
-      ? "rgba(232,197,106,0.14)"
-      : "rgba(12,10,8,0.6)";
+    ctx.fillStyle = selected ? "rgba(232,197,106,0.14)" : "rgba(12,10,8,0.6)";
     roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
     ctx.fill();
     ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.22)";
@@ -2167,7 +2163,6 @@ export function drawCraft(
 
   drawUiButton(ctx, close, false);
 }
-
 
 // ---------------------------------------------------------------------------
 // Render
