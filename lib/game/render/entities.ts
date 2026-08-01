@@ -659,39 +659,12 @@ function drawWoodPost(
   ctx.fill();
 }
 
-/** Дээд төмөр дээрх гурвалжин өргөсүүд */
-function drawRailSpikesEW(
-  ctx: CanvasRenderingContext2D,
-  x0: number,
-  x1: number,
-  py: number,
-): void {
-  ctx.fillStyle = "#5a3a1e";
-  for (let sx = x0 + 2; sx <= x1 - 2; sx += 4.5) {
-    ctx.beginPath();
-    ctx.moveTo(sx - 1.8, py - 15);
-    ctx.lineTo(sx, py - 21);
-    ctx.lineTo(sx + 1.8, py - 15);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.fillStyle = "#7a5230";
-  for (let sx = x0 + 2; sx <= x1 - 2; sx += 4.5) {
-    ctx.beginPath();
-    ctx.moveTo(sx - 0.9, py - 15);
-    ctx.lineTo(sx, py - 19.5);
-    ctx.lineTo(sx + 0.9, py - 15);
-    ctx.closePath();
-    ctx.fill();
-  }
-}
-
+/** Босоо сегментийн дээд үзүүрт гурвалжин өргөс */
 function drawRailSpikesNS(
   ctx: CanvasRenderingContext2D,
   px: number,
   yTop: number,
 ): void {
-  // Босоо сегментийн дээд үзүүрт гурвалжин өргөс
   ctx.fillStyle = "#4a3018";
   ctx.beginPath();
   ctx.moveTo(px - 3.2, yTop - 14);
@@ -732,7 +705,6 @@ function drawWoodRailsEW(
   ctx.moveTo(x0, py - 8);
   ctx.lineTo(x1, py - 8);
   ctx.stroke();
-  drawRailSpikesEW(ctx, x0, x1, py);
 }
 
 /** Босоо сегмент — голын ганц төмөр (зүүн/баруун хос биш) */
