@@ -2,7 +2,7 @@ import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
-import { horseHitchRail, nearMountHorse } from "../player";
+import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearMountHorse } from "../player";
 import { drawGerInterior } from "./ger";
 import {
   drawPlayerWithSprites,
@@ -268,7 +268,8 @@ export function render(
   if (!world.gerPacked) {
     const gate = flockGatePos(world);
     drawables.push({
-      y: gate.y,
+      // Шонгийн сууриас дээш depth — тоглогч ойртоход урд нь гарахгүй
+      y: gate.y - 12,
       key: -6,
       draw: () => {
         const gx = gate.x - cam.x;
@@ -691,22 +692,52 @@ export function render(
         ctx.fillStyle = "#ffe9a8";
         ctx.fillText(tip, tx, ty);
         ctx.textAlign = "left";
-      } else if (
-        dist(state.player.pos, c) < HAY_HARVEST_RADIUS &&
-        canHarvestHay(world.season) &&
-        world.pastureGrass >= HAY_GRASS_COST
-      ) {
-        const tx = state.player.pos.x - cam.x;
-        const ty = state.player.pos.y - 36 - cam.y;
-        ctx.textAlign = "center";
-        ctx.font = "600 11px system-ui, sans-serif";
-        ctx.strokeStyle = "rgba(0,0,0,0.7)";
-        ctx.lineWidth = 3;
-        const tip = "E — Өвс хадах";
-        ctx.strokeText(tip, tx, ty);
-        ctx.fillStyle = "#c8e070";
-        ctx.fillText(tip, tx, ty);
-        ctx.textAlign = "left";
+      } else {
+        const bush = nearestBerryBush(state.player, world.bushes);
+        const tree = nearestAliveTree(state.player, world.trees);
+        if (bush) {
+          const tx = bush.pos.x - cam.x;
+          const ty = bush.pos.y - 28 - cam.y;
+          ctx.textAlign = "center";
+          ctx.font = "600 11px system-ui, sans-serif";
+          ctx.strokeStyle = "rgba(0,0,0,0.7)";
+          ctx.lineWidth = 3;
+          const tip = `E — Жимс түүх (${bush.berries})`;
+          ctx.strokeText(tip, tx, ty);
+          ctx.fillStyle = "#ff9fbf";
+          ctx.fillText(tip, tx, ty);
+          ctx.textAlign = "left";
+        } else if (tree) {
+          const tx = tree.pos.x - cam.x;
+          const ty = tree.pos.y - 36 - cam.y;
+          ctx.textAlign = "center";
+          ctx.font = "600 11px system-ui, sans-serif";
+          ctx.strokeStyle = "rgba(0,0,0,0.7)";
+          ctx.lineWidth = 3;
+          const tip = state.player.gear.axe
+            ? "E — Мод хагалах (сүх)"
+            : "E — Мод хагалах";
+          ctx.strokeText(tip, tx, ty);
+          ctx.fillStyle = "#e8c56a";
+          ctx.fillText(tip, tx, ty);
+          ctx.textAlign = "left";
+        } else if (
+          dist(state.player.pos, c) < HAY_HARVEST_RADIUS &&
+          canHarvestHay(world.season) &&
+          world.pastureGrass >= HAY_GRASS_COST
+        ) {
+          const tx = state.player.pos.x - cam.x;
+          const ty = state.player.pos.y - 36 - cam.y;
+          ctx.textAlign = "center";
+          ctx.font = "600 11px system-ui, sans-serif";
+          ctx.strokeStyle = "rgba(0,0,0,0.7)";
+          ctx.lineWidth = 3;
+          const tip = "E — Өвс хадах";
+          ctx.strokeText(tip, tx, ty);
+          ctx.fillStyle = "#c8e070";
+          ctx.fillText(tip, tx, ty);
+          ctx.textAlign = "left";
+        }
       }
     }
   }
