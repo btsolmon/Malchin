@@ -1948,7 +1948,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
   ctx.fillStyle = "#a8c8e8";
   ctx.fillText(
-    `Сүнс ${state.spiritPoints} · Тэвш ${Math.floor(world.feeder.hay)}`,
+    `Тэвш ${Math.floor(world.feeder.hay)}`,
     barX,
     ly + 42,
   );

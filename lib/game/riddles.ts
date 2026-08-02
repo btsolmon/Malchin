@@ -1,4 +1,4 @@
-// Монгол өв — оньсого / соёлын асуулт
+// Монгол өв — соёлын асуулт
 
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
@@ -443,6 +443,8 @@ export function openRiddleAtHost(state: GameState, host: NearestRiddleHost): voi
   state.activeRiddleId = riddle.id;
   state.activeRiddleHost = host.ref;
   state.riddleFeedback = "idle";
+  state.riddleSelectedIndex = null;
+  state.riddleLastDelta = 0;
   state.phase = "riddle";
   sfx("select");
 }
@@ -452,6 +454,22 @@ export function applyRiddleReward(state: GameState, riddle: Riddle): void {
   const at = state.player.pos;
   state.score += reward.amount;
   spawnText(state, at, `+${reward.amount} оноо`, "#e8c56a");
+}
+
+/** Буруу хариулт: зөв шагналаас 10-оор илүү хасна */
+export function wrongPenaltyAmount(reward: RiddleReward): number {
+  return reward.amount + 10;
+}
+
+export function applyRiddlePenalty(state: GameState, riddle: Riddle): number {
+  const penalty = wrongPenaltyAmount(riddle.reward);
+  const prev = state.score;
+  state.score = Math.max(0, state.score - penalty);
+  const lost = prev - state.score;
+  if (lost > 0) {
+    spawnText(state, state.player.pos, `−${lost} оноо`, "#e07070");
+  }
+  return lost;
 }
 
 export function rewardLabel(reward: RiddleReward): string {
@@ -466,7 +484,12 @@ export interface RiddleUiState {
   options: string[];
   explanation: string;
   rewardLabel: string;
+  rewardAmount: number;
   feedback: RiddleFeedback;
+  selectedIndex: number | null;
+  correctIndex: number;
+  /** Сүүлчийн онооны өөрчлөлт (+шагнал эсвэл −торгууль) */
+  lastDelta: number;
   spotKind: RiddleHostKind;
 }
 
@@ -483,14 +506,26 @@ export function submitRiddleAnswer(
   const riddle = findRiddleById(state.activeRiddleId);
   if (!riddle) return null;
 
+  state.riddleSelectedIndex = optionIndex;
+
   if (optionIndex !== riddle.correctAnswerIndex) {
+    const lost = applyRiddlePenalty(state, riddle);
     state.riddleFeedback = "wrong";
+    state.riddleLastDelta = -lost;
     sfx("hurt");
+    setMessage(
+      state,
+      lost > 0
+        ? `Буруу хариулт! −${lost} оноо`
+        : "Буруу хариулт — дахин оролдоорой.",
+      2.4,
+    );
     return false;
   }
 
   state.riddleFeedback = "correct";
   applyRiddleReward(state, riddle);
+  state.riddleLastDelta = riddle.reward.amount;
 
   if (state.activeRiddleHost) {
     markHostSolved(state.world, state.activeRiddleHost);
@@ -507,6 +542,8 @@ export function closeRiddle(state: GameState): void {
   state.activeRiddleId = null;
   state.activeRiddleHost = null;
   state.riddleFeedback = "idle";
+  state.riddleSelectedIndex = null;
+  state.riddleLastDelta = 0;
 }
 
 export function getRiddleUiSnapshot(state: GameState): RiddleUiSnapshot {
@@ -526,7 +563,11 @@ export function getRiddleUiSnapshot(state: GameState): RiddleUiSnapshot {
     options: riddle.options,
     explanation: riddle.explanation,
     rewardLabel: rewardLabel(riddle.reward),
+    rewardAmount: riddle.reward.amount,
     feedback: state.riddleFeedback,
+    selectedIndex: state.riddleSelectedIndex,
+    correctIndex: riddle.correctAnswerIndex,
+    lastDelta: state.riddleLastDelta,
     spotKind: host?.kind ?? "rock",
   };
 }

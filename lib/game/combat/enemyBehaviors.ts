@@ -56,6 +56,7 @@ import {
   killHerdVisual,
   loseLivestock,
   syncVisualFlock as syncLivestockVisuals,
+  checkFlockDefeat,
 } from "../livestock";
 import { handlePlayerDeath } from "../spirit";
 
@@ -86,8 +87,12 @@ export function syncVisualFlock(state: GameState): void {
   syncLivestockVisuals(state);
 }
 
-export function loseSheep(state: GameState, n: number): number {
-  return loseLivestock(state, n);
+export function loseSheep(
+  state: GameState,
+  n: number,
+  opts?: { skipDefeatCheck?: boolean },
+): number {
+  return loseLivestock(state, n, opts);
 }
 
 /** Тодорхой нэг хонь чонод идэгдэх */
@@ -216,7 +221,7 @@ export function spawnThief(state: GameState): void {
   };
 
   const stealWant = clamp(2 + Math.floor(Math.random() * 4), 1, 8);
-  const stolen = loseSheep(state, stealWant);
+  const stolen = loseSheep(state, stealWant, { skipDefeatCheck: true });
   if (stolen <= 0) return;
 
   const lvl = state.level - 1;
@@ -1685,6 +1690,7 @@ export function updateThieves(state: GameState, dt: number): void {
           : "Хулгайч зугтав.",
         3,
       );
+      checkFlockDefeat(state);
     }
   }
 

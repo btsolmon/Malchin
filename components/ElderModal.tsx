@@ -1,16 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import type { ElderChoiceId, ElderUiState } from "@/lib/game/elder";
-import { SPIRIT_GATE_CHOICES, speakerLabel } from "@/lib/game/elder";
+import type { ElderUiState } from "@/lib/game/elder";
 
 interface ElderModalProps {
   ui: ElderUiState;
   onTab: (tab: "trade" | "talk") => void;
   onTrade: (itemId: string) => void;
   onStartDialogue: (id: string) => void;
-  onAdvanceDialogue: () => void;
-  onChoose: (id: ElderChoiceId) => void;
   onClose: () => void;
 }
 
@@ -19,26 +16,18 @@ export default function ElderModal({
   onTab,
   onTrade,
   onStartDialogue,
-  onAdvanceDialogue,
-  onChoose,
   onClose,
 }: ElderModalProps) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.code === "Escape" || e.code === "KeyP") {
-        if (ui.activeDialogue?.showingChoices) return;
         e.preventDefault();
         onClose();
-        return;
-      }
-      if (ui.activeDialogue && !ui.activeDialogue.showingChoices && (e.code === "Enter" || e.code === "Space")) {
-        e.preventDefault();
-        onAdvanceDialogue();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [ui.activeDialogue, onAdvanceDialogue, onClose]);
+  }, [onClose]);
 
   const eyeClass =
     ui.eyeMode === "spirit"
@@ -58,7 +47,6 @@ export default function ElderModal({
             </div>
             <div className="elder-stats">
               <span>Оноо {ui.score}</span>
-              <span className="elder-spirit">Сүнс/амь {ui.spiritPoints}</span>
             </div>
           </div>
 
@@ -89,7 +77,7 @@ export default function ElderModal({
                       {t.rare ? " · ховор" : ""}
                     </strong>
                     <span>
-                      Байгаа: {t.have} · +{t.price} оноо · +{t.spirit} сүнс(=амь)
+                      Байгаа: {t.have} · +{t.price} оноо
                     </span>
                   </div>
                   <button
@@ -102,41 +90,6 @@ export default function ElderModal({
                 </li>
               ))}
             </ul>
-          ) : ui.activeDialogue ? (
-            <div className="elder-dialogue">
-              <p className="elder-dialogue-title">{ui.activeDialogue.title}</p>
-              <p className="elder-speaker">
-                [{speakerLabel(ui.activeDialogue.beat.speaker)}]
-              </p>
-              {ui.activeDialogue.beat.stage ? (
-                <p className="elder-stage">({ui.activeDialogue.beat.stage})</p>
-              ) : null}
-              <p className="elder-dialogue-line">{ui.activeDialogue.beat.text}</p>
-              {ui.activeDialogue.showingChoices ? (
-                <div className="elder-choices">
-                  {SPIRIT_GATE_CHOICES.map((c, i) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="elder-next"
-                      onClick={() => onChoose(c.id)}
-                    >
-                      {i === 0 ? "A" : "B"} — {c.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="elder-next"
-                  onClick={onAdvanceDialogue}
-                >
-                  {ui.activeDialogue.beatIndex < ui.activeDialogue.beatCount - 1
-                    ? "Үргэлжлүүлэх"
-                    : "Сонголт"}
-                </button>
-              )}
-            </div>
           ) : (
             <ul className="elder-dialogue-list">
               {ui.dialogues.map((d) => (
@@ -150,11 +103,9 @@ export default function ElderModal({
             </ul>
           )}
 
-          {!ui.activeDialogue?.showingChoices ? (
-            <button type="button" className="elder-dismiss" onClick={onClose}>
-              Хаах (Esc)
-            </button>
-          ) : null}
+          <button type="button" className="elder-dismiss" onClick={onClose}>
+            Хаах (Esc)
+          </button>
         </div>
       </div>
     </div>

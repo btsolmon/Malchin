@@ -12,8 +12,6 @@ export interface TradeItem {
   nameMn: string;
   type: "raw" | "processed";
   basePrice: number;
-  /** 1 сүнс = 1 амь — багаар өгнө */
-  spiritPoints: number;
   invKey: keyof Inventory;
   rare?: boolean;
 }
@@ -24,7 +22,6 @@ export const ELDER_BUY_PRICES: Record<string, TradeItem> = {
     nameMn: "Сүү",
     type: "raw",
     basePrice: 15,
-    spiritPoints: 1,
     invKey: "milk",
   },
   wool: {
@@ -32,7 +29,6 @@ export const ELDER_BUY_PRICES: Record<string, TradeItem> = {
     nameMn: "Ноос",
     type: "raw",
     basePrice: 20,
-    spiritPoints: 1,
     invKey: "wool",
   },
   cashmere: {
@@ -40,7 +36,6 @@ export const ELDER_BUY_PRICES: Record<string, TradeItem> = {
     nameMn: "Ноолуур",
     type: "raw",
     basePrice: 50,
-    spiritPoints: 2,
     invKey: "cashmere",
     rare: true,
   },
@@ -49,7 +44,6 @@ export const ELDER_BUY_PRICES: Record<string, TradeItem> = {
     nameMn: "Ааруул",
     type: "processed",
     basePrice: 40,
-    spiritPoints: 2,
     invKey: "aaruul",
   },
 };
@@ -141,7 +135,6 @@ export interface ElderUiTradeRow {
   type: "raw" | "processed";
   have: number;
   price: number;
-  spirit: number;
   rare: boolean;
 }
 
@@ -149,7 +142,6 @@ export interface ElderUiState {
   open: true;
   tab: ElderTab;
   eyeMode: ElderEyeMode;
-  spiritPoints: number;
   score: number;
   trades: ElderUiTradeRow[];
   dialogues: Array<{ id: string; title: string; heard: boolean }>;
@@ -256,6 +248,19 @@ export function advanceElderDialogue(state: GameState): void {
   sfx("select");
 }
 
+/** Өмнөх ярианы мөр рүү буцах (сонголт дээр байвал сүүлийн мөр рүү) */
+export function retreatElderDialogue(state: GameState): void {
+  if (!state.elderDialogueId) return;
+  if (state.elderShowingChoices) {
+    state.elderShowingChoices = false;
+    sfx("select");
+    return;
+  }
+  if (state.elderDialogueLine <= 0) return;
+  state.elderDialogueLine -= 1;
+  sfx("select");
+}
+
 export function chooseElderOption(state: GameState, choiceId: ElderChoiceId): void {
   const choice = SPIRIT_GATE_CHOICES.find((c) => c.id === choiceId);
   if (!choice) return;
@@ -297,9 +302,7 @@ export function tradeWithElder(
 
   state.player.inventory[item.invKey] = have - qty;
   const points = item.basePrice * qty;
-  const spirit = item.spiritPoints * qty;
   state.score += points;
-  state.spiritPoints += spirit;
 
   if (item.rare) state.world.elder.eyeMode = "rare";
   else if (state.world.elder.eyeMode !== "spirit") {
@@ -309,12 +312,12 @@ export function tradeWithElder(
   spawnText(
     state,
     state.player.pos,
-    `+${points} · +${spirit} сүнс`,
+    `+${points}`,
     item.rare ? "#7ec8ff" : "#e8c56a",
   );
   setMessage(
     state,
-    `Өвгөн: «${item.nameMn} сайхан байна.» +${points} оноо, +${spirit} амь(сүнс)`,
+    `Өвгөн: «${item.nameMn} сайхан байна.» +${points} оноо`,
     2.8,
   );
   sfx("buy");
@@ -335,7 +338,6 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
     type: t.type,
     have: Number(inv[t.invKey] ?? 0),
     price: t.basePrice,
-    spirit: t.spiritPoints,
     rare: !!t.rare,
   }));
 
@@ -359,7 +361,6 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
     open: true,
     tab: state.elderTab,
     eyeMode: state.world.elder.eyeMode,
-    spiritPoints: state.spiritPoints,
     score: state.score,
     trades,
     dialogues: ELDER_DIALOGUES.map((d) => ({

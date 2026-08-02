@@ -718,7 +718,11 @@ export interface GameState {
   activeRiddleId: string | null;
   activeRiddleHost: RiddleHostRef | null;
   riddleFeedback: "idle" | "wrong" | "correct";
-  /** Сүнс = нэмэлт амь (өвгөнтэй арилжаанаас) */
+  /** Сүүлд сонгосон хариултын индекс (UI highlight) */
+  riddleSelectedIndex: number | null;
+  /** Сүүлчийн онооны өөрчлөлт (шагнал/торгууль) */
+  riddleLastDelta: number;
+  /** Сүнс = нэмэлт амь (хуучин арилжааны урамшуулал; одоо олгохгүй) */
   spiritPoints: number;
   elderTab: "trade" | "talk";
   elderDialogueId: string | null;
