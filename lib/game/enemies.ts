@@ -41,6 +41,7 @@ import {
   killHerdVisual,
   loseLivestock,
   nearestHerdAnimal,
+  checkFlockDefeat,
 } from "./livestock";
 import { updateWolves as updateCombatWolves } from "./combat/enemyBehaviors";
 import { handlePlayerDeath } from "./spirit";
@@ -90,8 +91,12 @@ export function addSheep(state: GameState, n: number): void {
   if (left > 0) addLivestock(state, kinds[0] ?? "sheep", left);
 }
 
-export function loseSheep(state: GameState, n: number): number {
-  return loseLivestock(state, n);
+export function loseSheep(
+  state: GameState,
+  n: number,
+  opts?: { skipDefeatCheck?: boolean },
+): number {
+  return loseLivestock(state, n, opts);
 }
 
 export function killSheepVisual(state: GameState, sheep: HerdAnimal): void {
@@ -201,7 +206,7 @@ export function spawnThief(state: GameState): void {
     stealWant = Math.max(1, Math.floor(stealWant * 0.8));
   }
 
-  const stolen = stealWant > 0 ? loseSheep(state, stealWant) : 0;
+  const stolen = stealWant > 0 ? loseSheep(state, stealWant, { skipDefeatCheck: true }) : 0;
   if (stealWant > 0 && stolen <= 0) return;
 
   const lvl = state.level - 1;
@@ -646,6 +651,8 @@ export function updateThieves(state: GameState, dt: number): void {
           : "Хулгайч зугтав.",
         3,
       );
+      // Барьж чадалгүй алдсан — сүрэг хоосорсон бол ялагдал
+      checkFlockDefeat(state);
     }
   }
 

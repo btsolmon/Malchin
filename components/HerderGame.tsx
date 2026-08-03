@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { mountHerderGame, type HerderGameHandle } from "@/lib/game";
 import type { ElderChoiceId, ElderUiSnapshot, ElderUiState } from "@/lib/game/elder";
 import type { RiddleUiSnapshot, RiddleUiState } from "@/lib/game/riddles";
+import ElderDialogueModal from "@/components/ElderDialogueModal";
 import ElderModal from "@/components/ElderModal";
 import RiddleModal from "@/components/RiddleModal";
 
@@ -55,6 +56,10 @@ export default function HerderGame() {
     handleRef.current?.advanceElderDialogue();
   }, []);
 
+  const onRetreatDialogue = useCallback(() => {
+    handleRef.current?.retreatElderDialogue();
+  }, []);
+
   const onChoose = useCallback((id: ElderChoiceId) => {
     handleRef.current?.chooseElderOption(id);
   }, []);
@@ -72,14 +77,23 @@ export default function HerderGame() {
         className="herder-stage"
         aria-label="Малчин survival тоглоом"
       />
-      {elderUi ? (
+      {elderUi?.activeDialogue ? (
+        <ElderDialogueModal
+          beat={elderUi.activeDialogue.beat}
+          beatIndex={elderUi.activeDialogue.beatIndex}
+          beatCount={elderUi.activeDialogue.beatCount}
+          showingChoices={elderUi.activeDialogue.showingChoices}
+          onAdvance={onAdvanceDialogue}
+          onRetreat={onRetreatDialogue}
+          onChoose={onChoose}
+          onClose={onElderClose}
+        />
+      ) : elderUi ? (
         <ElderModal
           ui={elderUi}
           onTab={onElderTab}
           onTrade={onElderTrade}
           onStartDialogue={onStartDialogue}
-          onAdvanceDialogue={onAdvanceDialogue}
-          onChoose={onChoose}
           onClose={onElderClose}
         />
       ) : null}

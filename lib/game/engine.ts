@@ -85,6 +85,7 @@ import {
   closeElder,
   createElder,
   getElderUiSnapshot,
+  retreatElderDialogue,
   setElderTab,
   startElderDialogue,
   tradeWithElder,
@@ -350,6 +351,8 @@ export function createInitialState(): GameState {
     activeRiddleId: null,
     activeRiddleHost: null,
     riddleFeedback: "idle",
+    riddleSelectedIndex: null,
+    riddleLastDelta: 0,
     spiritPoints: 0,
     elderTab: "trade",
     elderDialogueId: null,
@@ -722,6 +725,7 @@ export interface HerderGameHandle {
   tradeWithElder: (itemId: string) => void;
   startElderDialogue: (id: string) => void;
   advanceElderDialogue: () => void;
+  retreatElderDialogue: () => void;
   chooseElderOption: (id: ElderChoiceId) => void;
   closeElderModal: () => void;
 }
@@ -778,7 +782,7 @@ export function mountHerderGame(
     if (!options.onRiddleUi) return;
     const snap = getRiddleUiSnapshot(state);
     const key = snap.open
-      ? `${snap.question}|${snap.feedback}|${snap.options.join("~")}`
+      ? `${snap.question}|${snap.feedback}|${snap.selectedIndex}|${snap.lastDelta}|${snap.options.join("~")}`
       : "closed";
     if (key === lastRiddleKey) return;
     lastRiddleKey = key;
@@ -792,7 +796,6 @@ export function mountHerderGame(
       ? [
           snap.tab,
           snap.eyeMode,
-          snap.spiritPoints,
           snap.score,
           snap.trades.map((t) => `${t.id}:${t.have}`).join(","),
           snap.activeDialogue
@@ -908,6 +911,10 @@ export function mountHerderGame(
     },
     advanceElderDialogue: () => {
       advanceElderDialogue(state);
+      notifyElderUi();
+    },
+    retreatElderDialogue: () => {
+      retreatElderDialogue(state);
       notifyElderUi();
     },
     chooseElderOption: (id: ElderChoiceId) => {

@@ -30,6 +30,27 @@ export function recountTotal(counts: Record<LivestockKind, number>): number {
   return t;
 }
 
+/** Хулгайчид авч явж буй мал — баривал буцаана */
+export function stolenLivestockInTransit(state: GameState): number {
+  let held = 0;
+  for (const t of state.world.thieves) {
+    if (t.alive && t.stolen > 0) held += t.stolen;
+  }
+  return held;
+}
+
+/**
+ * Сүрэг хоосорсон эсэхийг шалгана.
+ * Хулгайч мал авч зугтаж байгаа үед (барих боломжтой) тоглоом дуусахгүй.
+ */
+export function checkFlockDefeat(state: GameState): void {
+  if (state.phase !== "playing") return;
+  if (state.world.flock.total > 0) return;
+  if (stolenLivestockInTransit(state) > 0) return;
+  state.phase = "lost";
+  setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
+}
+
 export function syncFlockTotal(flock: { counts: Record<LivestockKind, number>; total: number }): void {
   flock.total = recountTotal(flock.counts);
 }
@@ -114,7 +135,11 @@ export function addLivestock(
   syncVisualFlock(state);
 }
 
-export function loseLivestock(state: GameState, n: number): number {
+export function loseLivestock(
+  state: GameState,
+  n: number,
+  opts?: { skipDefeatCheck?: boolean },
+): number {
   const flock = state.world.flock;
   let remaining = Math.min(n, flock.total);
   let lost = 0;
@@ -140,10 +165,7 @@ export function loseLivestock(state: GameState, n: number): number {
     syncFlockTotal(flock);
   }
   syncVisualFlock(state);
-  if (flock.total <= 0) {
-    state.phase = "lost";
-    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
-  }
+  if (!opts?.skipDefeatCheck) checkFlockDefeat(state);
   return lost;
 }
 
@@ -153,10 +175,7 @@ export function killHerdVisual(state: GameState, animal: HerdAnimal): void {
   const i = flock.visuals.indexOf(animal);
   if (i >= 0) flock.visuals.splice(i, 1);
   syncVisualFlock(state);
-  if (flock.total <= 0) {
-    state.phase = "lost";
-    setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
-  }
+  checkFlockDefeat(state);
 }
 
 export function nearestHerdAnimal(
