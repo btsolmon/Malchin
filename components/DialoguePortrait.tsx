@@ -59,6 +59,7 @@ function makeBoyPortrait(): Player {
     },
     horseHp: 0,
     horseMaxHp: 0,
+    riding: false,
     sleepCooldown: 0,
     moving: false,
     // Зүүн талаас Өвгөн рүү (баруун тийш) харсан

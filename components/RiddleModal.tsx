@@ -12,22 +12,29 @@ interface RiddleModalProps {
 
 const LETTERS = ["А", "Б", "В", "Г"];
 
-function useTypewriter(text: string, cps = 48): string {
-  const [shown, setShown] = useState("");
+function useTypewriter(text: string, cps = 52): { shown: string; done: boolean } {
+  const [len, setLen] = useState(0);
+  const [activeText, setActiveText] = useState(text);
+
+  // Текст солигдоход state-ийг render үед reset (effect дотор setState биш)
+  if (text !== activeText) {
+    setActiveText(text);
+    setLen(0);
+  }
 
   useEffect(() => {
-    setShown("");
-    if (!text) return;
-    let i = 0;
-    const id = window.setInterval(() => {
-      i += 1;
-      setShown(text.slice(0, i));
-      if (i >= text.length) window.clearInterval(id);
-    }, Math.max(10, Math.floor(1000 / cps)));
-    return () => window.clearInterval(id);
-  }, [text, cps]);
+    if (!text || len >= text.length) return;
+    const stepMs = Math.max(10, Math.floor(1000 / cps));
+    const id = window.setTimeout(() => {
+      setLen((n) => n + 1);
+    }, stepMs);
+    return () => window.clearTimeout(id);
+  }, [text, len, cps]);
 
-  return shown;
+  return {
+    shown: text.slice(0, len),
+    done: text.length === 0 || len >= text.length,
+  };
 }
 
 function optionTone(
@@ -53,8 +60,10 @@ export default function RiddleModal({
   onAnswer,
   onClose,
 }: RiddleModalProps) {
-  const typedQuestion = useTypewriter(ui.question, 52);
-  const typingDone = typedQuestion.length >= ui.question.length;
+  const { shown: typedQuestion, done: typingDone } = useTypewriter(
+    ui.question,
+    52,
+  );
   const showOptions = typingDone && ui.feedback !== "correct";
 
   useEffect(() => {
@@ -140,12 +149,12 @@ export default function RiddleModal({
             className="pointer-events-none absolute -bottom-10 -right-6 h-36 w-36 rounded-full bg-[#3a5a40]/25 blur-3xl"
           />
 
-          <p className="relative min-h-[4.5rem] text-center text-lg font-semibold leading-relaxed text-[#f2e8d5] md:min-h-[5rem] md:text-2xl">
+          <p className="relative min-h-18 text-center text-lg font-semibold leading-relaxed text-[#f2e8d5] md:min-h-20 md:text-2xl">
             {typedQuestion}
             {!typingDone ? (
               <span
                 aria-hidden
-                className="ml-1 inline-block h-[0.95em] w-[3px] animate-pulse bg-[#e8c56a] align-[-0.12em]"
+                className="ml-1 inline-block h-[0.95em] w-0.75 animate-pulse bg-[#e8c56a] align-[-0.12em]"
               />
             ) : null}
           </p>
@@ -175,7 +184,7 @@ export default function RiddleModal({
                   type="button"
                   disabled={!typingDone}
                   onClick={() => onAnswer(i)}
-                  className={`group flex h-full min-h-[4.5rem] w-full items-start gap-3 rounded-xl border-2 px-3.5 py-3.5 text-left transition-all duration-200 active:scale-[0.98] md:px-4 ${optionTone(
+                  className={`group flex h-full min-h-18 w-full items-start gap-3 rounded-xl border-2 px-3.5 py-3.5 text-left transition-all duration-200 active:scale-[0.98] md:px-4 ${optionTone(
                     i,
                     ui.feedback,
                     ui.selectedIndex,
