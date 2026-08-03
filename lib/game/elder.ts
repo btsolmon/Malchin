@@ -2,6 +2,7 @@
 
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
+import { ensureShulmasHelpers } from "./firstRoute";
 import { enterSpiritWorld } from "./spirit";
 import { dist, setMessage } from "./utils";
 import type { GameState, Inventory, Vector2 } from "./types";
@@ -267,8 +268,9 @@ export function chooseElderOption(state: GameState, choiceId: ElderChoiceId): vo
 
   if (choiceId === "enter_spirit") {
     setMessage(state, `Хүү: «${choice.boyLine}»`, 2);
-    // Фазыг elder-ээс гаргаад сүнс рүү
+    // Фазыг elder-ээс гаргаад сүнс рүү — туслахуудыг шууд босгоно
     state.phase = "playing";
+    ensureShulmasHelpers(state);
     enterSpiritWorld(state);
     return;
   }

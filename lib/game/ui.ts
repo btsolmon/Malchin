@@ -42,6 +42,7 @@ import {
   RIVER_HALF_W,
   riverCenterX,
 } from "./biomes";
+import { inShulmasSpirit } from "./firstRoute";
 
 export interface UiButton {
   x: number;
@@ -1371,17 +1372,19 @@ export function drawMinimap(
   for (const t of state.world.thieves) {
     ctx.fillRect(mx + t.pos.x * sx - 2, my + t.pos.y * sy - 2, 4, 4);
   }
-  // Эхний замын дайснууд
-  ctx.fillStyle = "#ff9b55";
-  for (const enemy of state.world.firstRoute.enemies) {
-    if (!enemy.alive || !enemy.engaged) continue;
-    const size = enemy.kind === "shulmasynBaatar" ? 5 : 3;
-    ctx.fillRect(
-      mx + enemy.pos.x * sx - size / 2,
-      my + enemy.pos.y * sy - size / 2,
-      size,
-      size,
-    );
+  // Эхний замын дайснууд — зөвхөн шулмасын сүнсэнд
+  if (inShulmasSpirit(state)) {
+    ctx.fillStyle = "#ff9b55";
+    for (const enemy of state.world.firstRoute.enemies) {
+      if (!enemy.alive || !enemy.engaged) continue;
+      const size = enemy.kind === "shulmasynBaatar" ? 5 : 3;
+      ctx.fillRect(
+        mx + enemy.pos.x * sx - size / 2,
+        my + enemy.pos.y * sy - size / 2,
+        size,
+        size,
+      );
+    }
   }
   // Тоглогч — тод хөх
   ctx.fillStyle = "#1a6eff";
@@ -1428,6 +1431,7 @@ export function drawThreatArrows(
   for (const t of state.world.thieves)
     threats.push({ pos: t.pos, color: "#c080ff" });
   for (const enemy of state.world.firstRoute.enemies) {
+    if (!inShulmasSpirit(state)) break;
     if (!enemy.alive || !enemy.engaged) continue;
     threats.push({
       pos: enemy.pos,

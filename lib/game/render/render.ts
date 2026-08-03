@@ -377,8 +377,8 @@ export function render(
       draw: () => drawFenceGhost(ctx, ghostPos, ghostOrient, cam),
     });
   }
-  // Хараалт / Хар төмөр хаалга — зөвхөн шулмасын сүнсний оронд
-  if (state.phase === "spirit" && state.spiritMode === "shulmas") {
+  // Хараалт / Хар төмөр хаалга — сүнсний оронд
+  if (state.phase === "spirit") {
     drawables.push({
       y: world.firstRoute.gatePos.y,
       key: 5800,
@@ -430,8 +430,8 @@ export function render(
     });
   }
   for (const enemy of world.firstRoute.enemies) {
-    // Туслахууд зөвхөн шулмасын сүнсний оронд харагдана
-    if (state.phase !== "spirit" || state.spiritMode !== "shulmas") continue;
+    // Мангасууд — сүнсний оронд орсон л бол харагдана
+    if (state.phase !== "spirit") continue;
     if (!enemy.alive && enemy.deathTimer <= 0) continue;
     drawables.push({
       y: enemy.pos.y,
@@ -441,8 +441,7 @@ export function render(
   }
   if (
     world.firstRoute.swordDrop.visible &&
-    state.phase === "spirit" &&
-    state.spiritMode === "shulmas"
+    state.phase === "spirit"
   ) {
     drawables.push({
       y: world.firstRoute.swordDrop.pos.y,

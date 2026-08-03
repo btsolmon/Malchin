@@ -652,18 +652,18 @@ export function update(state: GameState, dt: number): void {
     if (state.phase === "spirit") {
       updateCombat(state, dt);
       updatePlayerMovement(state, dt);
-      if (state.spiritMode === "shulmas") {
-        const usedRouteInteraction = tryInteractFirstRoute(state);
-        if (!usedRouteInteraction) {
-          // E — цэвэрлэсний дараа буцах / хаалга
-          if (state.input.interact && state.spiritCleared) {
-            exitSpiritWorld(state);
-            state.input.interact = false;
-          } else {
-            tryInteract(state);
-          }
+      const usedRouteInteraction = tryInteractFirstRoute(state);
+      if (!usedRouteInteraction) {
+        // E — цэвэрлэсний дараа буцах / хаалга
+        if (state.input.interact && state.spiritCleared) {
+          exitSpiritWorld(state);
+          state.input.interact = false;
+        } else {
+          tryInteract(state);
         }
-        updateFirstRoute(state, dt);
+      }
+      updateFirstRoute(state, dt);
+      if (state.spiritMode === "shulmas") {
         updateTumurShulmasEncounter(state, dt);
       } else {
         updateWolves(state, dt);

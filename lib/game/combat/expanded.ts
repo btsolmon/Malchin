@@ -24,6 +24,7 @@ import { damageEnemyPosture } from "./enemyBehaviors";
 import {
   damageRouteEnemy,
   damageRouteEnemyPosture,
+  inShulmasSpirit,
   isRouteEnemyParryThreat,
 } from "../firstRoute";
 import {
@@ -176,12 +177,14 @@ function dodgeDirection(state: GameState): Vector2 {
       nearest = thief.pos;
     }
   }
-  for (const enemy of world.firstRoute.enemies) {
-    if (!enemy.alive) continue;
-    const distance = dist(player.pos, enemy.pos);
-    if (distance <= nearestDistance) {
-      nearestDistance = distance;
-      nearest = enemy.pos;
+  if (inShulmasSpirit(state)) {
+    for (const enemy of world.firstRoute.enemies) {
+      if (!enemy.alive) continue;
+      const distance = dist(player.pos, enemy.pos);
+      if (distance <= nearestDistance) {
+        nearestDistance = distance;
+        nearest = enemy.pos;
+      }
     }
   }
   const boss = world.tumurShulmas;
@@ -312,13 +315,15 @@ function autoFaceNearestEnemy(
     }
   }
 
-  for (const enemy of world.firstRoute.enemies) {
-    if (!enemy.alive) continue;
+  if (inShulmasSpirit(state)) {
+    for (const enemy of world.firstRoute.enemies) {
+      if (!enemy.alive) continue;
 
-    const distance = dist(player.pos, enemy.pos);
-    if (distance <= bestDistance) {
-      bestDistance = distance;
-      bestPos = enemy.pos;
+      const distance = dist(player.pos, enemy.pos);
+      if (distance <= bestDistance) {
+        bestDistance = distance;
+        bestPos = enemy.pos;
+      }
     }
   }
 
@@ -363,13 +368,15 @@ function autoFaceParryThreat(state: GameState): boolean {
     }
   }
 
-  for (const enemy of world.firstRoute.enemies) {
-    if (!isRouteEnemyParryThreat(enemy)) continue;
+  if (inShulmasSpirit(state)) {
+    for (const enemy of world.firstRoute.enemies) {
+      if (!isRouteEnemyParryThreat(enemy)) continue;
 
-    const distance = dist(player.pos, enemy.pos);
-    if (distance <= bestDistance) {
-      bestDistance = distance;
-      bestPos = enemy.pos;
+      const distance = dist(player.pos, enemy.pos);
+      if (distance <= bestDistance) {
+        bestDistance = distance;
+        bestPos = enemy.pos;
+      }
     }
   }
 
@@ -604,26 +611,28 @@ function resolveMeleeHit(state: GameState): void {
     }
   }
 
-  for (const enemy of world.firstRoute.enemies) {
-    if (!enemy.alive) continue;
-    if (
-      !isInMeleeCone(
-        player.pos,
-        enemy.pos,
-        player.attackFacing,
-        reach + player.radius + enemy.radius,
-      )
-    ) {
-      continue;
-    }
+  if (inShulmasSpirit(state)) {
+    for (const enemy of world.firstRoute.enemies) {
+      if (!enemy.alive) continue;
+      if (
+        !isInMeleeCone(
+          player.pos,
+          enemy.pos,
+          player.attackFacing,
+          reach + player.radius + enemy.radius,
+        )
+      ) {
+        continue;
+      }
 
-    const distance = dist(player.pos, enemy.pos);
-    if (distance < nearestDistance) {
-      nearestDistance = distance;
-      nearestRouteEnemy = enemy;
-      nearestWolf = null;
-      nearestThief = null;
-      nearestTumurShulmas = false;
+      const distance = dist(player.pos, enemy.pos);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestRouteEnemy = enemy;
+        nearestWolf = null;
+        nearestThief = null;
+        nearestTumurShulmas = false;
+      }
     }
   }
 
@@ -973,15 +982,17 @@ function tryRangedAttack(state: GameState): boolean {
     }
   }
 
-  for (const enemy of world.firstRoute.enemies) {
-    if (!enemy.alive) continue;
-    const distance = dist(player.pos, enemy.pos);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      dir = normalize({
-        x: enemy.pos.x - player.pos.x,
-        y: enemy.pos.y - player.pos.y,
-      });
+  if (inShulmasSpirit(state)) {
+    for (const enemy of world.firstRoute.enemies) {
+      if (!enemy.alive) continue;
+      const distance = dist(player.pos, enemy.pos);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        dir = normalize({
+          x: enemy.pos.x - player.pos.x,
+          y: enemy.pos.y - player.pos.y,
+        });
+      }
     }
   }
 
@@ -1169,7 +1180,7 @@ export function updateProjectiles(state: GameState, dt: number): void {
       }
     }
 
-    if (!consumed) {
+    if (!consumed && inShulmasSpirit(state)) {
       for (const enemy of world.firstRoute.enemies) {
         if (!enemy.alive) continue;
         if (dist(projectile.pos, enemy.pos) < enemy.radius + 6) {

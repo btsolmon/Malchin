@@ -22,6 +22,10 @@ import {
 } from "./effects";
 import { clamp, dist, normalize, setMessage } from "./utils";
 import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
+import {
+  ensureShulmasHelpers,
+  placePlayerNearHelpers,
+} from "./firstRoute";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
 
 function eastArenaX(y: number, margin = 170): number {
@@ -981,7 +985,6 @@ export function forceStartTumurShulmasBoss(state: GameState): void {
   if (state.phase !== "playing" && state.phase !== "spirit") return;
 
   const encounter = state.world.tumurShulmas;
-  const route = state.world.firstRoute;
   const inShulmas =
     state.phase === "spirit" && state.spiritMode === "shulmas";
 
@@ -1026,25 +1029,10 @@ export function forceStartTumurShulmasBoss(state: GameState): void {
   state.player.hasSkySword = true;
   state.player.weapon = "skySword";
 
+  ensureShulmasHelpers(state);
   enterShulmasSpirit(state);
+  placePlayerNearHelpers(state);
 
-  // Голын цаана, эхний туслахын ойрд
-  const anchor =
-    route.enemies.find((e) => e.alive && e.kind !== "shulmasynBaatar") ??
-    null;
-  if (anchor) {
-    state.player.pos = {
-      x: anchor.spawnPos.x - 70,
-      y: anchor.spawnPos.y,
-    };
-  } else {
-    state.player.pos = {
-      x: route.gatePos.x - 90,
-      y: route.gatePos.y + 40,
-    };
-  }
-  state.player.facing = { x: 1, y: 0 };
-  state.player.moving = false;
   state.player.vitals.health = state.player.vitals.maxHealth;
   resetBossFeedback(state);
 

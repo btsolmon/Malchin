@@ -37,8 +37,9 @@ function routeOf(state: GameState): FirstRoute {
   return state.world.firstRoute;
 }
 
-function inShulmasSpirit(state: GameState): boolean {
-  return state.phase === "spirit" && state.spiritMode === "shulmas";
+/** Сүнсний оронд байгаа эсэх — мангасууд энд л харагдаж, оногдоно */
+export function inShulmasSpirit(state: GameState): boolean {
+  return state.phase === "spirit";
 }
 
 interface RouteEnemyConfig {
@@ -172,23 +173,34 @@ function createEnemy(
   };
 }
 
-export function createFirstRoute(spawn: Vector2): FirstRoute {
-  // Туслахууд — голын цаана (зүүн эрэг), фордоос урагш/хойш тархсан
-  const slots: Array<{ kind: RouteEnemyKind; y: number; margin: number }> = [
+/** Туслах шулмасуудын spawn цэгүүд — голын зүүн эрэг */
+function buildHelperSlots(spawn: Vector2): Array<{
+  kind: RouteEnemyKind;
+  y: number;
+  margin: number;
+}> {
+  return [
     { kind: "talynHaragch", y: spawn.y - 180, margin: 55 },
     { kind: "shulmasynHuu", y: spawn.y - 40, margin: 95 },
     { kind: "shidetHarvaach", y: spawn.y + 90, margin: 70 },
     { kind: "shulmasynZarts", y: spawn.y + 220, margin: 110 },
     { kind: "talynHaragch", y: spawn.y + 340, margin: 65 },
   ];
+}
 
-  const enemies: RouteEnemy[] = slots.map((slot, i) => {
+function createHelperEnemies(spawn: Vector2): RouteEnemy[] {
+  return buildHelperSlots(spawn).map((slot, i) => {
     const y = clamp(slot.y, 100, WORLD_H - 100);
     return createEnemy(6001 + i, slot.kind, {
       x: eastOfRiver(y, slot.margin),
       y,
     });
   });
+}
+
+export function createFirstRoute(spawn: Vector2): FirstRoute {
+  // Туслахууд — голын цаана (зүүн эрэг), фордоос урагш/хойш тархсан
+  const enemies = createHelperEnemies(spawn);
 
   const gateY = clamp(spawn.y + 420, 120, WORLD_H - 140);
   const gateX = eastOfRiver(gateY, 140);
@@ -217,6 +229,67 @@ export function createFirstRoute(spawn: Vector2): FirstRoute {
     defeated: 0,
     total: enemies.length,
   };
+}
+
+/**
+ * Сүнс рүү орох бүрд туслах шулмасуудыг голын цаана дахин босгоно.
+ * (Өмнө унасан / алга болсон бол сэргээнэ; mini-boss тусдаа үлдэнэ.)
+ */
+export function ensureShulmasHelpers(state: GameState): void {
+  const route = state.world.firstRoute;
+  const spawn = state.world.campPos;
+  const helpers = createHelperEnemies(spawn);
+
+  const boss = route.enemies.find((e) => e.kind === "shulmasynBaatar");
+  const keepBoss =
+    boss &&
+    route.bossStarted &&
+    !route.bossDefeated &&
+    boss.alive;
+
+  route.enemies = keepBoss && boss ? [...helpers, boss] : helpers;
+  route.total = route.enemies.filter((e) => e.kind !== "shulmasynBaatar").length;
+  route.defeated = 0;
+  route.complete = false;
+  route.bolts = [];
+  route.active = true;
+  route.introductionShown = false;
+  route.gateMessageShown = false;
+
+  // Хаалга/ареныйг одоогийн бууцтай уяна
+  const gateY = clamp(spawn.y + 420, 120, WORLD_H - 140);
+  route.gatePos = { x: eastOfRiver(gateY, 140), y: gateY };
+  route.startX = clamp(riverCenterX(spawn.y) - 40, 80, WORLD_W - 80);
+  if (!route.bossStarted) {
+    const arenaY = clamp(WORLD_H - 380, 200, WORLD_H - 200);
+    route.arenaCenter = { x: eastOfRiver(arenaY, 160), y: arenaY };
+    route.swordDrop.pos = { ...route.arenaCenter };
+    route.swordDrop.visible = false;
+    route.swordDrop.collected = false;
+  }
+}
+
+/** Эхний амьд туслахын дэргэд (гол дээр биш) байрлуулах */
+export function placePlayerNearHelpers(state: GameState): void {
+  const route = state.world.firstRoute;
+  const anchor =
+    route.enemies.find(
+      (e) => e.alive && e.kind !== "shulmasynBaatar",
+    ) ?? null;
+  if (anchor) {
+    const bank = eastOfRiver(anchor.spawnPos.y, 25);
+    state.player.pos = {
+      x: Math.max(bank, anchor.spawnPos.x - 55),
+      y: anchor.spawnPos.y,
+    };
+  } else {
+    state.player.pos = {
+      x: route.gatePos.x - 90,
+      y: route.gatePos.y + 40,
+    };
+  }
+  state.player.facing = { x: 1, y: 0 };
+  state.player.moving = false;
 }
 
 export function routeEnemyLabel(kind: RouteEnemyKind): string {
@@ -402,6 +475,7 @@ export function damageRouteEnemyPosture(
   enemy: RouteEnemy,
   amount: number,
 ): boolean {
+  if (!inShulmasSpirit(state)) return false;
   if (!enemy.alive || amount <= 0 || enemy.phase === "stunned") return false;
 
   enemy.posture = Math.max(0, enemy.posture - amount);
@@ -518,6 +592,8 @@ export function damageRouteEnemy(
   enemy: RouteEnemy,
   damage: number,
 ): void {
+  // Зөвхөн шулмасын сүнсний оронд оногдоно (харагдахтай ижил)
+  if (!inShulmasSpirit(state)) return;
   if (!enemy.alive || damage <= 0) return;
 
   enemy.hp -= damage;
@@ -1202,7 +1278,7 @@ export function updateFirstRoute(state: GameState, dt: number): void {
 
   completeRouteIfCleared(state);
 
-  // Туслахууд зөвхөн шулмасын сүнсний оронд
+  // Туслахууд — сүнсний оронд
   if (!inShulmasSpirit(state)) return;
 
   if (

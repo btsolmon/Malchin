@@ -73,17 +73,19 @@ function resetPlayerCombatForSpirit(state: GameState): void {
   state.combatDodgeActive = false;
 }
 
-/** Ердийн сүнсний орон — чоно цэвэрлэх */
+/**
+ * Сүнсний орон — шулмасын туслахууд энд байна.
+ * ensureShulmasHelpers()-ийг дуудагч (өвгөн гэх мэт) өмнө нь ажиллуулна.
+ */
 export function enterSpiritWorld(state: GameState): void {
-  if (state.phase === "spirit" && state.spiritMode === "purge") return;
+  if (state.phase === "spirit" && state.spiritMode === "shulmas") return;
 
   stashRealWorldThreats(state);
   state.world.wolves = [];
   state.world.thieves = [];
-  spawnSpiritEnemies(state);
 
   state.phase = "spirit";
-  state.spiritMode = "purge";
+  state.spiritMode = "shulmas";
   state.spiritTransition = 1.2;
   state.spiritCleared = false;
   state.world.elder.eyeMode = "spirit";
@@ -91,7 +93,7 @@ export function enterSpiritWorld(state: GameState): void {
   sfx("howl");
   setMessage(
     state,
-    "Сүнсний орон… цаг зогсов. Дайснуудыг цэвэрлэ, E — буцах.",
+    "Сүнсний орон… цаг зогсов. Шулмасын туслахуудыг цэвэрлэ. E — буцах.",
     5,
   );
 }
@@ -119,7 +121,7 @@ export function enterShulmasSpirit(state: GameState): void {
   sfx("howl");
   setMessage(
     state,
-    "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум.",
+    "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум. Туслахууд голын цаана.",
     4.5,
   );
 }
