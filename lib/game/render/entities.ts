@@ -5,6 +5,7 @@ import {
   Dog,
   type Elder,
   type Fence,
+  type ParentNpc,
   Player,
   Projectile,
   Sheep,
@@ -2970,4 +2971,184 @@ export function drawElder(
     ctx.arc(x + 2.5, eyeY, 1.6, 0, Math.PI * 2);
     ctx.fill();
   }
+}
+
+/** Аав / ээж — хүү шиг хөл, нүүртэй */
+export function drawParentNpc(
+  ctx: CanvasRenderingContext2D,
+  parent: ParentNpc,
+  cam: Camera,
+  time: number,
+): void {
+  const x = parent.pos.x - cam.x;
+  const y = parent.pos.y - cam.y;
+  const flip = parent.face;
+  const walkCycle = parent.moving ? Math.sin(parent.walkPhase) : 0;
+  const walk = walkCycle * 2.6;
+  const bob = parent.moving
+    ? Math.abs(walkCycle) * 1.1
+    : Math.sin(time * 1.6 + (parent.role === "father" ? 0 : 1.3)) * 0.35;
+  const working = parent.workPulse > 0;
+  const isFather = parent.role === "father";
+
+  drawShadow(ctx, x, y + 12, 11, 4.5);
+
+  // Хөл
+  ctx.strokeStyle = "#2a2a30";
+  ctx.lineWidth = 3.4;
+  ctx.beginPath();
+  ctx.moveTo(x - 3.5, y + 4);
+  ctx.lineTo(x - 3.5 + walk, y + 12);
+  ctx.moveTo(x + 3.5, y + 4);
+  ctx.lineTo(x + 3.5 - walk, y + 12);
+  ctx.stroke();
+
+  const armSwing = parent.moving
+    ? -walkCycle * 3.8
+    : working
+      ? -Math.sin(time * 10) * 3.2
+      : -Math.sin(time * 1.4) * 0.5;
+  const armFlip = -flip;
+  const shoulderY = y - 6 - bob * 0.3;
+
+  // Хойд гар
+  ctx.strokeStyle = "#d8b088";
+  ctx.lineWidth = 2.8;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - 6 * armFlip, shoulderY);
+  ctx.lineTo(
+    x - 9 * armFlip - armSwing * 0.35,
+    shoulderY + 7 - armSwing * 0.15,
+  );
+  ctx.stroke();
+
+  // Дээл
+  const deel = ctx.createLinearGradient(x - 8, y - 10, x + 8, y + 6);
+  if (isFather) {
+    deel.addColorStop(0, "#3a5a88");
+    deel.addColorStop(1, "#243e62");
+  } else {
+    deel.addColorStop(0, "#8a4058");
+    deel.addColorStop(1, "#5e2a3c");
+  }
+  ctx.fillStyle = deel;
+  ctx.beginPath();
+  ctx.ellipse(x, y - 2 - bob * 0.4, 9.5, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Эмжээр
+  ctx.strokeStyle = "#e8c56a";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(x + 1 * flip, y - 11);
+  ctx.quadraticCurveTo(x + 7 * flip, y - 6, x + 5 * flip, y + 2);
+  ctx.stroke();
+  // Бүс
+  ctx.strokeStyle = isFather ? "#c88828" : "#d4a040";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(x - 9, y + 1);
+  ctx.lineTo(x + 9, y + 1);
+  ctx.stroke();
+
+  // Толгой
+  const hdy = y - 15 - bob;
+  if (isFather) {
+    // Үс ард
+    ctx.fillStyle = "#2a241c";
+    ctx.beginPath();
+    ctx.ellipse(x, hdy - 1, 6.2, 5.5, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Ээжийн урт үс ард
+    ctx.fillStyle = "#1e1812";
+    ctx.beginPath();
+    ctx.ellipse(x, hdy - 1, 6.8, 5.8, 0, Math.PI * 0.85, Math.PI * 2.15);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 5.5 * flip, hdy);
+    ctx.quadraticCurveTo(x - 9 * flip, hdy + 8, x - 4 * flip, hdy + 14);
+    ctx.quadraticCurveTo(x - 3 * flip, hdy + 6, x - 4.5 * flip, hdy);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = "#e0b890";
+  ctx.beginPath();
+  ctx.arc(x, hdy, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Нүүр: нүд, хөмсөг, ам
+  const fx = 1.6 * flip;
+  ctx.fillStyle = "#2a2018";
+  ctx.beginPath();
+  ctx.arc(x + fx - 2.2, hdy - 0.8, 0.9, 0, Math.PI * 2);
+  ctx.arc(x + fx + 2.2, hdy - 0.8, 0.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#3a2c1c";
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.moveTo(x + fx - 3.4, hdy - 2.6);
+  ctx.lineTo(x + fx - 1, hdy - 2.9);
+  ctx.moveTo(x + fx + 1, hdy - 2.9);
+  ctx.lineTo(x + fx + 3.4, hdy - 2.6);
+  ctx.stroke();
+  ctx.strokeStyle = "#8a5838";
+  ctx.lineWidth = 1;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  const mx = x + fx * 0.6;
+  const my = hdy + 2.2;
+  ctx.moveTo(mx - 1.4, my);
+  ctx.lineTo(mx + 1.4, my);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(214,110,80,0.35)";
+  ctx.beginPath();
+  ctx.arc(x + fx - 3.6, hdy + 1.4, 1.4, 0, Math.PI * 2);
+  ctx.arc(x + fx + 3.6, hdy + 1.4, 1.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (isFather) {
+    // Сахал
+    ctx.fillStyle = "rgba(70,55,40,0.55)";
+    ctx.beginPath();
+    ctx.ellipse(x + fx * 0.3, hdy + 3.2, 3.2, 2.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Малгай
+    ctx.fillStyle = "#3a3830";
+    ctx.beginPath();
+    ctx.ellipse(x, hdy - 4.5, 7.2, 3.4, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(x - 7, hdy - 7.5, 14, 3.5);
+    ctx.fillStyle = "#c8a050";
+    ctx.beginPath();
+    ctx.arc(x, hdy - 8, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Духны үс
+    ctx.fillStyle = "#1e1812";
+    ctx.beginPath();
+    ctx.ellipse(x, hdy - 3.5, 5.8, 2.8, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Урд гар
+  const handX = x + 7 * armFlip + armSwing * 0.25;
+  const handY = shoulderY + 8 + armSwing * 0.2;
+  ctx.strokeStyle = "#d8b088";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(x + 6 * armFlip, shoulderY);
+  ctx.lineTo(handX, handY);
+  ctx.stroke();
+
+  // Нэр
+  ctx.textAlign = "center";
+  ctx.font = "600 10px system-ui, sans-serif";
+  ctx.strokeStyle = "rgba(0,0,0,0.65)";
+  ctx.lineWidth = 3;
+  const label = isFather ? "Аав" : "Ээж";
+  ctx.strokeText(label, x, y - 28);
+  ctx.fillStyle = isFather ? "#c8d8f0" : "#f0c8d0";
+  ctx.fillText(label, x, y - 28);
+  ctx.textAlign = "left";
 }

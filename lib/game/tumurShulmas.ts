@@ -22,10 +22,6 @@ import {
 } from "./effects";
 import { clamp, dist, normalize, setMessage } from "./utils";
 import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
-import {
-  ensureShulmasHelpers,
-  placePlayerNearHelpers,
-} from "./firstRoute";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
 
 function eastArenaX(y: number, margin = 170): number {
@@ -792,7 +788,7 @@ export function updateTumurShulmasEncounter(
       state.spiritCleared = true;
       setMessage(
         state,
-        "Наян есөн шидтэй Төмөр Шулмасын тамир барагдаж, гол тасрав. E — бодит ертөнц рүү буцах.",
+        "Төмөр Шулмас унав. Аав ээжийг буцаан өглөө. E — гэртээ буцаж, хамт амьдар.",
         8,
       );
     }
@@ -980,71 +976,33 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
   return true;
 }
 
-/** Debug / cheat — 5 дарвал шулмасын сүнс рүү орно; дахин 5 = босс тулаан */
+/** Debug / cheat — 5 дарвал шууд Төмөр шулмасын тулаан эхэлнэ */
 export function forceStartTumurShulmasBoss(state: GameState): void {
   if (state.phase !== "playing" && state.phase !== "spirit") return;
 
   const encounter = state.world.tumurShulmas;
-  const inShulmas =
-    state.phase === "spirit" && state.spiritMode === "shulmas";
 
-  // Аль хэдийн босс тулаан үргэлжилж байвал аренад аваачина
-  if (
-    inShulmas &&
-    encounter.active &&
-    !encounter.defeated &&
-    encounter.phase !== "death" &&
-    encounter.phase !== "sealed"
-  ) {
-    preparePlayerForArena(state);
-    setMessage(state, "Төмөр шулмасын аренад буцлаа.", 2);
-    return;
-  }
-
-  // Сүнсэнд байгаа үед 5 дахин дарвал шууд босс эхэлнэ
-  if (inShulmas) {
-    encounter.unlocked = true;
-    encounter.defeated = false;
-    encounter.active = true;
-    state.player.hasSkySword = true;
-    state.player.weapon = "skySword";
-    resetEncounter(encounter);
-    resetBossFeedback(state);
-    preparePlayerForArena(state);
-    spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
-      speed: 175,
-      size: 3.3,
-    });
-    state.fx.shake = Math.max(state.fx.shake, 11);
-    setMessage(state, "5 · Төмөр шулмасын тулаан эхэллээ!", 3.5);
-    sfx("levelup");
-    return;
-  }
-
-  // Бодит ертөнцөөс 5 — сүнс рүү орж туслах + хаалгануудтай замд аваачина
   encounter.unlocked = true;
   encounter.defeated = false;
-  encounter.active = false;
-  encounter.phase = "sealed";
   state.player.hasSkySword = true;
   state.player.weapon = "skySword";
 
-  ensureShulmasHelpers(state);
-  enterShulmasSpirit(state);
-  placePlayerNearHelpers(state);
+  // Сүнсэнд байгаагүй бол аренад орох
+  if (state.phase !== "spirit" || state.spiritMode !== "shulmas") {
+    enterShulmasSpirit(state);
+  }
 
-  state.player.vitals.health = state.player.vitals.maxHealth;
+  encounter.active = true;
+  resetEncounter(encounter);
   resetBossFeedback(state);
+  preparePlayerForArena(state);
 
-  spawnParticles(state, state.player.pos, 28, "#a8d4ff", {
-    speed: 140,
-    size: 2.8,
+  spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
+    speed: 175,
+    size: 3.3,
   });
-  setMessage(
-    state,
-    "Шулмасын сүнсний орон · туслахууд ба хаалганууд голын цаана. 5 дахин — шууд босс.",
-    5,
-  );
+  state.fx.shake = Math.max(state.fx.shake, 11);
+  setMessage(state, "Төмөр шулмасын тулаан эхэллээ!", 3.5);
   sfx("levelup");
 }
 

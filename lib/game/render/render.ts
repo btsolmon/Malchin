@@ -1,7 +1,7 @@
 import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearMountHorse } from "../player";
 import { drawGerInterior } from "./ger";
 import {
@@ -350,6 +350,20 @@ export function render(
     key: -5,
     draw: () => drawElder(ctx, world.elder, cam, time),
   });
+  if (state.parentsReturned && state.parents && !world.gerPacked) {
+    drawables.push({
+      y: state.parents.father.pos.y,
+      key: -4,
+      draw: () =>
+        drawParentNpc(ctx, state.parents!.father, cam, time),
+    });
+    drawables.push({
+      y: state.parents.mother.pos.y,
+      key: -3,
+      draw: () =>
+        drawParentNpc(ctx, state.parents!.mother, cam, time),
+    });
+  }
   if (!world.gerPacked) {
     drawables.push({
       y: world.campfire.pos.y,

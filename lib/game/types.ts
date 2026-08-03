@@ -242,6 +242,33 @@ export interface HerdAnimal {
   newbornWarmth: number;
 }
 
+/** Аав / ээжийн ажил */
+export type ParentTask =
+  | "idle"
+  | "wander"
+  | "herd"
+  | "fillFeeder"
+  | "collect"
+  | "craft";
+
+export interface ParentNpc {
+  role: "father" | "mother";
+  pos: Vector2;
+  facing: Vector2;
+  /** Зургийн нүүр — анивчихгүй */
+  face: 1 | -1;
+  moving: boolean;
+  task: ParentTask;
+  taskTimer: number;
+  /** Ажиллаж буй анимейшн */
+  workPulse: number;
+  targetId: number | null;
+  /** Алхах зорилт — нэг удаа сонгогдоно */
+  walkTarget: Vector2 | null;
+  /** Алхалтын фаза (хөл/гар) */
+  walkPhase: number;
+}
+
 /** Хуучин нэр — нийцүүлэлт */
 export type Sheep = HerdAnimal;
 
@@ -742,6 +769,10 @@ export interface GameState {
   /** Сүнс рүү орохоос өмнөх дайснууд */
   spiritSavedWolves: Wolf[] | null;
   spiritSavedThieves: Thief[] | null;
+  /** Төмөр шулмасыг ялсны дараа аав ээж буцаж ирсэн */
+  parentsReturned: boolean;
+  /** Аав ээж — буцаж ирсний дараа мал маллана */
+  parents: { father: ParentNpc; mother: ParentNpc } | null;
 }
 
 // ---------------------------------------------------------------------------

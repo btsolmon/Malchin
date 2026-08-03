@@ -59,6 +59,7 @@ import {
   updateProduction,
   updateWildHorses,
 } from "./livestock";
+import { updateParents } from "./parents";
 import {
   createTumurShulmasEncounter,
   forceStartTumurShulmasBoss,
@@ -365,6 +366,8 @@ export function createInitialState(): GameState {
     spiritMode: "purge",
     spiritSavedWolves: null,
     spiritSavedThieves: null,
+    parentsReturned: false,
+    parents: null,
   };
 
   assignRiddlesToWorld(state.world, spawn, 11);
@@ -635,6 +638,7 @@ export function update(state: GameState, dt: number): void {
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
+    updateParents(state, dt);
     updateWildHorses(state, dt);
     updateFirstRoute(state, dt);
     updateTumurShulmasEncounter(state, dt);

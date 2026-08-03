@@ -2,6 +2,7 @@
 
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
+import { ensureParents } from "./parents";
 import { allocId, setMessage } from "./utils";
 import type { GameState, Vector2, Wolf } from "./types";
 
@@ -174,18 +175,35 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
   state.spiritReturnPos = null;
   const wasCleared = state.spiritCleared;
   const wasShulmas = state.spiritMode === "shulmas";
+  const parentsFreed = wasShulmas && tumur.defeated;
   state.spiritCleared = false;
   state.spiritMode = "purge";
   state.spiritTransition = 0.85;
-  state.phase = "playing";
   state.world.elder.eyeMode = "idle";
+
+  if (parentsFreed) {
+    // Аав ээжтэйгээ гэртээ буцаж, тоглоом үргэлжилнэ
+    ensureParents(state);
+    state.player.pos = {
+      x: state.world.campPos.x + 28,
+      y: state.world.campPos.y + 55,
+    };
+    state.phase = "playing";
+    setMessage(
+      state,
+      "Шулмас аав ээжийг буцаан өглөө. Одоо гэр бүлээрээ хамт амьдарна!",
+      6,
+    );
+    sfx("win");
+    return;
+  }
+
+  state.phase = "playing";
   setMessage(
     state,
     msg ??
       (wasShulmas
-        ? tumur.defeated
-          ? "Шулмасын орноос буцлаа. Бодит ертөнц сэргэв."
-          : "Шулмасын сүнсний орноос буцлаа."
+        ? "Шулмасын сүнсний орноос буцлаа."
         : wasCleared
           ? "Сүнсний орноос буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ."
           : "Бэлтгэл хийгээд дахин ир."),
