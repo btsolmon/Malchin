@@ -264,39 +264,6 @@ export function render(
     });
   }
 
-  // Мал гаргах/оруулах цэг — гал ба тэвшин гол
-  if (!world.gerPacked) {
-    const gate = flockGatePos(world);
-    drawables.push({
-      // Шонгийн сууриас дээш depth — тоглогч ойртоход урд нь гарахгүй
-      y: gate.y - 12,
-      key: -6,
-      draw: () => {
-        const gx = gate.x - cam.x;
-        const gy = gate.y - cam.y;
-        // Хоёр богино шон + завсар (хаалганы мөр)
-        ctx.fillStyle = "rgba(20,25,15,0.22)";
-        ctx.beginPath();
-        ctx.ellipse(gx, gy + 4, 16, 5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        for (const ox of [-10, 10] as const) {
-          ctx.fillStyle = "#5a3a1e";
-          ctx.fillRect(gx + ox - 2, gy - 14, 4, 16);
-          ctx.fillStyle = "#7a5230";
-          ctx.fillRect(gx + ox - 1.2, gy - 13, 2, 14);
-        }
-        ctx.strokeStyle = "rgba(90,60,30,0.45)";
-        ctx.lineWidth = 1.4;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.moveTo(gx - 8, gy - 4);
-        ctx.lineTo(gx + 8, gy - 4);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      },
-    });
-  }
-
   for (const tree of world.trees) {
     if (
       (world.firstRoute.bossStarted &&
@@ -372,8 +339,13 @@ export function render(
     });
   }
   for (const fence of world.fences) {
+    // Босоо хашаа/хаалга — ижил Y дээр тоглогчийн урд биш ард зурагдана
+    const sortY =
+      fence.isGate || fence.orient === 1
+        ? fence.pos.y - 20
+        : fence.pos.y;
     drawables.push({
-      y: fence.pos.y,
+      y: sortY,
       key: 3000 + fence.id,
       draw: () => drawFence(ctx, fence, cam, time),
     });
@@ -631,9 +603,30 @@ export function render(
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      const tip = world.flockOut ? "E — Мал оруулах" : "E — Мал гаргах";
+      const tip = world.flockOut
+        ? "E — Мал оруулах · J — Нураах"
+        : "E — Мал гаргах · J — Нураах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e070";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (
+      world.fences.some(
+        (f) => dist(state.player.pos, f.pos) < state.player.radius + 36,
+      )
+    ) {
+      const nearWall = world.fences.find(
+        (f) => dist(state.player.pos, f.pos) < state.player.radius + 36,
+      )!;
+      const tx = nearWall.pos.x - cam.x;
+      const ty = nearWall.pos.y - 26 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const tip = nearWall.isGate ? "J — Хаалга нураах" : "J — Хашаа нураах";
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#e8c070";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (dFeed < world.feeder.radius + 28) {

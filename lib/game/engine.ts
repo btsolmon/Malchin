@@ -13,7 +13,7 @@ import {
   type Tree,
   type Vector2,
 } from "./types";
-import { dist, setMessage, updateGates } from "./utils";
+import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
 import { isInRiver, sampleBushPos, sampleTreePos } from "./biomes";
 import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
@@ -95,6 +95,7 @@ import {
   type ElderUiSnapshot,
 } from "./elder";
 import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
+import { pullFlockToPen } from "./daycycle";
 
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
@@ -371,7 +372,9 @@ export function createInitialState(): GameState {
   };
 
   assignRiddlesToWorld(state.world, spawn, 11);
+  state.world.fences = createStarterPen(spawn, () => allocId(state));
   syncVisualFlock(state);
+  pullFlockToPen(state, 1);
   return state;
 }
 

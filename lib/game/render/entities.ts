@@ -5,6 +5,7 @@ import {
   Dog,
   type Elder,
   type Fence,
+  FENCE_GRID,
   type ParentNpc,
   Player,
   Projectile,
@@ -16,6 +17,9 @@ import {
   Wolf,
 } from "../types";
 import { clamp, roundRectPath } from "../utils";
+
+/** Хашааны хагас урт — хөрш сегментийн шон/үзүүр нийлнэ */
+const FENCE_HALF = FENCE_GRID / 2;
 
 export function drawShadow(
   ctx: CanvasRenderingContext2D,
@@ -562,8 +566,8 @@ export function drawFence(
 
   ctx.save();
   ctx.translate(x, y);
-  if (ns) drawShadow(ctx, 0, 2, 6, 16);
-  else drawShadow(ctx, 0, 5, 18, 5);
+  if (ns) drawShadow(ctx, 0, 2, 6, FENCE_HALF + 2);
+  else drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
 
   if (tier === 1) {
     drawFenceWood(ctx, 0, 0, ns, fence.isGate, open);
@@ -613,21 +617,21 @@ export function drawFenceGhost(
 
   ctx.strokeStyle = "rgba(255,255,255,0.7)";
   ctx.lineWidth = 3;
-  ctx.lineCap = "round";
+  ctx.lineCap = "butt";
   if (ns) {
     post(0, 0);
     ctx.beginPath();
-    ctx.moveTo(0, -26);
-    ctx.lineTo(0, 6);
+    ctx.moveTo(0, -FENCE_HALF);
+    ctx.lineTo(0, FENCE_HALF);
     ctx.stroke();
   } else {
-    post(-12, 0);
-    post(12, 0);
+    post(-FENCE_HALF, 0);
+    post(FENCE_HALF, 0);
     ctx.beginPath();
-    ctx.moveTo(-11, -14);
-    ctx.lineTo(11, -14);
-    ctx.moveTo(-11, -7);
-    ctx.lineTo(11, -7);
+    ctx.moveTo(-FENCE_HALF, -14);
+    ctx.lineTo(FENCE_HALF, -14);
+    ctx.moveTo(-FENCE_HALF, -7);
+    ctx.lineTo(FENCE_HALF, -7);
     ctx.stroke();
   }
 
@@ -660,29 +664,7 @@ function drawWoodPost(
   ctx.fill();
 }
 
-/** Босоо сегментийн дээд үзүүрт гурвалжин өргөс */
-function drawRailSpikesNS(
-  ctx: CanvasRenderingContext2D,
-  px: number,
-  yTop: number,
-): void {
-  ctx.fillStyle = "#4a3018";
-  ctx.beginPath();
-  ctx.moveTo(px - 3.2, yTop - 14);
-  ctx.lineTo(px, yTop - 22);
-  ctx.lineTo(px + 3.2, yTop - 14);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#8a6238";
-  ctx.beginPath();
-  ctx.moveTo(px - 1.4, yTop - 14);
-  ctx.lineTo(px, yTop - 20);
-  ctx.lineTo(px + 1.4, yTop - 14);
-  ctx.closePath();
-  ctx.fill();
-}
-
-/** Хэвтээ төмөр — зүүн-баруун */
+/** Хэвтээ төмөр — үзүүрээс үзүүрт (тасралтгүй) */
 function drawWoodRailsEW(
   ctx: CanvasRenderingContext2D,
   x0: number,
@@ -691,7 +673,7 @@ function drawWoodRailsEW(
 ): void {
   ctx.strokeStyle = "#6b4524";
   ctx.lineWidth = 3.2;
-  ctx.lineCap = "round";
+  ctx.lineCap = "butt";
   ctx.beginPath();
   ctx.moveTo(x0, py - 14);
   ctx.lineTo(x1, py - 14);
@@ -708,27 +690,26 @@ function drawWoodRailsEW(
   ctx.stroke();
 }
 
-/** Босоо сегмент — голын ганц төмөр (зүүн/баруун хос биш) */
+/** Босоо төмөр — үзүүрээс үзүүрт (тасралтгүй), ганц гол шонтой */
 function drawWoodRailsNS(
   ctx: CanvasRenderingContext2D,
   px: number,
-  yTop: number,
-  yBot: number,
+  y0: number,
+  y1: number,
 ): void {
   ctx.strokeStyle = "#6b4524";
   ctx.lineWidth = 3.4;
-  ctx.lineCap = "round";
+  ctx.lineCap = "butt";
   ctx.beginPath();
-  ctx.moveTo(px, yTop - 14);
-  ctx.lineTo(px, yBot - 7);
+  ctx.moveTo(px, y0);
+  ctx.lineTo(px, y1);
   ctx.stroke();
   ctx.strokeStyle = "#8a6238";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(px + 1.2, yTop - 14);
-  ctx.lineTo(px + 1.2, yBot - 7);
+  ctx.moveTo(px + 1.2, y0);
+  ctx.lineTo(px + 1.2, y1);
   ctx.stroke();
-  drawRailSpikesNS(ctx, px, yTop);
 }
 
 /** Хаалганы хавтан — hinge-ээс эргэнэ (open 0..1) */
@@ -738,8 +719,8 @@ function drawGateSwing(
   open: number,
   ns = false,
 ): void {
-  const hingeX = ns ? 0 : -11;
-  const hingeY = ns ? -11 : 0;
+  const hingeX = ns ? 0 : -FENCE_HALF;
+  const hingeY = ns ? -FENCE_HALF : 0;
   ctx.save();
   ctx.translate(hingeX, hingeY);
   ctx.rotate(-open * (Math.PI / 2) * 0.92);
@@ -757,12 +738,12 @@ function drawFenceWood(
   open: number,
 ): void {
   if (ns) {
-    // Голд ганц шон + хойд/өмнөд тийш нэг төмөр
+    // Ганц шон голд; төмөр бүрэн урт — хөрштэй үзүүр нийлнэ
     if (isGate) {
       drawGateSwing(
         ctx,
         (c) => {
-          drawWoodRailsNS(c, x, y - 12, y + 12);
+          drawWoodRailsNS(c, x, y - FENCE_HALF, y + FENCE_HALF);
           c.strokeStyle = "#5a3a1e";
           c.lineWidth = 2;
           c.beginPath();
@@ -774,17 +755,16 @@ function drawFenceWood(
         true,
       );
     } else {
-      drawWoodRailsNS(ctx, x, y - 12, y + 12);
+      drawWoodRailsNS(ctx, x, y - FENCE_HALF, y + FENCE_HALF);
     }
     drawWoodPost(ctx, x, y);
     return;
   }
 
-  drawWoodPost(ctx, x - 12, y);
-  drawWoodPost(ctx, x + 12, y);
+  // Хэвтээ — хоёр үзүүрт шон (хөрштэй нийлнэ)
   if (isGate) {
     drawGateSwing(ctx, (c) => {
-      drawWoodRailsEW(c, x - 11, x + 11, y);
+      drawWoodRailsEW(c, x - FENCE_HALF, x + FENCE_HALF, y);
       c.strokeStyle = "#5a3a1e";
       c.lineWidth = 2;
       c.beginPath();
@@ -793,8 +773,10 @@ function drawFenceWood(
       c.stroke();
     }, open);
   } else {
-    drawWoodRailsEW(ctx, x - 11, x + 11, y);
+    drawWoodRailsEW(ctx, x - FENCE_HALF, x + FENCE_HALF, y);
   }
+  drawWoodPost(ctx, x - FENCE_HALF, y);
+  drawWoodPost(ctx, x + FENCE_HALF, y);
 }
 
 /** Дунд шат — өргөстэй төмөр тор */
@@ -867,11 +849,9 @@ function drawBarbedPanelEW(
 function drawBarbedPanelNS(
   ctx: CanvasRenderingContext2D,
   px: number,
-  yTop: number,
-  yBot: number,
+  y0: number,
+  y1: number,
 ): void {
-  const y0 = yTop - 15;
-  const y1 = yBot - 3;
   const mid = (y0 + y1) / 2;
   const half = (y1 - y0) / 2;
   ctx.strokeStyle = "#8a8a8a";
@@ -912,23 +892,27 @@ function drawFenceBarbed(
     if (isGate) {
       drawGateSwing(
         ctx,
-        (c) => drawBarbedPanelNS(c, x, y - 12, y + 12),
+        (c) => drawBarbedPanelNS(c, x, y - FENCE_HALF, y + FENCE_HALF),
         open,
         true,
       );
     } else {
-      drawBarbedPanelNS(ctx, x, y - 12, y + 12);
+      drawBarbedPanelNS(ctx, x, y - FENCE_HALF, y + FENCE_HALF);
     }
     drawBarbedPost(ctx, x, y);
     return;
   }
 
-  drawBarbedPost(ctx, x - 12, y);
-  drawBarbedPost(ctx, x + 12, y);
+  drawBarbedPost(ctx, x - FENCE_HALF, y);
+  drawBarbedPost(ctx, x + FENCE_HALF, y);
   if (isGate) {
-    drawGateSwing(ctx, (c) => drawBarbedPanelEW(c, x - 11, x + 11, y), open);
+    drawGateSwing(
+      ctx,
+      (c) => drawBarbedPanelEW(c, x - FENCE_HALF, x + FENCE_HALF, y),
+      open,
+    );
   } else {
-    drawBarbedPanelEW(ctx, x - 11, x + 11, y);
+    drawBarbedPanelEW(ctx, x - FENCE_HALF, x + FENCE_HALF, y);
   }
 }
 

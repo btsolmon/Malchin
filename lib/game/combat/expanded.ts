@@ -18,7 +18,7 @@ import {
   triggerHitStop,
 } from "../effects";
 import { sfx } from "../audio";
-import { gainXp } from "../player";
+import { gainXp, tryDemolishFence } from "../player";
 import { addSheep } from "../enemies";
 import { damageEnemyPosture } from "./enemyBehaviors";
 import {
@@ -1091,6 +1091,16 @@ export function updateCombat(state: GameState, dt: number): void {
   }
 
   if (tryRangedAttack(state)) return;
+
+  // J — ойр хашаа нураах (дайрахаас өмнө)
+  if (
+    (input.attack || input.attackPressed) &&
+    tryDemolishFence(state)
+  ) {
+    input.attack = false;
+    input.attackPressed = false;
+    return;
+  }
 
   // attackPressed — hitstop/frame алдагдлаас хамгаалах edge
   if (!input.attack && !input.attackPressed) return;

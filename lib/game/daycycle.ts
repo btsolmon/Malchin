@@ -14,6 +14,8 @@ import {
   flockGatePos,
   isNight,
   pastureCenter,
+  penCenter,
+  PEN_RADIUS,
   setMessage,
 } from "./utils";
 import { addLivestock, killHerdVisual } from "./livestock";
@@ -23,13 +25,7 @@ import { sfx } from "./audio";
 /** Бодит секундэд нэг өдөр — timeOfDay += dt * TIME_RATE */
 export const TIME_RATE = 24 / DAY_LENGTH_SEC;
 
-/** Гэрийн дэргэдэх хашаа/бууцын радиус */
-export const PEN_RADIUS = 95;
-
-export function penCenter(world: GameState["world"]): Vector2 {
-  const c = pastureCenter(world);
-  return { x: c.x - 20, y: c.y + 30 };
-}
+export { PEN_RADIUS, penCenter };
 
 export function animalInPen(
   pos: Vector2,
@@ -152,7 +148,7 @@ export function updateDayPhaseTransitions(state: GameState): void {
   }
 }
 
-function pullFlockToPen(state: GameState, strength: number): void {
+export function pullFlockToPen(state: GameState, strength: number): void {
   const pen = penCenter(state.world);
   for (const a of state.world.flock.visuals) {
     a.pos.x = clamp(
@@ -170,7 +166,7 @@ function pullFlockToPen(state: GameState, strength: number): void {
   }
 }
 
-/** Гал–тэвшин голын цэгт E — мал гаргах / оруулах */
+/** Хашааны хаалган дээр E — мал гаргах / оруулах */
 export function tryToggleFlockPen(state: GameState): boolean {
   const { player, world } = state;
   const gate = flockGatePos(world);
@@ -178,25 +174,26 @@ export function tryToggleFlockPen(state: GameState): boolean {
     return false;
   }
 
-  const phase = getDayPhase(world.timeOfDay, world.season);
+  // Хаалгыг удаан нээнэ — мал өөрөө алхаж гарах/орох
+  const gateFence = world.fences.find((f) => f.isGate);
+  if (gateFence) {
+    gateFence.gateOpen = 1;
+    gateFence.gateCloseIn = 22;
+  }
 
   if (!world.flockOut) {
     world.flockOut = true;
     sfx("select");
     spawnText(state, gate, "Мал бэлчээрт!", "#b8e8a0");
-    setMessage(state, "Мал бэлчээрт гарлаа. Орой хашаанд оруул!", 3);
+    setMessage(state, "Мал хаалгаар бэлчээрт гарч байна.", 3);
     return true;
   }
 
-  // Оруулах — орой/шөнө эсвэл мал ойрхон байвал
-  if (phase === "dawn" || phase === "day") {
-    // Өдөр дуртайгаар оруулж болно
-  }
-  pullFlockToPen(state, 0.85);
+  // Оруулах — шууд телепорт биш, мал өөрөө хаалга руу алхана
   world.flockOut = false;
   sfx("select");
-  spawnText(state, gate, "Мал хашаанд", "#e8c56a");
-  setMessage(state, "Мал хашаандаа орлоо.", 2.5);
+  spawnText(state, gate, "Мал хашаа руу…", "#e8c56a");
+  setMessage(state, "Мал хаалгаар хашаандаа орж байна.", 3);
   return true;
 }
 
