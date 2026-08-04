@@ -461,7 +461,7 @@ export function render(
       draw: () => drawDog(ctx, dog, cam, time),
     });
   }
-  // Морьны уяа — морь авсны дараа гэрийн зүүн урд (хоёр шон + урт уяа)
+  // Морьны уяа — гэрийн зүүн (зүүн зүг / +X) талд
   if (
     !world.gerPacked &&
     state.player.gear.horse &&

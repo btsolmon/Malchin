@@ -322,7 +322,7 @@ function clampPlayerToWorld(
   player.pos.y = clamp(player.pos.y, player.radius, height - player.radius);
 }
 
-/** Гэрийн зүүн урд — хоёр шонтой уяа (хаалгын эсрэг / зүүн тал) */
+/** Гэрийн зүүн тал — хоёр шонтой уяа (хаалгаас гадагш харахад зүүн) */
 export function horseHitchRail(world: World): {
   left: Vector2;
   right: Vector2;
@@ -330,14 +330,15 @@ export function horseHitchRail(world: World): {
   tie: Vector2;
 } {
   const c = pastureCenter(world);
-  // Гэр зураг: drawGer(c.x - 46, …) — зүүн талд уяа (нэг уяаны зайгаар хол)
-  const midX = c.x - 192;
-  const midY = c.y + 48;
+  // drawGer(c.x - 46) — хаалга өмнөд; зүүн тал = +X (зүүн зүг)
+  const gerX = c.x - 46;
+  const midX = gerX + 130;
+  const midY = c.y + 44;
   const half = 42;
   return {
     left: { x: midX - half, y: midY + 3 },
     right: { x: midX + half, y: midY },
-    tie: { x: midX - 4, y: midY + 22 },
+    tie: { x: midX + 4, y: midY + 22 },
   };
 }
 
@@ -369,9 +370,9 @@ export function dismountHorse(
       dist(player.pos, horseHitchPos(state.world)) < 85);
   const tie = opts?.tie ?? nearGer;
   const hitch = horseHitchPos(state.world);
-  // Уясан үед гэр рүү (баруун тийш) харна; буусан үед тоглогчийн чиг
+  // Уясан үед гэр рүү (зүүнээс баруун тийш / гэр рүү) харна
   const face: 1 | -1 = tie
-    ? 1
+    ? -1
     : player.facing.x < 0
       ? -1
       : 1;
@@ -402,7 +403,7 @@ export function hitchHorseOutside(state: GameState): void {
   const h = state.world.mountHorse;
   if (!h) return;
   h.pos = horseHitchPos(state.world);
-  h.face = 1;
+  h.face = -1;
   h.tied = true;
 }
 
@@ -927,6 +928,11 @@ export function tryBuildFence(state: GameState): void {
 
 export function updateSurvival(state: GameState, dt: number): void {
   const { player, world } = state;
+  // Уясан морь — уяаны байрлалтай нийцүүлнэ
+  if (world.mountHorse?.tied && !player.riding && !world.gerPacked) {
+    world.mountHorse.pos = horseHitchPos(world);
+    world.mountHorse.face = -1;
+  }
   const fire = world.campfire;
 
   if (fire.lit) {
