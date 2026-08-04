@@ -357,6 +357,10 @@ export function damagePlayer(state: GameState, dmg: number): void {
 }
 
 const WOLF_PLAYER_AGGRO_RANGE = 260;
+/** Хүн маш ойрхон үед л тоглогч руу шилжинэ — эс бөгөөс мал руу дайрна */
+const WOLF_PLAYER_ENGAGE_RANGE = 105;
+const BEAR_PLAYER_AGGRO_RANGE = 360;
+const BEAR_PLAYER_ENGAGE_RANGE = 130;
 
 /** Edge-to-edge spacing. Player radius ni enemyBodyDistance()-d tusdaa orno. */
 const WOLF_CHASE_GAP = 24;
@@ -514,8 +518,6 @@ const BEAR_BITE_HIT_STOP_SECONDS = 0.06;
 // Bear attacks
 // ---------------------------------------------------------------------------
 
-const BEAR_PLAYER_AGGRO_RANGE = 360;
-
 /** Bear edge-to-edge spacing. */
 const BEAR_CHASE_GAP = 36;
 const BEAR_GRAB_STOP_GAP = 28;
@@ -541,6 +543,8 @@ const BEAR_GRAB_SPEED = 430;
 
 const BEAR_SWIPE_POST_ATTACK_COOLDOWN = 1.25;
 const BEAR_GRAB_POST_ATTACK_COOLDOWN = 1.7;
+const BEAR_GRAB_BITE_DAMAGE_MULTIPLIER = 0.85;
+const BEAR_GRAB_FINISH_DAMAGE_MULTIPLIER = 1.15;
 
 /** Шар telegraph улаан болох үед bear swipe parry хийж болно. */
 export const BEAR_PARRY_WARNING_TIME = 0.24;
@@ -883,20 +887,30 @@ function finishPlayerFromBearGrab(
   const player = state.player;
 
   holdPlayerInFrontOfBear(state, bear);
-  player.vitals.health = 0;
-  player.invuln = 1;
+
+  // Өмнө шууд үхүүлдэг байсан — одоо хүнд цохилт өгөөд суллана
+  if (player.vitals.health > 0) {
+    player.invuln = 0;
+    damagePlayerFromWolf(
+      state,
+      bear,
+      42,
+      BEAR_GRAB_FINISH_DAMAGE_MULTIPLIER,
+    );
+  }
+
+  bear.attackPhase = "recovery";
+  bear.attackTimer = BEAR_GRAB_RECOVERY_DURATION;
   bear.attackHitDone = true;
   bear.vel = { x: 0, y: 0 };
+  bear.attackCooldown = Math.max(
+    bear.attackCooldown,
+    BEAR_GRAB_POST_ATTACK_COOLDOWN,
+  );
 
-  state.fx.shake = Math.max(state.fx.shake, 10);
-  state.fx.hurtFlash = 1;
-  spawnParticles(state, player.pos, 18, "#d64545", {
-    speed: 135,
-    size: 3,
-  });
-
-  if (state.phase === "playing" || state.phase === "spirit") {
-    handlePlayerDeath(state, "Баавгайн дайралтад бариуллаа…");
+  if (player.vitals.health > 0) {
+    spawnText(state, player.pos, "Суллав!", "#ffc080");
+    setMessage(state, "Баавгай бариад хазчихлаа — амьд үлдлээ!", 2.2);
   }
 }
 
@@ -916,23 +930,26 @@ function updateBearAttackPhase(
     bear.vel = { x: 0, y: 0 };
     holdPlayerInFrontOfBear(state, bear);
 
-    // Animation-iin dund neg udaa hazah impact gargana.
+    // Дунд хазалт — бодит хохирол (шууд үхэл биш)
     if (
       !bear.attackHitDone &&
       previousTimer > BEAR_GRAB_HOLD_DURATION * 0.5 &&
       bear.attackTimer <= BEAR_GRAB_HOLD_DURATION * 0.5
     ) {
       bear.attackHitDone = true;
-      state.fx.shake = Math.max(state.fx.shake, 8);
+      player.invuln = 0;
+      damagePlayerFromWolf(
+        state,
+        bear,
+        8,
+        BEAR_GRAB_BITE_DAMAGE_MULTIPLIER,
+      );
+      // Grab үргэлжлэхэд дахин онохгүй
+      player.invuln = Math.max(player.invuln, bear.attackTimer + 0.05);
       triggerHitStop(state, BEAR_BITE_HIT_STOP_SECONDS);
       spawnImpactBurst(state, player.pos, {
         heavy: true,
         color: "#d64545",
-      });
-      sfx("hurt");
-      spawnParticles(state, player.pos, 12, "#d64545", {
-        speed: 115,
-        size: 2.8,
       });
       spawnText(state, player.pos, "ХАЗУУЛАВ!", "#ff7058");
     }
@@ -1106,6 +1123,86 @@ function updateBearAttackPhase(
   return true;
 }
 
+function preferPlayerOverLivestock(
+  dPlayer: number,
+  dPrey: number,
+  engageRange: number,
+  aggroRange: number,
+  hasPrey: boolean,
+): boolean {
+  // Мал байхгүй → хүн рүү
+  if (!hasPrey) return dPlayer <= aggroRange;
+  // Хүн маш ойрхон (хамгаалалт) → хүн рүү
+  if (dPlayer <= engageRange) return true;
+  // Мал илүү ойр эсвэл ойролцоо → мал руу
+  if (dPrey <= dPlayer + 40) return false;
+  // Хүн илүү ойр бөгөөд aggro дотор → хүн рүү
+  return dPlayer <= aggroRange;
+}
+
+function attackLivestock(
+  state: GameState,
+  predator: WolfWithLeap,
+  prey: Sheep,
+  dt: number,
+  biteCooldown: number,
+  damageScale: number,
+): void {
+  const direction = safeEnemyDirection(predator.pos, prey.pos, predator.face);
+  predator.vel = direction;
+  if (Math.abs(direction.x) > 0.25) {
+    predator.face = direction.x < 0 ? -1 : 1;
+  }
+
+  const dPrey = dist(predator.pos, prey.pos);
+  const biteRange =
+    predator.radius * predator.scale + prey.radius + 4;
+
+  if (dPrey > biteRange - 3) {
+    predator.pos.x += direction.x * predator.speed * dt;
+    predator.pos.y += direction.y * predator.speed * dt;
+  }
+
+  if (dPrey < biteRange + 4 && predator.attackCooldown <= 0) {
+    predator.attackCooldown = biteCooldown;
+    const damage =
+      damageScale * livestockFenceDamageMultiplier(state, predator, prey);
+    if (damage < 0.12) {
+      spawnText(state, prey.pos, "Хашаа хамгааллаа", "#a8d8ff");
+      spawnParticles(state, predator.pos, 3, "#90c8e8", { speed: 40 });
+    } else {
+      prey.hp -= damage;
+      prey.flash = 0.18;
+      sfx("baa");
+      spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
+    }
+
+    if (prey.hp <= 0) {
+      spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
+      spawnText(
+        state,
+        prey.pos,
+        `−1 ${LIVESTOCK_MN[prey.kind]}`,
+        "#ff8080",
+      );
+      killSheepVisual(state, prey);
+      const label = predator.kind === "bear" ? "Баавгай" : "Чоно";
+      setMessage(state, `${label} ${LIVESTOCK_MN[prey.kind]} барив!`, 2);
+    }
+  }
+
+  predator.pos.x = clamp(
+    predator.pos.x,
+    predator.radius,
+    WORLD_W - predator.radius,
+  );
+  predator.pos.y = clamp(
+    predator.pos.y,
+    predator.radius,
+    WORLD_H - predator.radius,
+  );
+}
+
 function updateBearBehavior(
   state: GameState,
   bear: WolfWithLeap,
@@ -1113,14 +1210,19 @@ function updateBearBehavior(
 ): void {
   const player = state.player;
   const dPlayer = dist(bear.pos, player.pos);
+  const prey = nearestSheep(bear.pos, state.world.flock.visuals);
+  const dPrey = prey ? dist(bear.pos, prey.pos) : Number.POSITIVE_INFINITY;
 
-  // Player ойрхон үед баавгайн гол бай болно.
-  if (dPlayer <= BEAR_PLAYER_AGGRO_RANGE) {
-    const toPlayer = safeEnemyDirection(
-      bear.pos,
-      player.pos,
-      bear.face,
-    );
+  const engagePlayer = preferPlayerOverLivestock(
+    dPlayer,
+    dPrey,
+    BEAR_PLAYER_ENGAGE_RANGE,
+    BEAR_PLAYER_AGGRO_RANGE,
+    !!prey,
+  );
+
+  if (engagePlayer) {
+    const toPlayer = safeEnemyDirection(bear.pos, player.pos, bear.face);
 
     bear.vel = toPlayer;
 
@@ -1128,10 +1230,8 @@ function updateBearBehavior(
       bear.face = toPlayer.x < 0 ? -1 : 1;
     }
 
-    const bodyDistance =
-      bear.radius * bear.scale + player.radius;
-    const swipeTriggerRange =
-      bodyDistance + BEAR_SWIPE_TRIGGER_EXTRA;
+    const bodyDistance = bear.radius * bear.scale + player.radius;
+    const swipeTriggerRange = bodyDistance + BEAR_SWIPE_TRIGGER_EXTRA;
     const grabMinRange = bodyDistance + BEAR_GRAB_MIN_EXTRA;
     const grabMaxRange = bodyDistance + BEAR_GRAB_MAX_EXTRA;
     const stopDistance = bodyDistance + BEAR_CHASE_GAP;
@@ -1142,10 +1242,7 @@ function updateBearBehavior(
         return;
       }
 
-      if (
-        dPlayer >= grabMinRange &&
-        dPlayer <= grabMaxRange
-      ) {
+      if (dPlayer >= grabMinRange && dPlayer <= grabMaxRange) {
         startBearAttack(bear, player.pos, "bearGrab");
         return;
       }
@@ -1159,102 +1256,30 @@ function updateBearBehavior(
       dt,
       stopDistance,
     );
-    softlySeparateEnemyFromPlayer(
-      state,
-      bear,
-      BEAR_CHASE_GAP,
-      220 * dt,
-    );
+    softlySeparateEnemyFromPlayer(state, bear, BEAR_CHASE_GAP, 220 * dt);
 
-    bear.pos.x = clamp(
-      bear.pos.x,
-      bear.radius,
-      WORLD_W - bear.radius,
-    );
-    bear.pos.y = clamp(
-      bear.pos.y,
-      bear.radius,
-      WORLD_H - bear.radius,
-    );
+    bear.pos.x = clamp(bear.pos.x, bear.radius, WORLD_W - bear.radius);
+    bear.pos.y = clamp(bear.pos.y, bear.radius, WORLD_H - bear.radius);
     return;
   }
 
-  // Player хол үед хуучин хонь руу дайрах behavior-ийг хадгална.
-  const prey = nearestSheep(
-    bear.pos,
-    state.world.flock.visuals,
-  );
-  const target = prey?.pos ?? pastureCenter(state.world);
-  const direction = safeEnemyDirection(
-    bear.pos,
-    target,
-    bear.face,
-  );
+  // Гол бай = мал
+  if (prey) {
+    attackLivestock(state, bear, prey, dt, 1.5, 1.5);
+    return;
+  }
 
+  // Мал/хүн хол — бэлчээр рүү
+  const target = pastureCenter(state.world);
+  const direction = safeEnemyDirection(bear.pos, target, bear.face);
   bear.vel = direction;
-
   if (Math.abs(direction.x) > 0.25) {
     bear.face = direction.x < 0 ? -1 : 1;
   }
-
-  const dPrey = prey
-    ? dist(bear.pos, prey.pos)
-    : Number.POSITIVE_INFINITY;
-  const biteRange =
-    bear.radius * bear.scale +
-    (prey ? prey.radius : 0) +
-    4;
-
-  if (dPrey > biteRange - 3) {
-    bear.pos.x += direction.x * bear.speed * dt;
-    bear.pos.y += direction.y * bear.speed * dt;
-  }
-
-  if (
-    prey &&
-    dPrey < biteRange + 4 &&
-    bear.attackCooldown <= 0
-  ) {
-    bear.attackCooldown = 1.5;
-    const damage =
-      1.5 * livestockFenceDamageMultiplier(state, bear, prey);
-    if (damage < 0.12) {
-      spawnText(state, prey.pos, "Хашаа хамгааллаа", "#a8d8ff");
-      spawnParticles(state, bear.pos, 3, "#90c8e8", { speed: 40 });
-    } else {
-      prey.hp -= damage;
-      prey.flash = 0.18;
-      sfx("baa");
-      spawnParticles(state, prey.pos, 5, "#f0ebe3", {
-        speed: 70,
-      });
-    }
-
-    if (prey.hp <= 0) {
-      spawnParticles(state, prey.pos, 12, "#f0ebe3", {
-        speed: 100,
-      });
-      spawnText(
-        state,
-        prey.pos,
-        `−1 ${LIVESTOCK_MN[prey.kind]}`,
-        "#ff8080",
-      );
-      killSheepVisual(state, prey);
-      setMessage(state, `Баавгай ${LIVESTOCK_MN[prey.kind]} барив!`, 2);
-    }
-  }
-
-  bear.pos.x = clamp(
-    bear.pos.x,
-    bear.radius,
-    WORLD_W - bear.radius,
-  );
-  bear.pos.y = clamp(
-    bear.pos.y,
-    bear.radius,
-    WORLD_H - bear.radius,
-  );
+  bear.pos.x += direction.x * bear.speed * dt;
+  bear.pos.y += direction.y * bear.speed * dt;
+  bear.pos.x = clamp(bear.pos.x, bear.radius, WORLD_W - bear.radius);
+  bear.pos.y = clamp(bear.pos.y, bear.radius, WORLD_H - bear.radius);
 }
 
 function startWolfWindup(
@@ -1483,9 +1508,21 @@ function updateNormalWolfChasing(
   const player = state.player;
   const flock = state.world.flock;
   const dPlayer = dist(wolf.pos, player.pos);
+  const prey = nearestSheep(wolf.pos, flock.visuals);
+  const dPrey = prey ? dist(wolf.pos, prey.pos) : Number.POSITIVE_INFINITY;
 
-  // Player is the priority target while close enough (spirit: always).
-  if (state.phase === "spirit" || dPlayer <= WOLF_PLAYER_AGGRO_RANGE) {
+  // Сүнсний оронд зөвхөн тоглогч
+  const engagePlayer =
+    state.phase === "spirit" ||
+    preferPlayerOverLivestock(
+      dPlayer,
+      dPrey,
+      WOLF_PLAYER_ENGAGE_RANGE,
+      WOLF_PLAYER_AGGRO_RANGE,
+      !!prey,
+    );
+
+  if (engagePlayer) {
     const toPlayer = normalize({
       x: player.pos.x - wolf.pos.x,
       y: player.pos.y - wolf.pos.y,
@@ -1497,12 +1534,9 @@ function updateNormalWolfChasing(
       wolf.face = toPlayer.x < 0 ? -1 : 1;
     }
 
-    const bodyDistance =
-      wolf.radius * wolf.scale + player.radius;
-    const clawTriggerRange =
-      bodyDistance + WOLF_CLAW_TRIGGER_EXTRA;
-    const leapTriggerRange =
-      bodyDistance + WOLF_LEAP_TRIGGER_EXTRA;
+    const bodyDistance = wolf.radius * wolf.scale + player.radius;
+    const clawTriggerRange = bodyDistance + WOLF_CLAW_TRIGGER_EXTRA;
+    const leapTriggerRange = bodyDistance + WOLF_LEAP_TRIGGER_EXTRA;
     const stopDistance = bodyDistance + WOLF_CHASE_GAP;
 
     if (wolf.attackCooldown <= 0) {
@@ -1525,67 +1559,30 @@ function updateNormalWolfChasing(
       dt,
       stopDistance,
     );
-    softlySeparateEnemyFromPlayer(
-      state,
-      wolf,
-      WOLF_CHASE_GAP,
-      220 * dt,
-    );
+    softlySeparateEnemyFromPlayer(state, wolf, WOLF_CHASE_GAP, 220 * dt);
 
     wolf.pos.x = clamp(wolf.pos.x, wolf.radius, WORLD_W - wolf.radius);
     wolf.pos.y = clamp(wolf.pos.y, wolf.radius, WORLD_H - wolf.radius);
     return;
   }
 
-  // Outside player aggro range, preserve the original sheep-hunting behavior.
-  const prey = nearestSheep(wolf.pos, flock.visuals);
-  const target = prey?.pos ?? pastureCenter(state.world);
+  // Гол бай = мал
+  if (prey) {
+    attackLivestock(state, wolf, prey, dt, 1.3, 1);
+    return;
+  }
+
+  const target = pastureCenter(state.world);
   const dir = normalize({
     x: target.x - wolf.pos.x,
     y: target.y - wolf.pos.y,
   });
-
   wolf.vel = dir;
-
   if (Math.abs(dir.x) > 0.25) {
     wolf.face = dir.x < 0 ? -1 : 1;
   }
-
-  const dPrey = prey ? dist(wolf.pos, prey.pos) : Infinity;
-  const biteRange =
-    wolf.radius * wolf.scale + (prey ? prey.radius : 0) + 4;
-
-  if (dPrey > biteRange - 3) {
-    wolf.pos.x += dir.x * wolf.speed * dt;
-    wolf.pos.y += dir.y * wolf.speed * dt;
-  }
-
-  if (prey && dPrey < biteRange + 4 && wolf.attackCooldown <= 0) {
-    wolf.attackCooldown = 1.3;
-    const damage = livestockFenceDamageMultiplier(state, wolf, prey);
-    if (damage < 0.12) {
-      spawnText(state, prey.pos, "Хашаа хамгааллаа", "#a8d8ff");
-      spawnParticles(state, wolf.pos, 3, "#90c8e8", { speed: 40 });
-    } else {
-      prey.hp -= damage;
-      prey.flash = 0.18;
-      sfx("baa");
-      spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
-    }
-
-    if (prey.hp <= 0) {
-      spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
-      spawnText(
-        state,
-        prey.pos,
-        `−1 ${LIVESTOCK_MN[prey.kind]}`,
-        "#ff8080",
-      );
-      killSheepVisual(state, prey);
-      setMessage(state, `Чоно ${LIVESTOCK_MN[prey.kind]} барив!`, 2);
-    }
-  }
-
+  wolf.pos.x += dir.x * wolf.speed * dt;
+  wolf.pos.y += dir.y * wolf.speed * dt;
   wolf.pos.x = clamp(wolf.pos.x, wolf.radius, WORLD_W - wolf.radius);
   wolf.pos.y = clamp(wolf.pos.y, wolf.radius, WORLD_H - wolf.radius);
 }
