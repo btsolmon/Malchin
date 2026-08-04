@@ -2,6 +2,7 @@
 
 import {
   FENCE_GRID,
+  FENCE_MAX_HP_BY_TIER,
   FENCE_RADIUS,
   GATE_ANIM_SEC,
   GATE_CLOSE_DELAY,
@@ -51,17 +52,82 @@ export function gerDoorPos(world: World): Vector2 {
   return { x: c.x, y: c.y - 20 };
 }
 
-/** Мал гаргах/оруулах цэг — гал ба тэвшин голд, жаахан урагш */
+/** Эхлэлийн хашааны тал бүрийн сегментийн тоо (5×5) */
+export const STARTER_PEN_SIZE = 5;
+
+/** Мал гаргах/оруулах цэг — хашааны хаалга (байхгүй бол баруун хана) */
 export function flockGatePos(world: World): Vector2 {
-  const fire = world.campfire.pos;
-  const feed = world.feeder.pos;
-  return {
-    x: (fire.x + feed.x) * 0.5,
-    y: (fire.y + feed.y) * 0.5 + 22,
-  };
+  const gate = world.fences.find((f) => f.isGate);
+  if (gate) return { x: gate.pos.x, y: gate.pos.y };
+  const pen = starterPenCenter(world.campPos);
+  const halfSide = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
+  return { x: pen.x + halfSide, y: pen.y };
 }
 
 export const FLOCK_GATE_RADIUS = 36;
+
+/** Эхний бууцын хашааны төв — гэрийн зүүн талд, зайтай */
+export function starterPenCenter(camp: Vector2): Vector2 {
+  const halfSide = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
+  return snapFencePos(
+    camp.x - halfSide - 7 * FENCE_GRID,
+    camp.y + FENCE_GRID,
+    FENCE_GRID,
+  );
+}
+
+/** Хашаан доторх малын бөөгнөрөх радиус */
+export const PEN_RADIUS = (STARTER_PEN_SIZE * FENCE_GRID) / 2 - 10;
+
+export function penCenter(world: World): Vector2 {
+  return starterPenCenter(world.campPos);
+}
+
+/**
+ * Эхлэлийн хашаа — тал бүрт STARTER_PEN_SIZE сегмент (5×5).
+ * Үзүүр буланд нийлж тасралтгүй дөрвөлжин.
+ */
+export function createStarterPen(
+  camp: Vector2,
+  nextId: () => number,
+): Fence[] {
+  const g = FENCE_GRID;
+  const n = STARTER_PEN_SIZE;
+  const c = starterPenCenter(camp);
+  // n=5 → хананы урт 5 тор; сегментийн төвүүд: -2,-1,0,1,2
+  const wall = (n * g) / 2;
+  const left = c.x - wall;
+  const right = c.x + wall;
+  const top = c.y - wall;
+  const bottom = c.y + wall;
+  const gateIndex = Math.floor(n / 2); // гол = хаалга
+
+  const make = (x: number, y: number, orient: 0 | 1, isGate = false): Fence => ({
+    id: nextId(),
+    pos: { x, y },
+    radius: FENCE_RADIUS,
+    orient,
+    tier: 1,
+    hp: FENCE_MAX_HP_BY_TIER[1],
+    maxHp: FENCE_MAX_HP_BY_TIER[1],
+    isGate,
+    gateOpen: 0,
+    gateCloseIn: 0,
+  });
+
+  const fences: Fence[] = [];
+
+  for (let i = 0; i < n; i++) {
+    // Сегмент төв: хананы дагуу хагас тороор эхэлж алхамна
+    const along = -wall + g / 2 + i * g;
+    fences.push(make(c.x + along, top, 0, false));
+    fences.push(make(c.x + along, bottom, 0, false));
+    fences.push(make(left, c.y + along, 1, false));
+    fences.push(make(right, c.y + along, 1, i === gateIndex));
+  }
+
+  return fences;
+}
 
 export function roundRectPath(
   ctx: CanvasRenderingContext2D,
@@ -155,26 +221,81 @@ export function fenceBlocksMovement(fence: Fence): boolean {
   return true;
 }
 
-/** Дайсан/хонийг хашаанаас гадагш түлхэнэ. true = мөргөлдсөн. */
+/** Цэгээс шулуун хэрчим дээрх хамгийн ойр цэг */
+function closestPointOnSegment(
+  p: Vector2,
+  a: Vector2,
+  b: Vector2,
+): Vector2 {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const len2 = abx * abx + aby * aby;
+  if (len2 < 1e-8) return { x: a.x, y: a.y };
+  const t = Math.max(
+    0,
+    Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2),
+  );
+  return { x: a.x + abx * t, y: a.y + aby * t };
+}
+
+/** Хашааны мөргөлдөөний зузаан (сегмент дагуу) */
+const FENCE_COLLIDE_HALF = 7;
+
+/** Нээлттэй хаалгын гарц — хөрш хананы үзүүр хаахгүй */
+function inOpenGatePassage(pos: Vector2, openGates: Fence[]): boolean {
+  for (const g of openGates) {
+    const [a, b] = fenceSegmentEnds(g.pos, g.orient);
+    const onGate = closestPointOnSegment(pos, a, b);
+    // Хаалгын шугамнаас ойр + сегментийн уртаас бага зэрэг өргөн
+    if (dist(pos, onGate) <= FENCE_GRID * 0.55) return true;
+  }
+  return false;
+}
+
+/** Дайсан/хонь/тоглогчийг хашаанаас гадагш түлхэнэ. true = мөргөлдсөн. */
 export function pushOutOfFences(
   pos: Vector2,
   radius: number,
   fences: Fence[],
 ): boolean {
   let hit = false;
+  const openGates = fences.filter(
+    (f) => f.isGate && f.gateOpen >= GATE_PASS_OPEN,
+  );
+  // Гарц дотор байвал огт түлхэхгүй
+  if (openGates.length > 0 && inOpenGatePassage(pos, openGates)) {
+    return false;
+  }
+
   for (const fence of fences) {
     if (!fenceBlocksMovement(fence)) continue;
-    const d = dist(pos, fence.pos);
-    const minD = radius + fence.radius;
+    const [a, b] = fenceSegmentEnds(fence.pos, fence.orient);
+    const closest = closestPointOnSegment(pos, a, b);
+    // Хөрш хананы үзүүр нээлттэй хаалгыг битүүлнэ үгүй
+    if (
+      openGates.some(
+        (g) =>
+          dist(closest, g.pos) <= FENCE_GRID * 0.7 ||
+          dist(pos, g.pos) <= FENCE_GRID * 0.55,
+      )
+    ) {
+      continue;
+    }
+    const d = dist(pos, closest);
+    const minD = radius + FENCE_COLLIDE_HALF;
     if (d >= minD) continue;
     hit = true;
     if (d > 1e-4) {
-      const nx = (pos.x - fence.pos.x) / d;
-      const ny = (pos.y - fence.pos.y) / d;
-      pos.x = fence.pos.x + nx * minD;
-      pos.y = fence.pos.y + ny * minD;
+      const nx = (pos.x - closest.x) / d;
+      const ny = (pos.y - closest.y) / d;
+      pos.x = closest.x + nx * minD;
+      pos.y = closest.y + ny * minD;
     } else {
-      pos.x = fence.pos.x + minD;
+      if (fence.orient === 0) {
+        pos.y += minD;
+      } else {
+        pos.x += minD;
+      }
     }
   }
   return hit;
@@ -197,14 +318,39 @@ export function fenceSegmentEnds(
       ];
 }
 
-/** Хоёр хашаа тор дээр холбогдсон эсэх */
+/** Хоёр хашаа тор дээр холбогдсон эсэх (төв эсвэл үзүүр нийлсэн) */
 export function fencesGraphAdjacent(a: Vector2, b: Vector2): boolean {
   return dist(a, b) <= FENCE_GRID * 1.2;
 }
 
+/** Хоёр хашааны үзүүр/төв нийлсэн эсэх — булангийн холбоос орно */
+function fencesShareJoint(a: Fence, b: Fence): boolean {
+  if (a.id === b.id) return false;
+  if (fencesGraphAdjacent(a.pos, b.pos)) return true;
+  const [a0, a1] = fenceSegmentEnds(a.pos, a.orient);
+  const [b0, b1] = fenceSegmentEnds(b.pos, b.orient);
+  const tip = 5;
+  return (
+    dist(a0, b0) <= tip ||
+    dist(a0, b1) <= tip ||
+    dist(a1, b0) <= tip ||
+    dist(a1, b1) <= tip
+  );
+}
+
+function fenceTouchesPoint(fence: Fence, p: Vector2): boolean {
+  const [e0, e1] = fenceSegmentEnds(fence.pos, fence.orient);
+  const tip = 5;
+  return (
+    dist(fence.pos, p) <= FENCE_GRID * 0.55 ||
+    dist(e0, p) <= tip ||
+    dist(e1, p) <= tip
+  );
+}
+
 /**
  * Шинэ сегмент тавих нь одоогийн хашааны граф дээр цикл үүсгэх эсэх —
- * хоёр үзүүр тус бүрт холбогдсон мөчрүүд аль хэдийн нэг холбоос дотор байвал хаалга.
+ * сүүлийн хэсэг (хоёр үзүүр аль хэдийн холбогдсон сүлжээнд нийлбэл) → хаалга.
  */
 export function wouldCloseFenceLoop(
   pos: Vector2,
@@ -213,10 +359,15 @@ export function wouldCloseFenceLoop(
 ): boolean {
   if (fences.length < 3) return false;
   const [endA, endB] = fenceSegmentEnds(pos, orient);
-  const endLink = FENCE_GRID * 0.7;
-  const nearA = fences.filter((f) => dist(f.pos, endA) <= endLink);
-  const nearB = fences.filter((f) => dist(f.pos, endB) <= endLink);
+  const nearA = fences.filter((f) => fenceTouchesPoint(f, endA));
+  const nearB = fences.filter((f) => fenceTouchesPoint(f, endB));
   if (nearA.length === 0 || nearB.length === 0) return false;
+
+  // Ижил хашаа хоёр үзүүрт нийлсэн бол цикл биш
+  const nearAIds = new Set(nearA.map((f) => f.id));
+  if (nearB.every((f) => nearAIds.has(f.id)) && nearA.length === 1) {
+    return false;
+  }
 
   const toIds = new Set(nearB.map((f) => f.id));
   const visited = new Set<number>();
@@ -228,9 +379,10 @@ export function wouldCloseFenceLoop(
 
   while (queue.length > 0) {
     const cur = queue.shift()!;
+    if (toIds.has(cur.id) && !nearAIds.has(cur.id)) return true;
     for (const other of fences) {
       if (visited.has(other.id)) continue;
-      if (!fencesGraphAdjacent(cur.pos, other.pos)) continue;
+      if (!fencesShareJoint(cur, other)) continue;
       if (toIds.has(other.id)) return true;
       visited.add(other.id);
       queue.push(other);
@@ -284,32 +436,23 @@ export function updateGates(state: GameState, dt: number): void {
   }
 }
 
-/** Тоглогч хаалгыг биеэр түлхэж нээнэ; хаалттай үед түлхэнэ */
+/** Тоглогч хаалгыг биеэр түлхэж нээнэ; бүх хашаанд мөргөлдөнө */
 export function collidePlayerWithGates(state: GameState): void {
   const { player, world } = state;
   for (const fence of world.fences) {
     if (!fence.isGate) continue;
-    const d = dist(player.pos, fence.pos);
-    const minD = player.radius + fence.radius;
-    if (d >= minD + 2) continue;
+    const [a, b] = fenceSegmentEnds(fence.pos, fence.orient);
+    const closest = closestPointOnSegment(player.pos, a, b);
+    const d = dist(player.pos, closest);
+    const minD = player.radius + FENCE_COLLIDE_HALF;
+    if (d >= minD + 6) continue;
 
-    // Биеэр мөргөж нээнэ
-    if (fence.gateOpen < 1) {
-      fence.gateCloseIn = GATE_CLOSE_DELAY;
-      fence.gateOpen = Math.min(1, Math.max(fence.gateOpen, 0.15));
-    }
-
-    if (!fenceBlocksMovement(fence)) continue;
-
-    if (d > 1e-4) {
-      const nx = (player.pos.x - fence.pos.x) / d;
-      const ny = (player.pos.y - fence.pos.y) / d;
-      player.pos.x = fence.pos.x + nx * minD;
-      player.pos.y = fence.pos.y + ny * minD;
-    } else {
-      player.pos.x = fence.pos.x + minD;
-    }
+    // Биеэр мөргөж бүрэн нээнэ — нэвтрэх боломжтой болгоно
+    fence.gateCloseIn = Math.max(fence.gateCloseIn, GATE_CLOSE_DELAY);
+    fence.gateOpen = Math.min(1, Math.max(fence.gateOpen, GATE_PASS_OPEN));
   }
+
+  pushOutOfFences(player.pos, player.radius, world.fences);
 }
 
 /** Хашааг тор дээр байрлуулах координат */
@@ -334,15 +477,17 @@ export function fencePlacePos(
     Math.hypot(facing.x, facing.y) < 1e-4
       ? { x: 0, y: 1 }
       : normalize(facing);
+  // Хагас тор — буланд үзүүр нийлэх боломжтой
   return snapFencePos(
     playerPos.x + f.x * grid,
     playerPos.y + f.y * grid,
-    grid,
+    grid / 2,
   );
 }
 
 export function fencesOverlap(a: Vector2, b: Vector2): boolean {
-  return dist(a, b) < FENCE_RADIUS * 1.6;
+  // Зөвхөн ижил/бараг ижил цэг — өөр чиглэлийн булангийн холбоосыг зөвшөөрнө
+  return dist(a, b) < FENCE_GRID * 0.25;
 }
 
 /** Бэлчээрийн ойролцоох хашааны хамгаалалт */

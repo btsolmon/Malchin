@@ -19,6 +19,7 @@ import {
   clamp,
   dist,
   fenceBlocksMovement,
+  flockGatePos,
   isNight,
   normalize,
   pastureCenter,
@@ -30,6 +31,7 @@ import {
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import {
+  animalInPen,
   penCenter,
   PEN_RADIUS,
   threatIntervalMult,
@@ -257,10 +259,11 @@ export function updateFlock(state: GameState, dt: number): void {
   const drive = normalize(player.facing);
   const dog = world.dog;
   const out = world.flockOut;
+  const flock = world.flock.visuals;
 
-  for (const sheep of world.flock.visuals) {
+  for (const sheep of flock) {
     const home = out ? center : pen;
-    const homeR = out ? PASTURE_RADIUS : PEN_RADIUS * 0.85;
+    const homeR = out ? PASTURE_RADIUS : PEN_RADIUS * 0.92;
     const toCenter = normalize({
       x: home.x - sheep.pos.x,
       y: home.y - sheep.pos.y,
@@ -269,9 +272,10 @@ export function updateFlock(state: GameState, dt: number): void {
       x: player.pos.x - sheep.pos.x,
       y: player.pos.y - sheep.pos.y,
     });
+    // Илүү том тэнэх — бөөгнөрөхгүй
     const wander = {
-      x: Math.sin(world.elapsed * 0.7 + sheep.id) * (out ? 0.4 : 0.15),
-      y: Math.cos(world.elapsed * 0.5 + sheep.id * 1.3) * (out ? 0.4 : 0.15),
+      x: Math.sin(world.elapsed * 0.55 + sheep.id * 1.7 + sheep.grazeSeed) * (out ? 0.7 : 0.55),
+      y: Math.cos(world.elapsed * 0.42 + sheep.id * 2.1 + sheep.grazeSeed * 0.8) * (out ? 0.7 : 0.55),
     };
 
     // Чононоос зугтана
@@ -284,6 +288,25 @@ export function updateFlock(state: GameState, dt: number): void {
         fleeX += ((sheep.pos.x - wolf.pos.x) / d) * w * 3.5;
         fleeY += ((sheep.pos.y - wolf.pos.y) / d) * w * 3.5;
       }
+    }
+
+    // Ойр малаас түлхэлт — тарж бэлчээрлэнэ
+    let sepX = 0;
+    let sepY = 0;
+    const sepRange = out ? 42 : 36;
+    for (const other of flock) {
+      if (other.id === sheep.id) continue;
+      const d = dist(sheep.pos, other.pos);
+      if (d < sepRange && d > 0.5) {
+        const w = (sepRange - d) / sepRange;
+        sepX += ((sheep.pos.x - other.pos.x) / d) * w;
+        sepY += ((sheep.pos.y - other.pos.y) / d) * w;
+      }
+    }
+    const sepLen = Math.hypot(sepX, sepY);
+    if (sepLen > 1e-4) {
+      sepX = (sepX / sepLen) * Math.min(sepLen, 2.4);
+      sepY = (sepY / sepLen) * Math.min(sepLen, 2.4);
     }
 
     // Нохойноос зугтана — нохой ард байрлаж туухад ашиглагдана
@@ -318,23 +341,75 @@ export function updateFlock(state: GameState, dt: number): void {
     }
 
     const dCenter = dist(sheep.pos, home);
-    // Бэлчээрт гарсан үед гэрийн дэргэд биш, бэлчээрийн тойрогт тарана
     let pull: number;
     let steerX = toCenter.x;
     let steerY = toCenter.y;
-    if (herding) {
+    let routingGate = false;
+
+    // Хашаанаас гарах/орох — зөвхөн хаалгаар (хана нэвтрэхгүй)
+    const gate = flockGatePos(world);
+    const insidePen = animalInPen(sheep.pos, world);
+    const exitDir = normalize({
+      x: gate.x - pen.x,
+      y: gate.y - pen.y,
+    });
+    if (out && insidePen) {
+      routingGate = true;
+      const dGate = dist(sheep.pos, gate);
+      if (dGate > 30) {
+        const toGate = normalize({
+          x: gate.x - sheep.pos.x,
+          y: gate.y - sheep.pos.y,
+        });
+        steerX = toGate.x;
+        steerY = toGate.y;
+        pull = 3.4;
+      } else {
+        // Хаалганы гадна тал руу гарна
+        const target = {
+          x: gate.x + exitDir.x * 48,
+          y: gate.y + exitDir.y * 48,
+        };
+        const toOut = normalize({
+          x: target.x - sheep.pos.x,
+          y: target.y - sheep.pos.y,
+        });
+        steerX = toOut.x;
+        steerY = toOut.y;
+        pull = 3.6;
+      }
+    } else if (!out && !insidePen) {
+      routingGate = true;
+      const dGate = dist(sheep.pos, gate);
+      if (dGate > 26) {
+        const toGate = normalize({
+          x: gate.x - sheep.pos.x,
+          y: gate.y - sheep.pos.y,
+        });
+        steerX = toGate.x;
+        steerY = toGate.y;
+        pull = 3.2;
+      } else {
+        // Хаалгаар орж төв рүү
+        const toPen = normalize({
+          x: pen.x - sheep.pos.x,
+          y: pen.y - sheep.pos.y,
+        });
+        steerX = toPen.x;
+        steerY = toPen.y;
+        pull = 3.4;
+      }
+    } else if (herding) {
       pull = dCenter > homeR * 1.4 ? 0.35 : 0.05;
     } else if (!out) {
-      pull = dCenter > homeR ? 2.4 : 0.6;
-    } else {
-      // Бэлчих цэг — гэрийн эргэн тойронд тархана
+      // Хашаан дотор — хувийн бэлчих цэг рүү тэнэнэ
       const ang =
-        world.elapsed * 0.12 + sheep.id * 1.91 + sheep.grazeSeed;
+        world.elapsed * 0.18 + sheep.id * 2.17 + sheep.grazeSeed;
       const rad =
-        PASTURE_RADIUS * (0.35 + ((sheep.id * 17) % 7) * 0.08);
+        homeR * (0.25 + ((sheep.id * 19) % 9) * 0.07);
       const spot = {
-        x: center.x + Math.cos(ang) * rad,
-        y: center.y + Math.sin(ang * 0.85) * rad * 0.8,
+        x: home.x + Math.cos(ang) * rad,
+        y: home.y + Math.sin(ang * 0.9) * rad,
       };
       const toSpot = normalize({
         x: spot.x - sheep.pos.x,
@@ -343,40 +418,73 @@ export function updateFlock(state: GameState, dt: number): void {
       steerX = toSpot.x;
       steerY = toSpot.y;
       const dSpot = dist(sheep.pos, spot);
-      pull = dSpot > 28 ? 1.1 : 0.2;
-      // Гэрт хэт ойртохыг түлхэнэ
+      pull = dSpot > 22 ? 0.9 : 0.15;
+      if (dCenter > homeR) {
+        steerX += toCenter.x * 0.8;
+        steerY += toCenter.y * 0.8;
+        pull = Math.max(pull, 1.6);
+      }
+    } else {
+      // Бэлчих цэг — гэрийн эргэн тойронд тархана
+      const ang =
+        world.elapsed * 0.14 + sheep.id * 1.91 + sheep.grazeSeed;
+      const rad =
+        PASTURE_RADIUS * (0.4 + ((sheep.id * 17) % 9) * 0.06);
+      const spot = {
+        x: center.x + Math.cos(ang) * rad,
+        y: center.y + Math.sin(ang * 0.85) * rad * 0.85,
+      };
+      const toSpot = normalize({
+        x: spot.x - sheep.pos.x,
+        y: spot.y - sheep.pos.y,
+      });
+      steerX = toSpot.x;
+      steerY = toSpot.y;
+      const dSpot = dist(sheep.pos, spot);
+      pull = dSpot > 32 ? 1.0 : 0.18;
       const dGer = dist(sheep.pos, center);
       if (dGer < 70) {
-        steerX += (sheep.pos.x - center.x) / Math.max(1, dGer) * 1.5;
-        steerY += (sheep.pos.y - center.y) / Math.max(1, dGer) * 1.5;
+        steerX += ((sheep.pos.x - center.x) / Math.max(1, dGer)) * 1.5;
+        steerY += ((sheep.pos.y - center.y) / Math.max(1, dGer)) * 1.5;
         pull = Math.max(pull, 1.2);
       }
     }
-    const playerPull = herding ? 0 : out ? 0.05 : 0.05;
+    const playerPull = herding ? 0 : 0.02;
+    const sepScale = routingGate ? 0.25 : 1.8;
+    const wanderScale = routingGate ? 0.15 : 1;
 
     sheep.vel.x +=
       (steerX * pull +
         toPlayer.x * playerPull +
-        wander.x +
+        wander.x * wanderScale +
         fleeX +
-        herdX) *
+        herdX +
+        sepX * sepScale) *
       40 *
       dt;
     sheep.vel.y +=
       (steerY * pull +
         toPlayer.y * playerPull +
-        wander.y +
+        wander.y * wanderScale +
         fleeY +
-        herdY) *
+        herdY +
+        sepY * sepScale) *
       40 *
       dt;
     sheep.vel.x *= 0.92;
     sheep.vel.y *= 0.92;
-    sheep.pos.x += sheep.vel.x * dt;
-    sheep.pos.y += sheep.vel.y * dt;
+
+    // Жжиг алхмаар хөдөлнө — хашаа нэвтрэхгүй
+    const stepDist = Math.hypot(sheep.vel.x, sheep.vel.y) * dt;
+    const steps = Math.max(1, Math.min(6, Math.ceil(stepDist / 3)));
+    const inv = 1 / steps;
+    for (let s = 0; s < steps; s++) {
+      sheep.pos.x += sheep.vel.x * dt * inv;
+      sheep.pos.y += sheep.vel.y * dt * inv;
+      pushOutOfFences(sheep.pos, sheep.radius, world.fences);
+    }
     sheep.pos.x = clamp(sheep.pos.x, 30, WORLD_W - 30);
     sheep.pos.y = clamp(sheep.pos.y, 30, WORLD_H - 30);
-    pushOutOfFences(sheep.pos, sheep.radius, world.fences);
 
     if (sheep.flash > 0) sheep.flash -= dt;
     // Хазуулсан хонь аажмаар амиа нөхнө (~12с тутамд 1 амь)

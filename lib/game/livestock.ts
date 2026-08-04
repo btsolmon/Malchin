@@ -16,7 +16,7 @@ import {
   type Vector2,
   type WildHorse,
 } from "./types";
-import { allocId, clamp, dist, normalize, pastureCenter, randRange, setMessage } from "./utils";
+import { allocId, clamp, dist, normalize, pastureCenter, penCenter, PEN_RADIUS, randRange, setMessage } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 
@@ -59,9 +59,10 @@ export function createHerdAnimal(
   id: number,
   around: Vector2,
   kind: LivestockKind,
+  spread = PASTURE_RADIUS * 0.7,
 ): HerdAnimal {
   const ang = Math.random() * Math.PI * 2;
-  const r = randRange(20, PASTURE_RADIUS * 0.7);
+  const r = randRange(8, Math.max(12, spread));
   const scale =
     kind === "camel" ? 1.35 : kind === "cattle" ? 1.25 : kind === "horse" ? 1.15 : 1;
   return {
@@ -86,9 +87,12 @@ export function createHerdAnimal(
 
 /** Төрөл бүрийн харьцаагаар дүрслэл синк */
 export function syncVisualFlock(state: GameState): void {
-  const { flock } = state.world;
+  const { flock, flockOut } = state.world;
   syncFlockTotal(flock);
-  const center = pastureCenter(state.world);
+  const center = flockOut
+    ? pastureCenter(state.world)
+    : penCenter(state.world);
+  const spread = flockOut ? PASTURE_RADIUS * 0.7 : PEN_RADIUS * 0.75;
   const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
 
   const have = emptyCounts();
@@ -120,7 +124,9 @@ export function syncVisualFlock(state: GameState): void {
       }
     }
     if (!best) break;
-    flock.visuals.push(createHerdAnimal(allocId(state), center, best));
+    flock.visuals.push(
+      createHerdAnimal(allocId(state), center, best, spread),
+    );
     have[best]++;
   }
 }

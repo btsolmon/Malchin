@@ -32,12 +32,14 @@ import {
   canHarvestHay,
   clamp,
   collidePlayerWithGates,
+  createStarterPen,
   dayInSeason,
   dist,
   fenceOrientFromFacing,
   fencePlacePos,
   fencesOverlap,
   gerDoorPos,
+  nearestFence,
   normalize,
   pastureCenter,
   pastureRefillForSeason,
@@ -55,6 +57,7 @@ import {
   dailyGrowthCount,
   dayPhaseHint,
   getDayPhase,
+  pullFlockToPen,
   seasonBerryRespawnMult,
   seasonWarmthMult,
   spawnSpringBirths,
@@ -361,7 +364,7 @@ function clampPlayerToWorld(
   player.pos.y = clamp(player.pos.y, player.radius, height - player.radius);
 }
 
-/** Гэрийн зүүн урд — хоёр шонтой уяа (хаалгын эсрэг / зүүн тал) */
+/** Гэрийн зүүн тал — хоёр шонтой уяа (хаалгаас гадагш харахад зүүн) */
 export function horseHitchRail(world: World): {
   left: Vector2;
   right: Vector2;
@@ -369,14 +372,15 @@ export function horseHitchRail(world: World): {
   tie: Vector2;
 } {
   const c = pastureCenter(world);
-  // Гэр зураг: drawGer(c.x - 46, …) — зүүн талд уяа (нэг уяаны зайгаар хол)
-  const midX = c.x - 192;
-  const midY = c.y + 48;
+  // drawGer(c.x - 46) — хаалга өмнөд; зүүн тал = +X (зүүн зүг)
+  const gerX = c.x - 46;
+  const midX = gerX + 130;
+  const midY = c.y + 44;
   const half = 42;
   return {
     left: { x: midX - half, y: midY + 3 },
     right: { x: midX + half, y: midY },
-    tie: { x: midX - 4, y: midY + 22 },
+    tie: { x: midX + 4, y: midY + 22 },
   };
 }
 
@@ -408,9 +412,9 @@ export function dismountHorse(
       dist(player.pos, horseHitchPos(state.world)) < 85);
   const tie = opts?.tie ?? nearGer;
   const hitch = horseHitchPos(state.world);
-  // Уясан үед гэр рүү (баруун тийш) харна; буусан үед тоглогчийн чиг
+  // Уясан үед гэр рүү (зүүнээс баруун тийш / гэр рүү) харна
   const face: 1 | -1 = tie
-    ? 1
+    ? -1
     : player.facing.x < 0
       ? -1
       : 1;
@@ -441,7 +445,7 @@ export function hitchHorseOutside(state: GameState): void {
   const h = state.world.mountHorse;
   if (!h) return;
   h.pos = horseHitchPos(state.world);
-  h.face = 1;
+  h.face = -1;
   h.tied = true;
 }
 
@@ -593,7 +597,7 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  // Мал гаргах/оруулах — гал ба тэвшин гол
+  // Мал гаргах/оруулах — хашааны хаалга
   if (tryToggleFlockPen(state)) {
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -841,6 +845,32 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   setMessage(state, `${nextName} болголоо!`, 1.6);
 }
 
+export function tryDemolishFence(state: GameState): boolean {
+  const { player, world } = state;
+  const fence = nearestFence(player.pos, world.fences, 40);
+  if (!fence) return false;
+
+  const idx = world.fences.indexOf(fence);
+  if (idx < 0) return false;
+  const wasGate = fence.isGate;
+  world.fences.splice(idx, 1);
+
+  const refund = Math.max(1, Math.floor(FENCE_COST * (0.5 + fence.tier * 0.25)));
+  if (!state.unlimitedWood) {
+    player.inventory.wood += refund;
+  }
+  sfx("chop");
+  spawnParticles(state, fence.pos, 10, "#8a6a3a", { speed: 80, size: 2.4 });
+  spawnText(
+    state,
+    fence.pos,
+    state.unlimitedWood ? "Нураав" : `+${refund} мод`,
+    "#e8c56a",
+  );
+  setMessage(state, wasGate ? "Хаалга нурлаа." : "Хашаа нурлаа.", 1.6);
+  return true;
+}
+
 export function tryBuildFence(state: GameState): void {
   if (!state.input.buildFence) return;
   state.input.buildFence = false;
@@ -858,11 +888,21 @@ export function tryBuildFence(state: GameState): void {
   state.fencePreview = false;
 
   const pos = fencePlacePos(player.pos, player.facing, FENCE_GRID);
+  const orient = fenceOrientFromFacing(player.facing);
 
   // Ойролцоо/ижил цэг дээрх хашааг шинэчлэнэ
   const existing = world.fences.find((f) => fencesOverlap(pos, f.pos));
   if (existing) {
     tryUpgradeFence(state, existing);
+    return;
+  }
+
+  // Ижил чиглэлийн хөрш — давхцуулахгүй (үзүүр нийлэх зай = 1 тор)
+  const sameOrientNear = world.fences.find(
+    (f) => f.orient === orient && dist(f.pos, pos) < FENCE_GRID * 0.85,
+  );
+  if (sameOrientNear) {
+    tryUpgradeFence(state, sameOrientNear);
     return;
   }
 
@@ -900,7 +940,6 @@ export function tryBuildFence(state: GameState): void {
 
   if (!state.unlimitedWood) player.inventory.wood -= FENCE_COST;
   player.chopCooldown = 0.28;
-  const orient = fenceOrientFromFacing(player.facing);
   const isGate = wouldCloseFenceLoop(pos, orient, world.fences);
   world.fences.push({
     id: allocId(state),
@@ -931,6 +970,11 @@ export function tryBuildFence(state: GameState): void {
 
 export function updateSurvival(state: GameState, dt: number): void {
   const { player, world } = state;
+  // Уясан морь — уяаны байрлалтай нийцүүлнэ
+  if (world.mountHorse?.tied && !player.riding && !world.gerPacked) {
+    world.mountHorse.pos = horseHitchPos(world);
+    world.mountHorse.face = -1;
+  }
   const fire = world.campfire;
 
   if (fire.lit) {
@@ -1155,10 +1199,11 @@ export function tryMigrateGer(state: GameState): void {
     } else {
       world.pastureGrass = 0;
     }
-    // Мал ойртуулна
+    // Шинэ бууцанд жижиг хашаа
+    world.fences = createStarterPen(pos, () => allocId(state));
+    // Мал хашаан дотор
+    pullFlockToPen(state, 1);
     for (const a of world.flock.visuals) {
-      a.pos.x = pos.x + (Math.random() - 0.5) * 60;
-      a.pos.y = pos.y + 40 + (Math.random() - 0.5) * 40;
       a.vel.x = 0;
       a.vel.y = 0;
     }
@@ -1170,7 +1215,7 @@ export function tryMigrateGer(state: GameState): void {
       state,
       world.season === "winter"
         ? "Шинэ бууц! Өвөл — тэвш бэлд."
-        : `Шинэ бэлчээр! Өвс ${Math.floor(world.pastureGrass)}. Хашаа дахин босго.`,
+        : `Шинэ бэлчээр! Өвс ${Math.floor(world.pastureGrass)}. Хашаа бэлэн.`,
       4.5,
     );
     return;
@@ -1190,7 +1235,7 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (world.flockOut) {
-    setMessage(state, "Эхлээд малыг хашаанд оруул (гал–тэвшин гол E), дараа нь G.", 3);
+    setMessage(state, "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.", 3);
     return;
   }
   const ger = gerDoorPos(world);
@@ -1202,6 +1247,7 @@ export function tryMigrateGer(state: GameState): void {
   world.gerPacked = true;
   world.campfire.lit = false;
   world.campfire.fuel = 0;
+  world.fences = [];
   sfx("select");
   spawnText(state, player.pos, "Гэр → морь", "#e8c56a");
   setMessage(

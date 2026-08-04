@@ -508,8 +508,11 @@ export function render(
     });
   }
   for (const fence of world.fences) {
+    // Preserve the remote fence depth correction inside the layered queue.
+    const sortY =
+      fence.isGate || fence.orient === 1 ? fence.pos.y - 20 : fence.pos.y;
     addDrawable("fence", {
-      y: fence.pos.y,
+      y: sortY,
       key: 3000 + fence.id,
       draw: () => drawFence(ctx, fence, cam, time),
     });
@@ -625,7 +628,7 @@ export function render(
       draw: () => drawDog(ctx, dog, cam, time),
     });
   }
-  // Морьны уяа — морь авсны дараа гэрийн зүүн урд (хоёр шон + урт уяа)
+  // Морьны уяа — гэрийн зүүн (зүүн зүг / +X) талд
   if (
     !world.gerPacked &&
     state.player.gear.horse &&
@@ -819,9 +822,30 @@ export function render(
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      const tip = world.flockOut ? "E — Мал оруулах" : "E — Мал гаргах";
+      const tip = world.flockOut
+        ? "E — Мал оруулах · J — Нураах"
+        : "E — Мал гаргах · J — Нураах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e070";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (
+      world.fences.some(
+        (f) => dist(state.player.pos, f.pos) < state.player.radius + 36,
+      )
+    ) {
+      const nearWall = world.fences.find(
+        (f) => dist(state.player.pos, f.pos) < state.player.radius + 36,
+      )!;
+      const tx = nearWall.pos.x - cam.x;
+      const ty = nearWall.pos.y - 26 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const tip = nearWall.isGate ? "J — Хаалга нураах" : "J — Хашаа нураах";
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#e8c070";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (dFeed < world.feeder.radius + 28) {
