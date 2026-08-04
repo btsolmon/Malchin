@@ -56,7 +56,7 @@ export type DialogueSpeaker = "boy" | "elder";
 export interface DialogueBeat {
   speaker: DialogueSpeaker;
   text: string;
-  /** Хаалттай үйлдэл / тайзны тайлбар */
+
   stage?: string;
 }
 
@@ -67,21 +67,28 @@ export interface ElderDialogue {
   spirit?: boolean;
 }
 
-/** Аав ээжийн тухай — сүнсний ертөнц рүү хөтлөх гол яриа */
 export const SPIRIT_GATE_DIALOGUE: ElderDialogue = {
   id: "spirit_gate",
   title: "Аав ээжийн тухай",
   spirit: true,
   beats: [
     {
+      speaker: "elder",
+      text: "Ивий жаахан үр минь эцэж юунд цуцав, энэ биеийг нь төрүүлсэн эцэг эх чинь алив?",
+    },
+    {
       speaker: "boy",
-      text: "Өвгөн ахаа! Би тан дээр сүү, ааруул, ямааны ноолуураа авчирлаа. Бас сумын төв дээр очсон ч аав, ээжийн минь сураг гарсангүй... Та бүхнийг мэддэг гэсэн. Надад үнэнийг хэлээч, тэд минь хаана байгаа юм бэ?",
+      text: "Өвгөн ах минь, би эжий аавтайгаа хамт энэ нутагт суудагсан. Гэтэл гэнэт өчигдөр газар тэнгэрийг нийлүүлсэн гамшигт их шуурга дэгдэж, хахир муухай хоолой хачин чангаар инээж, эгэл бор гэрээс минь эжий аавыг минь аван одов.",
+    },
+    {
+      speaker: "boy",
+      text: "Шүүгих их шуургыг чухам хэн дэгдээв? Эцэг эх хоёрыг минь эндээс юу авч одов?",
     },
     {
       speaker: "elder",
       stage:
-        "Урт амьсгаа авч, сахлаа илбэснээ, хүү рүү дулаахан бөгөөд нууцлаг ажиглан харна",
-      text: "Миний хүү... Чи энэ хэдэн өдөр эцэг эхийнхээ эзгүйд малаа сайн маллаж чадлаа. Үнэн гэвэл... чи тэднийгээ энэ нарлаг дэлхийгээс, эгэл эх газраас хэчнээн хайвч олохгүй.",
+        "Өндөр наст өвгөний хөвд сахал чичирч, хүрэн бор царай нь хүйт дааж харагданa...",
+      text: "",
     },
     {
       speaker: "boy",
@@ -262,7 +269,10 @@ export function retreatElderDialogue(state: GameState): void {
   sfx("select");
 }
 
-export function chooseElderOption(state: GameState, choiceId: ElderChoiceId): void {
+export function chooseElderOption(
+  state: GameState,
+  choiceId: ElderChoiceId,
+): void {
   const choice = SPIRIT_GATE_CHOICES.find((c) => c.id === choiceId);
   if (!choice) return;
 

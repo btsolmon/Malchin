@@ -277,6 +277,7 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     );
     if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 0.85);
     clampPlayerToWorld(player, world.width, world.height);
+    collidePlayerWithWorldPlants(state);
     collidePlayerWithGates(state);
     return;
   }
@@ -286,6 +287,7 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     player.moving = false;
     if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 1);
     clampPlayerToWorld(player, world.width, world.height);
+    collidePlayerWithWorldPlants(state);
     collidePlayerWithGates(state);
     return;
   }
@@ -310,7 +312,47 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
 
   if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 1);
   clampPlayerToWorld(player, world.width, world.height);
+  collidePlayerWithWorldPlants(state);
   collidePlayerWithGates(state);
+}
+
+/**
+ * Trees use trunk-only collision and bushes use a slightly softer circle.
+ * This blocks walking through sprite bases while preserving natural overlap.
+ */
+function collidePlayerWithWorldPlants(state: GameState): void {
+  const { player, world } = state;
+  const mountedPadding = player.riding ? 7 : 0;
+
+  const obstacles = [
+    ...world.trees
+      .filter((tree) => tree.hp > 0)
+      .map((tree) => ({ pos: tree.pos, radius: tree.radius })),
+    ...world.bushes.map((bush) => ({
+      pos: bush.pos,
+      // Bush foliage is soft, so let the player stand slightly closer than a trunk.
+      radius: Math.max(8, bush.radius - 4),
+    })),
+  ];
+
+  for (const obstacle of obstacles) {
+    const dx = player.pos.x - obstacle.pos.x;
+    const dy = player.pos.y - obstacle.pos.y;
+    const minDistance = obstacle.radius + player.radius + mountedPadding;
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq >= minDistance * minDistance) continue;
+
+    if (distanceSq < 0.0001) {
+      player.pos.x = obstacle.pos.x + minDistance;
+      continue;
+    }
+    const distance = Math.sqrt(distanceSq);
+    const push = minDistance - distance;
+    player.pos.x += (dx / distance) * push;
+    player.pos.y += (dy / distance) * push;
+  }
+
+  clampPlayerToWorld(player, world.width, world.height);
 }
 
 function clampPlayerToWorld(

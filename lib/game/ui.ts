@@ -20,29 +20,23 @@ import {
   type GearId,
   type InputState,
   type LivestockKind,
+  type Season,
   type Vector2,
   type WeatherKind,
 } from "../game/types";
 import {
   clamp,
-  formatClock,
   nearestFence,
   pastureCenter,
   roundRectPath,
   setMessage,
-  weatherLabel,
 } from "../game/utils";
 import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
 import { addLivestock } from "./livestock";
-import { dayPhaseLabel } from "./daycycle";
-import {
-  DESERT_Y,
-  FOREST_Y,
-  RIVER_HALF_W,
-  riverCenterX,
-} from "./biomes";
+import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
+import { drawPlayer } from "./render/entities";
 
 export interface UiButton {
   x: number;
@@ -215,11 +209,7 @@ export function updateMenu(state: GameState): void {
 
     if (activate === 0) {
       state.phase = "playing";
-      setMessage(
-        state,
-        "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
-        6,
-      );
+      setMessage(state, "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.", 6);
       sfx("select");
     } else if (activate === 1) {
       state.menuScreen = "settings";
@@ -853,8 +843,7 @@ export function updatePauseMenu(state: GameState): void {
   if (input.pause) activate = 0;
 
   if (activate === 0) {
-    state.phase =
-      state.pauseReturnPhase === "spirit" ? "spirit" : "playing";
+    state.phase = state.pauseReturnPhase === "spirit" ? "spirit" : "playing";
     state.menuScreen = "main";
     sfx("select");
   } else if (activate === 1) {
@@ -965,7 +954,7 @@ export function drawRpgBar(
   if (fillW > 0) {
     ctx.fillStyle = color;
     ctx.fillRect(x, y, fillW, h);
-    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillStyle = "rgba(300,300,300,0.28)";
     ctx.fillRect(x, y, fillW, Math.max(2, Math.floor(h * 0.35)));
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(x, y + h - 2, fillW, 2);
@@ -981,41 +970,274 @@ export function drawRpgBar(
   ctx.textAlign = "left";
 }
 
-function drawLevelBadge(
+function drawHudPortrait(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  cx: number,
+  cy: number,
+  radius: number,
+): void {
+  ctx.save();
+
+  // Dark outer rim and warm metal inner rim, matching the reference HUD.
+  ctx.fillStyle = "#342521";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#8e5b35";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.fillStyle = "#b7763f";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius + 1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#e0a15b";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius - 3, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.fillStyle = "#30435b";
+  ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+
+  // Reuse the actual player renderer so the HUD portrait follows their gear.
+  ctx.translate(cx, cy + 34);
+  ctx.scale(2.45, 2.45);
+  drawPlayer(
+    ctx,
+    state.player,
+    { x: state.player.pos.x, y: state.player.pos.y },
+    performance.now() / 1000,
+    false,
+  );
+  ctx.restore();
+}
+
+function drawHudMeter(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  level: number,
+  width: number,
+  height: number,
+  ratio: number,
+  color: string,
 ): void {
-  const s = 22;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.beginPath();
-  ctx.moveTo(0, -s);
-  ctx.lineTo(s * 0.72, -s * 0.35);
-  ctx.lineTo(s * 0.55, s * 0.55);
-  ctx.lineTo(-s * 0.55, s * 0.55);
-  ctx.lineTo(-s * 0.72, -s * 0.35);
-  ctx.closePath();
-  ctx.fillStyle = "#2a4a88";
+  const cut = Math.min(8, height / 2);
+  const meterPath = (meterWidth: number): void => {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + meterWidth - cut, y);
+    ctx.lineTo(x + meterWidth, y + height / 2);
+    ctx.lineTo(x + meterWidth - cut, y + height);
+    ctx.lineTo(x, y + height);
+    ctx.closePath();
+  };
+
+  meterPath(width + 8);
+  ctx.fillStyle = "#35231d";
   ctx.fill();
-  ctx.strokeStyle = "#8ec4ff";
+  ctx.strokeStyle = "#8d5a35";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  meterPath(width);
+  ctx.fillStyle = "#25191b";
+  ctx.fill();
+
+  const fillWidth = Math.max(0, width * clamp(ratio, 0, 1));
+  if (fillWidth > 1) {
+    ctx.save();
+    meterPath(width);
+    ctx.clip();
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, fillWidth, height);
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    ctx.fillRect(x, y + 1, fillWidth, Math.max(2, height * 0.28));
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(x, y + height - 3, fillWidth, 3);
+    ctx.restore();
+  }
+}
+
+function drawSeasonTree(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  season: Season,
+): void {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.lineCap = "square";
+  ctx.lineJoin = "miter";
+
+  // Pixel-art trunk and branches; the clock is drawn over their center.
+  ctx.strokeStyle = "#2a1a16";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(0, 48);
+  ctx.lineTo(-1, 5);
+  ctx.lineTo(-20, -13);
+  ctx.moveTo(-2, 13);
+  ctx.lineTo(19, -9);
+  ctx.moveTo(-10, -3);
+  ctx.lineTo(-9, -28);
+  ctx.moveTo(10, 1);
+  ctx.lineTo(28, -25);
+  ctx.stroke();
+  ctx.strokeStyle = "#684126";
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.fillStyle = "#3a241b";
+  ctx.fillRect(-8, 43, 15, 6);
+
+  const leafBlocks: Array<[number, number, number]> = [
+    [-29, -23, 11],
+    [-17, -35, 13],
+    [-2, -29, 12],
+    [14, -24, 14],
+    [27, -34, 11],
+    [35, -18, 10],
+    [-36, -8, 10],
+    [23, -7, 12],
+  ];
+
+  if (season === "summer" || season === "autumn") {
+    const palette =
+      season === "summer"
+        ? ["#244f2b", "#39713a", "#5a8f43"]
+        : ["#8d4f20", "#c47a24", "#e0a83a"];
+    for (let i = 0; i < leafBlocks.length; i++) {
+      const [lx, ly, size] = leafBlocks[i];
+      ctx.fillStyle = "#231813";
+      ctx.fillRect(lx - 2, ly - 2, size + 4, size + 4);
+      ctx.fillStyle = palette[i % palette.length];
+      ctx.fillRect(lx, ly, size, size);
+      ctx.fillStyle = palette[(i + 1) % palette.length];
+      ctx.fillRect(lx + 2, ly + 2, Math.max(3, size - 5), 3);
+    }
+  } else if (season === "winter") {
+    // Snow rests on the otherwise bare branches.
+    const snowCaps: Array<[number, number, number]> = [
+      [-31, -27, 19],
+      [-14, -39, 20],
+      [8, -32, 22],
+      [25, -39, 18],
+      [23, -12, 20],
+    ];
+    for (const [sx, sy, width] of snowCaps) {
+      ctx.fillStyle = "#9eb8c7";
+      ctx.fillRect(sx, sy + 3, width, 5);
+      ctx.fillStyle = "#edf6f7";
+      ctx.fillRect(sx, sy, width, 5);
+      ctx.fillRect(sx + 3, sy - 2, Math.max(4, width - 7), 3);
+    }
+  }
+
+  ctx.restore();
+}
+
+function drawRoundClock(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  timeOfDay: number,
+  dayNumber: number,
+): void {
+  const hours = ((timeOfDay % 24) + 24) % 24;
+  const handAngle = (hours / 24) * Math.PI * 2 - Math.PI / 2;
+  const segments = [
+    "#28364c",
+    "#34445a",
+    "#d7a943",
+    "#f1cd55",
+    "#e9b94b",
+    "#ad685e",
+    "#8d4f55",
+    "#513c4e",
+  ];
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // Pixel-art shadow and scalloped cream outer frame.
+  ctx.fillStyle = "rgba(16,12,10,0.55)";
+  ctx.beginPath();
+  ctx.arc(3, 4, radius + 10, 0, Math.PI * 2);
+  ctx.fill();
+  for (let i = 0; i < 16; i++) {
+    const angle = (i / 16) * Math.PI * 2;
+    ctx.fillStyle = i % 2 === 0 ? "#f1d889" : "#d9b963";
+    ctx.beginPath();
+    ctx.arc(
+      Math.round(Math.cos(angle) * (radius + 5)),
+      Math.round(Math.sin(angle) * (radius + 5)),
+      7,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+  ctx.strokeStyle = "#fff0b0";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + 9, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#3a271d";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + 1, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Eight flat-color day/night slices.
+  for (let i = 0; i < segments.length; i++) {
+    const start = (i / segments.length) * Math.PI * 2 - Math.PI / 2;
+    const end = ((i + 1) / segments.length) * Math.PI * 2 - Math.PI / 2;
+    ctx.fillStyle = segments[i];
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius - 4, start, end);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = "#5a3927";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius - 3, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Single chunky pointer, like the reference clock.
+  ctx.save();
+  ctx.rotate(handAngle);
+  ctx.fillStyle = "#161414";
+  ctx.beginPath();
+  ctx.moveTo(-3, 5);
+  ctx.lineTo(0, -radius + 5);
+  ctx.lineTo(4, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Dark center badge keeps the day label readable over every slice.
+  ctx.fillStyle = "rgba(31,22,20,0.78)";
+  ctx.beginPath();
+  ctx.arc(0, 3, radius * 0.49, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#d7b36b";
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = "#1a2a50";
-  ctx.beginPath();
-  ctx.moveTo(0, -s + 5);
-  ctx.lineTo(s * 0.5, -s * 0.28);
-  ctx.lineTo(s * 0.38, s * 0.35);
-  ctx.lineTo(-s * 0.38, s * 0.35);
-  ctx.lineTo(-s * 0.5, -s * 0.28);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 13px 'Courier New', monospace";
+  ctx.fillStyle = "#fff2cc";
+  ctx.strokeStyle = "#241813";
+  ctx.lineWidth = 3;
+  ctx.font = "bold 12px 'Courier New', monospace";
   ctx.textAlign = "center";
-  ctx.fillText(String(level), 0, 5);
-  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  const dayLabel = `Өдөр ${dayNumber}`;
+  ctx.strokeText(dayLabel, 0, 4);
+  ctx.fillText(dayLabel, 0, 4);
   ctx.restore();
 }
 
@@ -1180,7 +1402,7 @@ export function drawMinimap(
 ): void {
   const mw = 128;
   const mh = 128;
-  const mx = 22;
+  const mx = 44;
   const my = VIEW_H - mh - 28;
   const sx = mw / WORLD_W;
   const sy = mh / WORLD_H;
@@ -1206,7 +1428,10 @@ export function drawMinimap(
     const g = ctx.createLinearGradient(mx, my, mx, my + fh + fade);
     g.addColorStop(0, forest);
     g.addColorStop(0.35, forest);
-    g.addColorStop(0.65, winter ? "rgba(106,138,114,0.4)" : "rgba(47,90,50,0.38)");
+    g.addColorStop(
+      0.65,
+      winter ? "rgba(106,138,114,0.4)" : "rgba(47,90,50,0.38)",
+    );
     g.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = g;
     ctx.fillRect(mx, my, mw, fh + fade);
@@ -1216,9 +1441,7 @@ export function drawMinimap(
       const edge = clamp(1 - (fy - my) / (fh + fade * 0.5), 0, 1);
       const a = (0.08 + (i % 4) * 0.035) * edge;
       if (a < 0.02) continue;
-      ctx.fillStyle = winter
-        ? `rgba(70,100,80,${a})`
-        : `rgba(22,58,30,${a})`;
+      ctx.fillStyle = winter ? `rgba(70,100,80,${a})` : `rgba(22,58,30,${a})`;
       ctx.beginPath();
       ctx.arc(fx, fy, 1.6 + (i % 3) * 0.55, 0, Math.PI * 2);
       ctx.fill();
@@ -1229,14 +1452,12 @@ export function drawMinimap(
   {
     const desertTop = my + DESERT_Y * sy;
     const fade = Math.max(28, mh * 0.22);
-    const g = ctx.createLinearGradient(
-      mx,
-      desertTop - fade,
-      mx,
-      my + mh,
-    );
+    const g = ctx.createLinearGradient(mx, desertTop - fade, mx, my + mh);
     g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(0.4, winter ? "rgba(196,184,154,0.35)" : "rgba(201,168,106,0.32)");
+    g.addColorStop(
+      0.4,
+      winter ? "rgba(196,184,154,0.35)" : "rgba(201,168,106,0.32)",
+    );
     g.addColorStop(0.7, desert);
     g.addColorStop(1, desert);
     ctx.fillStyle = g;
@@ -1244,7 +1465,9 @@ export function drawMinimap(
     for (let i = 0; i < 16; i++) {
       const dx = mx + 6 + ((i * 29) % (mw - 12));
       const dy =
-        desertTop - fade * 0.25 + ((i * 17) % Math.max(6, my + mh - desertTop + fade * 0.25));
+        desertTop -
+        fade * 0.25 +
+        ((i * 17) % Math.max(6, my + mh - desertTop + fade * 0.25));
       const edge = clamp((dy - (desertTop - fade)) / fade, 0, 1);
       const a = 0.12 * edge;
       if (a < 0.02) continue;
@@ -1261,7 +1484,9 @@ export function drawMinimap(
   {
     const riverSteps = 32;
     // Маш өргөн бүдэг эрэг
-    ctx.strokeStyle = winter ? "rgba(120,155,175,0.22)" : "rgba(80,145,170,0.22)";
+    ctx.strokeStyle = winter
+      ? "rgba(120,155,175,0.22)"
+      : "rgba(80,145,170,0.22)";
     ctx.lineWidth = Math.max(8, RIVER_HALF_W * sx * 5);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
@@ -1275,7 +1500,9 @@ export function drawMinimap(
     }
     ctx.stroke();
     // Дунд давхарга
-    ctx.strokeStyle = winter ? "rgba(110,145,165,0.4)" : "rgba(55,120,150,0.42)";
+    ctx.strokeStyle = winter
+      ? "rgba(110,145,165,0.4)"
+      : "rgba(55,120,150,0.42)";
     ctx.lineWidth = Math.max(4.5, RIVER_HALF_W * sx * 3);
     ctx.beginPath();
     for (let i = 0; i <= riverSteps; i++) {
@@ -1715,56 +1942,45 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     return;
   }
 
-  // —— Зүүн дээд: түвшин + 4 үзүүлэлт (pixel RPG) ——
-  const barX = pad + 48;
-  const barW = 168;
-  const barH = 16;
-  const barGap = 20;
-  drawLevelBadge(ctx, pad + 22, pad + 38, state.level);
-
-  drawRpgBar(
+  // —— Зүүн дээд: character portrait + HP/stamina/hunger ——
+  const portraitX = pad + 34;
+  const portraitY = pad + 38;
+  const portraitRadius = 29;
+  const barX = portraitX + portraitRadius - 2;
+  const barW = 166;
+  const barH = 13;
+  const barGap = 18;
+  drawHudMeter(
     ctx,
     barX,
-    pad + 12,
+    pad + 19,
     barW,
     barH,
     player.vitals.health / player.vitals.maxHealth,
-    "#d64545",
-    `${Math.ceil(player.vitals.health)} / ${player.vitals.maxHealth}`,
+    "#c83b32",
   );
-  drawRpgBar(
+  drawHudMeter(
     ctx,
     barX,
-    pad + 12 + barGap,
-    barW,
+    pad + 19 + barGap,
+    barW - 26,
     barH,
     player.stamina / Math.max(1, player.maxStamina),
-    "#4ec4f0",
-    `${Math.ceil(player.stamina)} / ${Math.ceil(player.maxStamina)}`,
+    "#3299d0",
   );
-  drawRpgBar(
+  drawHudMeter(
     ctx,
     barX,
-    pad + 12 + barGap * 2,
-    barW,
+    pad + 19 + barGap * 2,
+    barW - 48,
     barH,
     player.vitals.hunger / player.vitals.maxHunger,
-    "#d4a020",
-    `${Math.ceil(player.vitals.hunger)} / ${player.vitals.maxHunger}`,
+    "#d7a629",
   );
-  drawRpgBar(
-    ctx,
-    barX,
-    pad + 12 + barGap * 3,
-    barW,
-    barH,
-    player.vitals.warmth / player.vitals.maxWarmth,
-    "#ff9f5a",
-    `${Math.ceil(player.vitals.warmth)} / ${player.vitals.maxWarmth}`,
-  );
+  drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
   // Статус дүрсүүд (buff мөр) — эможи
-  const iconY = pad + 12 + barGap * 4 + 4;
+  const iconY = pad + 90;
   const iconS = 18;
   let ix = barX;
   ctx.textAlign = "left";
@@ -1784,34 +2000,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText("⚔️", ix, iconY + iconS - 2);
   }
 
-  // —— Баруун дээд: цаг агаар ——
-  const wxPanel = VIEW_W - 168 - pad;
-  drawWoodFrame(ctx, wxPanel, pad + 4, 160, 52, 5);
-  ctx.fillStyle = "rgba(20,14,10,0.85)";
-  ctx.fillRect(wxPanel, pad + 4, 160, 52);
-  drawWeatherIcon(ctx, wxPanel + 18, pad + 28, world.weather);
-  ctx.fillStyle = "#ffe9a8";
-  ctx.font = "bold 12px 'Courier New', monospace";
-  ctx.fillText(
-    weatherLabel(world.weather, world.season),
-    wxPanel + 34,
-    pad + 22,
-  );
-  const phaseIcon =
-    world.dayPhase === "night"
-      ? "🌙"
-      : world.dayPhase === "evening"
-        ? "🌅"
-        : world.dayPhase === "dawn"
-          ? "🌄"
-          : "☀️";
-  ctx.fillStyle = "#d8c8a8";
-  ctx.font = "11px 'Courier New', monospace";
-  ctx.fillText(
-    `${phaseIcon} ${dayPhaseLabel(world.dayPhase)} ${formatClock(world.timeOfDay)}`,
-    wxPanel + 10,
-    pad + 44,
-  );
+  // —— Баруун дээд: Монгол гэрийн тооно хэлбэртэй цаг ——
+  const clockX = VIEW_W - pad - 47;
+  const clockY = pad + 47;
+  drawSeasonTree(ctx, clockX - 12, clockY + 24, world.season);
+  drawRoundClock(ctx, clockX, clockY, 38, world.timeOfDay, world.dayNumber);
 
   const route = world.firstRoute;
   const routeText = world.tumurShulmas.defeated
@@ -1951,11 +2144,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ly + 28,
   );
   ctx.fillStyle = "#a8c8e8";
-  ctx.fillText(
-    `Тэвш ${Math.floor(world.feeder.hay)}`,
-    barX,
-    ly + 42,
-  );
+  ctx.fillText(`Тэвш ${Math.floor(world.feeder.hay)}`, barX, ly + 42);
 
   const nearFence = nearestFence(player.pos, world.fences, 64);
   if (nearFence) {

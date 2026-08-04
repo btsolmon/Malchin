@@ -35,6 +35,14 @@ import {
 import { nearestRiddleHost, spotKindLabel } from "../riddles";
 import { nearElder } from "../elder";
 import { drawSpiritOverlay } from "../spirit";
+import {
+  drawSpriteBush,
+  drawSpriteGround,
+  drawSpriteRock,
+  drawSpriteTree,
+  drawSpriteTreeCanopy,
+  type WorldSpriteSet,
+} from "./worldSprites";
 
 export interface RenderContext {
   ctx: CanvasRenderingContext2D;
@@ -44,6 +52,92 @@ export interface RenderContext {
   vignette: HTMLCanvasElement;
   playerSprites: PlayerSpriteSet;
   tumurShulmasSprites: TumurShulmasSpriteSet;
+  worldSprites: WorldSpriteSet;
+}
+
+type RenderLayer =
+  | "ground"
+  | "lowWorldObject"
+  | "actor"
+  | "ySortedStructure"
+  | "effect"
+  | "worldUI";
+
+type RenderEntityKind =
+  | "tree"
+  | "berryBush"
+  | "smallRock"
+  | "haystack"
+  | "swordDrop"
+  | "player"
+  | "elder"
+  | "parentNpc"
+  | "sheep"
+  | "wildHorse"
+  | "wolf"
+  | "thief"
+  | "routeEnemy"
+  | "tumurShulmas"
+  | "dog"
+  | "mountHorse"
+  | "ger"
+  | "feeder"
+  | "flockGate"
+  | "dismantledGer"
+  | "campfire"
+  | "fence"
+  | "fenceGhost"
+  | "spiritGate"
+  | "tumurExit"
+  | "tumurGate"
+  | "horseHitch";
+
+const RENDER_LAYER_ORDER: Record<RenderLayer, number> = {
+  ground: 0,
+  lowWorldObject: 10,
+  actor: 20,
+  // Structures retain their existing Y-depth relationship with actors.
+  ySortedStructure: 20,
+  effect: 40,
+  worldUI: 50,
+};
+
+const VEGETATION_ALWAYS_BEHIND_ACTORS = true;
+const RENDER_LAYER_DEBUG = false;
+
+function getRenderLayer(entity: RenderEntityKind): RenderLayer {
+  switch (entity) {
+    case "tree":
+    case "berryBush":
+    case "smallRock":
+    case "haystack":
+    case "swordDrop":
+      return VEGETATION_ALWAYS_BEHIND_ACTORS ? "lowWorldObject" : "actor";
+    case "player":
+    case "elder":
+    case "parentNpc":
+    case "sheep":
+    case "wildHorse":
+    case "wolf":
+    case "thief":
+    case "routeEnemy":
+    case "tumurShulmas":
+    case "dog":
+    case "mountHorse":
+      return "actor";
+    case "ger":
+    case "feeder":
+    case "flockGate":
+    case "dismantledGer":
+    case "campfire":
+    case "fence":
+    case "fenceGhost":
+    case "spiritGate":
+    case "tumurExit":
+    case "tumurGate":
+    case "horseHitch":
+      return "ySortedStructure";
+  }
 }
 
 /** Гэрийн дэргэд өвсний овоо */
@@ -112,10 +206,12 @@ export function render(
 
   const cam = getCamera(state);
   const world = state.world;
+  const canopyTrees: typeof world.trees = [];
 
   // Газар
   const terrain = world.season === "winter" ? rc.terrainWinter : rc.terrain;
   ctx.drawImage(terrain, cam.x, cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
+  drawSpriteGround(ctx, rc.worldSprites, cam, world);
   drawRiverFlowOverlay(ctx, cam, time, world.season === "winter");
 
   const inShulmasSpirit =
@@ -136,11 +232,34 @@ export function render(
           ? 2
           : 1;
 
-  // Гүнээр эрэмбэлсэн объектууд.
-  // key — тогтвортой хоёрдогч эрэмбэ: ойролцоо y-тэй объектууд давхцахад
-  // зурах дараалал frame бүр солигдож анивчихаас сэргийлнэ.
-  type Drawable = { y: number; key: number; draw: () => void };
+  // Layer is primary; sortY and key only order compatible entities inside it.
+  type Drawable = {
+    entity: RenderEntityKind;
+    layer: RenderLayer;
+    sortY: number;
+    key: number;
+    debugPos?: { x: number; y: number };
+    draw: () => void;
+  };
   const drawables: Drawable[] = [];
+  const addDrawable = (
+    entity: RenderEntityKind,
+    drawable: {
+      y: number;
+      key: number;
+      debugPos?: { x: number; y: number };
+      draw: () => void;
+    },
+  ): void => {
+    drawables.push({
+      entity,
+      layer: getRenderLayer(entity),
+      sortY: drawable.y,
+      key: drawable.key,
+      debugPos: drawable.debugPos,
+      draw: drawable.draw,
+    });
+  };
 
   const center = pastureCenter(world);
 
@@ -225,9 +344,10 @@ export function render(
   }
 
   if (!world.gerPacked) {
-    drawables.push({
+    addDrawable("ger", {
       y: center.y - 20,
       key: -2,
+      debugPos: center,
       draw: () =>
         drawGer(
           ctx,
@@ -242,7 +362,7 @@ export function render(
   // Өвсний овоо — хадгалсан хэмжээгээр өснө
   if (!world.gerPacked && state.player.inventory.hay > 0) {
     const hayPos = { x: center.x + 58, y: center.y + 28 };
-    drawables.push({
+    addDrawable("haystack", {
       y: hayPos.y,
       key: -3,
       draw: () =>
@@ -257,10 +377,43 @@ export function render(
 
   // Тэвш
   if (!world.gerPacked) {
-    drawables.push({
+    addDrawable("feeder", {
       y: world.feeder.pos.y,
       key: -4,
       draw: () => drawFeeder(ctx, world.feeder, cam),
+    });
+  }
+
+  // Мал гаргах/оруулах цэг — гал ба тэвшин гол
+  if (!world.gerPacked) {
+    const gate = flockGatePos(world);
+    addDrawable("flockGate", {
+      // Шонгийн сууриас дээш depth — тоглогч ойртоход урд нь гарахгүй
+      y: gate.y - 12,
+      key: -6,
+      draw: () => {
+        const gx = gate.x - cam.x;
+        const gy = gate.y - cam.y;
+        // Хоёр богино шон + завсар (хаалганы мөр)
+        ctx.fillStyle = "rgba(20,25,15,0.22)";
+        ctx.beginPath();
+        ctx.ellipse(gx, gy + 4, 16, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        for (const ox of [-10, 10] as const) {
+          ctx.fillStyle = "#5a3a1e";
+          ctx.fillRect(gx + ox - 2, gy - 14, 4, 16);
+          ctx.fillStyle = "#7a5230";
+          ctx.fillRect(gx + ox - 1.2, gy - 13, 2, 14);
+        }
+        ctx.strokeStyle = "rgba(90,60,30,0.45)";
+        ctx.lineWidth = 1.4;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(gx - 8, gy - 4);
+        ctx.lineTo(gx + 8, gy - 4);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      },
     });
   }
 
@@ -276,11 +429,17 @@ export function render(
     ) {
       continue;
     }
-    drawables.push({
+    addDrawable("tree", {
       y: tree.pos.y,
       key: tree.id,
-      draw: () => drawTree(ctx, tree, cam, time, windAmp),
+      debugPos: tree.pos,
+      draw: () => {
+        if (!drawSpriteTree(ctx, rc.worldSprites, tree, cam)) {
+          drawTree(ctx, tree, cam, time, windAmp);
+        }
+      },
     });
+    if (tree.hp > 0) canopyTrees.push(tree);
   }
   for (const bush of world.bushes) {
     if (
@@ -294,37 +453,47 @@ export function render(
     ) {
       continue;
     }
-    drawables.push({
+    addDrawable("berryBush", {
       y: bush.pos.y,
       key: 1000 + bush.id,
-      draw: () => drawBerryBush(ctx, bush, cam, time),
+      debugPos: bush.pos,
+      draw: () => {
+        if (!drawSpriteBush(ctx, rc.worldSprites, bush, cam)) {
+          drawBerryBush(ctx, bush, cam, time);
+        }
+      },
     });
   }
   for (const rock of world.rocks) {
-    drawables.push({
+    addDrawable("smallRock", {
       y: rock.pos.y,
       key: 7000 + rock.id,
-      draw: () => drawWorldRock(ctx, rock, cam, time),
+      debugPos: rock.pos,
+      draw: () => {
+        if (!drawSpriteRock(ctx, rc.worldSprites, rock, cam)) {
+          drawWorldRock(ctx, rock, cam, time);
+        }
+      },
     });
   }
-  drawables.push({
+  addDrawable("dismantledGer", {
     y: world.elder.gerPos.y,
     key: -6,
     draw: () => drawDismantledGer(ctx, world.elder.gerPos, cam, time),
   });
-  drawables.push({
+  addDrawable("elder", {
     y: world.elder.pos.y,
     key: -5,
     draw: () => drawElder(ctx, world.elder, cam, time),
   });
   if (state.parentsReturned && state.parents && !world.gerPacked) {
-    drawables.push({
+    addDrawable("parentNpc", {
       y: state.parents.father.pos.y,
       key: -4,
       draw: () =>
         drawParentNpc(ctx, state.parents!.father, cam, time),
     });
-    drawables.push({
+    addDrawable("parentNpc", {
       y: state.parents.mother.pos.y,
       key: -3,
       draw: () =>
@@ -332,19 +501,17 @@ export function render(
     });
   }
   if (!world.gerPacked) {
-    drawables.push({
+    addDrawable("campfire", {
       y: world.campfire.pos.y,
       key: -1,
       draw: () => drawCampfire(ctx, world.campfire, cam, time),
     });
   }
   for (const fence of world.fences) {
-    // Босоо хашаа/хаалга — ижил Y дээр тоглогчийн урд биш ард зурагдана
+    // Preserve the remote fence depth correction inside the layered queue.
     const sortY =
-      fence.isGate || fence.orient === 1
-        ? fence.pos.y - 20
-        : fence.pos.y;
-    drawables.push({
+      fence.isGate || fence.orient === 1 ? fence.pos.y - 20 : fence.pos.y;
+    addDrawable("fence", {
       y: sortY,
       key: 3000 + fence.id,
       draw: () => drawFence(ctx, fence, cam, time),
@@ -357,7 +524,7 @@ export function render(
       FENCE_GRID,
     );
     const ghostOrient = fenceOrientFromFacing(state.player.facing);
-    drawables.push({
+    addDrawable("fenceGhost", {
       y: ghostPos.y,
       key: 2999,
       draw: () => drawFenceGhost(ctx, ghostPos, ghostOrient, cam),
@@ -365,19 +532,19 @@ export function render(
   }
   // Хараалт / Хар төмөр хаалга — сүнсний оронд
   if (state.phase === "spirit") {
-    drawables.push({
+    addDrawable("spiritGate", {
       y: world.firstRoute.gatePos.y,
       key: 5800,
       draw: () => drawFirstRouteGate(ctx, state, cam, time),
     });
     if (world.tumurShulmas.active) {
-      drawables.push({
+      addDrawable("tumurExit", {
         y: world.tumurShulmas.exitPos.y,
         key: 5901,
         draw: () => drawTumurShulmasExit(ctx, state, cam, time),
       });
     } else {
-      drawables.push({
+      addDrawable("tumurGate", {
         y: world.tumurShulmas.gatePos.y,
         key: 5900,
         draw: () => drawTumurShulmasGate(ctx, state, cam, time),
@@ -385,21 +552,21 @@ export function render(
     }
   }
   for (const sheep of world.flock.visuals) {
-    drawables.push({
+    addDrawable("sheep", {
       y: sheep.pos.y,
       key: 2000 + sheep.id,
       draw: () => drawSheep(ctx, sheep, cam, time),
     });
   }
   for (const wh of world.wildHorses) {
-    drawables.push({
+    addDrawable("wildHorse", {
       y: wh.pos.y,
       key: 2500 + wh.id,
       draw: () => drawWildHorse(ctx, wh, cam, time),
     });
   }
   for (const wolf of world.wolves) {
-    drawables.push({
+    addDrawable("wolf", {
       y: wolf.pos.y,
       key: 2000 + wolf.id,
       draw: () =>
@@ -409,7 +576,7 @@ export function render(
     });
   }
   for (const thief of world.thieves) {
-    drawables.push({
+    addDrawable("thief", {
       y: thief.pos.y,
       key: 2000 + thief.id,
       draw: () => drawThief(ctx, thief, cam, time),
@@ -419,7 +586,7 @@ export function render(
     // Мангасууд — сүнсний оронд орсон л бол харагдана
     if (state.phase !== "spirit") continue;
     if (!enemy.alive && enemy.deathTimer <= 0) continue;
-    drawables.push({
+    addDrawable("routeEnemy", {
       y: enemy.pos.y,
       key: 7000 + enemy.id,
       draw: () => drawRouteEnemy(ctx, enemy, cam, time),
@@ -429,7 +596,7 @@ export function render(
     world.firstRoute.swordDrop.visible &&
     state.phase === "spirit"
   ) {
-    drawables.push({
+    addDrawable("swordDrop", {
       y: world.firstRoute.swordDrop.pos.y,
       key: 12100,
       draw: () => drawSwordDrop(ctx, state, cam, time),
@@ -440,7 +607,7 @@ export function render(
     state.phase === "spirit" &&
     state.spiritMode === "shulmas"
   ) {
-    drawables.push({
+    addDrawable("tumurShulmas", {
       y: world.tumurShulmas.pos.y,
       key: 11900,
       draw: () =>
@@ -455,7 +622,7 @@ export function render(
   }
   if (world.dog) {
     const dog = world.dog;
-    drawables.push({
+    addDrawable("dog", {
       y: dog.pos.y,
       key: 5000,
       draw: () => drawDog(ctx, dog, cam, time),
@@ -468,7 +635,7 @@ export function render(
     state.player.horseHp > 0
   ) {
     const rail = horseHitchRail(world);
-    drawables.push({
+    addDrawable("horseHitch", {
       y: Math.max(rail.left.y, rail.right.y),
       key: -5,
       draw: () => drawHorseHitch(ctx, rail.left, rail.right, cam),
@@ -478,7 +645,7 @@ export function render(
   // Буусан / уясан унах морь
   if (world.mountHorse && !state.player.riding) {
     const mh = world.mountHorse;
-    drawables.push({
+    addDrawable("mountHorse", {
       y: mh.pos.y,
       key: 4990,
       draw: () => {
@@ -516,9 +683,10 @@ export function render(
       },
     });
   }
-  drawables.push({
+  addDrawable("player", {
     y: state.player.pos.y,
     key: Number.MAX_SAFE_INTEGER,
+    debugPos: state.player.pos,
     draw: () =>
       drawPlayerWithSprites(
         ctx,
@@ -531,8 +699,59 @@ export function render(
       ),
   });
 
-  drawables.sort((a, b) => Math.round(a.y) - Math.round(b.y) || a.key - b.key);
+  drawables.sort((a, b) => {
+    const layerDifference =
+      RENDER_LAYER_ORDER[a.layer] - RENDER_LAYER_ORDER[b.layer];
+    if (layerDifference !== 0) return layerDifference;
+    return Math.round(a.sortY) - Math.round(b.sortY) || a.key - b.key;
+  });
   for (const d of drawables) d.draw();
+
+  // Classic two-pass tree depth: the full grounded tree is already behind
+  // actors; only its upper crop returns here when the player's feet are behind.
+  for (const tree of canopyTrees) {
+    drawSpriteTreeCanopy(
+      ctx,
+      rc.worldSprites,
+      tree,
+      cam,
+      state.player.pos,
+      RENDER_LAYER_DEBUG,
+    );
+  }
+
+  if (RENDER_LAYER_DEBUG) {
+    const debugColors: Record<
+      "lowWorldObject" | "actor" | "ySortedStructure",
+      string
+    > = {
+      lowWorldObject: "#7dff7d",
+      actor: "#73c7ff",
+      ySortedStructure: "#ffd36b",
+    };
+    ctx.save();
+    ctx.font = "9px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.lineWidth = 3;
+    for (const drawable of drawables) {
+      if (!drawable.debugPos) continue;
+      if (
+        drawable.layer !== "lowWorldObject" &&
+        drawable.layer !== "actor" &&
+        drawable.layer !== "ySortedStructure"
+      ) {
+        continue;
+      }
+      const x = Math.round(drawable.debugPos.x - cam.x);
+      const y = Math.round(drawable.debugPos.y - cam.y);
+      const label = `${drawable.entity} · ${drawable.layer} · sortY=${Math.round(drawable.sortY)} · base=(${Math.round(drawable.debugPos.x)},${Math.round(drawable.debugPos.y)})`;
+      ctx.strokeStyle = "rgba(0,0,0,0.85)";
+      ctx.strokeText(label, x, y + 18);
+      ctx.fillStyle = debugColors[drawable.layer];
+      ctx.fillText(label, x, y + 18);
+    }
+    ctx.restore();
+  }
 
   // Сумнууд — бүх объектын дээр
   for (const p of world.projectiles) drawProjectile(ctx, p, cam);
