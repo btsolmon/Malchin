@@ -68,6 +68,7 @@ import {
 } from "./tumurShulmas";
 import { trySwitchPlayerWeapon } from "./combat/playerWeapon";
 import { loadPlayerSprites } from "./render/playerSprites";
+import { loadWorldSprites } from "./render/worldSprites";
 import {
   createFirstRoute,
   tryInteractFirstRoute,
@@ -775,6 +776,7 @@ export function mountHerderGame(
     vignette: makeVignette(),
     playerSprites: loadPlayerSprites(),
     tumurShulmasSprites: loadTumurShulmasSprites(),
+    worldSprites: loadWorldSprites(),
   };
 
   let state = createInitialState();
