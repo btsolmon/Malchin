@@ -263,6 +263,21 @@ export function render(
 
   const center = pastureCenter(world);
 
+  // Гэрийн бор хөрс — бууцын төвд (гэр голлуулна)
+  if (!world.gerPacked) {
+    const px = center.x - cam.x;
+    const py = center.y - cam.y;
+    const winter = world.season === "winter";
+    const pad = ctx.createRadialGradient(px, py, 16, px, py, 110);
+    pad.addColorStop(0, winter ? "#8a7a60" : "#6f5742");
+    pad.addColorStop(0.55, winter ? "rgba(138,122,96,0.55)" : "rgba(111,87,66,0.55)");
+    pad.addColorStop(1, winter ? "rgba(138,122,96,0)" : "rgba(111,87,66,0)");
+    ctx.fillStyle = pad;
+    ctx.beginPath();
+    ctx.ellipse(px, py, 108, 78, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // Бэлчээр — өвс идэгдэх тусам гэрийн буурь шиг бүдэг бор хөрс илэрнэ
   // Өнгө: terrain гэрийн шороон талбай (#6f5742) — тод шавар шиг биш
   if (!world.gerPacked && world.season !== "winter") {
@@ -345,14 +360,14 @@ export function render(
 
   if (!world.gerPacked) {
     addDrawable("ger", {
-      y: center.y - 20,
+      y: center.y + 24,
       key: -2,
       debugPos: center,
       draw: () =>
         drawGer(
           ctx,
-          center.x - 46 - cam.x,
-          center.y - 26 - cam.y,
+          center.x - cam.x,
+          center.y - 24 - cam.y,
           world.season === "winter",
         ),
     });
@@ -384,7 +399,7 @@ export function render(
     });
   }
 
-  // Мал гаргах/оруулах цэг — гал ба тэвшин гол
+  // Мал гаргах/оруулах цэг — хашааны хаалга
   if (!world.gerPacked) {
     const gate = flockGatePos(world);
     addDrawable("flockGate", {
@@ -500,7 +515,7 @@ export function render(
         drawParentNpc(ctx, state.parents!.mother, cam, time),
     });
   }
-  if (!world.gerPacked) {
+  if (world.campfire.placed) {
     addDrawable("campfire", {
       y: world.campfire.pos.y,
       key: -1,
@@ -696,6 +711,7 @@ export function render(
         rc.playerSprites,
         state.fx.hurtFlash,
         world.gerPacked,
+        world.campfire.igniting,
       ),
   });
 

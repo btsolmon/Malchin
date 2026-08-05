@@ -238,8 +238,31 @@ function closestPointOnSegment(
   return { x: a.x + abx * t, y: a.y + aby * t };
 }
 
-/** Хашааны мөргөлдөөний зузаан (сегмент дагуу) */
-const FENCE_COLLIDE_HALF = 7;
+/** Хашааны мөргөлдөөний зузаан (сегментээс хажуу тийш) */
+const FENCE_COLLIDE_HALF = 5;
+/** Үзүүрээс богиносгоно — нэг сегментийн завсраар багтана */
+const FENCE_COLLIDE_INSET = 9;
+/** Хэвтээ хашааны дээд төмөр рүү мөргөлдөөнийг татна (визуал y−7…−14) */
+const FENCE_COLLIDE_EW_Y = -8;
+
+/** Мөргөлдөөний сегмент — зурагдах үзүүрээс богино, EW дээшээ шилжинэ */
+function fenceCollideSegment(
+  pos: Vector2,
+  orient: 0 | 1,
+): [Vector2, Vector2] {
+  const h = FENCE_GRID / 2 - FENCE_COLLIDE_INSET;
+  if (orient === 0) {
+    const cy = pos.y + FENCE_COLLIDE_EW_Y;
+    return [
+      { x: pos.x - h, y: cy },
+      { x: pos.x + h, y: cy },
+    ];
+  }
+  return [
+    { x: pos.x, y: pos.y - h },
+    { x: pos.x, y: pos.y + h },
+  ];
+}
 
 /** Нээлттэй хаалгын гарц — хөрш хананы үзүүр хаахгүй */
 function inOpenGatePassage(pos: Vector2, openGates: Fence[]): boolean {
@@ -269,7 +292,7 @@ export function pushOutOfFences(
 
   for (const fence of fences) {
     if (!fenceBlocksMovement(fence)) continue;
-    const [a, b] = fenceSegmentEnds(fence.pos, fence.orient);
+    const [a, b] = fenceCollideSegment(fence.pos, fence.orient);
     const closest = closestPointOnSegment(pos, a, b);
     // Хөрш хананы үзүүр нээлттэй хаалгыг битүүлнэ үгүй
     if (

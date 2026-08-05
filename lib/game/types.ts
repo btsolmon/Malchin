@@ -194,6 +194,10 @@ export interface Campfire {
   lit: boolean;
   fuel: number;
   radius: number;
+  /** Хээр түлсэн эсэх — false бол гал зурагдахгүй */
+  placed: boolean;
+  /** Гал асааж буй үлдсэн секунд (0 = бүрэн ассан) */
+  igniting: number;
 }
 
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
@@ -610,6 +614,8 @@ export interface InputState {
   debugXp: boolean;
   /** Debug — . дарж мод хязгааргүй болгох */
   debugWood: boolean;
+  /** Debug — , дарж үхэшгүй болгох */
+  debugGod: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
   debugBoss: boolean;
   /** N барих — хонь туух */
@@ -736,6 +742,8 @@ export interface GameState {
   fencePreview: boolean;
   /** . cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
+  /** , cheat — амь багасахгүй, үхэхгүй */
+  godMode: boolean;
   /** Melee/parry үед хэвийн хөдөлгөөн түгжигдсэн */
   combatMovementLocked: boolean;
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
@@ -786,7 +794,7 @@ export const WORLD_W = 3600;
 export const WORLD_H = 2400;
 export const START_SHEEP = 2;
 export const START_GOATS = 2;
-export const MAX_VISUAL_SHEEP = 36;
+export const MAX_VISUAL_SHEEP = 1000;
 export const MAX_FEEDER_HAY = 80;
 /** Малын бүтээгдэхүүн гарах хугацаа (сек) */
 export const PRODUCE_INTERVAL: Record<LivestockKind, number> = {

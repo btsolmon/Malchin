@@ -263,6 +263,21 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
   const inWater =
     state.phase === "playing" && isInRiver(player.pos, player.radius * 0.2);
 
+  // Гал асааж байхад тонгойно — хөдөлгөөнгүй
+  if (world.campfire.placed && world.campfire.igniting > 0) {
+    player.moving = false;
+    // Гал руу харж тонгойх байрлалаа барина
+    const toFire = {
+      x: world.campfire.pos.x - player.pos.x,
+      y: world.campfire.pos.y - player.pos.y,
+    };
+    if (Math.hypot(toFire.x, toFire.y) > 0.1) {
+      player.facing = normalize(toFire);
+    }
+    clampPlayerToWorld(player, world.width, world.height);
+    return;
+  }
+
   // Dodge үед advanced combat өөрөө хөдөлгөнө
   if (state.combatDodgeActive) {
     player.pos.x = clamp(
@@ -372,8 +387,8 @@ export function horseHitchRail(world: World): {
   tie: Vector2;
 } {
   const c = pastureCenter(world);
-  // drawGer(c.x - 46) — хаалга өмнөд; зүүн тал = +X (зүүн зүг)
-  const gerX = c.x - 46;
+  // drawGer(c.x) — бор хөрсөн дээр голлуулсан; зүүн тал = +X
+  const gerX = c.x;
   const midX = gerX + 130;
   const midY = c.y + 44;
   const half = 42;
@@ -760,34 +775,63 @@ export function tryEatBerry(state: GameState): void {
 
 export function tryLightCampfire(state: GameState): void {
   if (!state.input.lightFire) return;
+  state.input.lightFire = false;
+
+  if (state.phase !== "playing" && state.phase !== "spirit") return;
 
   const { player, world } = state;
-  if (world.gerPacked) {
-    setMessage(state, "Гэр хураасан — эхлээд G-ээр буулга.", 2);
-    state.input.lightFire = false;
-    return;
-  }
   const fire = world.campfire;
-  if (dist(player.pos, fire.pos) >= fire.radius) {
-    setMessage(state, "Гал руу ойрт (F).", 1.5);
-    state.input.lightFire = false;
+
+  if (fire.placed && fire.igniting > 0) {
+    setMessage(state, "Гал асааж байна…", 1.2);
     return;
   }
 
   const cost = 3;
   if (!state.unlimitedWood && player.inventory.wood < cost) {
     setMessage(state, `Галд ${cost} түлээ хэрэгтэй.`, 2);
-    state.input.lightFire = false;
     return;
   }
 
+  const near =
+    fire.placed && dist(player.pos, fire.pos) < fire.radius + player.radius;
+
   if (!state.unlimitedWood) player.inventory.wood -= cost;
-  fire.lit = true;
-  fire.fuel = Math.max(fire.fuel, 0) + 18;
-  state.input.lightFire = false;
+
+  if (near && fire.lit) {
+    // Аль хэдийн ассан галд түлээ нэмнэ
+    fire.fuel = Math.max(fire.fuel, 0) + 18;
+    sfx("fire");
+    spawnParticles(state, fire.pos, 10, "#ffb347", { speed: 60, gravity: -35 });
+    setMessage(state, "Түлээ нэмлээ.", 2);
+    return;
+  }
+
+  // Шинэ гал — тонгойж 4 сек чулуу цохино
+  if (player.riding) {
+    dismountHorse(state, { tie: false });
+  }
+
+  // Гал дүрийн өмнө, малчин араас тонгойно
+  const faceX = player.facing.x < 0 ? -1 : 1;
+  fire.pos = {
+    x: player.pos.x + faceX * 6,
+    y: player.pos.y + 20,
+  };
+  player.pos = {
+    x: fire.pos.x - faceX * 4,
+    y: fire.pos.y - 18,
+  };
+  player.facing = { x: faceX * 0.35, y: 1 };
+  player.moving = false;
+
+  fire.placed = true;
+  fire.lit = false;
+  fire.fuel = 18;
+  fire.igniting = 4;
   sfx("fire");
-  spawnParticles(state, fire.pos, 14, "#ffb347", { speed: 70, gravity: -40 });
-  setMessage(state, "Гал асаалаа.", 2);
+  spawnParticles(state, fire.pos, 8, "#c8a070", { speed: 40, gravity: -20 });
+  setMessage(state, "Тонгойж чулуу цохиж гал асааж байна…", 2.5);
 }
 
 function tryUpgradeFence(state: GameState, fence: Fence): void {
@@ -918,7 +962,7 @@ export function tryBuildFence(state: GameState): void {
     setMessage(state, "Гэрийн дэргэд хашаа барихгүй.", 2);
     return;
   }
-  if (dist(pos, world.campfire.pos) < 40) {
+  if (world.campfire.placed && dist(pos, world.campfire.pos) < 40) {
     setMessage(state, "Галын дэргэд хашаа барихгүй.", 2);
     return;
   }
@@ -977,15 +1021,34 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
   const fire = world.campfire;
 
-  if (fire.lit) {
+  if (fire.placed && fire.igniting > 0) {
+    fire.igniting = Math.max(0, fire.igniting - dt);
+    if (fire.igniting <= 0) {
+      fire.igniting = 0;
+      fire.lit = true;
+      sfx("fire");
+      spawnParticles(state, fire.pos, 16, "#ffb347", {
+        speed: 80,
+        gravity: -45,
+      });
+      setMessage(state, "Гал асаалаа.", 2);
+    }
+  } else if (fire.lit) {
     fire.fuel -= dt;
     if (fire.fuel <= 0) {
       fire.lit = false;
       fire.fuel = 0;
+      fire.placed = false;
+      fire.igniting = 0;
     }
   }
 
-  const nearFire = fire.lit && dist(player.pos, fire.pos) < fire.radius;
+  if (state.godMode) {
+    player.vitals.health = player.vitals.maxHealth;
+  }
+
+  const nearFire =
+    fire.lit && fire.placed && dist(player.pos, fire.pos) < fire.radius;
   const night =
     world.dayPhase === "night" ||
     world.timeOfDay < 6 ||
@@ -1015,13 +1078,15 @@ export function updateSurvival(state: GameState, dt: number): void {
   );
 
   if (player.vitals.warmth <= 0) {
-    player.vitals.health = clamp(
-      player.vitals.health - 3 * dt,
-      0,
-      player.vitals.maxHealth,
-    );
-    if (player.vitals.health <= 0) {
-      handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
+    if (!state.godMode) {
+      player.vitals.health = clamp(
+        player.vitals.health - 3 * dt,
+        0,
+        player.vitals.maxHealth,
+      );
+      if (player.vitals.health <= 0) {
+        handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
+      }
     }
   }
 
@@ -1031,13 +1096,15 @@ export function updateSurvival(state: GameState, dt: number): void {
     player.vitals.maxHunger,
   );
   if (player.vitals.hunger <= 0) {
-    player.vitals.health = clamp(
-      player.vitals.health - 5 * dt,
-      0,
-      player.vitals.maxHealth,
-    );
-    if (player.vitals.health <= 0) {
-      handlePlayerDeath(state, "Өлсөж үхлээ…");
+    if (!state.godMode) {
+      player.vitals.health = clamp(
+        player.vitals.health - 5 * dt,
+        0,
+        player.vitals.maxHealth,
+      );
+      if (player.vitals.health <= 0) {
+        handlePlayerDeath(state, "Өлсөж үхлээ…");
+      }
     }
   }
 
@@ -1188,9 +1255,6 @@ export function tryMigrateGer(state: GameState): void {
     };
     world.campPos = { ...pos };
     world.gerPacked = false;
-    world.campfire.pos = { x: pos.x + 52, y: pos.y + 14 };
-    world.campfire.lit = false;
-    world.campfire.fuel = 0;
     world.feeder.pos = { x: pos.x - 70, y: pos.y + 48 };
     // Шинэ бэлчээр — улирлын дагуу өвс
     if (world.season !== "winter") {
@@ -1247,6 +1311,8 @@ export function tryMigrateGer(state: GameState): void {
   world.gerPacked = true;
   world.campfire.lit = false;
   world.campfire.fuel = 0;
+  world.campfire.placed = false;
+  world.campfire.igniting = 0;
   world.fences = [];
   sfx("select");
   spawnText(state, player.pos, "Гэр → морь", "#e8c56a");

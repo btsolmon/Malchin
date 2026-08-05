@@ -1,55 +1,21 @@
-// Өвгөн NPC — цагаан идээ арилжаа + сүнсний хаалганы яриа
+// Өвгөн NPC — авдрын арилжаа + сүнсний хаалганы яриа
 
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
 import { ensureShulmasHelpers } from "./firstRoute";
 import { enterSpiritWorld } from "./spirit";
+import {
+  SHOP_ITEMS,
+  buyShopItemById,
+  shopItemId,
+  type ShopItem,
+} from "./shop";
 import { dist, setMessage } from "./utils";
-import type { GameState, Inventory, Vector2 } from "./types";
+import type { GameState, Vector2 } from "./types";
 import { WORLD_H, WORLD_W } from "./types";
 
-export interface TradeItem {
-  id: string;
-  nameMn: string;
-  type: "raw" | "processed";
-  basePrice: number;
-  invKey: keyof Inventory;
-  rare?: boolean;
-}
-
-export const ELDER_BUY_PRICES: Record<string, TradeItem> = {
-  milk: {
-    id: "milk",
-    nameMn: "Сүү",
-    type: "raw",
-    basePrice: 15,
-    invKey: "milk",
-  },
-  wool: {
-    id: "wool",
-    nameMn: "Ноос",
-    type: "raw",
-    basePrice: 20,
-    invKey: "wool",
-  },
-  cashmere: {
-    id: "cashmere",
-    nameMn: "Ноолуур",
-    type: "raw",
-    basePrice: 50,
-    invKey: "cashmere",
-    rare: true,
-  },
-  aaruul: {
-    id: "aaruul",
-    nameMn: "Ааруул",
-    type: "processed",
-    basePrice: 40,
-    invKey: "aaruul",
-  },
-};
-
-export const ELDER_TRADE_LIST = Object.values(ELDER_BUY_PRICES);
+/** Авдрын дэлгүүрийн бараа — өвгөний арилжаанд тэр чигт нь */
+export const ELDER_TRADE_LIST: ShopItem[] = SHOP_ITEMS;
 
 export type DialogueSpeaker = "boy" | "elder";
 
@@ -139,10 +105,15 @@ export type ElderTab = "trade" | "talk";
 
 export interface ElderUiTradeRow {
   id: string;
+  icon: string;
   nameMn: string;
-  type: "raw" | "processed";
-  have: number;
+  desc: string;
+  action: "buy" | "sell";
   price: number;
+  have: number;
+  owned: boolean;
+  canTrade: boolean;
+  detail: string;
   rare: boolean;
 }
 
@@ -196,7 +167,7 @@ export function openElder(state: GameState): void {
   state.menuIndex = 0;
   state.world.elder.eyeMode = "idle";
   sfx("select");
-  setMessage(state, "Өвгөн: «За, юу авчирсан бэ?»", 2.5);
+  setMessage(state, "Өвгөн: «За, юу авах, юу зарах вэ?»", 2.5);
 }
 
 export function closeElder(state: GameState): void {
@@ -296,43 +267,44 @@ export function chooseElderOption(
   sfx("select");
 }
 
-export function tradeWithElder(
-  state: GameState,
-  itemId: string,
-  amount = 1,
-): boolean {
+export function tradeWithElder(state: GameState, itemId: string): boolean {
   if (state.phase !== "elder") return false;
-  const item = ELDER_BUY_PRICES[itemId];
+  const item = ELDER_TRADE_LIST.find((it) => shopItemId(it) === itemId);
   if (!item) return false;
-  const qty = Math.max(1, Math.floor(amount));
-  const have = state.player.inventory[item.invKey];
-  if (typeof have !== "number" || have < qty) {
-    setMessage(state, `${item.nameMn} хүрэлцэхгүй.`, 1.8);
-    sfx("hurt");
+
+  const scoreBefore = state.score;
+  const invBefore =
+    item.type === "sell" ? state.player.inventory[item.key] : 0;
+
+  buyShopItemById(state, itemId);
+
+  if (item.type === "sell") {
+    if (state.player.inventory[item.key] >= invBefore) return false;
+    const rare = item.key === "cashmere";
+    if (rare) state.world.elder.eyeMode = "rare";
+    else if (state.world.elder.eyeMode !== "spirit") {
+      state.world.elder.eyeMode = "idle";
+    }
+    spawnText(
+      state,
+      state.player.pos,
+      `+${item.price}`,
+      rare ? "#7ec8ff" : "#e8c56a",
+    );
+    return true;
+  }
+
+  // Авсан эсэх — оноо буурсан эсвэл gear эзэмшсэн болсон
+  if (item.type === "gear") {
+    if (!state.player.gear[item.id] || state.score > scoreBefore) return false;
+  } else if (state.score >= scoreBefore) {
     return false;
   }
 
-  state.player.inventory[item.invKey] = have - qty;
-  const points = item.basePrice * qty;
-  state.score += points;
-
-  if (item.rare) state.world.elder.eyeMode = "rare";
-  else if (state.world.elder.eyeMode !== "spirit") {
+  if (state.world.elder.eyeMode !== "spirit") {
     state.world.elder.eyeMode = "idle";
   }
-
-  spawnText(
-    state,
-    state.player.pos,
-    `+${points}`,
-    item.rare ? "#7ec8ff" : "#e8c56a",
-  );
-  setMessage(
-    state,
-    `Өвгөн: «${item.nameMn} сайхан байна.» +${points} оноо`,
-    2.8,
-  );
-  sfx("buy");
+  spawnText(state, state.player.pos, `−${item.price}`, "#e8c56a");
   return true;
 }
 
@@ -344,14 +316,56 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
   if (state.phase !== "elder") return { open: false };
 
   const inv = state.player.inventory;
-  const trades: ElderUiTradeRow[] = ELDER_TRADE_LIST.map((t) => ({
-    id: t.id,
-    nameMn: t.nameMn,
-    type: t.type,
-    have: Number(inv[t.invKey] ?? 0),
-    price: t.basePrice,
-    rare: !!t.rare,
-  }));
+  const trades: ElderUiTradeRow[] = ELDER_TRADE_LIST.map((t) => {
+    const id = shopItemId(t);
+    if (t.type === "sell") {
+      const have = Number(inv[t.key] ?? 0);
+      return {
+        id,
+        icon: t.icon,
+        nameMn: t.name,
+        desc: t.desc,
+        action: "sell" as const,
+        price: t.price,
+        have,
+        owned: false,
+        canTrade: have > 0,
+        detail: have > 0 ? `×${have} · +${t.price}` : "Алга",
+        rare: t.key === "cashmere",
+      };
+    }
+    if (t.type === "livestock") {
+      const afford = state.score >= t.price;
+      return {
+        id,
+        icon: t.icon,
+        nameMn: t.name,
+        desc: t.desc,
+        action: "buy" as const,
+        price: t.price,
+        have: 0,
+        owned: false,
+        canTrade: afford,
+        detail: `${t.price} оноо`,
+        rare: false,
+      };
+    }
+    const owned = state.player.gear[t.id];
+    const afford = state.score >= t.price;
+    return {
+      id,
+      icon: t.icon,
+      nameMn: t.name,
+      desc: t.desc,
+      action: "buy" as const,
+      price: t.price,
+      have: 0,
+      owned,
+      canTrade: !owned && afford,
+      detail: owned ? "Эзэмшсэн ✓" : `${t.price} оноо`,
+      rare: false,
+    };
+  });
 
   let activeDialogue: ElderUiState["activeDialogue"] = null;
   if (state.elderDialogueId) {

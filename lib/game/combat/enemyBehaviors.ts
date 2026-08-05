@@ -318,6 +318,7 @@ export function updateFlock(state: GameState, dt: number): void {
  * Морьтой бол цохилтын 60%-ийг морь өөр дээрээ авна — морь үхэж болно.
  */
 export function damagePlayer(state: GameState, dmg: number): void {
+  if (state.godMode) return;
   const player = state.player;
   if (player.riding && player.horseHp > 0) {
     const horseShare = Math.round(dmg * 0.6);
@@ -337,7 +338,6 @@ export function damagePlayer(state: GameState, dmg: number): void {
         };
         state.world.campPos = { ...pos };
         state.world.gerPacked = false;
-        state.world.campfire.pos = { x: pos.x + 52, y: pos.y + 14 };
         state.world.feeder.pos = { x: pos.x - 70, y: pos.y + 48 };
         setMessage(
           state,

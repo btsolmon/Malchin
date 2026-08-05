@@ -1,7 +1,7 @@
 import { COLORS, GameState, Player, VIEW_H, VIEW_W } from "../types";
 import {
+  drawChest,
   drawCraft,
-  drawShop,
   gerLayout,
   gerProximity,
   overButton,
@@ -640,7 +640,7 @@ export function drawGerInterior(
   if (!state.shopOpen && !state.craftOpen && state.gerSleepTimer <= 0) {
     const prox = gerProximity(state);
     let hint = "";
-    if (prox.nearChest) hint = "E — Авдар (дэлгүүр)";
+    if (prox.nearChest) hint = "E — Авдар";
     else if (prox.nearAltar) hint = "E — Урлал";
     else if (prox.nearBed)
       hint = state.player.sleepCooldown > 0 ? "Сая унтсан…" : "E — Унтах";
@@ -717,11 +717,11 @@ export function drawGerInterior(
     ctx.textAlign = "left";
   }
 
-  if (state.shopOpen) drawShop(ctx, state);
+  if (state.shopOpen) drawChest(ctx, state);
   if (state.craftOpen) drawCraft(ctx, state);
 }
 
-/** Дэлгүүрийн цонх — авдар дээр дарахад нээгдэнэ */
+/** Авдар — хадгалсан сүү / ааруул / эсгий / ноос */
 
 export function makeVignette(): HTMLCanvasElement {
   const c = document.createElement("canvas");

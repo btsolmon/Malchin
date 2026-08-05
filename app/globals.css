@@ -80,6 +80,188 @@ body {
   color: #f2e8d5;
 }
 
+.elder-shop-panel {
+  width: min(640px, 94%);
+  max-height: min(520px, 92%);
+  border: 2px solid #e8c56a;
+  border-radius: 14px;
+  background: rgba(26, 17, 10, 0.97);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.elder-shop-inner {
+  padding: 14px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-height: min(520px, 92%);
+  overflow: hidden;
+}
+
+.elder-shop-tabs {
+  margin: 0 0 8px;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.elder-shop-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 12px;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.elder-shop-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #e8c56a;
+  letter-spacing: 0.04em;
+}
+
+.elder-shop-score {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2e8d5;
+}
+
+.elder-shop-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  flex: 0 0 auto;
+  /* 5 мөр бүтэн: 5×48 + 4×6 gap = 264 */
+  height: 264px;
+  min-height: 264px;
+  max-height: 264px;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.elder-shop-rows > li {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  flex: 0 0 auto;
+}
+
+.elder-shop-row {
+  width: 100%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 36px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 8px 12px;
+  height: 48px;
+  min-height: 48px;
+  max-height: 48px;
+  border-radius: 8px;
+  border: 1px solid rgba(232, 197, 106, 0.22);
+  background: rgba(12, 10, 8, 0.6);
+  color: #f2e8d5;
+  font: inherit;
+  cursor: pointer;
+}
+
+.elder-shop-row.selected {
+  border-color: #e8c56a;
+  border-width: 2px;
+  /* border 2px байхад өндөр хэвээр — box-sizing border-box */
+  padding: 7px 11px;
+  background: rgba(232, 197, 106, 0.14);
+}
+
+.elder-shop-row.owned {
+  background: rgba(70, 95, 55, 0.35);
+  cursor: default;
+}
+
+.elder-shop-row.rare.selected {
+  border-color: #e8c56a;
+}
+
+.elder-shop-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.elder-shop-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.elder-shop-text strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f2e8d5;
+}
+
+.elder-shop-row.selected .elder-shop-text strong {
+  color: #e8c56a;
+}
+
+.elder-shop-text em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--herder-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.elder-shop-price {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  justify-self: end;
+}
+
+.elder-shop-price.price {
+  color: #ffd060;
+}
+
+.elder-shop-price.ok {
+  color: #a0d890;
+}
+
+.elder-shop-price.bad {
+  color: #e07070;
+}
+
+.elder-shop-hint {
+  margin: 10px 0 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--herder-muted);
+  flex-shrink: 0;
+}
+
+.elder-shop-close {
+  align-self: center;
+  min-width: 140px;
+  flex-shrink: 0;
+}
+
 .elder-panel.elder-eyes-spirit {
   border-color: rgba(126, 200, 255, 0.7);
   box-shadow: 0 0 28px rgba(80, 140, 220, 0.25);
@@ -171,35 +353,8 @@ body {
   gap: 8px;
 }
 
-.elder-trades li {
+.elder-dialogue-list li {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.elder-trades li.rare {
-  border-color: rgba(126, 200, 255, 0.35);
-}
-
-.elder-trade-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 13px;
-}
-
-.elder-trade-info span {
-  color: var(--herder-muted);
-  font-size: 12px;
-}
-
-.elder-trades button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .elder-dialogue-title {

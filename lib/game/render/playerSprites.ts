@@ -567,7 +567,13 @@ export function drawPlayerWithSprites(
   sprites?: PlayerSpriteSet,
   hurtFlash = 0,
   gerPacked = false,
+  lightingFire = 0,
 ): boolean {
+  if (lightingFire > 0) {
+    drawProceduralPlayer(ctx, player, cam, time, gerPacked, lightingFire);
+    return false;
+  }
+
   const selection = sprites
     ? selectPlayerSprite(player, time, hurtFlash)
     : null;

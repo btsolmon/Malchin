@@ -234,10 +234,12 @@ export function createInitialState(): GameState {
       trees: createTrees(72),
       bushes: createBushes(36),
       campfire: {
-        pos: { x: spawn.x + 52, y: spawn.y + 14 },
+        pos: { x: spawn.x, y: spawn.y },
         lit: false,
         fuel: 0,
         radius: 56,
+        placed: false,
+        igniting: 0,
       },
       fences: [],
       flock: {
@@ -276,6 +278,7 @@ export function createInitialState(): GameState {
     },
     fencePreview: false,
     unlimitedWood: false,
+    godMode: false,
     combatMovementLocked: false,
     combatDodgeActive: false,
     input: {
@@ -296,6 +299,7 @@ export function createInitialState(): GameState {
       eat: false,
       debugXp: false,
       debugWood: false,
+      debugGod: false,
       debugBoss: false,
       herd: false,
       migrate: false,
@@ -456,6 +460,9 @@ export function bindInput(getInput: () => InputState): () => void {
       case "Period":
         if (pressed) input.debugWood = true;
         break;
+      case "Comma":
+        if (pressed) input.debugGod = true;
+        break;
       case "KeyN":
         input.herd = pressed;
         break;
@@ -607,6 +614,22 @@ export function update(state: GameState, dt: number): void {
     (state.phase === "playing" || state.phase === "spirit") &&
     updateHitStop(state, dt);
 
+  if (
+    (state.phase === "playing" || state.phase === "spirit") &&
+    state.input.debugGod
+  ) {
+    state.godMode = !state.godMode;
+    if (state.godMode) {
+      state.player.vitals.health = state.player.vitals.maxHealth;
+      spawnText(state, state.player.pos, "Үхэшгүй!", "#7dffb0");
+      setMessage(state, "Үхэшгүй горим аслаа — амь багасахгүй.", 2.5);
+    } else {
+      spawnText(state, state.player.pos, "Үхэшгүй унтарлаа", "#a89880");
+      setMessage(state, "Үхэшгүй горим унтарлаа.", 2);
+    }
+    sfx("buy");
+  }
+
   if (state.phase === "playing" && !hitStopped) {
     if (state.input.debugXp) {
       state.score += 1000;
@@ -630,15 +653,18 @@ export function update(state: GameState, dt: number): void {
       sfx("buy");
     }
     updateWeatherCycle(state, dt);
-    updateCombat(state, dt);
+    const lighting = state.world.campfire.igniting > 0;
+    if (!lighting) updateCombat(state, dt);
     updatePlayerMovement(state, dt);
-    const usedRouteInteraction = tryInteractFirstRoute(state);
-    if (!usedRouteInteraction) tryInteract(state);
-    tryEatBerry(state);
-    tryHorseMount(state);
-    tryMigrateGer(state);
+    if (!lighting) {
+      const usedRouteInteraction = tryInteractFirstRoute(state);
+      if (!usedRouteInteraction) tryInteract(state);
+      tryEatBerry(state);
+      tryHorseMount(state);
+      tryMigrateGer(state);
+    }
     tryLightCampfire(state);
-    tryBuildFence(state);
+    if (!lighting) tryBuildFence(state);
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
@@ -706,6 +732,7 @@ export function update(state: GameState, dt: number): void {
   state.input.buildFence = false;
   state.input.debugXp = false;
   state.input.debugWood = false;
+  state.input.debugGod = false;
   state.input.debugBoss = false;
   state.input.migrate = false;
   state.input.horseMount = false;
@@ -806,7 +833,9 @@ export function mountHerderGame(
           snap.tab,
           snap.eyeMode,
           snap.score,
-          snap.trades.map((t) => `${t.id}:${t.have}`).join(","),
+          snap.trades
+            .map((t) => `${t.id}:${t.have}:${t.owned ? 1 : 0}:${t.canTrade ? 1 : 0}:${t.detail}`)
+            .join(","),
           snap.activeDialogue
             ? `${snap.activeDialogue.id}:${snap.activeDialogue.beatIndex}:${snap.activeDialogue.showingChoices}`
             : "none",

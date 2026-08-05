@@ -24,6 +24,10 @@ export function trySpendSpiritLife(state: GameState): boolean {
 
 /** Эрүүл мэнд 0 болсон үед: сүнс байвал амилна, үгүй бол lost */
 export function handlePlayerDeath(state: GameState, reason: string): void {
+  if (state.godMode) {
+    state.player.vitals.health = state.player.vitals.maxHealth;
+    return;
+  }
   if (state.phase !== "playing" && state.phase !== "spirit") return;
   if (trySpendSpiritLife(state)) return;
 

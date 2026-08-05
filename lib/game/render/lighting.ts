@@ -43,7 +43,7 @@ export function drawLighting(
 
   if (a < 0.3 || !fire.lit) {
     // Энгийн тинт (гэрлийн нүх шаардлагагүй үед мөн адил, гэхдээ галтай бол нүхлэх)
-    if (!fire.lit) {
+    if (!fire.lit && fire.igniting <= 0) {
       ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${a})`;
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       return;
@@ -57,13 +57,15 @@ export function drawLighting(
 
   lc.globalCompositeOperation = "destination-out";
 
-  if (fire.lit) {
+  if (fire.lit || fire.igniting > 0) {
     const fx = fire.pos.x - cam.x;
     const fy = fire.pos.y - cam.y;
-    const rad = 150 * (1 + Math.sin(time * 9) * 0.05);
+    const igniteP =
+      fire.igniting > 0 ? Math.max(0.2, 1 - fire.igniting / 4) : 1;
+    const rad = 150 * igniteP * (1 + Math.sin(time * 9) * 0.05);
     const fg = lc.createRadialGradient(fx, fy, 8, fx, fy, rad);
-    fg.addColorStop(0, "rgba(0,0,0,0.95)");
-    fg.addColorStop(0.6, "rgba(0,0,0,0.5)");
+    fg.addColorStop(0, `rgba(0,0,0,${0.95 * igniteP})`);
+    fg.addColorStop(0.6, `rgba(0,0,0,${0.5 * igniteP})`);
     fg.addColorStop(1, "rgba(0,0,0,0)");
     lc.fillStyle = fg;
     lc.beginPath();

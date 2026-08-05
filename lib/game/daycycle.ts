@@ -268,7 +268,8 @@ export function updateNewborns(state: GameState, dt: number): void {
   for (const a of [...world.flock.visuals]) {
     if (!a.newborn) continue;
 
-    const nearFire = fire.lit && dist(a.pos, fire.pos) < fire.radius + 20;
+    const nearFire =
+      fire.placed && fire.lit && dist(a.pos, fire.pos) < fire.radius + 20;
     const safe = nearFire || (animalInPen(a.pos, world) && !world.flockOut);
 
     if (safe) {
