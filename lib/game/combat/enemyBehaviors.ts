@@ -141,13 +141,19 @@ function livestockFenceDamageMultiplier(
 export function spawnWolf(
   state: GameState,
   kind: "wolf" | "bear" = "wolf",
-): void {
-  const edge = Math.floor(Math.random() * 4);
+  options: { pos?: Vector2; silent?: boolean; id?: number } = {},
+): Wolf {
   let pos: Vector2;
-  if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
-  else if (edge === 1) pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
-  else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
-  else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
+  if (options.pos) {
+    pos = { ...options.pos };
+  } else {
+    const edge = Math.floor(Math.random() * 4);
+    if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
+    else if (edge === 1)
+      pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
+    else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
+    else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
+  }
 
   const night = isNight(state.world);
   const lvl = state.level - 1;
@@ -157,7 +163,7 @@ export function spawnWolf(
   const hp = bear ? baseHp * 2 : baseHp;
   const maxPosture = bear ? 140 : 60;
   const wolf: WolfWithLeap = {
-    id: allocId(state),
+    id: options.id ?? allocId(state),
     kind,
     pos,
     vel: { x: 0, y: 0 },
@@ -191,17 +197,23 @@ export function spawnWolf(
     face: 1,
     alive: true,
   };
+  if (options.id !== undefined) {
+    state.nextEntityId = Math.max(state.nextEntityId, options.id + 1);
+  }
   state.world.wolves.push(wolf);
-  sfx("howl");
-  setMessage(
-    state,
-    bear
-      ? "Баавгай мал руу дайрлаа — маш аюултай!"
-      : night
-        ? "Шөнийн чоно мал руу дайрлаа!"
-        : "Чоно ойртлоо — хамгаал!",
-    3,
-  );
+  if (!options.silent) {
+    sfx("howl");
+    setMessage(
+      state,
+      bear
+        ? "Баавгай мал руу дайрлаа — маш аюултай!"
+        : night
+          ? "Шөнийн чоно мал руу дайрлаа!"
+          : "Чоно ойртлоо — хамгаал!",
+      3,
+    );
+  }
+  return wolf;
 }
 
 export function spawnThief(state: GameState): void {
@@ -716,14 +728,20 @@ function damagePlayerFromWolf(
 ): boolean {
   const player = state.player;
   if (player.invuln > 0) return false;
+  const storyProtected =
+    state.story.temporaryPlayerProtectionActive &&
+    state.story.storyWolfId === wolf.id;
 
   const resolvedDamage = Math.max(
     1,
     Math.round(wolf.damage * damageMultiplier),
   );
 
-  player.invuln = 0.6;
+  player.invuln = storyProtected ? 0.95 : 0.6;
   damagePlayer(state, resolvedDamage);
+  if (storyProtected) {
+    player.vitals.health = Math.max(12, player.vitals.health);
+  }
   triggerHitStop(state, PLAYER_HURT_HIT_STOP_SECONDS);
   spawnImpactBurst(state, player.pos, {
     color: "#d64545",
@@ -751,7 +769,7 @@ function damagePlayerFromWolf(
   spawnParticles(state, player.pos, 8, "#d64545", { speed: 90 });
   spawnText(state, player.pos, `−${resolvedDamage}`, "#ff6060");
 
-  if (player.vitals.health <= 0) {
+  if (!storyProtected && player.vitals.health <= 0) {
     handlePlayerDeath(
       state,
       wolf.kind === "bear" ? "Баавгайд ялагдлаа…" : "Чононд ялагдлаа…",
@@ -1165,9 +1183,17 @@ function attackLivestock(
 
   if (dPrey < biteRange + 4 && predator.attackCooldown <= 0) {
     predator.attackCooldown = biteCooldown;
+    const openingLivestockProtected =
+      state.story.temporaryLivestockProtectionActive &&
+      state.story.storyWolfId === predator.id &&
+      state.story.openingLivestockIds.includes(prey.id);
     const damage =
       damageScale * livestockFenceDamageMultiplier(state, predator, prey);
-    if (damage < 0.12) {
+    if (openingLivestockProtected) {
+      prey.flash = 0.18;
+      sfx("baa");
+      spawnParticles(state, prey.pos, 3, "#f0ebe3", { speed: 45 });
+    } else if (damage < 0.12) {
       spawnText(state, prey.pos, "Хашаа хамгааллаа", "#a8d8ff");
       spawnParticles(state, predator.pos, 3, "#90c8e8", { speed: 40 });
     } else {
@@ -1177,7 +1203,7 @@ function attackLivestock(
       spawnParticles(state, prey.pos, 5, "#f0ebe3", { speed: 70 });
     }
 
-    if (prey.hp <= 0) {
+    if (!openingLivestockProtected && prey.hp <= 0) {
       spawnParticles(state, prey.pos, 12, "#f0ebe3", { speed: 100 });
       spawnText(
         state,
@@ -1316,11 +1342,28 @@ function stunWolfFromParry(
   wolf: WolfWithLeap,
 ): void {
   const player = state.player;
+  const openingStoryTutorial =
+    state.story.storyWolfId === wolf.id &&
+    state.story.milestone3Completed &&
+    !state.story.storyWolfCounterCompleted;
   const postureBroken = damageEnemyPosture(
     state,
     wolf,
-    WOLF_PARRY_POSTURE_DAMAGE,
+    openingStoryTutorial
+      ? Math.max(WOLF_PARRY_POSTURE_DAMAGE, wolf.maxPosture)
+      : WOLF_PARRY_POSTURE_DAMAGE,
   );
+
+  if (openingStoryTutorial) {
+    state.story.storyWolfParryCompleted = true;
+    state.story.storyWolfOpeningActive = true;
+    state.story.activeMainObjective = "counterStoryWolf";
+    setMessage(
+      state,
+      "Өвгөн: Тийм ээ, хүү минь. Одоо шар туяаг бүү алд.",
+      3.1,
+    );
+  }
 
   if (!postureBroken) {
     wolf.attackPhase = "recovery";
@@ -1512,7 +1555,13 @@ function updateNormalWolfChasing(
   const dPrey = prey ? dist(wolf.pos, prey.pos) : Number.POSITIVE_INFINITY;
 
   // Сүнсний оронд зөвхөн тоглогч
+  const openingStoryWolfMustFightPlayer =
+    state.story.storyWolfId === wolf.id &&
+    state.story.milestone3Completed &&
+    state.story.activeMainObjective === "observeWolfMovement";
+
   const engagePlayer =
+    openingStoryWolfMustFightPlayer ||
     state.phase === "spirit" ||
     preferPlayerOverLivestock(
       dPlayer,
@@ -1587,13 +1636,22 @@ function updateNormalWolfChasing(
   wolf.pos.y = clamp(wolf.pos.y, wolf.radius, WORLD_H - wolf.radius);
 }
 
-export function updateWolves(state: GameState, dt: number): void {
+export function updateWolves(
+  state: GameState,
+  dt: number,
+  onlyWolfId?: number,
+): void {
   const { wolves } = state.world;
 
   if (!Number.isFinite(dt) || dt <= 0) return;
 
   for (const rawWolf of wolves) {
-    if (!rawWolf.alive) continue;
+    if (
+      !rawWolf.alive ||
+      (onlyWolfId !== undefined && rawWolf.id !== onlyWolfId)
+    ) {
+      continue;
+    }
 
     const wolf = getWolfWithLeap(rawWolf);
 
@@ -1617,7 +1675,9 @@ export function updateWolves(state: GameState, dt: number): void {
     updateNormalWolfChasing(state, wolf, dt);
   }
 
-  state.world.wolves = wolves.filter((wolf) => wolf.alive);
+  if (onlyWolfId === undefined) {
+    state.world.wolves = wolves.filter((wolf) => wolf.alive);
+  }
 }
 
 export function updateThieves(state: GameState, dt: number): void {

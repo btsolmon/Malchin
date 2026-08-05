@@ -1,6 +1,7 @@
 // Хүн 2 — малчин: хөдөлгөөн, амьдрах механик, XP/ур чадвар, цаг агаар
 
 import {
+  CAMPFIRE_WOOD_COST,
   DAY_LENGTH_SEC,
   FENCE_COST,
   FENCE_GRID,
@@ -73,8 +74,18 @@ import {
   tryCatchWildHorse,
 } from "./livestock";
 import { nearestRiddleHost, openRiddleAtHost, spotKindLabel } from "./riddles";
-import { nearElder, openElder } from "./elder";
+import {
+  beginDawnElderDialogue,
+  beginPostWolfElderDialogue,
+  beginStormTraceElderDialogue,
+  nearElder,
+  openElder,
+} from "./elder";
 import { handlePlayerDeath } from "./spirit";
+import {
+  tryCallOpeningLivestock,
+  tryInspectStormTrace,
+} from "./story";
 
 export const SKILL_POOL: Skill[] = [
   {
@@ -531,6 +542,14 @@ export function tryInteract(state: GameState): void {
   const center = pastureCenter(world);
   const gerPos = gerDoorPos(world);
   if (!world.gerPacked && dist(player.pos, gerPos) < 62) {
+    if (
+      state.story.firstNightStage === "protecting" ||
+      state.story.firstNightStage === "elderIntervention" ||
+      state.story.firstNightStage === "elderApproach"
+    ) {
+      state.input.interact = false;
+      return;
+    }
     hitchHorseOutside(state);
     state.phase = "ger";
     state.shopOpen = false;
@@ -542,8 +561,53 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  if (tryCallOpeningLivestock(state)) {
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (tryInspectStormTrace(state)) {
+    player.chopCooldown = 0.35;
+    return;
+  }
+
   // Өвгөн — арилжаа / яриа
-  if (nearElder(state)) {
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "talkToOldMan"
+  ) {
+    beginPostWolfElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "returnToOldManWithTrace"
+  ) {
+    beginStormTraceElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "visitOldManAtDawn"
+  ) {
+    if (world.dayPhase === "dawn" || world.dayPhase === "day") {
+      beginDawnElderDialogue(state);
+    } else {
+      setMessage(state, "Өвгөн: «Үүрийн гэгээ ортол голомтоо түшиж амар, хүү минь.»", 3);
+    }
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (nearElder(state) && !state.story.activeMainObjective) {
     openElder(state);
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -774,14 +838,16 @@ export function tryLightCampfire(state: GameState): void {
     return;
   }
 
-  const cost = 3;
-  if (!state.unlimitedWood && player.inventory.wood < cost) {
-    setMessage(state, `Галд ${cost} түлээ хэрэгтэй.`, 2);
+  if (
+    !state.unlimitedWood &&
+    player.inventory.wood < CAMPFIRE_WOOD_COST
+  ) {
+    setMessage(state, `Галд ${CAMPFIRE_WOOD_COST} түлээ хэрэгтэй.`, 2);
     state.input.lightFire = false;
     return;
   }
 
-  if (!state.unlimitedWood) player.inventory.wood -= cost;
+  if (!state.unlimitedWood) player.inventory.wood -= CAMPFIRE_WOOD_COST;
   fire.lit = true;
   fire.fuel = Math.max(fire.fuel, 0) + 18;
   state.input.lightFire = false;
@@ -976,8 +1042,15 @@ export function updateSurvival(state: GameState, dt: number): void {
     world.mountHorse.face = -1;
   }
   const fire = world.campfire;
+  const openingHearthProtected =
+    world.dayNumber === 1 &&
+    state.story.campfireRelit &&
+    !state.story.firstNightNormalTimeRestored;
+  const storyHealthFloor = state.story.temporaryPlayerProtectionActive
+    ? Math.min(12, player.vitals.maxHealth)
+    : 0;
 
-  if (fire.lit) {
+  if (fire.lit && !openingHearthProtected) {
     fire.fuel -= dt;
     if (fire.fuel <= 0) {
       fire.lit = false;
@@ -1017,10 +1090,10 @@ export function updateSurvival(state: GameState, dt: number): void {
   if (player.vitals.warmth <= 0) {
     player.vitals.health = clamp(
       player.vitals.health - 3 * dt,
-      0,
+      storyHealthFloor,
       player.vitals.maxHealth,
     );
-    if (player.vitals.health <= 0) {
+    if (!state.story.temporaryPlayerProtectionActive && player.vitals.health <= 0) {
       handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
     }
   }
@@ -1033,17 +1106,19 @@ export function updateSurvival(state: GameState, dt: number): void {
   if (player.vitals.hunger <= 0) {
     player.vitals.health = clamp(
       player.vitals.health - 5 * dt,
-      0,
+      storyHealthFloor,
       player.vitals.maxHealth,
     );
-    if (player.vitals.health <= 0) {
+    if (!state.story.temporaryPlayerProtectionActive && player.vitals.health <= 0) {
       handlePlayerDeath(state, "Өлсөж үхлээ…");
     }
   }
 
   updatePastureAndFlockFeed(state, dt);
   updateNewborns(state, dt);
-  updateOutdoorNightRisk(state, dt);
+  if (!state.story.activeMainObjective) {
+    updateOutdoorNightRisk(state, dt);
+  }
 
   for (const tree of world.trees) {
     if (tree.hp > 0) continue;

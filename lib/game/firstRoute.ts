@@ -575,7 +575,7 @@ function completeRouteIfCleared(state: GameState): boolean {
   route.bolts = [];
   setMessage(
     state,
-    "Эхний зам цэвэрлэгдлээ. Хараалт хаалганы цаана mini-boss хүлээж байна.",
+    "Таван сахиулын мөр тасарч, хараалт хаалга чичрэн нээгдэв.",
     5,
   );
   spawnParticles(state, route.gatePos, 28, "#e8c56a", {
@@ -1288,7 +1288,7 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     route.introductionShown = true;
     setMessage(
       state,
-      "Шулмасын сүнсний зам: туслахуудыг давж, хараалт хаалгад хүр.",
+      "Сүнсний замд таван сахиул тархан зогсжээ. Тэднийг дарж хараалт хаалгад хүр.",
       4,
     );
   }
@@ -1443,7 +1443,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
     );
     setMessage(
       state,
-      "Хөх тэнгэрийн сэлмийг авлаа. Хар төмөр хаалга нээгдэв. 1: таяг · 2: сэлэм",
+      "Хөх тэнгэрийн сэлэм гарын чинь аясыг танив. Хар төмөр хаалганы хүлээс суларлаа.",
       5.5,
     );
     state.fx.shake = Math.max(state.fx.shake, 8);
@@ -1466,7 +1466,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
     ).length;
     setMessage(
       state,
-      `Хараалт хаалга түгжээтэй. Замын ${remaining} дайсан үлдлээ.`,
+      `Хараалт хаалга нээгдэхгүй байна. ${remaining} сахиулын мөр тасраагүй үлджээ.`,
       2.5,
     );
     sfx("move");
@@ -1520,7 +1520,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
 
   setMessage(
     state,
-    "Шулмасын баатар зам хаалаа. Хараалтай талбайгаас зугтах аргагүй!",
+    "Хараалт хаалганы цаана Шулмасын баатар зам тосов.",
     4.5,
   );
   spawnParticles(state, route.arenaCenter, 34, "#9d6ac8", {

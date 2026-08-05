@@ -1,4 +1,4 @@
-import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
+import { CAMPFIRE_WOOD_COST, Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
@@ -43,6 +43,18 @@ import {
   drawSpriteTreeCanopy,
   type WorldSpriteSet,
 } from "./worldSprites";
+import {
+  drawFirstNightElderCutscene,
+  drawFamilyReunionEffect,
+  drawHearthCompletionEffect,
+  drawLivestockCompletionEffect,
+  drawNightCompletionEffect,
+  drawLivestockTrail,
+  drawOpeningSequence,
+  drawStormTrace,
+  nearStormTrace,
+  nearestMissingOpeningLivestock,
+} from "../story";
 
 export interface RenderContext {
   ctx: CanvasRenderingContext2D;
@@ -213,6 +225,8 @@ export function render(
   ctx.drawImage(terrain, cam.x, cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
   drawSpriteGround(ctx, rc.worldSprites, cam, world);
   drawRiverFlowOverlay(ctx, cam, time, world.season === "winter");
+  drawLivestockTrail(ctx, state, cam);
+  drawStormTrace(ctx, state, cam);
 
   const inShulmasSpirit =
     state.phase === "spirit" && state.spiritMode === "shulmas";
@@ -481,11 +495,14 @@ export function render(
     key: -6,
     draw: () => drawDismantledGer(ctx, world.elder.gerPos, cam, time),
   });
-  addDrawable("elder", {
-    y: world.elder.pos.y,
-    key: -5,
-    draw: () => drawElder(ctx, world.elder, cam, time),
-  });
+  const openingElderVisible = state.story.oldManArrived;
+  if (openingElderVisible) {
+    addDrawable("elder", {
+      y: world.elder.pos.y,
+      key: -5,
+      draw: () => drawElder(ctx, world.elder, cam, time),
+    });
+  }
   if (state.parentsReturned && state.parents && !world.gerPacked) {
     addDrawable("parentNpc", {
       y: state.parents.father.pos.y,
@@ -572,7 +589,14 @@ export function render(
       draw: () =>
         wolf.kind === "bear"
           ? drawBear(ctx, wolf, cam, time)
-          : drawWolf(ctx, wolf, cam, time),
+          : drawWolf(
+              ctx,
+              wolf,
+              cam,
+              time,
+              state.story.storyWolfId !== wolf.id ||
+                state.story.shortDialogueCompleted,
+            ),
     });
   }
   for (const thief of world.thieves) {
@@ -787,9 +811,11 @@ export function render(
     const c = pastureCenter(world);
     const gp = gerDoorPos(world);
     const dGer = dist(state.player.pos, gp);
+    const dFire = dist(state.player.pos, world.campfire.pos);
     const dFeed = dist(state.player.pos, world.feeder.pos);
     const gate = flockGatePos(world);
     const dGate = dist(state.player.pos, gate);
+    const callableLivestock = nearestMissingOpeningLivestock(state);
     if (world.gerPacked) {
       const tx = state.player.pos.x - cam.x;
       const ty = state.player.pos.y - 40 - cam.y;
@@ -800,6 +826,25 @@ export function render(
       ctx.strokeText("G — Гэр буулгах (мориноос)", tx, ty);
       ctx.fillStyle = "#ffe9a8";
       ctx.fillText("G — Гэр буулгах (мориноос)", tx, ty);
+      ctx.textAlign = "left";
+    } else if (
+      state.story.activeMainObjective === "restoreHearth" &&
+      !world.campfire.lit &&
+      dFire < world.campfire.radius + 18
+    ) {
+      const tx = world.campfire.pos.x - cam.x;
+      const ty = world.campfire.pos.y - 34 - cam.y;
+      const wood = state.unlimitedWood
+        ? CAMPFIRE_WOOD_COST
+        : Math.min(CAMPFIRE_WOOD_COST, state.player.inventory.wood);
+      const tip = `F — Гал асаах (${wood}/${CAMPFIRE_WOOD_COST} түлээ)`;
+      ctx.textAlign = "center";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#ffe09a";
+      ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (dGer < 70) {
       const tx = gp.x - cam.x;
@@ -813,6 +858,18 @@ export function render(
         : "E — Гэрт орох · G — моринд ачих";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#ffe9a8";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (callableLivestock) {
+      const tx = callableLivestock.pos.x - cam.x;
+      const ty = callableLivestock.pos.y - 32 - cam.y;
+      const tip = "E — Малаа дууд";
+      ctx.textAlign = "center";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#f0dda0";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (dGate < FLOCK_GATE_RADIUS + 12) {
@@ -887,14 +944,44 @@ export function render(
       ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
-    } else if (nearElder(state)) {
+    } else if (nearStormTrace(state)) {
+      const trace = state.story.stormTracePos;
+      if (trace) {
+        const tx = trace.x - cam.x;
+        const ty = trace.y - 42 - cam.y;
+        ctx.textAlign = "center";
+        ctx.font = "600 11px system-ui, sans-serif";
+        ctx.strokeStyle = "rgba(0,0,0,0.78)";
+        ctx.lineWidth = 3;
+        const tip = "E — Шуурганы мөрийг шинж";
+        ctx.strokeText(tip, tx, ty);
+        ctx.fillStyle = "#b7c7e2";
+        ctx.fillText(tip, tx, ty);
+        ctx.textAlign = "left";
+      }
+    } else if (
+      nearElder(state) &&
+      (!state.story.activeMainObjective ||
+        state.story.activeMainObjective === "talkToOldMan" ||
+        state.story.activeMainObjective === "visitOldManAtDawn" ||
+        state.story.activeMainObjective === "returnToOldManWithTrace")
+    ) {
       const tx = world.elder.pos.x - cam.x;
       const ty = world.elder.pos.y - 36 - cam.y;
       ctx.textAlign = "center";
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      const tip = "E — Өвгөнтэй ярих / арилжаа";
+      const tip =
+        state.story.activeMainObjective === "talkToOldMan"
+          ? "E — Өвгөнтэй ярилц"
+          : state.story.activeMainObjective === "visitOldManAtDawn"
+            ? state.world.dayPhase === "dawn" || state.world.dayPhase === "day"
+              ? "E — Өвгөнтэй уулз"
+              : "Үүр цайхыг хүлээ"
+            : state.story.activeMainObjective === "returnToOldManWithTrace"
+              ? "E — Хар мөрийн тухай өгүүл"
+              : "E — Өвгөнтэй ярих / арилжаа";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#b8d0ff";
       ctx.fillText(tip, tx, ty);
@@ -1057,13 +1144,19 @@ export function render(
 
   drawSpiritOverlay(ctx, state, VIEW_W, VIEW_H);
 
-  if (state.phase !== "menu") {
+  if (state.phase !== "menu" && state.phase !== "intro") {
     drawThreatArrows(ctx, state, cam);
     drawMinimap(ctx, state, cam);
   }
-  drawHud(ctx, state);
+  if (state.phase === "intro") drawOpeningSequence(ctx, state);
+  else drawHud(ctx, state);
   if (state.phase === "spirit" && state.spiritMode === "shulmas") {
     drawMiniBossHud(ctx, state);
     drawTumurShulmasHud(ctx, state);
   }
+  drawHearthCompletionEffect(ctx, state, cam);
+  drawLivestockCompletionEffect(ctx, state, cam);
+  drawNightCompletionEffect(ctx, state, cam);
+  drawFamilyReunionEffect(ctx, state, cam);
+  drawFirstNightElderCutscene(ctx, state);
 }

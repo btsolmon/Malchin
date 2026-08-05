@@ -66,6 +66,11 @@ export default function ElderDialogueModal({
 }: ElderDialogueModalProps) {
   const isBoySpeaking = beat.speaker === "boy";
   const speakerName = speakerLabel(beat.speaker);
+  const otherPortraitKind =
+    beat.listener ??
+    (beat.speaker === "father" || beat.speaker === "mother"
+      ? beat.speaker
+      : "elder");
   const canRetreat = showingChoices || beatIndex > 0;
 
   useEffect(() => {
@@ -126,7 +131,7 @@ export default function ElderDialogueModal({
             }`}
           >
             <div className="relative h-48 w-36 md:h-64 md:w-48">
-              <DialoguePortrait kind="elder" eyeMode="idle" />
+              <DialoguePortrait kind={otherPortraitKind} eyeMode="idle" />
             </div>
           </div>
         </div>
