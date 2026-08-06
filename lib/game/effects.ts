@@ -6,6 +6,7 @@ import type {
   ScreenPulseState,
   Vector2,
 } from "../game/types";
+import { CAMPFIRE_IGNITE_SEC } from "../game/types";
 import { clamp, dist, randRange } from "../game/utils";
 
 const hitStopRemaining = new WeakMap<GameState, number>();
@@ -202,7 +203,9 @@ export function updateEffects(state: GameState, dt: number): void {
     while (fx.emberAcc > interval) {
       fx.emberAcc -= interval;
       const igniteP =
-        fire.igniting > 0 ? Math.max(0.3, 1 - fire.igniting / 4) : 1;
+        fire.igniting > 0
+          ? Math.max(0.3, 1 - fire.igniting / CAMPFIRE_IGNITE_SEC)
+          : 1;
       fx.particles.push({
         pos: {
           x: fire.pos.x + randRange(-6, 6),

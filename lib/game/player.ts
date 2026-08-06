@@ -3,6 +3,7 @@
 import {
   CAMPFIRE_WOOD_COST,
   DAY_LENGTH_SEC,
+  CAMPFIRE_IGNITE_SEC,
   FENCE_COST,
   FENCE_GRID,
   FENCE_MAX_HP_BY_TIER,
@@ -27,6 +28,7 @@ import {
   type Tree,
   type Vector2,
   type World,
+  type WorldStone,
 } from "../game/types";
 import {
   allocId,
@@ -551,6 +553,23 @@ export function nearestBerryBush(
   return bestD < player.radius + 34 ? best : null;
 }
 
+export function nearestGatherableStone(
+  player: Player,
+  stones: WorldStone[],
+): WorldStone | null {
+  let best: WorldStone | null = null;
+  let bestD = Infinity;
+  for (const stone of stones) {
+    if (stone.amount <= 0) continue;
+    const d = dist(player.pos, stone.pos);
+    if (d < bestD) {
+      bestD = d;
+      best = stone;
+    }
+  }
+  return bestD < player.radius + 34 ? best : null;
+}
+
 export function tryInteract(state: GameState): void {
   const { player, world } = state;
   if (player.chopCooldown > 0 || !state.input.interact) return;
@@ -715,6 +734,22 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  const stone = nearestGatherableStone(player, world.stones);
+  if (stone) {
+    stone.amount -= 1;
+    player.inventory.stone += 1;
+    player.chopCooldown = 0.4;
+    state.score += 1;
+    gainXp(state, 1);
+    sfx("chop");
+    spawnParticles(state, stone.pos, 6, "#9a9488", { speed: 70, size: 2.8 });
+    spawnText(state, stone.pos, "+1 чулуу", "#c8c0b0");
+    if (stone.amount <= 0) {
+      stone.respawnIn = 22 + Math.random() * 16;
+    }
+    return;
+  }
+
   // Бэлчээрээс өвс хадах (зун / намар / хавар)
   const nearPasture =
     dist(player.pos, center) < HAY_HARVEST_RADIUS &&
@@ -763,7 +798,7 @@ export function tryInteract(state: GameState): void {
 
   const tree = nearestAliveTree(player, world.trees);
   if (!tree) {
-    setMessage(state, "Ойрхон мод/жимс/бэлчээр алга.", 1.5);
+    setMessage(state, "Ойрхон мод/жимс/чулуу/бэлчээр алга.", 1.5);
     return;
   }
 
@@ -887,10 +922,49 @@ export function tryLightCampfire(state: GameState): void {
     return;
   }
 
+<<<<<<< HEAD
   if (!state.unlimitedWood) player.inventory.wood -= CAMPFIRE_WOOD_COST;
   fire.lit = true;
   fire.fuel = Math.max(fire.fuel, 0) + 18;
   state.input.lightFire = false;
+=======
+  const near =
+    fire.placed && dist(player.pos, fire.pos) < fire.radius + player.radius;
+
+  if (!state.unlimitedWood) player.inventory.wood -= cost;
+
+  if (near && fire.lit) {
+    // Аль хэдийн ассан галд түлээ нэмнэ
+    fire.fuel = Math.max(fire.fuel, 0) + 18;
+    sfx("fire");
+    spawnParticles(state, fire.pos, 10, "#ffb347", { speed: 60, gravity: -35 });
+    setMessage(state, "Түлээ нэмлээ.", 2);
+    return;
+  }
+
+  // Шинэ гал — тонгойж чулуу цохино
+  if (player.riding) {
+    dismountHorse(state, { tie: false });
+  }
+
+  // Гал дүрийн өмнө, малчин араас тонгойно
+  const faceX = player.facing.x < 0 ? -1 : 1;
+  fire.pos = {
+    x: player.pos.x + faceX * 6,
+    y: player.pos.y + 20,
+  };
+  player.pos = {
+    x: fire.pos.x - faceX * 4,
+    y: fire.pos.y - 18,
+  };
+  player.facing = { x: faceX * 0.35, y: 1 };
+  player.moving = false;
+
+  fire.placed = true;
+  fire.lit = false;
+  fire.fuel = 18;
+  fire.igniting = CAMPFIRE_IGNITE_SEC;
+>>>>>>> origin/main
   sfx("fire");
   spawnParticles(state, fire.pos, 8, "#c8a070", { speed: 40, gravity: -20 });
   setMessage(state, "Тонгойж чулуу цохиж гал асааж байна…", 2.5);
@@ -1215,6 +1289,15 @@ export function updateSurvival(state: GameState, dt: number): void {
     if (bush.respawnIn <= 0) {
       bush.berries = bush.maxBerries;
       bush.respawnIn = 0;
+    }
+  }
+
+  for (const stone of world.stones) {
+    if (stone.amount > 0) continue;
+    stone.respawnIn -= dt;
+    if (stone.respawnIn <= 0) {
+      stone.amount = stone.maxAmount;
+      stone.respawnIn = 0;
     }
   }
 

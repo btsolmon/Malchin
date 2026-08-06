@@ -2,6 +2,7 @@ import {
   BerryBush,
   Camera,
   Campfire,
+  CAMPFIRE_IGNITE_SEC,
   Dog,
   type Elder,
   type Fence,
@@ -15,6 +16,7 @@ import {
   Tree,
   type Vector2,
   type WorldRock,
+  type WorldStone,
   Wolf,
 } from "../types";
 import { clamp, roundRectPath } from "../utils";
@@ -495,7 +497,11 @@ export function drawCampfire(
   const x = fire.pos.x - cam.x;
   const y = fire.pos.y - cam.y;
   const igniteProgress =
-    fire.igniting > 0 ? clamp(1 - fire.igniting / 4, 0, 1) : fire.lit ? 1 : 0;
+    fire.igniting > 0
+      ? clamp(1 - fire.igniting / CAMPFIRE_IGNITE_SEC, 0, 1)
+      : fire.lit
+        ? 1
+        : 0;
 
   drawShadow(ctx, x, y + 6, 17, 7);
 
@@ -2272,7 +2278,7 @@ export function drawHerderHair(
   drawHerderHairFront(ctx, cx, hy, flip);
 }
 
-/** Тонгойж зогсоод хоёр чулуу цохих — 4 сек асаах анимэйшн */
+/** Тонгойж зогсоод хоёр чулуу цохих — гал асаах анимэйшн */
 function drawPlayerLightingFire(
   ctx: CanvasRenderingContext2D,
   player: Player,
@@ -2283,7 +2289,7 @@ function drawPlayerLightingFire(
   const x = player.pos.x - cam.x;
   const y = player.pos.y - cam.y;
   const flip = player.facing.x < 0 ? -1 : 1;
-  const progress = clamp(1 - lightingFire / 4, 0, 1);
+  const progress = clamp(1 - lightingFire / CAMPFIRE_IGNITE_SEC, 0, 1);
 
   // Цохилтын хэмнэл
   const strike = Math.sin(time * 6.2);
@@ -2379,77 +2385,77 @@ function drawPlayerLightingFire(
   ctx.fill();
   drawHerderHairFront(ctx, hx, hdy, flip);
 
-  // Чулуу цохих цэг — биеийн өмнө, бүсний өндөрт
-  const clashX = bodyX + 10 * flip;
-  const clashY = bodyY + 6;
+  // Чулуу цохих цэг — биеийн өмнө, богино гар
+  const clashX = bodyX + 6.5 * flip;
+  const clashY = bodyY + 4;
 
   // Зүүн гар — нэг чулуу (бааз, бага хөдөлнө)
-  const leftHandX = clashX - 5 - approach * 1.5;
-  const leftHandY = clashY + 1 + swing * 1.5;
+  const leftHandX = clashX - 3 - approach * 1;
+  const leftHandY = clashY + 1 + swing * 1;
   ctx.strokeStyle = "#d8b088";
   ctx.lineWidth = 2.9;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(bodyX - 6 * flip, shoulderY + 1);
+  ctx.moveTo(bodyX - 4.5 * flip, shoulderY + 1);
   ctx.quadraticCurveTo(
-    bodyX - 2 * flip + 4,
-    shoulderY + 8,
+    bodyX - 1.5 * flip + 2,
+    shoulderY + 5,
     leftHandX,
     leftHandY,
   );
   ctx.stroke();
   ctx.fillStyle = "#d8b088";
   ctx.beginPath();
-  ctx.arc(leftHandX, leftHandY, 2.4, 0, Math.PI * 2);
+  ctx.arc(leftHandX, leftHandY, 2.2, 0, Math.PI * 2);
   ctx.fill();
 
   // Зүүн чулуу
   ctx.fillStyle = "#7a7568";
   ctx.beginPath();
-  ctx.ellipse(leftHandX + 3.5, leftHandY + 0.5, 4, 3, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(leftHandX + 2.5, leftHandY + 0.4, 3.2, 2.5, -0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#9a9488";
   ctx.beginPath();
-  ctx.ellipse(leftHandX + 2.5, leftHandY - 0.5, 1.5, 1, 0, 0, Math.PI * 2);
+  ctx.ellipse(leftHandX + 1.8, leftHandY - 0.4, 1.2, 0.8, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "rgba(40,38,32,0.45)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(leftHandX + 3.5, leftHandY + 0.5, 4, 3, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(leftHandX + 2.5, leftHandY + 0.4, 3.2, 2.5, -0.2, 0, Math.PI * 2);
   ctx.stroke();
 
   // Баруун гар — нөгөө чулуугаар цохино
-  const rightHandX = clashX + 5 + swing * 10 - approach * 6;
-  const rightHandY = clashY - 2 - swing * 8 + approach * 5;
+  const rightHandX = clashX + 3 + swing * 6 - approach * 4;
+  const rightHandY = clashY - 1 - swing * 5 + approach * 3;
   ctx.strokeStyle = "#d8b088";
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(bodyX + 6 * flip, shoulderY);
+  ctx.moveTo(bodyX + 4.5 * flip, shoulderY);
   ctx.quadraticCurveTo(
-    bodyX + 10 * flip + swing * 2,
-    shoulderY + 4 - swing * 5,
+    bodyX + 6.5 * flip + swing * 1.5,
+    shoulderY + 3 - swing * 3.5,
     rightHandX,
     rightHandY,
   );
   ctx.stroke();
   ctx.fillStyle = "#d8b088";
   ctx.beginPath();
-  ctx.arc(rightHandX, rightHandY, 2.5, 0, Math.PI * 2);
+  ctx.arc(rightHandX, rightHandY, 2.2, 0, Math.PI * 2);
   ctx.fill();
 
   // Баруун чулуу
   ctx.fillStyle = "#6a6560";
   ctx.beginPath();
-  ctx.ellipse(rightHandX - 2.5, rightHandY + 1, 3.6, 2.8, 0.35, 0, Math.PI * 2);
+  ctx.ellipse(rightHandX - 1.8, rightHandY + 0.8, 2.9, 2.3, 0.35, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#8a8580";
   ctx.beginPath();
-  ctx.ellipse(rightHandX - 1.5, rightHandY, 1.3, 0.9, 0, 0, Math.PI * 2);
+  ctx.ellipse(rightHandX - 1.1, rightHandY, 1.1, 0.75, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "rgba(30,28,24,0.5)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(rightHandX - 2.5, rightHandY + 1, 3.6, 2.8, 0.35, 0, Math.PI * 2);
+  ctx.ellipse(rightHandX - 1.8, rightHandY + 0.8, 2.9, 2.3, 0.35, 0, Math.PI * 2);
   ctx.stroke();
 
   // Цохилтын оч
@@ -2653,8 +2659,7 @@ export function drawPlayer(
   drawHerderHairFront(ctx, x, hdy, flip);
 
   const ang = Math.atan2(player.facing.y, player.facing.x);
-  const hasGun = player.gear.gun;
-  const hasBow = player.gear.bow && !hasGun;
+  const hasBow = player.gear.bow;
   const punching = player.attackMelee && player.attackAnim > 0;
 
   // Урд гар — цохих үед нударгаар урагш шидэгдэнэ, бусад үед дүүжинэ
@@ -2710,30 +2715,6 @@ export function drawPlayer(
 
   if (punching) {
     // Гараар цохих үед зэвсэг зурахгүй
-  } else if (hasGun) {
-    // Буу — барьсан байдал
-    const kick = player.attackAnim > 0 ? (1 - player.attackAnim / 0.18) * 3 : 0;
-    const gx = handX + Math.cos(ang) * (4 - kick);
-    const gy = handY + Math.sin(ang) * (4 - kick) - 1;
-    ctx.save();
-    ctx.translate(gx, gy);
-    ctx.rotate(ang);
-    ctx.fillStyle = "#3a2a1a";
-    roundRectPath(ctx, -4, -2.2, 22, 4.4, 1.5);
-    ctx.fill();
-    ctx.fillStyle = "#2a2a30";
-    roundRectPath(ctx, 14, -1.4, 10, 2.8, 1);
-    ctx.fill();
-    ctx.fillStyle = "#c9a227";
-    ctx.fillRect(2, -3.2, 3, 6.4);
-    // Галлалтын оч
-    if (player.attackAnim > 0.08) {
-      ctx.fillStyle = `rgba(255,200,80,${player.attackAnim * 4})`;
-      ctx.beginPath();
-      ctx.arc(26, 0, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
   } else if (hasBow) {
     // Нум — барьсан байдал
     const draw =
@@ -3244,7 +3225,7 @@ export function drawDog(
   }
 }
 
-/** Нум сум / бууны сум / сүнсний сум */
+/** Нумны сум / сүнсний сум */
 export function drawProjectile(
   ctx: CanvasRenderingContext2D,
   p: Projectile,
@@ -3279,7 +3260,7 @@ export function drawProjectile(
     ctx.closePath();
     ctx.fill();
     ctx.shadowBlur = 0;
-  } else if (p.kind === "arrow") {
+  } else {
     ctx.strokeStyle = "#c8a060";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -3299,17 +3280,6 @@ export function drawProjectile(
     ctx.lineTo(-11, -2.5);
     ctx.moveTo(-8, 0);
     ctx.lineTo(-11, 2.5);
-    ctx.stroke();
-  } else {
-    ctx.fillStyle = "#ffd860";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4, 1.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,216,96,0.4)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-12, 0);
-    ctx.lineTo(-4, 0);
     ctx.stroke();
   }
   ctx.restore();
@@ -3358,6 +3328,42 @@ export function drawWorldRock(
   if (!rock.riddleSolved) {
     drawRiddleGlow(ctx, x + 1, y - 5, time, rock.id);
   }
+}
+
+/** Түүх боломжтой чулууны овоолго */
+export function drawWorldStone(
+  ctx: CanvasRenderingContext2D,
+  stone: WorldStone,
+  cam: Camera,
+): void {
+  if (stone.amount <= 0) return;
+  const x = stone.pos.x - cam.x;
+  const y = stone.pos.y - cam.y;
+  drawShadow(ctx, x, y + 2, 11, 5);
+
+  const drawChunk = (
+    ox: number,
+    oy: number,
+    sx: number,
+    sy: number,
+    c0: string,
+    c1: string,
+  ) => {
+    const g = ctx.createLinearGradient(x + ox - sx, y + oy - sy, x + ox + sx, y + oy + sy);
+    g.addColorStop(0, c0);
+    g.addColorStop(1, c1);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x + ox - sx, y + oy + sy * 0.4);
+    ctx.quadraticCurveTo(x + ox - sx * 1.1, y + oy - sy * 0.6, x + ox, y + oy - sy);
+    ctx.quadraticCurveTo(x + ox + sx * 1.05, y + oy - sy * 0.5, x + ox + sx, y + oy + sy * 0.3);
+    ctx.quadraticCurveTo(x + ox, y + oy + sy * 0.85, x + ox - sx, y + oy + sy * 0.4);
+    ctx.fill();
+  };
+
+  drawChunk(-3, 1, 7, 6, "#8a8478", "#5c564c");
+  if (stone.amount >= 2) drawChunk(5, 0, 5.5, 5, "#9a9488", "#6a655c");
+  if (stone.amount >= 3) drawChunk(0, -4, 4.5, 4, "#7a756c", "#4a4640");
 }
 
 /** Задарсан өвөрмөц гэр — хана нурсан, тооно хажуу тийш */

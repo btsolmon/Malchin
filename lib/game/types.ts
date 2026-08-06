@@ -21,7 +21,6 @@ export type GearId =
   | "dog"
   | "horse"
   | "bow"
-  | "gun"
   | "axe"
   | "urga"
   | "fishingRod";
@@ -94,6 +93,17 @@ export interface WorldRock {
   riddleId: string | null;
 }
 
+/** Түүх боломжтой чулууны овоолго */
+export interface WorldStone {
+  id: number;
+  pos: Vector2;
+  radius: number;
+  /** Үлдсэн чулууны тоо */
+  amount: number;
+  maxAmount: number;
+  respawnIn: number;
+}
+
 export interface Vitals {
   health: number;
   maxHealth: number;
@@ -118,6 +128,10 @@ export interface Inventory {
   felt: number;
   /** Ааруул */
   aaruul: number;
+  /** Түүсэн чулуу — сум урлахад */
+  stone: number;
+  /** Нумны сум (хязгаартай) */
+  arrows: number;
   /** Голоос барьсан загас */
   fish: number;
 }
@@ -135,7 +149,7 @@ export interface Player {
   eatCooldown: number;
   /** Цохилтын арк-ийн үлдсэн хугацаа */
   attackAnim: number;
-  /** true = J цохилт (буу/нумтай байсан ч цохилт зурна) */
+  /** true = J цохилт (нумтай байсан ч цохилт зурна) */
   attackMelee: boolean;
   /** Цохилт авсны дараах хамгаалалт */
   invuln: number;
@@ -213,6 +227,9 @@ export interface Campfire {
   /** Гал асааж буй үлдсэн секунд (0 = бүрэн ассан) */
   igniting: number;
 }
+
+/** Гал асаах анимэйшн (сек) */
+export const CAMPFIRE_IGNITE_SEC = 3;
 
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
 export type FenceTier = 1 | 2 | 3;
@@ -415,13 +432,13 @@ export interface Dog {
   flash: number;
 }
 
-/** Нум сум, бууны сум, сүнсний сум */
+/** Нумны сум / сүнсний сум */
 export interface Projectile {
   pos: Vector2;
   vel: Vector2;
   dmg: number;
   life: number;
-  kind: "arrow" | "bullet" | "spiritBolt";
+  kind: "arrow" | "spiritBolt";
 }
 
 export type RouteEnemyKind =
@@ -574,6 +591,8 @@ export interface World {
   projectiles: Projectile[];
   /** Оньсогын чулуунууд */
   rocks: WorldRock[];
+  /** Түүх боломжтой чулуунууд */
+  stones: WorldStone[];
   /** Өвгөн NPC */
   elder: Elder;
   /** Гэрээс Хар төмөр хаалга хүртэлх замын дайснууд ба mini-boss. */
@@ -635,7 +654,7 @@ export interface InputState {
   parry: boolean;
   /** L — сөрөх (parry) */
   parryPressed: boolean;
-  /** K — буу / нум харвах */
+  /** K — нум харвах */
   shoot: boolean;
   lightFire: boolean;
   /** B — хашаа барих / шинэчлэх */

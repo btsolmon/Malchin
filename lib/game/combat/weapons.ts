@@ -84,12 +84,20 @@ export function tryAttack(state: GameState): void {
   const { player, world } = state;
   if (player.attackCooldown > 0) return;
 
-  // K — буу / нум харвах (J melee нь advanced combat-д)
-  if (!state.input.shoot || !(player.gear.gun || player.gear.bow)) return;
+  // K — нум харвах (J melee нь advanced combat-д)
+  if (!state.input.shoot || !player.gear.bow) return;
 
-  const gun = player.gear.gun;
-  const range = gun ? 300 : 200;
-  player.attackCooldown = (gun ? 0.8 : 0.55) * player.cooldownMult;
+  if (player.inventory.arrows <= 0) {
+    setMessage(
+      state,
+      "Сум алга — урлалаар хий (1 мод + 1 чулуу = 2 сум).",
+      2.5,
+    );
+    return;
+  }
+
+  const range = 200;
+  player.attackCooldown = 0.55 * player.cooldownMult;
   player.attackMelee = false;
   player.attackAnim = 0.18;
 
@@ -132,15 +140,17 @@ export function tryAttack(state: GameState): void {
   }
   if (dir.x === 0 && dir.y === 0) dir = { x: 1, y: 0 };
 
-  const speed = gun ? 540 : 400;
+  player.inventory.arrows -= 1;
+
+  const speed = 400;
   world.projectiles.push({
     pos: { x: player.pos.x + dir.x * 14, y: player.pos.y - 8 + dir.y * 14 },
     vel: { x: dir.x * speed, y: dir.y * speed },
-    dmg: (gun ? 40 : 24) * player.damageMult,
+    dmg: 24 * player.damageMult,
     life: range / speed + 0.15,
-    kind: gun ? "bullet" : "arrow",
+    kind: "arrow",
   });
-  sfx(gun ? "gunshot" : "shoot");
+  sfx("shoot");
 }
 
 /** Сумнуудын хөдөлгөөн ба мөргөлт */
