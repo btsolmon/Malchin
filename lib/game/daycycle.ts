@@ -14,8 +14,10 @@ import {
   flockGatePos,
   isNight,
   pastureCenter,
+  pastureRefillForSeason,
   penCenter,
   PEN_RADIUS,
+  seasonForDay,
   setMessage,
 } from "./utils";
 import { addLivestock, killHerdVisual } from "./livestock";
@@ -73,6 +75,33 @@ export function dayPhaseLabel(phase: DayPhase): string {
       return "Орой";
     case "night":
       return "Шөнө";
+  }
+}
+
+/** Унтаад босоход — дараагийн өглөөний үүр рүү шилжүүлнэ */
+export function advanceToMorning(state: GameState): void {
+  const world = state.world;
+  const prevSeason = world.season;
+  const morning = world.season === "winter" ? 7.6 : 6.0;
+
+  // Өнөөдрийн үүр өнгөрсөн бол маргаашийн өглөө
+  if (world.timeOfDay >= morning) {
+    world.dayNumber += 1;
+    const growth = dailyGrowthCount(state);
+    if (growth > 0) {
+      addLivestock(state, "sheep", growth);
+      state.score += growth;
+    }
+    spawnSpringBirths(state);
+  }
+
+  world.timeOfDay = morning;
+  world.season = seasonForDay(world.dayNumber);
+  world.dayPhase = getDayPhase(world.timeOfDay, world.season);
+
+  if (world.season !== prevSeason) {
+    world.pastureGrass = pastureRefillForSeason(world.season);
+    world.pastureSeason = world.season;
   }
 }
 

@@ -344,7 +344,6 @@ export function updatePlayerCombat(
   const dodgeVelocity = updateDodge(player, safeDt);
 
   const movementLocked =
-    player.meleePhase !== "idle" ||
     player.parryPhase !== "idle" ||
     player.dodgePhase === "recovery";
 

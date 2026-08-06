@@ -242,8 +242,8 @@ export interface Fence {
   pos: Vector2;
   radius: number;
   /**
-   * Сегментийн чиглэл (радиан). 0 = зүүн–баруун төмөр.
-   * π/2 = хойд–өмнөд. Бусад өнцөг = налуу тал.
+   * Сегментийн чиглэл (радиан). 0 = зүүн–баруун, π/2 = хойд–өмнөд.
+   * Барилга зөвхөн дөрвөлжин; хуучин save-д налуу байж болно.
    */
   angle: number;
   /** 0 ≈ хэвтээ, 1 ≈ босоо — depth sort / хурдан ангилал */
@@ -906,7 +906,7 @@ export interface GameState {
   requestRestart: boolean;
   /** B эхний даралт — хашааны цагаан preview идэвхтэй */
   fencePreview: boolean;
-  /** Preview үеийн хашааны өнцөг (радиан). 0 = зүүн–баруун */
+  /** Preview үеийн хашааны өнцөг — тоглогчийн харсан зүгээс (0 эсвэл π/2) */
   fencePreviewAngle: number;
   /** Preview байршлын нэмэлт алхам (хагас тор) — сумнаар */
   fencePreviewOffset: Vector2;

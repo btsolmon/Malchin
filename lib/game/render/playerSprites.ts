@@ -53,9 +53,9 @@ const PLAYER_SPRITE_PATHS: Record<PlayerSpriteName, string> = {
 };
 
 const PLAYER_SPRITE_FRAME_SIZE = 128;
-const MELEE_STARTUP_SECONDS = 0.12;
-const MELEE_ACTIVE_SECONDS = 0.1;
-const MELEE_RECOVERY_SECONDS = 0.28;
+const MELEE_STARTUP_SECONDS = 0.08;
+const MELEE_ACTIVE_SECONDS = 0.07;
+const MELEE_RECOVERY_SECONDS = 0.16;
 const PARRY_STARTUP_SECONDS = 0.02;
 const PARRY_ACTIVE_SECONDS = 0.5;
 const PARRY_RECOVERY_SECONDS = 0.18;
@@ -319,7 +319,7 @@ export function selectPlayerSprite(
       parryProgress(player),
       PLAYER_ANIMATION_SPECS[name].frameCount,
     );
-  } else if (player.combatPhase !== "idle") {
+  } else if (player.combatPhase !== "idle" && !player.moving) {
     name = swordEquipped
       ? "swordAttack"
       : player.attackVariant === 0
@@ -579,12 +579,18 @@ export function drawPlayerWithSprites(
     : null;
   const rangedAttackActive =
     player.attackAnim > 0 && !player.attackMelee;
+  // Алхаж цохих үед procedural — хөл алхаж, гар цохино
+  const walkPunching =
+    player.attackMelee &&
+    player.combatPhase !== "idle" &&
+    player.moving;
 
   if (
     !sprites ||
     !selection ||
     !imageReady(sprites[selection.name]) ||
-    rangedAttackActive
+    rangedAttackActive ||
+    walkPunching
   ) {
     drawProceduralPlayer(ctx, player, cam, time, gerPacked);
     drawSkySwordOverlay(ctx, player, cam, time);

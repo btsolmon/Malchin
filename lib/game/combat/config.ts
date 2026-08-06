@@ -1,9 +1,9 @@
 export const COMBAT_CONFIG = {
   melee: {
     staminaCost: 20,
-    startup: 0.12,
-    active: 0.1,
-    recovery: 0.28,
+    startup: 0.08,
+    active: 0.07,
+    recovery: 0.16,
     baseDamage: 20,
     baseReach: 42,
     facingDotMinimum: 0.25,

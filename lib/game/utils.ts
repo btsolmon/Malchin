@@ -52,9 +52,8 @@ export function gerDoorPos(world: World): Vector2 {
   return { x: c.x, y: c.y - 20 };
 }
 
-/** Эхлэлийн хашааны хэмжээ (тойргийн радиус ≈ торны тоо/2) */
+/** Эхлэлийн хашааны хэмжээ (тал бүрт торны тоо) */
 export const STARTER_PEN_SIZE = 5;
-export const STARTER_PEN_SIDES = 5;
 
 /** Өнцгөөс хэвтээ/босоо ангилал */
 export function orientFromAngle(angle: number): 0 | 1 {
@@ -85,65 +84,59 @@ export function flockGatePos(world: World): Vector2 {
   const gate = world.fences.find((f) => f.isGate);
   if (gate) return { x: gate.pos.x, y: gate.pos.y };
   const pen = starterPenCenter(world.campPos);
-  const R = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
-  const apothem = R * Math.cos(Math.PI / STARTER_PEN_SIDES);
-  return { x: pen.x + apothem, y: pen.y };
+  const halfSide = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
+  return { x: pen.x + halfSide, y: pen.y };
 }
 
 export const FLOCK_GATE_RADIUS = 36;
 
 /** Эхний бууцын хашааны төв — гэрийн зүүн талд, зайтай */
 export function starterPenCenter(camp: Vector2): Vector2 {
-  const R = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
+  const halfSide = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
   return snapFencePos(
-    camp.x - R - 7 * FENCE_GRID,
+    camp.x - halfSide - 7 * FENCE_GRID,
     camp.y + FENCE_GRID,
     FENCE_GRID,
   );
 }
 
-/** Хашаан доторх малын бөөгнөрөх радиус (5 өнцөгийн дотоод радиус) */
-export const PEN_RADIUS =
-  ((STARTER_PEN_SIZE * FENCE_GRID) / 2) * Math.cos(Math.PI / STARTER_PEN_SIDES) -
-  10;
+/** Хашаан доторх малын бөөгнөрөх радиус */
+export const PEN_RADIUS = (STARTER_PEN_SIZE * FENCE_GRID) / 2 - 10;
 
 export function penCenter(world: World): Vector2 {
   return starterPenCenter(world.campPos);
 }
 
 /**
- * Эхлэлийн хашаа — жигд 5 өнцөгт (налуу сегменттэй).
- * Нэг тал гэр рүү (баруун) тэгш; түүний голд хаалга.
+ * Эхлэлийн хашаа — тал бүрт STARTER_PEN_SIZE сегмент (5×5).
+ * Үзүүр буланд нийлж тасралтгүй дөрвөлжин.
  */
 export function createStarterPen(
   camp: Vector2,
   nextId: () => number,
 ): Fence[] {
+  const g = FENCE_GRID;
+  const n = STARTER_PEN_SIZE;
   const c = starterPenCenter(camp);
-  const R = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
-  const sides = STARTER_PEN_SIDES;
-
-  const verts: Vector2[] = [];
-  for (let i = 0; i < sides; i++) {
-    // Тэгш тал зүүн биш баруун (+x) — өнцөг 0-ийн төвд
-    const a = Math.PI / sides + (i * 2 * Math.PI) / sides;
-    verts.push({
-      x: c.x + Math.cos(a) * R,
-      y: c.y + Math.sin(a) * R,
-    });
-  }
+  // n=5 → хананы урт 5 тор; сегментийн төвүүд: -2,-1,0,1,2
+  const wall = (n * g) / 2;
+  const left = c.x - wall;
+  const right = c.x + wall;
+  const top = c.y - wall;
+  const bottom = c.y + wall;
+  const gateIndex = Math.floor(n / 2); // гол = хаалга
 
   const make = (
     x: number,
     y: number,
-    angle: number,
+    orient: 0 | 1,
     isGate = false,
   ): Fence => ({
     id: nextId(),
     pos: { x, y },
     radius: FENCE_RADIUS,
-    angle,
-    orient: orientFromAngle(angle),
+    angle: angleFromOrient(orient),
+    orient,
     tier: 1,
     hp: FENCE_MAX_HP_BY_TIER[1],
     maxHp: FENCE_MAX_HP_BY_TIER[1],
@@ -154,32 +147,13 @@ export function createStarterPen(
 
   const fences: Fence[] = [];
 
-  for (let s = 0; s < sides; s++) {
-    const a = verts[s]!;
-    const b = verts[(s + 1) % sides]!;
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const len = Math.hypot(dx, dy);
-    const angle = Math.atan2(dy, dx);
-    const n = Math.max(2, Math.round(len / FENCE_GRID));
-
-    const midX = (a.x + b.x) / 2;
-    const midY = (a.y + b.y) / 2;
-    const midAng = Math.atan2(midY - c.y, midX - c.x);
-    const isGateSide = Math.abs(midAng) < Math.PI / sides;
-    const gateJ = Math.floor(n / 2);
-
-    for (let j = 0; j < n; j++) {
-      const t = (j + 0.5) / n;
-      fences.push(
-        make(
-          Math.round(a.x + dx * t),
-          Math.round(a.y + dy * t),
-          angle,
-          isGateSide && j === gateJ,
-        ),
-      );
-    }
+  for (let i = 0; i < n; i++) {
+    // Сегмент төв: хананы дагуу хагас тороор эхэлж алхамна
+    const along = -wall + g / 2 + i * g;
+    fences.push(make(c.x + along, top, 0, false));
+    fences.push(make(c.x + along, bottom, 0, false));
+    fences.push(make(left, c.y + along, 1, false));
+    fences.push(make(right, c.y + along, 1, i === gateIndex));
   }
 
   return fences;
@@ -554,88 +528,95 @@ export function snapFencePos(x: number, y: number, grid: number): Vector2 {
 }
 
 export function fenceOrientFromFacing(facing: Vector2): 0 | 1 {
+  // Зүүн/баруун харвал босоо хашаа; дээр/доор харвал хэвтээ
   return Math.abs(facing.x) >= Math.abs(facing.y) ? 1 : 0;
 }
 
-/** Өнцгийн шугам дээр FENCE_GRID алхмаар түгжинэ */
-function snapAlongFenceLine(
-  origin: Vector2,
-  angle: number,
-  target: Vector2,
-  grid: number,
-  avoidOrigin = true,
-): Vector2 {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  const t = (target.x - origin.x) * c + (target.y - origin.y) * s;
-  let slot = Math.round(t / grid);
-  if (avoidOrigin && slot === 0) slot = t >= 0 ? 1 : -1;
-  return {
-    x: origin.x + c * slot * grid,
-    y: origin.y + s * slot * grid,
-  };
+/** Тоглогчийн эгц дээр / доор / зүүн / баруун */
+export function cardinalFacing(facing: Vector2): Vector2 {
+  if (Math.hypot(facing.x, facing.y) < 1e-4) return { x: 0, y: 1 };
+  if (Math.abs(facing.x) >= Math.abs(facing.y)) {
+    return { x: facing.x >= 0 ? 1 : -1, y: 0 };
+  }
+  return { x: 0, y: facing.y >= 0 ? 1 : -1 };
 }
 
 /**
- * Хашаа байрлуулах цэг — өнцгийн дагуу нэг эгнээнд.
- * Ойролцоо ижил өнцөгтэй хашаа байвал түүний шугамыг үргэлжлүүлнэ.
+ * Хашаа байрлуулах цэг —
+ * дээр/доор/зүүн/баруун ижил зай (grid);
+ * ойрын хашаа байвал түүнд нийлүүлж түгжинэ.
  */
 export function fencePlacePos(
   playerPos: Vector2,
   facing: Vector2,
   grid: number,
-  offsetSteps: Vector2 = { x: 0, y: 0 },
+  _offsetSteps: Vector2 = { x: 0, y: 0 },
   angle: number = 0,
   fences: Fence[] = [],
 ): Vector2 {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  // Перпендикуляр (зүүн тал)
-  const px = -s;
-  const py = c;
+  const dir = cardinalFacing(facing);
+  // Дөрвөн зүгт ижил зай
+  const aim = {
+    x: playerPos.x + dir.x * grid,
+    y: playerPos.y + dir.y * grid,
+  };
 
-  // Ижил өнцөгтэй хамгийн ойр хашаа — шугам үргэлжлүүлэх
-  let anchor: Fence | null = null;
-  let bestD = grid * 3.2;
-  for (const f of fences) {
-    if (!anglesNearlyEqual(fenceAngle(f), angle)) continue;
-    const d = dist(f.pos, playerPos);
+  let best: Vector2 | null = null;
+  let bestD = grid * 1.25;
+
+  const consider = (cand: Vector2): void => {
+    // Зөвхөн харсан тал руу (ард талд нийлүүлэхгүй)
+    const ahead =
+      (cand.x - playerPos.x) * dir.x + (cand.y - playerPos.y) * dir.y;
+    if (ahead < grid * 0.25) return;
+    const d = dist(cand, aim);
     if (d < bestD) {
       bestD = d;
-      anchor = f;
+      best = cand;
+    }
+  };
+
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const half = grid / 2;
+
+  for (const f of fences) {
+    const fa = fenceAngle(f);
+    if (anglesNearlyEqual(fa, angle)) {
+      // Ижил чиглэл — эгнээнд хажуугийн тор
+      const fc = Math.cos(fa);
+      const fs = Math.sin(fa);
+      const t = (aim.x - f.pos.x) * fc + (aim.y - f.pos.y) * fs;
+      let slot = Math.round(t / grid);
+      if (slot === 0) slot = t >= 0 ? 1 : -1;
+      consider({
+        x: f.pos.x + fc * slot * grid,
+        y: f.pos.y + fs * slot * grid,
+      });
+      // ±1 тор нэмж шалгана
+      for (const extra of [slot - 1, slot + 1]) {
+        if (extra === 0) continue;
+        consider({
+          x: f.pos.x + fc * extra * grid,
+          y: f.pos.y + fs * extra * grid,
+        });
+      }
+    } else {
+      // Перпендикуляр — үзүүрт булангаар нийлнэ
+      const [e0, e1] = fenceSegmentEnds(f);
+      for (const end of [e0, e1]) {
+        for (const sign of [-1, 1] as const) {
+          consider({
+            x: end.x + c * sign * half,
+            y: end.y + s * sign * half,
+          });
+        }
+      }
     }
   }
 
-  const alongOff = offsetSteps.y * grid;
-  const perpOff = offsetSteps.x * grid;
-
-  if (anchor) {
-    const aim = {
-      x: playerPos.x + c * alongOff + px * perpOff,
-      y: playerPos.y + s * alongOff + py * perpOff,
-    };
-    return snapAlongFenceLine(anchor.pos, angle, aim, grid, true);
-  }
-
-  // Шинэ эгнээ — тоглогчийн харсан тал руу өнцгийн дагуу нэг алхам
-  const faceDot =
-    Math.hypot(facing.x, facing.y) < 1e-4
-      ? 1
-      : facing.x * c + facing.y * s;
-  const dir = faceDot >= 0 ? 1 : -1;
-  const raw = {
-    x: playerPos.x + c * grid * dir + c * alongOff + px * perpOff,
-    y: playerPos.y + s * grid * dir + s * alongOff + py * perpOff,
-  };
-
-  // Хэвтээ/босоо ойролцоо бол хуучин торны snap — цэвэр шугам
-  if (orientFromAngle(angle) === 0 && Math.abs(Math.sin(angle)) < 0.15) {
-    return snapFencePos(raw.x, raw.y, grid / 2);
-  }
-  if (orientFromAngle(angle) === 1 && Math.abs(Math.cos(angle)) < 0.15) {
-    return snapFencePos(raw.x, raw.y, grid / 2);
-  }
-  return { x: Math.round(raw.x), y: Math.round(raw.y) };
+  if (best) return best;
+  return aim;
 }
 
 export function fencesOverlap(a: Vector2, b: Vector2): boolean {

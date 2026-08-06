@@ -47,7 +47,6 @@ import {
   gerDoorPos,
   nearestFence,
   normalize,
-  orientFromAngle,
   pastureCenter,
   pastureRefillForSeason,
   randRange,
@@ -1048,31 +1047,12 @@ export function tryDemolishFence(state: GameState): boolean {
   return true;
 }
 
-/** Хашаа preview — ←→ өнцөг (15°), ↑↓ эгнээний дагуу */
+/** Хашаа preview — чиглэл тоглогчийн харсан зүгээс (сумнаар солихгүй) */
 export function updateFencePreviewAim(state: GameState): void {
-  const { input } = state;
-  const maxStep = 6;
-  const step = Math.PI / 12; // 15°
-
-  if (input.menuLeft) {
-    state.fencePreviewAngle -= step;
-    sfx("select");
-  }
-  if (input.menuRight) {
-    state.fencePreviewAngle += step;
-    sfx("select");
-  }
-
-  let dy = 0;
-  if (input.menuUp) dy -= 1;
-  if (input.menuDown) dy += 1;
-  if (dy !== 0) {
-    state.fencePreviewOffset = {
-      x: state.fencePreviewOffset.x,
-      y: clamp(state.fencePreviewOffset.y + dy, -maxStep, maxStep),
-    };
-    sfx("select");
-  }
+  state.fencePreviewAngle = angleFromOrient(
+    fenceOrientFromFacing(state.player.facing),
+  );
+  state.fencePreviewOffset = { x: 0, y: 0 };
 }
 
 export function tryBuildFence(state: GameState): void {
@@ -1089,21 +1069,18 @@ export function tryBuildFence(state: GameState): void {
       fenceOrientFromFacing(player.facing),
     );
     state.fencePreviewOffset = { x: 0, y: 0 };
-    setMessage(
-      state,
-      "←→ өнцөг · ↑↓ эгнээ · B дахин барина · P цуцлах",
-      3.5,
-    );
+    setMessage(state, "Харсан зүгт барина · B дахин · P цуцлах", 3);
     return;
   }
 
-  const angle = state.fencePreviewAngle;
-  const orient = orientFromAngle(angle);
+  const orient = fenceOrientFromFacing(player.facing);
+  const angle = angleFromOrient(orient);
+  state.fencePreviewAngle = angle;
   const pos = fencePlacePos(
     player.pos,
     player.facing,
     FENCE_GRID,
-    state.fencePreviewOffset,
+    { x: 0, y: 0 },
     angle,
     world.fences,
   );
@@ -1274,7 +1251,7 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
 
   player.vitals.hunger = clamp(
-    player.vitals.hunger - 1.4 * dt,
+    player.vitals.hunger - 0.7 * dt,
     0,
     player.vitals.maxHunger,
   );

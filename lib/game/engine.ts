@@ -439,11 +439,10 @@ export function createInitialState(): GameState {
 
 export function bindInput(
   getInput: () => InputState,
-  getFencePreview: () => boolean = () => false,
+  _getFencePreview: () => boolean = () => false,
 ): () => void {
   const setKey = (code: string, pressed: boolean): void => {
     const input = getInput();
-    const fenceAim = getFencePreview();
     switch (code) {
       case "KeyW":
         input.up = pressed;
@@ -451,7 +450,7 @@ export function bindInput(
         break;
       case "ArrowUp":
         if (pressed) input.menuUp = true;
-        if (!fenceAim) input.up = pressed;
+        input.up = pressed;
         break;
       case "KeyS":
         input.down = pressed;
@@ -459,7 +458,7 @@ export function bindInput(
         break;
       case "ArrowDown":
         if (pressed) input.menuDown = true;
-        if (!fenceAim) input.down = pressed;
+        input.down = pressed;
         break;
       case "KeyA":
         input.left = pressed;
@@ -467,7 +466,7 @@ export function bindInput(
         break;
       case "ArrowLeft":
         if (pressed) input.menuLeft = true;
-        if (!fenceAim) input.left = pressed;
+        input.left = pressed;
         break;
       case "KeyD":
         input.right = pressed;
@@ -475,7 +474,7 @@ export function bindInput(
         break;
       case "ArrowRight":
         if (pressed) input.menuRight = true;
-        if (!fenceAim) input.right = pressed;
+        input.right = pressed;
         break;
       case "KeyE":
         // Дарахад асаана, update() эсвэл хэрэглэгч нь унтраана —

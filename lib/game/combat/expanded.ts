@@ -62,9 +62,9 @@ function getWolfCombatState(wolf: Wolf): WolfWithCombatState {
 
 const STAFF_MELEE_STAMINA_COST = 20;
 const SWORD_MELEE_STAMINA_COST = 24;
-const MELEE_STARTUP_SECONDS = 0.12;
-const MELEE_ACTIVE_SECONDS = 0.1;
-const MELEE_RECOVERY_SECONDS = 0.28;
+const MELEE_STARTUP_SECONDS = 0.08;
+const MELEE_ACTIVE_SECONDS = 0.07;
+const MELEE_RECOVERY_SECONDS = 0.16;
 
 const PARRY_STAMINA_COST = 10;
 const PARRY_STARTUP_SECONDS = 0.02;
@@ -1086,8 +1086,8 @@ export function updateCombat(state: GameState, dt: number): void {
   updateMeleePhases(state, dt);
 
   const { player, input } = state;
-  state.combatMovementLocked =
-    player.parryPhase !== "idle" || player.combatPhase !== "idle";
+  // Цохих үед алхаж болно — зөвхөн parry түгжинэ
+  state.combatMovementLocked = player.parryPhase !== "idle";
 
   if (player.parryPhase !== "idle") return;
   if (player.combatPhase !== "idle") return;
@@ -1117,7 +1117,6 @@ export function updateCombat(state: GameState, dt: number): void {
   input.attack = false;
   input.attackPressed = false;
   beginMeleeAttack(state);
-  state.combatMovementLocked = player.combatPhase !== "idle";
 }
 
 export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {

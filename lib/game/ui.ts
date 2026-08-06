@@ -30,6 +30,7 @@ import {
 } from "../game/utils";
 import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
+import { advanceToMorning } from "../game/daycycle";
 import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
 import { drawPlayer } from "./render/entities";
@@ -532,8 +533,13 @@ export function updateGer(state: GameState, dt: number): void {
       player.vitals.warmth = Math.min(100, player.vitals.warmth + 40);
       player.sleepCooldown = 60;
       state.gerSleepBed = null;
+      advanceToMorning(state);
       sfx("levelup");
-      setMessage(state, "Сайхан унтаж амарлаа. +50 амь", 3);
+      setMessage(
+        state,
+        `Сайхан унтаж амарлаа. Өглөө болов · +50 амь`,
+        3.5,
+      );
     }
     return;
   }

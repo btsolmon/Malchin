@@ -42,11 +42,6 @@ import { nearestRiddleHost, spotKindLabel } from "../riddles";
 import { nearElder } from "../elder";
 import { drawSpiritOverlay } from "../spirit";
 import {
-  drawSpriteBush,
-  drawSpriteGround,
-  drawSpriteRock,
-  drawSpriteTree,
-  drawSpriteTreeCanopy,
   type WorldSpriteSet,
 } from "./worldSprites";
 import {
@@ -228,12 +223,10 @@ export function render(
 
   const cam = getCamera(state);
   const world = state.world;
-  const canopyTrees: typeof world.trees = [];
 
   // Газар
   const terrain = world.season === "winter" ? rc.terrainWinter : rc.terrain;
   ctx.drawImage(terrain, cam.x, cam.y, VIEW_W, VIEW_H, 0, 0, VIEW_W, VIEW_H);
-  drawSpriteGround(ctx, rc.worldSprites, cam, world);
   drawRiverFlowOverlay(ctx, cam, time, world.season === "winter");
   drawLivestockTrail(ctx, state, cam);
   drawStormTrace(ctx, state, cam);
@@ -473,12 +466,9 @@ export function render(
       key: tree.id,
       debugPos: tree.pos,
       draw: () => {
-        if (!drawSpriteTree(ctx, rc.worldSprites, tree, cam)) {
-          drawTree(ctx, tree, cam, time, windAmp);
-        }
+        drawTree(ctx, tree, cam, time, windAmp);
       },
     });
-    if (tree.hp > 0) canopyTrees.push(tree);
   }
   for (const bush of world.bushes) {
     if (
@@ -497,9 +487,7 @@ export function render(
       key: 1000 + bush.id,
       debugPos: bush.pos,
       draw: () => {
-        if (!drawSpriteBush(ctx, rc.worldSprites, bush, cam)) {
-          drawBerryBush(ctx, bush, cam, time);
-        }
+        drawBerryBush(ctx, bush, cam, time);
       },
     });
   }
@@ -509,9 +497,7 @@ export function render(
       key: 7000 + rock.id,
       debugPos: rock.pos,
       draw: () => {
-        if (!drawSpriteRock(ctx, rc.worldSprites, rock, cam)) {
-          drawWorldRock(ctx, rock, cam, time);
-        }
+        drawWorldRock(ctx, rock, cam, time);
       },
     });
   }
@@ -789,19 +775,6 @@ export function render(
     return Math.round(a.sortY) - Math.round(b.sortY) || a.key - b.key;
   });
   for (const d of drawables) d.draw();
-
-  // Classic two-pass tree depth: the full grounded tree is already behind
-  // actors; only its upper crop returns here when the player's feet are behind.
-  for (const tree of canopyTrees) {
-    drawSpriteTreeCanopy(
-      ctx,
-      rc.worldSprites,
-      tree,
-      cam,
-      state.player.pos,
-      RENDER_LAYER_DEBUG,
-    );
-  }
 
   if (RENDER_LAYER_DEBUG) {
     const debugColors: Record<
