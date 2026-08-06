@@ -87,6 +87,37 @@ export function pushOutOfGer(
   return true;
 }
 
+/**
+ * Бөөгийн урц — эллипс мөргөлдөөн (гэр шиг нэвт гарч болохгүй).
+ */
+export function pushOutOfUrtz(
+  pos: Vector2,
+  radius: number,
+  world: World,
+): boolean {
+  const gerPos = world.elder.gerPos;
+  const rx = 36;
+  const ry = 20;
+  const pad = radius;
+
+  const dx = pos.x - gerPos.x;
+  const dy = pos.y - gerPos.y;
+  const nx = dx / (rx + pad);
+  const ny = dy / (ry + pad);
+  const d = Math.hypot(nx, ny);
+  if (d >= 1 || d < 1e-6) {
+    if (d < 1e-6) {
+      pos.y = gerPos.y + ry + pad;
+      return true;
+    }
+    return false;
+  }
+
+  pos.x = gerPos.x + dx / d;
+  pos.y = gerPos.y + dy / d;
+  return true;
+}
+
 /** Эхлэлийн хашааны хэмжээ (тал бүрт торны тоо) */
 export const STARTER_PEN_SIZE = 5;
 

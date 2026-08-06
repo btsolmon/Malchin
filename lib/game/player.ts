@@ -50,6 +50,7 @@ import {
   pastureCenter,
   pastureRefillForSeason,
   pushOutOfGer,
+  pushOutOfUrtz,
   randRange,
   seasonForDay,
   setMessage,
@@ -80,7 +81,6 @@ import {
   tryCatchWildHorse,
 } from "./livestock";
 import { nearFishingSpot, tryCatchFish } from "./fish";
-import { nearestRiddleHost, openRiddleAtHost, spotKindLabel } from "./riddles";
 import {
   beginDawnElderDialogue,
   beginPostWolfElderDialogue,
@@ -266,13 +266,24 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
   if (world.season === "winter") {
     world.weather = t % 40 < 18 ? "snow" : "wind";
   } else if (world.season === "summer") {
-    world.weather = t % 60 > 50 ? "wind" : "clear";
+    // Зун — хааяа богино бороо
+    world.weather = t % 70 > 58 ? "storm" : t % 70 > 50 ? "wind" : "clear";
   } else if (t % 55 > 40) {
     world.weather = "storm";
   } else if (t % 55 > 28) {
     world.weather = "wind";
   } else {
     world.weather = "clear";
+  }
+
+  // Бороо ороход чийг нэмэгдэж, дараа нь удаан хатна → шалбааг үлдэнэ
+  if (typeof world.groundWetness !== "number") world.groundWetness = 0;
+  if (world.weather === "storm") {
+    world.groundWetness = Math.min(1, world.groundWetness + dt * 0.22);
+  } else if (world.season !== "winter") {
+    world.groundWetness = Math.max(0, world.groundWetness - dt * 0.018);
+  } else {
+    world.groundWetness = 0;
   }
 }
 
@@ -394,9 +405,10 @@ function collidePlayerWithWorldPlants(state: GameState): void {
 /** Монгол гэр — хатуу; хаалганы өмнө ойртож болно, дундуур нэвтрэхгүй */
 function collidePlayerWithGer(state: GameState): void {
   const { player, world } = state;
-  if (world.gerPacked || state.phase !== "playing") return;
+  if (state.phase !== "playing") return;
   const pad = player.radius + (player.riding ? 5 : 0);
-  pushOutOfGer(player.pos, pad, world);
+  if (!world.gerPacked) pushOutOfGer(player.pos, pad, world);
+  pushOutOfUrtz(player.pos, pad, world);
   clampPlayerToWorld(player, world.width, world.height);
 }
 
@@ -409,7 +421,7 @@ function clampPlayerToWorld(
   player.pos.y = clamp(player.pos.y, player.radius, height - player.radius);
 }
 
-/** Гэрийн зүүн тал — хоёр шонтой уяа (хаалгаас гадагш харахад зүүн) */
+/** Гэрийн баруун тал — хашааны эсрэг; хашаа↔гэрийн зайтай адил */
 export function horseHitchRail(world: World): {
   left: Vector2;
   right: Vector2;
@@ -417,9 +429,9 @@ export function horseHitchRail(world: World): {
   tie: Vector2;
 } {
   const c = pastureCenter(world);
-  // drawGer(c.x) — бор хөрсөн дээр голлуулсан; зүүн тал = +X
-  const gerX = c.x;
-  const midX = gerX + 130;
+  // Малын хашаа зүүн (−X) талд → уяа баруун (+X) талд, ижил зай
+  const gap = 7 * FENCE_GRID;
+  const midX = c.x + gap;
   const midY = c.y + 44;
   const half = 42;
   return {
@@ -472,10 +484,10 @@ export function dismountHorse(
   sfx("select");
   if (tie) {
     spawnText(state, pos, "Морь уялаа", "#c8e0ff");
-    setMessage(state, "Морьноос бууж уяан дээр уялаа. H — дахин унах.", 2.8);
+    setMessage(state, "Морьноос бууж уялаа. H — дахин унах.", 2.5);
   } else {
     spawnText(state, pos, "Буулаа", "#e8c56a");
-    setMessage(state, "Морьноос буулаа. Гэрийн уяан дэргэд бууваас уягдана.", 2.8);
+    setMessage(state, "Морьноос буулаа.", 2.2);
   }
 }
 
@@ -534,7 +546,7 @@ export function tryHorseMount(state: GameState): void {
   state.world.mountHorse = null;
   sfx("select");
   spawnText(state, player.pos, "Уналаа", "#e8c56a");
-  setMessage(state, "Морь уналаа. H — буух (гэрийн дэргэд уягдана).", 2.5);
+  setMessage(state, "Морь уналаа. H — буух.", 2.2);
 }
 
 export function nearestAliveTree(player: Player, trees: Tree[]): Tree | null {
@@ -605,6 +617,7 @@ export function tryInteract(state: GameState): void {
     state.phase = "ger";
     state.shopOpen = false;
     state.craftOpen = false;
+    state.gerArtZoom = null;
     state.menuIndex = 0;
     state.gerPlayer = { x: 480, y: 435 };
     state.input.interact = false;
@@ -658,30 +671,14 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  if (nearElder(state) && !state.story.activeMainObjective) {
+  if (
+    nearElder(state) &&
+    (!state.story.activeMainObjective ||
+      state.story.activeMainObjective === "growFlock" ||
+      state.story.milestone8Completed)
+  ) {
     openElder(state);
     player.chopCooldown = 0.35;
-    state.input.interact = false;
-    return;
-  }
-
-  // Оньсогын асуулт (мод / бут / чулуу)
-  const riddleHost = nearestRiddleHost(
-    player.pos,
-    world,
-    player.radius + 28,
-  );
-  if (riddleHost) {
-    if (riddleHost.solved) {
-      setMessage(
-        state,
-        `${spotKindLabel(riddleHost.kind)} — асуулт аль хэдийн хариулагдсан.`,
-        2,
-      );
-    } else {
-      openRiddleAtHost(state, riddleHost);
-    }
-    player.chopCooldown = 0.3;
     state.input.interact = false;
     return;
   }
@@ -1003,7 +1000,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
     return;
   }
   if (state.score < cost.score) {
-    setMessage(state, `${nextName} — ${cost.score} оноо хэрэгтэй.`, 2);
+    setMessage(state, `${nextName} — ${cost.score} зоос хэрэгтэй.`, 2);
     return;
   }
   if (player.inventory.berries < cost.berries) {
@@ -1028,10 +1025,11 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   const spent: string[] = state.unlimitedWood
     ? []
     : [`−${cost.wood} мод`];
-  if (cost.score > 0) spent.push(`−${cost.score} оноо`);
+  if (cost.score > 0) spent.push(`−${cost.score} зоос`);
   if (cost.berries > 0) spent.push(`−${cost.berries} жимс`);
   if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
   setMessage(state, `${nextName} болголоо!`, 1.6);
+  state.fencePreview = false;
 }
 
 export function tryDemolishFence(state: GameState): boolean {
@@ -1075,7 +1073,7 @@ export function tryBuildFence(state: GameState): void {
   const { player, world } = state;
   if (player.chopCooldown > 0) return;
 
-  // Эхний B — preview; дараагийн B бүр — барих (preview нээлттэй үлдэнэ)
+  // Эхний B — preview; дараагийн B — бариад preview арилна
   if (!state.fencePreview) {
     state.fencePreview = true;
     state.fencePreviewAngle = angleFromOrient(
@@ -1170,7 +1168,7 @@ export function tryBuildFence(state: GameState): void {
   if (isGate) {
     setMessage(state, "Хаалга босголоо — түлхэж нээнэ.", 2);
   }
-  // Preview нээлттэй — дараагийн B-ээр эгнээг үргэлжлүүлнэ
+  state.fencePreview = false;
 }
 
 /** Чононд хохирол өгөх — цохилт, сум, нохойн хазалт бүгд эндээс */

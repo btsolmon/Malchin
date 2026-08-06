@@ -164,7 +164,7 @@ export default function RiddleModal({
             <p className="relative mt-4 text-center text-xs tracking-wide text-[#a89880]">
               Зөв хариулбал{" "}
               <span className="font-bold text-[#e8c56a]">
-                +{ui.rewardAmount} оноо
+                +{ui.rewardAmount} зоос
               </span>
               {" · "}
               буруу бол{" "}
@@ -211,7 +211,7 @@ export default function RiddleModal({
           <div className="rounded-xl border border-[#e07070]/45 bg-[#3a1818]/90 px-4 py-3 text-center shadow-lg">
             <p className="text-sm font-bold text-[#ffb0a8]">
               Буруу
-              {ui.lastDelta < 0 ? ` · ${ui.lastDelta} оноо` : ""}
+              {ui.lastDelta < 0 ? ` · ${ui.lastDelta} зоос` : ""}
             </p>
             <p className="mt-0.5 text-xs text-[#d8a0a0]">
               Өөр хариулт сонгоорой
@@ -242,7 +242,7 @@ export default function RiddleModal({
                     Шагнал
                   </p>
                   <p className="text-xl font-black text-[#e8c56a]">
-                    +{ui.rewardAmount} оноо
+                    +{ui.rewardAmount} зоос
                   </p>
                 </div>
               </div>

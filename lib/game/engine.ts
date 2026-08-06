@@ -1,6 +1,7 @@
 // Хүн 1 — цөм: game loop, оролт, төлөв үүсгэх, mount
 
 import {
+  START_CATTLE,
   START_GOATS,
   START_SHEEP,
   VIEW_H,
@@ -36,6 +37,7 @@ import {
   updatePlayerMovement,
   updateSurvival,
   updateWeatherCycle,
+  horseHitchPos,
 } from "../game/player";
 import {
   syncVisualFlock,
@@ -98,10 +100,15 @@ import {
   type ElderTab,
   type ElderUiSnapshot,
 } from "./elder";
+import {
+  advanceElderCultureQuiz,
+  submitElderCultureAnswer,
+} from "./elderQuiz";
 import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
 import { pullFlockToPen } from "./daycycle";
 import {
   createInitialStoryState,
+  debugJumpToFamilyLife,
   debugSkipCurrentStoryStage,
   ensureStoryState,
   firstNightElderCutsceneActive,
@@ -236,14 +243,14 @@ export function createInitialState(): GameState {
       warmthResist: 1,
       gear: {
         dog: false,
-        horse: false,
+        horse: true,
         bow: false,
         axe: false,
         urga: false,
         fishingRod: false,
       },
-      horseHp: 0,
-      horseMaxHp: 0,
+      horseHp: 100,
+      horseMaxHp: 100,
       riding: false,
       sleepCooldown: 0,
       moving: false,
@@ -283,8 +290,13 @@ export function createInitialState(): GameState {
       },
       fences: [],
       flock: {
-        counts: { ...emptyCounts(), sheep: START_SHEEP, goat: START_GOATS },
-        total: START_SHEEP + START_GOATS,
+        counts: {
+          ...emptyCounts(),
+          sheep: START_SHEEP,
+          goat: START_GOATS,
+          cattle: START_CATTLE,
+        },
+        total: START_SHEEP + START_GOATS + START_CATTLE,
         visuals: [],
         hunger: 100,
         starveAcc: 0,
@@ -295,6 +307,7 @@ export function createInitialState(): GameState {
       elder: { ...createElder(spawn), eyeMode: "idle" as const },
       season: "autumn",
       weather: "clear",
+      groundWetness: 0,
       timeOfDay: 6.5,
       dayNumber: 1,
       elapsed: 0,
@@ -303,7 +316,7 @@ export function createInitialState(): GameState {
       outdoorRiskAcc: 0,
       nextWolfIn: 72,
       nextThiefIn: 140,
-      nextWildHorseIn: 25,
+      nextWildHorseIn: 60,
       dog: null,
       projectiles: [],
       firstRoute: createFirstRoute(spawn),
@@ -394,6 +407,7 @@ export function createInitialState(): GameState {
     pauseIndex: 0,
     shopOpen: false,
     craftOpen: false,
+    gerArtZoom: null,
     gerPlayer: { x: 480, y: 435 },
     gerSleepTimer: 0,
     gerSleepBed: null,
@@ -412,6 +426,13 @@ export function createInitialState(): GameState {
     elderDialogueLine: 0,
     elderShowingChoices: false,
     elderHeardDialogues: [],
+    elderQuizId: null,
+    elderQuizOptions: [],
+    elderQuizCorrectIndex: 0,
+    elderQuizFeedback: "idle",
+    elderQuizSelectedIndex: null,
+    elderQuizRewardLabel: "",
+    elderQuizAskedIds: [],
     spiritTransition: 0,
     spiritReturnPos: null,
     spiritCleared: false,
@@ -430,6 +451,12 @@ export function createInitialState(): GameState {
   initializeOpeningLivestock(state);
   // Opening livestock are placed outside the pen — keep them free to roam.
   state.world.flockOut = true;
+  // Унах морь — эхнээсээ гэрийн уяан дээр
+  state.world.mountHorse = {
+    pos: horseHitchPos(state.world),
+    face: -1,
+    tied: true,
+  };
   return state;
 }
 
@@ -682,7 +709,7 @@ export function update(state: GameState, dt: number): void {
   state.input.mouseMoved = false;
   state.input.mouseClicked = false;
 
-  // Талд 1 = таяг, 2 = mini-boss-оос авсан Хөх тэнгэрийн сэлэм.
+  // Талд 1 = нударга, 2 = Хөх тэнгэрийн сэлэм.
   // Гэрийн shop дотор 1–4 нь хуучнаараа шууд худалдан авалт.
   if (state.phase === "playing" || state.phase === "spirit") {
     trySwitchPlayerWeapon(state);
@@ -719,7 +746,7 @@ export function update(state: GameState, dt: number): void {
         state.story.activeMainObjective !== "growFlock");
     if (state.input.debugXp) {
       state.score += 1000;
-      spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
+      spawnText(state, state.player.pos, "+1000 зоос", "#ffd060");
       sfx("buy");
     }
     if (state.input.debugBoss && !openingMilestoneActive) {
@@ -883,6 +910,8 @@ export interface HerderGameHandle {
   advanceElderDialogue: () => void;
   retreatElderDialogue: () => void;
   chooseElderOption: (id: ElderChoiceId) => void;
+  submitElderQuizAnswer: (optionIndex: number) => void;
+  advanceElderQuiz: () => void;
   closeElderModal: () => void;
   /** Түр хөгжүүлэлтийн cheat — одоогийн opening story үеийг алгасана. */
   skipStoryStage: () => void;
@@ -947,11 +976,20 @@ export function mountHerderGame(
     () => state.fencePreview,
   );
 
-  // Түр хөгжүүлэлтийн shortcut: C дармагц opening story-н одоогийн үеийг алгасана.
+  // Түр хөгжүүлэлтийн shortcut:
+  // C — одоогийн story үеийг алгасана
+  // ' — шулмасыг дийлээд аав ээжтэй амьдрах үе рүү шууд орно
   const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
-    if (event.code !== "KeyC" || event.repeat) return;
-    event.preventDefault();
-    debugSkipCurrentStoryStage(state);
+    if (event.repeat) return;
+    if (event.code === "KeyC") {
+      event.preventDefault();
+      debugSkipCurrentStoryStage(state);
+      return;
+    }
+    if (event.code === "Quote") {
+      event.preventDefault();
+      debugJumpToFamilyLife(state);
+    }
   };
   window.addEventListener("keydown", onStoryCheatKeyDown);
   let lastRiddleKey = "";
@@ -971,11 +1009,16 @@ export function mountHerderGame(
   const notifyElderUi = (): void => {
     if (!options.onElderUi) return;
     const snap = getElderUiSnapshot(state);
+    const quiz = snap.open ? snap.cultureQuiz : null;
     const key = snap.open
       ? [
           snap.tab,
           snap.eyeMode,
           snap.score,
+          snap.talkIsQuiz ? 1 : 0,
+          quiz
+            ? `${quiz.questionId}:${quiz.feedback}:${quiz.selectedIndex}:${quiz.askedCount}:${quiz.options.join("~")}`
+            : "noquiz",
           snap.trades
             .map((t) => `${t.id}:${t.have}:${t.owned ? 1 : 0}:${t.canTrade ? 1 : 0}:${t.detail}`)
             .join(","),
@@ -1106,6 +1149,14 @@ export function mountHerderGame(
     },
     chooseElderOption: (id: ElderChoiceId) => {
       chooseElderOption(state, id);
+      notifyElderUi();
+    },
+    submitElderQuizAnswer: (optionIndex: number) => {
+      submitElderCultureAnswer(state, optionIndex);
+      notifyElderUi();
+    },
+    advanceElderQuiz: () => {
+      advanceElderCultureQuiz(state);
       notifyElderUi();
     },
     closeElderModal: () => {

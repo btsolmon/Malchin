@@ -1443,7 +1443,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
     );
     setMessage(
       state,
-      "Хөх тэнгэрийн сэлмийг авлаа. Хар төмөр хаалга нээгдэв. 1: таяг · 2: сэлэм",
+      "Хөх тэнгэрийн сэлмийг авлаа. Хар төмөр хаалга нээгдэв. 1: нударга · 2: сэлэм",
       5.5,
     );
     state.fx.shake = Math.max(state.fx.shake, 8);

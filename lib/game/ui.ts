@@ -7,7 +7,7 @@ import {
   FENCE_TIER_SHORT,
   FENCE_UPGRADE_COST,
   GATE_PASS_OPEN,
-  LIVESTOCK_EMOJI,
+  LIVESTOCK_ICON,
   LIVESTOCK_KINDS,
   PASTURE_RADIUS,
   VIEW_H,
@@ -34,6 +34,7 @@ import { advanceToMorning } from "../game/daycycle";
 import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
 import { drawPlayer } from "./render/entities";
+import { drawGameIcon, type GameIconId } from "./icons";
 import { SHOP_ITEMS, buyItem } from "./shop";
 import { beginOpeningSequence, drawMainObjectivePanel } from "./story";
 
@@ -294,15 +295,23 @@ export function gerLayout(): {
   bedL: UiButton;
   bedR: UiButton;
   stove: UiButton;
+  artHorse: UiButton;
+  artFamily: UiButton;
+  artTara: UiButton;
 } {
   // Хивсний төв: (480, 420) — тулга яг голд
   const carpetCx = 480;
   const carpetCy = 420;
   const stoveW = 100;
   const stoveH = 72;
+  const chestL = { x: 240, y: 255, w: 140, h: 95, label: "" };
+  const taraW = 36;
+  const taraH = 52;
+  const taraX = chestL.x + chestL.w / 2 - 10 - taraW / 2;
+  const taraY = chestL.y - 2 - taraH - 4;
   return {
     // Ижил авдар — хойморын зүүн/баруун
-    chestL: { x: 240, y: 255, w: 140, h: 95, label: "" },
+    chestL,
     chestR: { x: 580, y: 255, w: 140, h: 95, label: "" },
     // Гэр бүлийн зургийн доор — эгц урагшаа харсан
     chestC: { x: 420, y: 258, w: 120, h: 88, label: "" },
@@ -318,6 +327,9 @@ export function gerLayout(): {
       h: stoveH,
       label: "",
     },
+    artHorse: { x: 145, y: 185, w: 110, h: 76, label: "" },
+    artFamily: { x: VIEW_W / 2 - 55, y: 172, w: 110, h: 78, label: "" },
+    artTara: { x: taraX, y: taraY, w: taraW, h: taraH, label: "" },
   };
 }
 
@@ -360,15 +372,20 @@ export function gerProximity(state: GameState): {
 
 const CHEST_ITEMS: Array<{
   key: "milk" | "aaruul" | "felt" | "wool" | "cashmere";
-  icon: string;
+  icon: GameIconId;
   name: string;
   desc: string;
 }> = [
-  { key: "milk", icon: "🥛", name: "Сүү", desc: "Цагаан идээ · хадгалсан" },
-  { key: "aaruul", icon: "🧀", name: "Ааруул", desc: "Боловсруулсан сүү" },
-  { key: "felt", icon: "🧺", name: "Эсгий", desc: "Ноосоор урласан" },
-  { key: "wool", icon: "🧶", name: "Ноос", desc: "Хонь / тэмээний ноос" },
-  { key: "cashmere", icon: "🧵", name: "Ноолуур", desc: "Ямааны ноолуур" },
+  { key: "milk", icon: "milk", name: "Сүү", desc: "Цагаан идээ · хадгалсан" },
+  { key: "aaruul", icon: "aaruul", name: "Ааруул", desc: "Боловсруулсан сүү" },
+  { key: "felt", icon: "felt", name: "Эсгий", desc: "Ноосоор урласан" },
+  { key: "wool", icon: "wool", name: "Ноос", desc: "Хонь / тэмээний ноос" },
+  {
+    key: "cashmere",
+    icon: "cashmere",
+    name: "Ноолуур",
+    desc: "Ямааны ноолуур",
+  },
 ];
 
 export function chestLayout(): {
@@ -546,9 +563,12 @@ export function updateGer(state: GameState, dt: number): void {
   }
 
   if (state.gerSleepTimer > 0) {
+    const prev = state.gerSleepTimer;
     state.gerSleepTimer = Math.max(0, state.gerSleepTimer - dt);
     state.player.moving = false;
-    if (state.gerSleepTimer <= 0) {
+    // Харанхуй дунд өглөө рүү шилжинэ — нүд нээгдэхэд өглөө харагдана
+    const midDark = 5 * (1 - 0.5);
+    if (prev > midDark && state.gerSleepTimer <= midDark) {
       const player = state.player;
       player.vitals.health = Math.min(
         player.vitals.maxHealth,
@@ -556,7 +576,6 @@ export function updateGer(state: GameState, dt: number): void {
       );
       player.vitals.warmth = Math.min(100, player.vitals.warmth + 40);
       player.sleepCooldown = 60;
-      state.gerSleepBed = null;
       advanceToMorning(state);
       sfx("levelup");
       setMessage(
@@ -564,6 +583,9 @@ export function updateGer(state: GameState, dt: number): void {
         `Сайхан унтаж амарлаа. Өглөө болов · +50 амь`,
         3.5,
       );
+    }
+    if (state.gerSleepTimer <= 0) {
+      state.gerSleepBed = null;
     }
     return;
   }
@@ -629,6 +651,22 @@ export function updateGer(state: GameState, dt: number): void {
     return;
   }
 
+  if (state.gerArtZoom) {
+    if (
+      input.mouseClicked ||
+      input.pause ||
+      input.confirm ||
+      input.interact
+    ) {
+      state.gerArtZoom = null;
+      input.mouseClicked = false;
+      input.interact = false;
+      input.confirm = false;
+      sfx("select");
+    }
+    return;
+  }
+
   const lay = gerLayout();
   const player = state.player;
   const dir = {
@@ -646,6 +684,27 @@ export function updateGer(state: GameState, dt: number): void {
   }
 
   const prox = gerProximity(state);
+
+  if (input.mouseClicked) {
+    if (overButton(lay.artFamily, input)) {
+      state.gerArtZoom = "family";
+      input.mouseClicked = false;
+      sfx("select");
+      return;
+    }
+    if (overButton(lay.artHorse, input)) {
+      state.gerArtZoom = "horse";
+      input.mouseClicked = false;
+      sfx("select");
+      return;
+    }
+    if (overButton(lay.artTara, input)) {
+      state.gerArtZoom = "tara";
+      input.mouseClicked = false;
+      sfx("select");
+      return;
+    }
+  }
 
   if (
     (input.interact && prox.nearStove) ||
@@ -916,11 +975,17 @@ function drawHudPortrait(
   ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
 
   // Reuse the actual player renderer so the HUD portrait follows their gear.
+  // Морь унасан ч портретад зөвхөн царай харагдана.
   ctx.translate(cx, cy + 34);
   ctx.scale(2.45, 2.45);
+  const portraitPlayer = {
+    ...state.player,
+    riding: false,
+    moving: false,
+  };
   drawPlayer(
     ctx,
-    state.player,
+    portraitPlayer,
     { x: state.player.pos.x, y: state.player.pos.y },
     performance.now() / 1000,
     false,
@@ -1051,6 +1116,7 @@ function drawSeasonTree(
   ctx.restore();
 }
 
+/** Гэрийн тооно — тэнгэрээр нар/сар явж цаг харуулна */
 function drawRoundClock(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -1060,98 +1126,267 @@ function drawRoundClock(
   dayNumber: number,
 ): void {
   const hours = ((timeOfDay % 24) + 24) % 24;
-  const handAngle = (hours / 24) * Math.PI * 2 - Math.PI / 2;
-  const segments = [
-    "#28364c",
-    "#34445a",
-    "#d7a943",
-    "#f1cd55",
-    "#e9b94b",
-    "#ad685e",
-    "#8d4f55",
-    "#513c4e",
-  ];
+  const orange = "#e85820";
+  const orangeDeep = "#c04014";
+  const orangeLite = "#f87838";
+  const patBlue = "#4ab0d8";
+  const patYellow = "#f0d050";
+  const patGreen = "#5caa40";
+  const patCream = "#f2e8d0";
+  const rim = radius + 2;
+  const skyR = radius - 5;
+  const hubR = radius * 0.28;
+  const isDay = hours >= 5.5 && hours < 20;
+
+  // Нар: 5.5→20 зүүн→баруун нум; сар: шөнөөр ижил нум
+  let bodyT: number;
+  if (isDay) {
+    bodyT = (hours - 5.5) / (20 - 5.5);
+  } else {
+    const nightH = hours >= 20 ? hours - 20 : hours + 4;
+    bodyT = nightH / 9.5;
+  }
+  bodyT = Math.max(0, Math.min(1, bodyT));
+  const bodyAngle = -Math.PI * 0.92 + bodyT * Math.PI * 1.84;
+  const bodyDist = skyR * (0.22 + Math.sin(bodyT * Math.PI) * 0.38);
+  const bodyX = Math.cos(bodyAngle) * bodyDist;
+  const bodyY = Math.sin(bodyAngle) * bodyDist * 0.92;
 
   ctx.save();
   ctx.translate(cx, cy);
 
-  // Pixel-art shadow and scalloped cream outer frame.
-  ctx.fillStyle = "rgba(16,12,10,0.55)";
+  // Сүүдэр
+  ctx.fillStyle = "rgba(16,12,10,0.45)";
   ctx.beginPath();
-  ctx.arc(3, 4, radius + 10, 0, Math.PI * 2);
+  ctx.arc(2.5, 3.5, rim + 8, 0, Math.PI * 2);
   ctx.fill();
-  for (let i = 0; i < 16; i++) {
-    const angle = (i / 16) * Math.PI * 2;
-    ctx.fillStyle = i % 2 === 0 ? "#f1d889" : "#d9b963";
-    ctx.beginPath();
-    ctx.arc(
-      Math.round(Math.cos(angle) * (radius + 5)),
-      Math.round(Math.sin(angle) * (radius + 5)),
-      7,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-  }
-  ctx.strokeStyle = "#fff0b0";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius + 9, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = "#3a271d";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius + 1, 0, Math.PI * 2);
-  ctx.stroke();
 
-  // Eight flat-color day/night slices.
-  for (let i = 0; i < segments.length; i++) {
-    const start = (i / segments.length) * Math.PI * 2 - Math.PI / 2;
-    const end = ((i + 1) / segments.length) * Math.PI * 2 - Math.PI / 2;
-    ctx.fillStyle = segments[i];
+  // Гадна унь (тооноос радиал)
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2 - Math.PI / 2;
+    const x0 = Math.cos(a) * (rim - 1);
+    const y0 = Math.sin(a) * (rim - 1);
+    const x1 = Math.cos(a) * (rim + 11);
+    const y1 = Math.sin(a) * (rim + 11);
+    ctx.strokeStyle = i % 3 === 0 ? orangeDeep : orange;
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, radius - 4, start, end);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    if (i % 4 === 0) {
+      ctx.fillStyle = patBlue;
+      ctx.beginPath();
+      ctx.arc(x0 * 0.98, y0 * 0.98, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  ctx.strokeStyle = "#5a3927";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius - 3, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Single chunky pointer, like the reference clock.
+  // —— Тэнгэр (clip) ——
   ctx.save();
-  ctx.rotate(handAngle);
-  ctx.fillStyle = "#161414";
   ctx.beginPath();
-  ctx.moveTo(-3, 5);
-  ctx.lineTo(0, -radius + 5);
-  ctx.lineTo(4, 5);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  ctx.arc(0, 0, skyR, 0, Math.PI * 2);
+  ctx.clip();
 
-  // Dark center badge keeps the day label readable over every slice.
-  ctx.fillStyle = "rgba(31,22,20,0.78)";
+  // Тэнгэрийн өнгө — цагаар
+  let skyTop: string;
+  let skyBot: string;
+  if (hours >= 5.5 && hours < 7.5) {
+    const t = (hours - 5.5) / 2;
+    skyTop = lerpColor("#1a2048", "#4a90d0", t);
+    skyBot = lerpColor("#e87840", "#87b8e8", t);
+  } else if (hours >= 7.5 && hours < 17) {
+    skyTop = "#3a8ad0";
+    skyBot = "#7eb8ea";
+  } else if (hours >= 17 && hours < 20) {
+    const t = (hours - 17) / 3;
+    skyTop = lerpColor("#3a8ad0", "#1a1840", t);
+    skyBot = lerpColor("#e87840", "#2a1848", t);
+  } else {
+    skyTop = "#0c1028";
+    skyBot = "#1a2048";
+  }
+  const skyGrad = ctx.createLinearGradient(0, -skyR, 0, skyR);
+  skyGrad.addColorStop(0, skyTop);
+  skyGrad.addColorStop(1, skyBot);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(-skyR, -skyR, skyR * 2, skyR * 2);
+
+  // Шөнийн од
+  if (!isDay) {
+    for (let i = 0; i < 14; i++) {
+      const a = (i * 2.4) % (Math.PI * 2);
+      const d = ((i * 7) % 10) * 0.07 * skyR + skyR * 0.25;
+      const sx = Math.cos(a) * d;
+      const sy = Math.sin(a) * d * 0.9;
+      const twinkle = 0.45 + 0.55 * Math.abs(Math.sin(hours * 3 + i));
+      ctx.fillStyle = `rgba(240,245,255,${twinkle})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, i % 3 === 0 ? 1.2 : 0.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Нар эсвэл сар
+  if (isDay) {
+    const sunGlow = ctx.createRadialGradient(bodyX, bodyY, 1, bodyX, bodyY, 16);
+    sunGlow.addColorStop(0, "rgba(255,250,200,0.95)");
+    sunGlow.addColorStop(0.35, "rgba(255,210,80,0.55)");
+    sunGlow.addColorStop(1, "rgba(255,160,40,0)");
+    ctx.fillStyle = sunGlow;
+    ctx.beginPath();
+    ctx.arc(bodyX, bodyY, 16, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff6c8";
+    ctx.beginPath();
+    ctx.arc(bodyX, bodyY, 6.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#ffe070";
+    ctx.beginPath();
+    ctx.arc(bodyX - 1, bodyY - 1, 4.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const moonGlow = ctx.createRadialGradient(bodyX, bodyY, 1, bodyX, bodyY, 12);
+    moonGlow.addColorStop(0, "rgba(200,220,255,0.55)");
+    moonGlow.addColorStop(1, "rgba(120,140,200,0)");
+    ctx.fillStyle = moonGlow;
+    ctx.beginPath();
+    ctx.arc(bodyX, bodyY, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e8eef8";
+    ctx.beginPath();
+    ctx.arc(bodyX, bodyY, 5.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Сарны хавирга
+    ctx.fillStyle = skyBot;
+    ctx.beginPath();
+    ctx.arc(bodyX + 2.2, bodyY - 1.2, 4.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore(); // clip
+
+  // Гадна цагираг
+  ctx.strokeStyle = orangeDeep;
+  ctx.lineWidth = 11;
   ctx.beginPath();
-  ctx.arc(0, 3, radius * 0.49, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#d7b36b";
-  ctx.lineWidth = 2;
+  ctx.arc(0, 0, rim, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.strokeStyle = orange;
+  ctx.lineWidth = 7.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, rim, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = orangeLite;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, rim + 4.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = patCream;
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.arc(0, 0, rim + 5.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = patBlue;
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  ctx.arc(0, 0, rim - 4.5, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Цагиргийн угалз цэгүүд
+  for (let i = 0; i < 20; i++) {
+    const a = (i / 20) * Math.PI * 2;
+    const px = Math.cos(a) * rim;
+    const py = Math.sin(a) * rim;
+    ctx.fillStyle =
+      i % 3 === 0 ? patYellow : i % 3 === 1 ? patBlue : patGreen;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 8 хараац
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
+    const x0 = Math.cos(a) * (hubR + 1);
+    const y0 = Math.sin(a) * (hubR + 1);
+    const x1 = Math.cos(a) * (rim - 5);
+    const y1 = Math.sin(a) * (rim - 5);
+    ctx.strokeStyle = orangeDeep;
+    ctx.lineWidth = 4.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    ctx.strokeStyle = orange;
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+    // Хээ
+    const mx = (x0 + x1) / 2;
+    const my = (y0 + y1) / 2;
+    ctx.fillStyle = i % 2 === 0 ? patBlue : patYellow;
+    ctx.beginPath();
+    ctx.arc(mx, my, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = patCream;
+    ctx.beginPath();
+    ctx.arc(x0 + (x1 - x0) * 0.72, y0 + (y1 - y0) * 0.72, 1.1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Дотор цагираг (hub)
+  ctx.strokeStyle = orangeDeep;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.arc(0, 0, hubR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = orangeLite;
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, hubR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = patBlue;
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.arc(0, 0, hubR - 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = orange;
+  ctx.beginPath();
+  ctx.arc(0, 0, hubR - 4.5, 0, Math.PI * 2);
+  ctx.fill();
   ctx.fillStyle = "#fff2cc";
   ctx.strokeStyle = "#241813";
-  ctx.lineWidth = 3;
-  ctx.font = "bold 12px 'Courier New', monospace";
+  ctx.lineWidth = 2.5;
+  ctx.font = "bold 9px 'Courier New', monospace";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const dayLabel = `Өдөр ${dayNumber}`;
-  ctx.strokeText(dayLabel, 0, 4);
-  ctx.fillText(dayLabel, 0, 4);
+  const dayLabel = `${dayNumber}`;
+  ctx.strokeText(dayLabel, 0, 0.5);
+  ctx.fillText(dayLabel, 0, 0.5);
+
   ctx.restore();
+}
+
+function lerpColor(a: string, b: string, t: number): string {
+  const parse = (hex: string) => {
+    const h = hex.replace("#", "");
+    return [
+      parseInt(h.slice(0, 2), 16),
+      parseInt(h.slice(2, 4), 16),
+      parseInt(h.slice(4, 6), 16),
+    ] as const;
+  };
+  const [r0, g0, b0] = parse(a);
+  const [r1, g1, b1] = parse(b);
+  const r = Math.round(r0 + (r1 - r0) * t);
+  const g = Math.round(g0 + (g1 - g0) * t);
+  const bl = Math.round(b0 + (b1 - b0) * t);
+  return `rgb(${r},${g},${bl})`;
 }
 
 function drawStatusIcon(
@@ -1221,7 +1456,7 @@ function drawHotSlot(
   y: number,
   size: number,
   key: string,
-  icon: string,
+  icon: GameIconId,
   active = false,
 ): void {
   ctx.fillStyle = active ? "#6a4a28" : "#4a3020";
@@ -1231,11 +1466,9 @@ function drawHotSlot(
   ctx.strokeStyle = active ? "#e8c56a" : "#8a6a42";
   ctx.lineWidth = 2;
   ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
-  ctx.font = `${Math.floor(size * 0.45)}px system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "#fff";
-  ctx.fillText(icon, x + size / 2, y + size * 0.62);
+  drawGameIcon(ctx, icon, x + size / 2, y + size * 0.42, size * 0.62);
   ctx.font = "bold 9px 'Courier New', monospace";
+  ctx.textAlign = "center";
   ctx.fillStyle = "#e8c56a";
   ctx.fillText(key, x + size / 2, y + size - 3);
   ctx.textAlign = "left";
@@ -1661,10 +1894,10 @@ export function drawMenuMain(
   ctx.fillText("АМЬД ҮЛД", VIEW_W / 2, 106);
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 58px system-ui, sans-serif";
-  ctx.fillText("МАЛЧИН", VIEW_W / 2, 166);
+  ctx.fillText("НҮҮДЭЛЧИН", VIEW_W / 2, 166);
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText("Талын малчны амьдрал", VIEW_W / 2, 200);
+  ctx.fillText("Хязгаар үгүй тал", VIEW_W / 2, 200);
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();
@@ -1750,7 +1983,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   const u2 = FENCE_UPGRADE_COST[2];
   const lines: Array<[string, string]> = [
     ["WASD", "Алхах"],
-    ["J", "Цохих (тамир зарцуулна)"],
+    ["J", "Цохих / сэлмээр цавчих (тамир)"],
     ["K", "Нум харвах (сум хэрэгтэй)"],
     ["Shift", "Бултах — invuln цонх"],
     ["L", "Сөрөх (parry) — дайралт няцаах"],
@@ -1892,32 +2125,30 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
-  // Статус дүрсүүд (buff мөр) — эможи
+  // Статус дүрсүүд (buff мөр)
   const iconY = pad + 90;
   const iconS = 18;
   let ix = barX;
-  ctx.textAlign = "left";
 
   if (player.gear.horse) {
-    ctx.font = `${iconS - 2}px system-ui, sans-serif`;
-    ctx.fillText(player.riding ? "🏇" : "🐎", ix, iconY + iconS - 2);
+    drawGameIcon(
+      ctx,
+      player.riding ? "horseRide" : "horse",
+      ix + iconS / 2,
+      iconY + iconS / 2 - 2,
+      iconS + 2,
+    );
     ix += iconS + 6;
   }
   if (player.gear.dog) {
-    ctx.font = `${iconS - 2}px system-ui, sans-serif`;
-    ctx.fillText("🐕", ix, iconY + iconS - 2);
+    drawGameIcon(ctx, "dog", ix + iconS / 2, iconY + iconS / 2 - 2, iconS + 2);
     ix += iconS + 6;
   }
-  if (player.weapon === "skySword") {
-    ctx.font = `${iconS - 2}px system-ui, sans-serif`;
-    ctx.fillText("⚔️", ix, iconY + iconS - 2);
-  }
 
-  // —— Баруун дээд: Монгол гэрийн тооно хэлбэртэй цаг ——
-  const clockX = VIEW_W - pad - 47;
-  const clockY = pad + 47;
-  drawSeasonTree(ctx, clockX - 12, clockY + 24, world.season);
-  drawRoundClock(ctx, clockX, clockY, 38, world.timeOfDay, world.dayNumber);
+  // —— Баруун дээд: Монгол гэрийн тооно — нар/сараар цаг ——
+  const clockX = VIEW_W - pad - 52;
+  const clockY = pad + 52;
+  drawRoundClock(ctx, clockX, clockY, 40, world.timeOfDay, world.dayNumber);
 
   if (!state.story.activeMainObjective) {
     const route = world.firstRoute;
@@ -1973,19 +2204,23 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     "",
   );
 
-  const slots: Array<{ key: string; icon: string; active: boolean }> = [
-    { key: "J", icon: "👊", active: player.meleePhase !== "idle" },
+  const slots: Array<{ key: string; icon: GameIconId; active: boolean }> = [
+    { key: "J", icon: "punch", active: player.meleePhase !== "idle" },
     {
       key: "K",
-      icon: player.gear.bow ? "🏹" : "—",
+      icon: player.gear.bow ? "bow" : "empty",
       active: !!state.input.shoot,
     },
-    { key: "⇧", icon: "💨", active: player.dodgePhase !== "idle" },
-    { key: "L", icon: "🛡", active: player.parryPhase !== "idle" },
-    { key: "E", icon: "🖐", active: false },
-    { key: "Q", icon: "🍒", active: false },
-    { key: "F", icon: "🔥", active: world.campfire.lit || world.campfire.igniting > 0 },
-    { key: "B", icon: "🪵", active: state.fencePreview },
+    { key: "⇧", icon: "dodge", active: player.dodgePhase !== "idle" },
+    { key: "L", icon: "shield", active: player.parryPhase !== "idle" },
+    { key: "E", icon: "hand", active: false },
+    { key: "Q", icon: "berry", active: false },
+    {
+      key: "F",
+      icon: "fire",
+      active: world.campfire.lit || world.campfire.igniting > 0,
+    },
+    { key: "B", icon: "log", active: state.fencePreview },
   ];
   const slotSize = 34;
   const slotGap = 4;
@@ -2010,16 +2245,16 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   // —— Баруун доод: нөөц ——
   const qSize = 36;
   const qY = VIEW_H - qSize - 20;
-  const qItems: Array<{ icon: string; val: string }> = [
+  const qItems: Array<{ icon: GameIconId; val: string }> = [
     {
-      icon: "🪵",
+      icon: "wood",
       val: state.unlimitedWood ? "∞" : String(player.inventory.wood),
     },
-    { icon: "🪨", val: String(player.inventory.stone) },
-    { icon: "🏹", val: String(player.inventory.arrows) },
-    { icon: "🍒", val: String(player.inventory.berries) },
-    { icon: "🐟", val: String(player.inventory.fish) },
-    { icon: "🌾", val: String(player.inventory.hay) },
+    { icon: "stone", val: String(player.inventory.stone) },
+    { icon: "arrow", val: String(player.inventory.arrows) },
+    { icon: "berry", val: String(player.inventory.berries) },
+    { icon: "fish", val: String(player.inventory.fish) },
+    { icon: "hay", val: String(player.inventory.hay) },
   ];
   const qW = qItems.length * (qSize + 4) - 4 + 8;
   const qX = VIEW_W - qW - 16;
@@ -2031,24 +2266,20 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     drawHotSlot(ctx, sx, qY + 4, qSize, it.val, it.icon, false);
   });
 
-  // Малын төрөл — эможи + тоо (нэг мөр дээш)
-  ctx.font = "13px system-ui, sans-serif";
+  // Малын төрөл — дүрс + тоо (нэг мөр дээш)
   let lx = barX;
-  const hasBuff =
-    player.gear.horse || player.gear.dog || player.weapon === "skySword";
+  const hasBuff = player.gear.horse || player.gear.dog;
   const ly = hasBuff ? iconY + iconS + 2 : iconY + 12;
   for (const k of LIVESTOCK_KINDS) {
     const n = world.flock.counts[k];
     if (n <= 0) continue;
-    const emoji = LIVESTOCK_EMOJI[k];
-    ctx.fillText(emoji, lx, ly);
+    drawGameIcon(ctx, LIVESTOCK_ICON[k], lx + 7, ly - 4, 14);
     lx += 16;
     ctx.fillStyle = "#c8e0a8";
     ctx.font = "bold 10px 'Courier New', monospace";
     const num = String(n);
     ctx.fillText(num, lx, ly);
     lx += ctx.measureText(num).width + 10;
-    ctx.font = "13px system-ui, sans-serif";
   }
 
   ctx.fillStyle = "#e8c56a";
@@ -2207,7 +2438,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(
-      `Оноо ${state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
+      `Зоос ${state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );
@@ -2264,8 +2495,7 @@ export function drawChest(
     roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
     ctx.stroke();
 
-    ctx.font = "22px system-ui, sans-serif";
-    ctx.fillText(item.icon, r.x + 12, r.y + 34);
+    drawGameIcon(ctx, item.icon, r.x + 24, r.y + r.h / 2, 26);
 
     ctx.fillStyle = selected ? "#e8c56a" : COLORS.hudText;
     ctx.font = "600 14px system-ui, sans-serif";

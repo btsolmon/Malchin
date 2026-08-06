@@ -16,7 +16,7 @@ import {
   type Vector2,
   type WildHorse,
 } from "./types";
-import { allocId, clamp, dist, normalize, pastureCenter, penCenter, PEN_RADIUS, pushOutOfFences, pushOutOfGer, randRange, setMessage } from "./utils";
+import { allocId, clamp, dist, normalize, pastureCenter, penCenter, PEN_RADIUS, pushOutOfFences, pushOutOfGer, pushOutOfUrtz, randRange, setMessage } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 
@@ -406,9 +406,10 @@ export function updateWildHorses(state: GameState, dt: number): void {
   const center = pastureCenter(world);
 
   world.nextWildHorseIn -= dt;
-  if (world.nextWildHorseIn <= 0 && world.wildHorses.length < 3) {
+  // Хоёр дахин бага: хамгийн ихдээ 1–2 (өмнө 3 байсан)
+  if (world.nextWildHorseIn <= 0 && world.wildHorses.length < 2) {
     spawnWildHorse(state);
-    world.nextWildHorseIn = randRange(45, 90);
+    world.nextWildHorseIn = randRange(90, 180);
   }
 
   for (const h of world.wildHorses) {
@@ -417,8 +418,8 @@ export function updateWildHorses(state: GameState, dt: number): void {
     const toPlayer = { x: player.pos.x - h.pos.x, y: player.pos.y - h.pos.y };
     const dPlayer = Math.hypot(toPlayer.x, toPlayer.y);
     const wander = {
-      x: Math.sin(world.elapsed * 0.4 + h.id) * 0.6,
-      y: Math.cos(world.elapsed * 0.35 + h.id * 1.3) * 0.6,
+      x: Math.sin(world.elapsed * 0.22 + h.id) * 0.35,
+      y: Math.cos(world.elapsed * 0.18 + h.id * 1.3) * 0.35,
     };
 
     let ax = wander.x;
@@ -427,7 +428,7 @@ export function updateWildHorses(state: GameState, dt: number): void {
     // Тоглогчоос холд (ялангуяа уургагүй бол)
     if (dPlayer < 120) {
       const flee = normalize({ x: -toPlayer.x, y: -toPlayer.y });
-      const fear = player.gear.urga && dPlayer < 70 ? 0.4 : 1.2;
+      const fear = player.gear.urga && dPlayer < 70 ? 0.35 : 0.9;
       ax += flee.x * fear;
       ay += flee.y * fear;
       if (dPlayer < 55) h.spooked = 1.5;
@@ -436,11 +437,11 @@ export function updateWildHorses(state: GameState, dt: number): void {
     // Бэлчээр рүү бага зэрэг татагдана
     const toC = normalize({ x: center.x - h.pos.x, y: center.y - h.pos.y });
     if (dist(h.pos, center) > PASTURE_RADIUS + 200) {
-      ax += toC.x * 0.3;
-      ay += toC.y * 0.3;
+      ax += toC.x * 0.25;
+      ay += toC.y * 0.25;
     }
 
-    const spd = h.spooked > 0 ? 160 : 70;
+    const spd = h.spooked > 0 ? 85 : 32;
     const dir = normalize({ x: ax, y: ay });
     h.vel.x = dir.x * spd;
     h.vel.y = dir.y * spd;
@@ -453,10 +454,13 @@ export function updateWildHorses(state: GameState, dt: number): void {
       h.pos.y += h.vel.y * dt * inv;
       pushOutOfFences(h.pos, h.radius, world.fences);
       pushOutOfGer(h.pos, h.radius, world);
+      pushOutOfUrtz(h.pos, h.radius, world);
     }
     h.pos.x = clamp(h.pos.x, 30, WORLD_W - 30);
     h.pos.y = clamp(h.pos.y, 30, WORLD_H - 30);
-    if (Math.abs(h.vel.x) > 8) h.face = h.vel.x > 0 ? 1 : -1;
+    // Нүүр анивчихгүй — зөвхөн тод хөдөлгөөнд солино
+    if (h.vel.x > 14) h.face = 1;
+    else if (h.vel.x < -14) h.face = -1;
   }
 }
 

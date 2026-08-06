@@ -107,6 +107,7 @@ function makeParentPortrait(role: "father" | "mother"): ParentNpc {
     walkPhase: 0,
     insideGer: false,
     attackCooldown: 0,
+    attackAnim: 0,
   };
 }
 
@@ -116,8 +117,9 @@ function makeElderPortrait(eyeMode: Elder["eyeMode"]): Elder {
     gerPos: { x: 0, y: 0 },
     radius: 42,
     eyeMode,
-    pose: "standing",
-    face: 1,
+    pose: "seated",
+    // Хүү зүүн талаас баруун тийш хардаг тул өвгөн зүүн тийш (тоглогч руу) харна
+    face: -1,
     walkPhase: 0,
   };
 }
@@ -137,8 +139,8 @@ export default function DialoguePortrait({
     if (!ctx) return;
 
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    const cssW = canvas.clientWidth || 208;
-    const cssH = canvas.clientHeight || 288;
+    const cssW = canvas.clientWidth || 240;
+    const cssH = canvas.clientHeight || 320;
     canvas.width = Math.round(cssW * dpr);
     canvas.height = Math.round(cssH * dpr);
 
@@ -148,8 +150,22 @@ export default function DialoguePortrait({
       kind === "father" || kind === "mother"
         ? makeParentPortrait(kind)
         : null;
-    const scale = kind === "boy" ? 6.2 : kind === "elder" ? 5.2 : 6.1;
-    const groundY = kind === "boy" ? 0.78 : kind === "elder" ? 0.82 : 0.8;
+
+    // Дүрийн хэмжээ (pos төвөөс дээш/доош) — бүтэн багтаана
+    // хүү: үс ~−24, гутал ~+14; өвгөн: толгой ~−25, хивс ~+20 (±28 өргөн)
+    const above =
+      kind === "boy" ? 25 : kind === "elder" ? 25 : 24;
+    const below =
+      kind === "boy" ? 16 : kind === "elder" ? 21 : 14;
+    const halfW =
+      kind === "boy" ? 16 : kind === "elder" ? 29 : 14;
+    const padX = cssW * 0.06;
+    const padY = cssH * 0.05;
+    const scaleByW = (cssW - padX * 2) / (halfW * 2);
+    const scaleByH = (cssH - padY * 2) / (above + below);
+    const scale = Math.min(scaleByW, scaleByH);
+    // Гутал/хивс доор бага зай үлдээж, толгой дээрээс тасрахгүй
+    const groundY = (padY + above * scale) / cssH;
 
     let raf = 0;
     const t0 = performance.now();
@@ -162,7 +178,6 @@ export default function DialoguePortrait({
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.imageSmoothingEnabled = true;
 
-      // Дэлгэцийн төвд, хөлийг доод талд байрлуулж томруулна
       ctx.setTransform(
         scale * dpr,
         0,

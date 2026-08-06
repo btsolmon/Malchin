@@ -3,7 +3,6 @@
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
 import { setMessage } from "./utils";
-import { sampleRockPos } from "./biomes";
 import type {
   GameState,
   RiddleHostKind,
@@ -13,7 +12,7 @@ import type {
 } from "./types";
 
 export interface RiddleReward {
-  /** Зөвхөн оноо (state.score) */
+  /** Зөвхөн зоос (state.score) */
   amount: number;
 }
 
@@ -223,53 +222,13 @@ function collectAssignedRiddleIds(world: World): string[] {
   return ids;
 }
 
-function shuffleIds(ids: number[]): number[] {
-  const copy = [...ids];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j]!, copy[i]!];
-  }
-  return copy;
-}
-
-/** Санамсаргүй мод, бут, чулуу дээр оньсогын асуулт байрлуулна */
+/** Асуултуудыг өвгөний соёлын асуулт руу шилжүүлсэн — дэлхийд байрлуулахгүй. */
 export function assignRiddlesToWorld(
-  world: World,
-  camp: Vector2,
-  count: number,
+  _world: World,
+  _camp: Vector2,
+  _count: number,
 ): void {
-  const treeIds = shuffleIds(world.trees.map((t) => t.id));
-  const bushIds = shuffleIds(world.bushes.map((b) => b.id));
-
-  const treeCount = Math.min(Math.ceil(count / 3), treeIds.length);
-  const bushCount = Math.min(Math.ceil(count / 3), bushIds.length);
-  const rockCount = Math.max(0, count - treeCount - bushCount);
-
-  for (let i = 0; i < treeCount; i++) {
-    const tree = world.trees.find((t) => t.id === treeIds[i])!;
-    tree.riddleHost = true;
-    tree.riddleSolved = false;
-    tree.riddleId = null;
-  }
-  for (let i = 0; i < bushCount; i++) {
-    const bush = world.bushes.find((b) => b.id === bushIds[i])!;
-    bush.riddleHost = true;
-    bush.riddleSolved = false;
-    bush.riddleId = null;
-  }
-
-  world.rocks = [];
-  for (let i = 0; i < rockCount; i++) {
-    const pos = sampleRockPos(camp);
-
-    world.rocks.push({
-      id: 7000 + i,
-      pos,
-      radius: 16,
-      riddleSolved: false,
-      riddleId: null,
-    });
-  }
+  // no-op
 }
 
 export interface NearestRiddleHost {
@@ -453,7 +412,7 @@ export function applyRiddleReward(state: GameState, riddle: Riddle): void {
   const { reward } = riddle;
   const at = state.player.pos;
   state.score += reward.amount;
-  spawnText(state, at, `+${reward.amount} оноо`, "#e8c56a");
+  spawnText(state, at, `+${reward.amount} зоос`, "#e8c56a");
 }
 
 /** Буруу хариулт: зөв шагналаас 10-оор илүү хасна */
@@ -467,13 +426,13 @@ export function applyRiddlePenalty(state: GameState, riddle: Riddle): number {
   state.score = Math.max(0, state.score - penalty);
   const lost = prev - state.score;
   if (lost > 0) {
-    spawnText(state, state.player.pos, `−${lost} оноо`, "#e07070");
+    spawnText(state, state.player.pos, `−${lost} зоос`, "#e07070");
   }
   return lost;
 }
 
 export function rewardLabel(reward: RiddleReward): string {
-  return `${reward.amount} оноо`;
+  return `${reward.amount} зоос`;
 }
 
 export type RiddleFeedback = "idle" | "wrong" | "correct";
@@ -488,7 +447,7 @@ export interface RiddleUiState {
   feedback: RiddleFeedback;
   selectedIndex: number | null;
   correctIndex: number;
-  /** Сүүлчийн онооны өөрчлөлт (+шагнал эсвэл −торгууль) */
+  /** Сүүлчийн зоосны өөрчлөлт (+шагнал эсвэл −торгууль) */
   lastDelta: number;
   spotKind: RiddleHostKind;
 }
@@ -516,7 +475,7 @@ export function submitRiddleAnswer(
     setMessage(
       state,
       lost > 0
-        ? `Буруу хариулт! −${lost} оноо`
+        ? `Буруу хариулт! −${lost} зоос`
         : "Буруу хариулт — дахин оролдоорой.",
       2.4,
     );

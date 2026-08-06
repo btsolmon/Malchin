@@ -8,7 +8,7 @@ import {
   type Vector2,
   type Wolf,
 } from "../types";
-import { clamp, dist, normalize, pastureCenter, pushOutOfGer, setMessage } from "../utils";
+import { clamp, dist, normalize, pastureCenter, pushOutOfGer, pushOutOfUrtz, setMessage } from "../utils";
 import { applyRiverCurrent } from "../biomes";
 import { spawnParticles, spawnText } from "../effects";
 import { sfx } from "../audio";
@@ -334,6 +334,7 @@ export function updateDog(state: GameState, dt: number): void {
 
   if (state.phase === "playing") applyRiverCurrent(dog.pos, dt, 0.55);
   pushOutOfGer(dog.pos, 12, state.world);
+  pushOutOfUrtz(dog.pos, 12, state.world);
   dog.pos.x = clamp(dog.pos.x, 20, WORLD_W - 20);
   dog.pos.y = clamp(dog.pos.y, 20, WORLD_H - 20);
 }

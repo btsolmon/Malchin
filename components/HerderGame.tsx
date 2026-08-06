@@ -52,6 +52,14 @@ export default function HerderGame() {
     handleRef.current?.startElderDialogue(id);
   }, []);
 
+  const onQuizAnswer = useCallback((index: number) => {
+    handleRef.current?.submitElderQuizAnswer(index);
+  }, []);
+
+  const onQuizNext = useCallback(() => {
+    handleRef.current?.advanceElderQuiz();
+  }, []);
+
   const onAdvanceDialogue = useCallback(() => {
     handleRef.current?.advanceElderDialogue();
   }, []);
@@ -92,6 +100,8 @@ export default function HerderGame() {
           onTab={onElderTab}
           onTrade={onElderTrade}
           onStartDialogue={onStartDialogue}
+          onQuizAnswer={onQuizAnswer}
+          onQuizNext={onQuizNext}
           onClose={onElderClose}
         />
       ) : null}

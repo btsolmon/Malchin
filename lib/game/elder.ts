@@ -3,6 +3,13 @@
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
 import { ensureShulmasHelpers } from "./firstRoute";
+import {
+  clearElderQuiz,
+  getElderQuizUi,
+  isElderCultureQuizAvailable,
+  startElderCultureQuiz,
+  type ElderQuizUiState,
+} from "./elderQuiz";
 import { enterSpiritWorld } from "./spirit";
 import {
   SHOP_ITEMS,
@@ -13,6 +20,7 @@ import {
 import { dist, setMessage } from "./utils";
 import type { GameState, Vector2 } from "./types";
 import { WORLD_H, WORLD_W } from "./types";
+import type { GameIconId } from "./icons";
 
 /** Авдрын дэлгүүрийн бараа — өвгөний арилжаанд тэр чигт нь */
 export const ELDER_TRADE_LIST: ShopItem[] = SHOP_ITEMS;
@@ -293,7 +301,7 @@ export type ElderTab = "trade" | "talk";
 
 export interface ElderUiTradeRow {
   id: string;
-  icon: string;
+  icon: GameIconId;
   nameMn: string;
   desc: string;
   action: "buy" | "sell";
@@ -312,6 +320,9 @@ export interface ElderUiState {
   score: number;
   trades: ElderUiTradeRow[];
   dialogues: Array<{ id: string; title: string; heard: boolean }>;
+  /** Тоглоом дууссаны дараа «Яриа» = соёлын асуулт */
+  talkIsQuiz: boolean;
+  cultureQuiz: ElderQuizUiState | null;
   activeDialogue: {
     id: string;
     title: string;
@@ -356,14 +367,22 @@ export function nearElder(state: GameState): boolean {
   return dist(state.player.pos, e.pos) < e.radius + state.player.radius + 20;
 }
 
+/** Өвгөнийг тоглогч руу харуулна */
+export function faceElderTowardPlayer(state: GameState): void {
+  const elder = state.world.elder;
+  elder.face = state.player.pos.x < elder.pos.x ? -1 : 1;
+}
+
 export function openElder(state: GameState): void {
   state.phase = "elder";
   state.elderTab = "trade";
   state.elderDialogueId = null;
   state.elderDialogueLine = 0;
   state.elderShowingChoices = false;
+  clearElderQuiz(state);
   state.menuIndex = 0;
   state.world.elder.eyeMode = "idle";
+  faceElderTowardPlayer(state);
   sfx("select");
   setMessage(state, "Өвгөн: «За, юу авах, юу зарах вэ?»", 2.5);
 }
@@ -389,6 +408,7 @@ export function closeElder(state: GameState): void {
   state.elderDialogueId = null;
   state.elderDialogueLine = 0;
   state.elderShowingChoices = false;
+  clearElderQuiz(state);
   state.world.elder.eyeMode = "idle";
 }
 
@@ -399,11 +419,15 @@ export function setElderTab(state: GameState, tab: ElderTab): void {
     state.elderDialogueId = null;
     state.elderDialogueLine = 0;
     state.elderShowingChoices = false;
+    clearElderQuiz(state);
     if (state.world.elder.eyeMode === "spirit") {
       state.world.elder.eyeMode = "idle";
     }
+  } else if (isElderCultureQuizAvailable(state)) {
+    startElderCultureQuiz(state);
   } else {
-    // Яриа руу ороход шууд гол скрипт эхэлнэ
+    // Түүхийн үед яриа руу ороход гол скрипт эхэлнэ
+    clearElderQuiz(state);
     startElderDialogue(state, SPIRIT_GATE_DIALOGUE.id);
   }
 }
@@ -418,6 +442,7 @@ export function startElderDialogue(state: GameState, dialogueId: string): void {
   state.menuIndex = 0;
   if (d.spirit) state.world.elder.eyeMode = "spirit";
   else state.world.elder.eyeMode = "idle";
+  faceElderTowardPlayer(state);
   if (!d.storyOnly && !state.elderHeardDialogues.includes(d.id)) {
     state.elderHeardDialogues = [...state.elderHeardDialogues, d.id];
   }
@@ -735,7 +760,7 @@ export function tradeWithElder(state: GameState, itemId: string): boolean {
     return true;
   }
 
-  // Авсан эсэх — оноо буурсан эсвэл gear эзэмшсэн болсон
+  // Авсан эсэх — зоос буурсан эсвэл gear эзэмшсэн болсон
   if (item.type === "gear") {
     if (!state.player.gear[item.id] || state.score > scoreBefore) return false;
   } else if (state.score >= scoreBefore) {
@@ -790,7 +815,7 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
         have: 0,
         owned: false,
         canTrade: afford,
-        detail: `${t.price} оноо`,
+        detail: `${t.price} зоос`,
         rare: false,
       };
     }
@@ -806,7 +831,7 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
       have: 0,
       owned,
       canTrade: !owned && afford,
-      detail: owned ? "Эзэмшсэн ✓" : `${t.price} оноо`,
+      detail: owned ? "Эзэмшсэн ✓" : `${t.price} зоос`,
       rare: false,
     };
   });
@@ -827,17 +852,23 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
     }
   }
 
+  const talkIsQuiz = isElderCultureQuizAvailable(state);
+
   return {
     open: true,
     tab: state.elderTab,
     eyeMode: state.world.elder.eyeMode,
     score: state.score,
     trades,
-    dialogues: ELDER_DIALOGUES.filter((d) => !d.storyOnly).map((d) => ({
-      id: d.id,
-      title: d.title,
-      heard: state.elderHeardDialogues.includes(d.id),
-    })),
+    dialogues: talkIsQuiz
+      ? []
+      : ELDER_DIALOGUES.filter((d) => !d.storyOnly).map((d) => ({
+          id: d.id,
+          title: d.title,
+          heard: state.elderHeardDialogues.includes(d.id),
+        })),
+    talkIsQuiz,
+    cultureQuiz: talkIsQuiz ? getElderQuizUi(state) : null,
     activeDialogue,
   };
 }

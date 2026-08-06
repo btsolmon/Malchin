@@ -26,7 +26,7 @@ export function trySwitchPlayerWeapon(state: GameState): boolean {
   if (wantsStaff) {
     if (player.weapon !== "staff") {
       player.weapon = "staff";
-      setMessage(state, "Модон таягаа барилаа.", 1.4);
+      setMessage(state, "Нударгаа зангидлаа.", 1.4);
       sfx("select");
     }
     return true;

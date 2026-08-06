@@ -27,6 +27,7 @@ import {
   pastureCenter,
   pushOutOfFences,
   pushOutOfGer,
+  pushOutOfUrtz,
 } from "./utils";
 
 const PARENT_SPEED = 62;
@@ -41,6 +42,7 @@ const FATHER_ATTACK_DMG = 7;
 function collideParentWorld(state: GameState, p: ParentNpc): void {
   pushOutOfFences(p.pos, PARENT_RADIUS, state.world.fences);
   pushOutOfGer(p.pos, PARENT_RADIUS, state.world);
+  pushOutOfUrtz(p.pos, PARENT_RADIUS, state.world);
 }
 
 function makeParent(
@@ -61,6 +63,7 @@ function makeParent(
     walkPhase: Math.random() * Math.PI * 2,
     insideGer: false,
     attackCooldown: 0,
+    attackAnim: 0,
   };
 }
 
@@ -70,6 +73,7 @@ export function ensureParents(state: GameState): void {
     for (const p of [state.parents.father, state.parents.mother]) {
       if (typeof p.insideGer !== "boolean") p.insideGer = false;
       if (typeof p.attackCooldown !== "number") p.attackCooldown = 0;
+      if (typeof p.attackAnim !== "number") p.attackAnim = 0;
     }
     return;
   }
@@ -156,7 +160,7 @@ function stepTo(
     return true;
   }
 
-  const slow = d < 36 ? clamp(d / 36, 0.35, 1) : 1;
+  const slow = d < 28 ? clamp(d / 28, 0.6, 1) : 1;
   const step = Math.min(d, speed * slow * dt);
   const dir = normalize({ x: dx, y: dy });
   p.pos.x += dir.x * step;
@@ -164,7 +168,8 @@ function stepTo(
   openGateNear(state, p.pos);
   collideParentWorld(state, p);
   p.moving = true;
-  p.walkPhase += dt * (9.5 * slow);
+  // Алхааны анимэйшний хурд тогтмол — удаашрахад гацахгүй
+  p.walkPhase += dt * 10.5;
   updateFace(p, dx);
   return false;
 }
@@ -383,6 +388,7 @@ function updateFather(state: GameState, dt: number): void {
   father.taskTimer = Math.max(0, father.taskTimer - dt);
   father.workPulse = Math.max(0, father.workPulse - dt);
   father.attackCooldown = Math.max(0, father.attackCooldown - dt);
+  father.attackAnim = Math.max(0, father.attackAnim - dt);
 
   if (exitGerIfDawn(state, father)) return;
 
@@ -466,7 +472,8 @@ function updateFather(state: GameState, dt: number): void {
     }
     stepTo(state, father, father.walkTarget!, dt, PARENT_SPEED * 1.12);
     if (dist(father.pos, foe.pos) < ATTACK_RANGE && father.attackCooldown <= 0) {
-      father.workPulse = 0.35;
+      father.attackAnim = 0.28;
+      father.workPulse = 0;
       father.attackCooldown = 0.75;
       if (wolf) {
         damageWolf(state, wolf, FATHER_ATTACK_DMG);

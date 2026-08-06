@@ -1,6 +1,7 @@
 import type { Camera, Player, Vector2 } from "../types";
-import { clamp, lerp, roundRectPath } from "../utils";
+import { clamp, roundRectPath } from "../utils";
 import {
+  drawDodgeWindEffect,
   drawHorse,
   drawPlayer as drawProceduralPlayer,
   drawShadow,
@@ -295,9 +296,17 @@ export function selectPlayerSprite(
   player: Player,
   time: number,
   hurtFlash: number,
+  sprites?: PlayerSpriteSet,
 ): PlayerSpriteSelection {
   const swordEquipped =
     player.hasSkySword && player.weapon === "skySword";
+  const useSwordSheet =
+    swordEquipped &&
+    !!sprites &&
+    imageReady(sprites.swordIdle) &&
+    imageReady(sprites.swordRun) &&
+    imageReady(sprites.swordAttack);
+
   let name: PlayerSpriteSelection["name"];
   let frame: number;
 
@@ -319,23 +328,31 @@ export function selectPlayerSprite(
       parryProgress(player),
       PLAYER_ANIMATION_SPECS[name].frameCount,
     );
-  } else if (player.combatPhase !== "idle" && !player.moving) {
-    name = swordEquipped
-      ? "swordAttack"
-      : player.attackVariant === 0
-        ? "attack1"
-        : player.attackVariant === 1
-          ? "attack2"
-          : "attack3";
-    frame = frameFromProgress(
-      meleeProgress(player),
-      PLAYER_ANIMATION_SPECS[name].frameCount,
-    );
-  } else if (player.moving) {
-    name = swordEquipped ? "swordRun" : "run";
+  } else if (player.combatPhase !== "idle") {
+    if (useSwordSheet) {
+      name = "swordAttack";
+    } else if (!player.moving || player.riding) {
+      name =
+        player.attackVariant === 0
+          ? "attack1"
+          : player.attackVariant === 1
+            ? "attack2"
+            : "attack3";
+    } else {
+      name = "run";
+    }
+    frame =
+      name === "run"
+        ? frameFromTime(time, name)
+        : frameFromProgress(
+            meleeProgress(player),
+            PLAYER_ANIMATION_SPECS[name].frameCount,
+          );
+  } else if (player.moving && !player.riding) {
+    name = useSwordSheet ? "swordRun" : "run";
     frame = frameFromTime(time, name);
   } else {
-    name = swordEquipped ? "swordIdle" : "idle";
+    name = useSwordSheet ? "swordIdle" : "idle";
     frame = frameFromTime(time, name);
   }
 
@@ -421,9 +438,6 @@ function drawSelectedSprite(
 
   ctx.save();
   ctx.translate(x, y + offsetY);
-  if (player.invuln > 0 && Math.floor(time * 14) % 2 === 0) {
-    ctx.globalAlpha = 0.45;
-  }
   ctx.imageSmoothingEnabled = false;
   if (selection.flipX) ctx.scale(-1, 1);
   ctx.drawImage(
@@ -437,118 +451,6 @@ function drawSelectedSprite(
     spec.drawSize,
     spec.drawSize,
   );
-  ctx.restore();
-}
-
-function easeOutCubic(value: number): number {
-  const t = clamp(value, 0, 1);
-  return 1 - Math.pow(1 - t, 3);
-}
-
-function drawSkySwordOverlay(
-  ctx: CanvasRenderingContext2D,
-  player: Player,
-  cam: Camera,
-  time: number,
-): void {
-  if (!player.hasSkySword || player.weapon !== "skySword") return;
-
-  const ridingOffset = player.riding ? -14 : 0;
-  const x = player.pos.x - cam.x;
-  const y = player.pos.y - cam.y + ridingOffset - 8;
-  const direction =
-    player.combatPhase !== "idle" ? player.attackFacing : player.facing;
-  const angle = Math.atan2(direction.y, direction.x);
-  const pulse = 0.72 + Math.sin(time * 7) * 0.12;
-
-  let swordAngle = -0.72;
-  let gripX = -4;
-  let gripY = -4;
-  let trailAlpha = 0;
-
-  if (player.parryPhase !== "idle") {
-    swordAngle = Math.PI / 2;
-    gripX = 7;
-    gripY = -3;
-  } else if (player.combatPhase !== "idle") {
-    const progress = easeOutCubic(meleeProgress(player));
-    if (player.attackVariant === 0) {
-      swordAngle = lerp(-1.18, 0.66, progress);
-    } else if (player.attackVariant === 1) {
-      swordAngle = lerp(0.96, -0.82, progress);
-    } else {
-      swordAngle = lerp(-1.7, 0.06, progress);
-    }
-    gripX = lerp(-4, 8, progress);
-    gripY = lerp(-9, -1, progress);
-    trailAlpha =
-      player.combatPhase === "active"
-        ? 0.78
-        : player.combatPhase === "startup"
-          ? 0.22
-          : 0.16;
-  }
-
-  const length = player.attackVariant === 2 ? 43 : 39;
-  const tipX = gripX + Math.cos(swordAngle) * length;
-  const tipY = gripY + Math.sin(swordAngle) * length;
-
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  ctx.globalCompositeOperation = "lighter";
-
-  if (trailAlpha > 0) {
-    ctx.strokeStyle = `rgba(145,220,255,${trailAlpha})`;
-    ctx.lineWidth = player.attackVariant === 2 ? 6 : 4.5;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(gripX, gripY);
-    ctx.lineTo(tipX, tipY);
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle = `rgba(125,210,255,${0.26 * pulse})`;
-  ctx.lineWidth = 7;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(gripX, gripY);
-  ctx.lineTo(tipX, tipY);
-  ctx.stroke();
-
-  ctx.globalCompositeOperation = "source-over";
-  ctx.strokeStyle = "#e9fbff";
-  ctx.lineWidth = 4.2;
-  ctx.beginPath();
-  ctx.moveTo(gripX, gripY);
-  ctx.lineTo(tipX, tipY);
-  ctx.stroke();
-
-  ctx.strokeStyle = "#75bddd";
-  ctx.lineWidth = 1.7;
-  ctx.beginPath();
-  ctx.moveTo(gripX + 1, gripY);
-  ctx.lineTo(tipX + 1, tipY);
-  ctx.stroke();
-
-  const sideX = -Math.sin(swordAngle);
-  const sideY = Math.cos(swordAngle);
-  ctx.strokeStyle = "#d7b86a";
-  ctx.lineWidth = 4.5;
-  ctx.beginPath();
-  ctx.moveTo(gripX - sideX * 7, gripY - sideY * 7);
-  ctx.lineTo(gripX + sideX * 7, gripY + sideY * 7);
-  ctx.stroke();
-
-  ctx.strokeStyle = "#704832";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(gripX, gripY);
-  ctx.lineTo(
-    gripX - Math.cos(swordAngle) * 10,
-    gripY - Math.sin(swordAngle) * 10,
-  );
-  ctx.stroke();
   ctx.restore();
 }
 
@@ -575,25 +477,43 @@ export function drawPlayerWithSprites(
   }
 
   const selection = sprites
-    ? selectPlayerSprite(player, time, hurtFlash)
+    ? selectPlayerSprite(player, time, hurtFlash, sprites)
     : null;
   const rangedAttackActive =
     player.attackAnim > 0 && !player.attackMelee;
-  // Алхаж цохих үед procedural — хөл алхаж, гар цохино
+  const swordEquipped =
+    player.hasSkySword && player.weapon === "skySword";
+  const integratedSwordSheet =
+    !!selection &&
+    (selection.name === "swordIdle" ||
+      selection.name === "swordRun" ||
+      selection.name === "swordAttack");
+  // Алхаж цохих — зөвхөн нударга
   const walkPunching =
+    !swordEquipped &&
     player.attackMelee &&
     player.combatPhase !== "idle" &&
     player.moving;
+  // Сэлэмтэй боловч sword sheet байхгүй → procedural (гарт зурна)
+  const forceProceduralSword =
+    swordEquipped &&
+    !!selection &&
+    !integratedSwordSheet &&
+    (selection.name === "idle" ||
+      selection.name === "run" ||
+      selection.name === "attack1" ||
+      selection.name === "attack2" ||
+      selection.name === "attack3");
 
   if (
     !sprites ||
     !selection ||
     !imageReady(sprites[selection.name]) ||
     rangedAttackActive ||
-    walkPunching
+    walkPunching ||
+    forceProceduralSword
   ) {
     drawProceduralPlayer(ctx, player, cam, time, gerPacked);
-    drawSkySwordOverlay(ctx, player, cam, time);
     return false;
   }
 
@@ -606,12 +526,12 @@ export function drawPlayerWithSprites(
     selection,
     gerPacked,
   );
-  const integratedSwordSprite =
-    selection.name === "swordIdle" ||
-    selection.name === "swordRun" ||
-    selection.name === "swordAttack";
-  if (!integratedSwordSprite) {
-    drawSkySwordOverlay(ctx, player, cam, time);
+  if (player.dodgePhase === "dodging" || player.dodgePhase === "recovery") {
+    drawDodgeWindEffect(ctx, player, cam, time);
+  }
+  // swordIdle/Run/Attack sheet дээр сэлэм аль хэдийн шингэсэн — overlay хэрэггүй
+  if (swordEquipped && selection.name === "swordAttack") {
+    drawPlayerSwordAttackEffect(ctx, player, cam, sprites);
   }
   return true;
 }

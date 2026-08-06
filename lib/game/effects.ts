@@ -195,9 +195,13 @@ export function updateEffects(state: GameState, dt: number): void {
   fx.shake = Math.max(0, fx.shake - dt * 14);
   fx.hurtFlash = Math.max(0, fx.hurtFlash - dt * 2.2);
 
-  // Галын оч
+  // Галын оч — зөвхөн гаднах гал байрлуулсан үед
   const fire = state.world.campfire;
-  if (fire.lit || fire.igniting > 0) {
+  if (
+    fire.placed &&
+    !state.parentsReturned &&
+    (fire.lit || fire.igniting > 0)
+  ) {
     fx.emberAcc += dt;
     const interval = fire.igniting > 0 ? 0.05 : 0.08;
     while (fx.emberAcc > interval) {

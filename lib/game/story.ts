@@ -24,6 +24,7 @@ import {
   ensureShulmasHelpers,
   tryInteractFirstRoute,
 } from "./firstRoute";
+import { ensureParents } from "./parents";
 import { enterSpiritWorld, exitSpiritWorld } from "./spirit";
 import {
   clamp,
@@ -33,6 +34,7 @@ import {
   penCenter,
   PEN_RADIUS,
   pushOutOfGer,
+  pushOutOfUrtz,
   roundRectPath,
   setMessage,
 } from "./utils";
@@ -1240,7 +1242,7 @@ function openingLivestockSpotIsClear(
     pos.y > world.height - 60 ||
     isInRiver(pos, 36) ||
     pos.x >= world.firstRoute.startX - 100 ||
-    dist(pos, world.campPos) < 92 ||
+    dist(pos, world.campPos) < 520 ||
     dist(pos, world.campfire.pos) < world.campfire.radius + 24 ||
     dist(pos, world.feeder.pos) < world.feeder.radius + 24 ||
     dist(pos, penCenter(world)) < PEN_RADIUS + 36 ||
@@ -1362,38 +1364,20 @@ export function initializeOpeningLivestock(state: GameState): void {
 
   const anchors: OpeningLivestockAnchor[] = [];
   const camp = state.world.campPos;
-  const bankY = camp.y - 120;
-  const bankX = Math.min(
-    riverCenterX(bankY) - riverHalfWidth(bankY) - 135,
-    state.world.firstRoute.startX - 150,
-  );
-  const farY = camp.y - 335;
-  const farX = Math.min(
-    riverCenterX(farY) - riverHalfWidth(farY) - 165,
-    state.world.firstRoute.startX - 150,
-  );
-  let sheepSeen = 0;
-  let goatsSeen = 0;
   let otherSeen = 0;
 
   for (const animal of state.world.flock.visuals) {
+    // Эхлэлийн дэлгэцээс хол — хайж олох ёстой
     let preferred: Vector2;
     if (animal.kind === "sheep") {
-      preferred =
-        sheepSeen++ === 0
-          ? { x: camp.x + 135, y: camp.y - 90 }
-          : { x: bankX, y: bankY };
+      preferred = { x: camp.x - 720, y: camp.y - 380 };
     } else if (animal.kind === "goat") {
-      if (goatsSeen++ === 0) {
-        preferred =
-          findOpeningVegetationSpot(state, anchors) ??
-          { x: camp.x + 330, y: camp.y - 170 };
-      } else {
-        preferred = { x: farX, y: farY };
-      }
+      preferred = { x: camp.x + 780, y: camp.y - 420 };
+    } else if (animal.kind === "cattle") {
+      preferred = { x: camp.x - 640, y: camp.y + 520 };
     } else {
       const angle = -0.8 + otherSeen * 0.55;
-      const radius = 300 + otherSeen++ * 70;
+      const radius = 700 + otherSeen++ * 90;
       preferred = {
         x: camp.x + Math.cos(angle) * radius,
         y: camp.y + Math.sin(angle) * radius,
@@ -1977,6 +1961,7 @@ function walkOldManIntoCutscene(state: GameState, dt: number): void {
   elder.pos.x += (dx / distance) * step;
   elder.pos.y += (dy / distance) * step;
   pushOutOfGer(elder.pos, elder.radius * 0.45, state.world);
+  pushOutOfUrtz(elder.pos, elder.radius * 0.45, state.world);
   elder.pose = "walking";
   elder.face = dx < 0 ? -1 : 1;
   elder.walkPhase += Math.max(0, dt) * 6.5;
@@ -2451,6 +2436,10 @@ export function updateMilestone8(state: GameState, dt: number): void {
     story.familyReunionEffectShown = true;
     story.familyReunionEffectRemaining = FAMILY_REUNION_EFFECT_DURATION;
     story.activeMainObjective = null;
+    // Гэрийн урд гаднах галыг унтрааж нууна — голомт гэртээ
+    state.world.campfire.placed = false;
+    state.world.campfire.lit = false;
+    state.world.campfire.igniting = 0;
     state.fx.shake = Math.max(state.fx.shake, 3.5);
     spawnParticles(state, state.world.campPos, 34, "#f2cf7a", {
       speed: 82,
@@ -2846,6 +2835,188 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
   }
 
   setMessage(state, "Энэ төлөвт алгасах story үе алга.", 2.5);
+}
+
+/**
+ * Cheat (`'`): Төмөр шулмасыг дийлээд аав ээжтэй амьдрах үе рүү шууд шилжинэ.
+ */
+export function debugJumpToFamilyLife(state: GameState): void {
+  ensureStoryState(state);
+  const story = state.story;
+
+  if (state.phase === "menu") {
+    beginOpeningSequence(state);
+  }
+  if (state.phase === "intro" || !story.introCompleted) {
+    finishOpeningSequence(state);
+  }
+
+  // —— Эртний quest-үүдийг дуусгана ——
+  story.introCompleted = true;
+  story.hearthQuestStarted = true;
+  story.hearthWoodCollected = CAMPFIRE_WOOD_COST;
+  story.campfireRelit = true;
+  story.hearthQuestCompleted = true;
+  story.hearthCompletionEffectShown = true;
+  story.hearthCompletionEffectRemaining = 0;
+  // Гаднах гал нууна — гэрийн зуух л үлдэнэ
+  state.world.campfire.placed = false;
+  state.world.campfire.lit = false;
+  state.world.campfire.igniting = 0;
+  state.world.campfire.fuel = 0;
+  state.gerStoveLit = true;
+  state.gerStoveFuel = Math.max(state.gerStoveFuel, 40);
+
+  ensureOpeningLivestockRoster(state);
+  const livestockIds = [...story.openingLivestockIds];
+  story.livestockQuestStarted = true;
+  story.livestockNarrationShown = true;
+  story.livestockFoundIds = [...livestockIds];
+  story.livestockReturnedIds = [...livestockIds];
+  story.livestockQuestCompleted = true;
+  story.livestockCompletionEffectShown = true;
+  story.livestockCompletionEffectRemaining = 0;
+  story.firstDayTimeAccelerationStarted = true;
+  story.firstDayEveningHoldActive = false;
+  story.firstNightSunsetStarted = true;
+  story.firstNightNormalTimeRestored = true;
+  story.firstNightNarrationShown = true;
+  story.firstNightWolfWarningShown = true;
+  story.wolfThreatQuestStarted = true;
+  story.firstNightStage = "completed";
+  story.firstNightStageRemaining = 0;
+  story.temporaryPlayerProtectionActive = false;
+  story.temporaryLivestockProtectionActive = false;
+  story.oldManArrivalStarted = true;
+  story.oldManArrived = true;
+  story.shortDialogueStarted = true;
+  story.shortDialogueCompleted = true;
+  story.milestone3Completed = true;
+  story.milestone4Started = true;
+  story.milestone4Completed = true;
+  story.storyWolfDefeated = true;
+  story.storyWolfParryCompleted = true;
+  story.storyWolfCounterCompleted = true;
+  story.storyWolfOpeningActive = false;
+  story.nightCompletionEffectShown = true;
+  story.nightCompletionEffectRemaining = 0;
+  story.milestone5Started = true;
+  story.milestone5DialogueCompleted = true;
+  story.milestone6Started = true;
+  story.milestone6DialogueCompleted = true;
+  story.milestone7Started = true;
+  story.stormTraceInspected = true;
+  story.stormTraceDialogueCompleted = true;
+  story.stormTraceEffectRemaining = 0;
+  story.spiritPathOpened = true;
+
+  const pen = penCenter(state.world);
+  const animals = state.world.flock.visuals.filter((animal) =>
+    livestockIds.includes(animal.id),
+  );
+  animals.forEach((animal, index) => {
+    const angle = (index / Math.max(1, animals.length)) * Math.PI * 2;
+    const radius = 26 + (index % 2) * 12;
+    animal.pos.x = pen.x + Math.cos(angle) * radius;
+    animal.pos.y = pen.y + Math.sin(angle) * radius;
+    animal.vel.x = 0;
+    animal.vel.y = 0;
+  });
+  state.world.flockOut = false;
+
+  // Story чоныг арилгана
+  for (const wolf of state.world.wolves) {
+    if (story.storyWolfId !== null && wolf.id === story.storyWolfId) {
+      wolf.hp = 0;
+      wolf.alive = false;
+      wolf.vel.x = 0;
+      wolf.vel.y = 0;
+    }
+  }
+
+  // —— Эхний зам / шулмас ——
+  const route = state.world.firstRoute;
+  for (const enemy of route.enemies) {
+    enemy.hp = 0;
+    enemy.alive = false;
+    enemy.vel = { x: 0, y: 0 };
+  }
+  route.defeated = route.total;
+  route.complete = true;
+  route.bossDefeated = true;
+  route.bossStarted = true;
+  route.bolts = [];
+  route.swordDrop.visible = false;
+  route.swordDrop.collected = true;
+
+  const tumur = state.world.tumurShulmas;
+  tumur.unlocked = true;
+  tumur.hp = 0;
+  tumur.defeated = true;
+  tumur.active = false;
+  tumur.phase = "sealed";
+  tumur.phaseTimer = 0;
+  tumur.needles = [];
+  tumur.flash = 0;
+
+  state.player.hasSkySword = true;
+  state.player.weapon = "skySword";
+  state.player.hp = state.player.maxHp;
+  state.player.hunger = Math.max(state.player.hunger, 70);
+  state.player.warmth = Math.max(state.player.warmth, 70);
+
+  // Сүнсний орноос гаргана
+  if (state.spiritSavedWolves) {
+    state.world.wolves = state.spiritSavedWolves;
+    state.spiritSavedWolves = null;
+  }
+  if (state.spiritSavedThieves) {
+    state.world.thieves = state.spiritSavedThieves;
+    state.spiritSavedThieves = null;
+  }
+  state.spiritReturnPos = null;
+  state.spiritCleared = false;
+  state.spiritMode = "purge";
+  state.spiritTransition = 0;
+  state.world.elder.eyeMode = "idle";
+  state.world.elder.pose = "seated";
+  state.world.elder.pos = {
+    x: state.world.elder.gerPos.x - 36,
+    y: state.world.elder.gerPos.y + 18,
+  };
+
+  // —— Аав ээжтэй амьдрах үе ——
+  ensureParents(state);
+  state.player.pos = {
+    x: state.world.campPos.x + 28,
+    y: state.world.campPos.y + 55,
+  };
+  state.phase = "playing";
+  state.shopOpen = false;
+  state.craftOpen = false;
+  state.gerArtZoom = null;
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+
+  story.milestone7Completed = true;
+  story.milestone8Started = true;
+  story.familyReunionEffectShown = true;
+  story.familyReunionEffectRemaining = 0;
+  story.familyReunionDialogueStarted = true;
+  story.familyReunionDialogueCompleted = true;
+  story.milestone8Completed = true;
+  story.activeMainObjective = "growFlock";
+
+  state.fx.shake = Math.max(state.fx.shake, 2.5);
+  spawnParticles(state, state.world.campPos, 28, "#f2cf7a", {
+    speed: 70,
+    life: 1.4,
+    size: 2.4,
+    gravity: -14,
+  });
+  sfx("win");
+  setMessage(state, "CHEAT: Шулмасыг дийлээд аав ээжтэй амьдрах үе эхэллээ.", 3.2);
 }
 
 export function updateLivestockRecoveryQuest(

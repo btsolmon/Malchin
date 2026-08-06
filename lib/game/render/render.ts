@@ -38,7 +38,6 @@ import {
   drawTumurShulmasTelegraphs,
   type TumurShulmasSpriteSet,
 } from "../tumurShulmas";
-import { nearestRiddleHost, spotKindLabel } from "../riddles";
 import { nearElder } from "../elder";
 import { drawSpiritOverlay } from "../spirit";
 import {
@@ -546,7 +545,8 @@ export function render(
       });
     }
   }
-  if (world.campfire.placed) {
+  // Аав ээжтэй амьдрах үед гэрийн урд гаднах гал харагдахгүй
+  if (world.campfire.placed && !state.parentsReturned) {
     addDrawable("campfire", {
       y: world.campfire.pos.y,
       key: -1,
@@ -693,7 +693,7 @@ export function render(
       draw: () => drawDog(ctx, dog, cam, time),
     });
   }
-  // Морьны уяа — гэрийн зүүн (зүүн зүг / +X) талд
+  // Морьны уяа — гэрийн баруун (+X), хашааны эсрэг тал
   if (
     !world.gerPacked &&
     state.player.gear.horse &&
@@ -994,9 +994,7 @@ export function render(
       ctx.lineWidth = 3;
       const tip = state.player.riding
         ? "H — морьноос буух"
-        : world.mountHorse?.tied
-          ? "H — морь унах"
-          : "H — морь унах · гэрийн дэргэд уягдана";
+        : "H — морь унах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);
@@ -1019,6 +1017,8 @@ export function render(
     } else if (
       nearElder(state) &&
       (!state.story.activeMainObjective ||
+        state.story.activeMainObjective === "growFlock" ||
+        state.story.milestone8Completed ||
         state.story.activeMainObjective === "talkToOldMan" ||
         state.story.activeMainObjective === "visitOldManAtDawn" ||
         state.story.activeMainObjective === "returnToOldManWithTrace")
@@ -1044,24 +1044,6 @@ export function render(
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else {
-      const nearRiddle = nearestRiddleHost(
-        state.player.pos,
-        world,
-        state.player.radius + 28,
-      );
-      if (nearRiddle && !nearRiddle.solved) {
-        const tx = nearRiddle.pos.x - cam.x;
-        const ty = nearRiddle.pos.y - 28 - cam.y;
-        ctx.textAlign = "center";
-        ctx.font = "600 11px system-ui, sans-serif";
-        ctx.strokeStyle = "rgba(0,0,0,0.7)";
-        ctx.lineWidth = 3;
-        const tip = `E — ${spotKindLabel(nearRiddle.kind)} · асуулт`;
-        ctx.strokeText(tip, tx, ty);
-        ctx.fillStyle = "#ffe9a8";
-        ctx.fillText(tip, tx, ty);
-        ctx.textAlign = "left";
-      } else {
         const bush = nearestBerryBush(state.player, world.bushes);
         const stone = nearestGatherableStone(state.player, world.stones);
         const tree = nearestAliveTree(state.player, world.trees);
@@ -1138,7 +1120,6 @@ export function render(
           ctx.fillText(tip, tx, ty);
           ctx.textAlign = "left";
         }
-      }
     }
   }
   if (state.phase === "playing") {

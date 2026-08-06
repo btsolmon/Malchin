@@ -108,9 +108,9 @@ export default function ElderDialogueModal({
       aria-modal="true"
       aria-label={`${speakerName} — яриа`}
     >
-      {/* Portraits — fixed band; dialogue өндөр өөрчлөгдөхөд хөдлөхгүй */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-[40%] flex items-end justify-between px-4 pb-2 md:px-8">
-        <div className="mx-auto flex w-full max-w-5xl items-end justify-between">
+      {/* Portraits — бүтэн бие (гутал / хивс) харагдах өндөр·өргөн */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-[38%] flex items-end justify-between px-3 pb-1 md:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-end justify-between gap-4">
           <div
             className={`transform transition-all duration-300 ${
               isBoySpeaking
@@ -118,7 +118,7 @@ export default function ElderDialogueModal({
                 : "opacity-60 grayscale-30"
             }`}
           >
-            <div className="relative h-48 w-36 md:h-64 md:w-48">
+            <div className="relative h-56 w-40 sm:h-64 sm:w-48 md:h-80 md:w-56">
               <DialoguePortrait kind="boy" />
             </div>
           </div>
@@ -130,7 +130,7 @@ export default function ElderDialogueModal({
                 : "opacity-60 grayscale-30"
             }`}
           >
-            <div className="relative h-48 w-36 md:h-64 md:w-48">
+            <div className="relative h-56 w-44 sm:h-64 sm:w-52 md:h-80 md:w-64">
               <DialoguePortrait kind={otherPortraitKind} eyeMode="idle" />
             </div>
           </div>

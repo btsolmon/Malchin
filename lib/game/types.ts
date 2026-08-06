@@ -1,5 +1,7 @@
 // Хүн 1 (дундын суурь) — бүх төрөл, интерфэйс, тогтмолууд
 
+import type { GameIconId } from "./icons";
+
 export type WeatherKind = "clear" | "wind" | "storm" | "snow";
 export type Season = "summer" | "autumn" | "winter" | "spring";
 export type DayPhase = "dawn" | "day" | "evening" | "night";
@@ -47,12 +49,12 @@ export const LIVESTOCK_MN: Record<LivestockKind, string> = {
   camel: "тэмээ",
 };
 
-export const LIVESTOCK_EMOJI: Record<LivestockKind, string> = {
-  sheep: "🐑",
-  goat: "🐐",
-  cattle: "🐄",
-  horse: "🐴",
-  camel: "🐪",
+export const LIVESTOCK_ICON: Record<LivestockKind, GameIconId> = {
+  sheep: "sheep",
+  goat: "goat",
+  cattle: "cattle",
+  horse: "horseHerd",
+  camel: "camel",
 };
 
 export interface Vector2 {
@@ -318,6 +320,8 @@ export interface ParentNpc {
   insideGer: boolean;
   /** Тулааны цохилтын хүлээлт */
   attackCooldown: number;
+  /** Цохилтын анимейшн үлдсэн хугацаа */
+  attackAnim: number;
 }
 
 /** Хуучин нэр — нийцүүлэлт */
@@ -612,6 +616,8 @@ export interface World {
   tumurShulmas: TumurShulmasEncounter;
   season: Season;
   weather: WeatherKind;
+  /** Борооны дараа газрын чийг — шалбааг харагдах (0–1) */
+  groundWetness: number;
   timeOfDay: number;
   dayNumber: number;
   elapsed: number;
@@ -901,6 +907,8 @@ export interface GameState {
   shopOpen: boolean;
   /** Гэр доторх урлал (зүүн авдар / тахил) нээлттэй эсэх */
   craftOpen: boolean;
+  /** Гэрийн ханын зураг томруулж харах */
+  gerArtZoom: "horse" | "family" | "tara" | null;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */
   gerPlayer: Vector2;
   /** Орон дээр унтаж байгаа үлдсэн хугацаа (сек). 0 = унтаагүй */
@@ -934,7 +942,7 @@ export interface GameState {
   riddleFeedback: "idle" | "wrong" | "correct";
   /** Сүүлд сонгосон хариултын индекс (UI highlight) */
   riddleSelectedIndex: number | null;
-  /** Сүүлчийн онооны өөрчлөлт (шагнал/торгууль) */
+  /** Сүүлчийн зоосны өөрчлөлт (шагнал/торгууль) */
   riddleLastDelta: number;
   /** Сүнс = нэмэлт амь (хуучин арилжааны урамшуулал; одоо олгохгүй) */
   spiritPoints: number;
@@ -943,6 +951,14 @@ export interface GameState {
   elderDialogueLine: number;
   elderShowingChoices: boolean;
   elderHeardDialogues: string[];
+  /** Тоглоом дууссаны дараах өвгөний соёлын асуулт */
+  elderQuizId: string | null;
+  elderQuizOptions: string[];
+  elderQuizCorrectIndex: number;
+  elderQuizFeedback: "idle" | "correct" | "wrong";
+  elderQuizSelectedIndex: number | null;
+  elderQuizRewardLabel: string;
+  elderQuizAskedIds: string[];
   /** Сүнсний ертөнцийн шилжилтийн манан (сек) */
   spiritTransition: number;
   spiritReturnPos: Vector2 | null;
@@ -972,8 +988,9 @@ export const VIEW_H = 540;
 /** Томруулсан газрын хэмжээ (~1.5×) — бүс нутгийн биомтой */
 export const WORLD_W = 3600;
 export const WORLD_H = 2400;
-export const START_SHEEP = 2;
-export const START_GOATS = 2;
+export const START_SHEEP = 1;
+export const START_GOATS = 1;
+export const START_CATTLE = 1;
 export const MAX_VISUAL_SHEEP = 1000;
 export const MAX_FEEDER_HAY = 80;
 /** Малын бүтээгдэхүүн гарах хугацаа (сек) */

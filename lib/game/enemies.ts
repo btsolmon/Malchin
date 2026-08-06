@@ -26,6 +26,7 @@ import {
   pastureFenceDefense,
   pushOutOfFences,
   pushOutOfGer,
+  pushOutOfUrtz,
   randRange,
   setMessage,
 } from "./utils";
@@ -496,6 +497,7 @@ export function updateFlock(state: GameState, dt: number): void {
       sheep.pos.y += sheep.vel.y * dt * inv;
       pushOutOfFences(sheep.pos, sheep.radius, world.fences);
       pushOutOfGer(sheep.pos, sheep.radius, world);
+      pushOutOfUrtz(sheep.pos, sheep.radius, world);
     }
     sheep.pos.x = clamp(sheep.pos.x, 30, WORLD_W - 30);
     sheep.pos.y = clamp(sheep.pos.y, 30, WORLD_H - 30);
@@ -604,6 +606,7 @@ function collideEntityWithFences(
   }
   state.world.fences = fences.filter((f) => f.hp > 0);
   pushOutOfGer(pos, radius, state.world);
+  pushOutOfUrtz(pos, radius, state.world);
   return { contactDps, knockback, hitTier };
 }
 

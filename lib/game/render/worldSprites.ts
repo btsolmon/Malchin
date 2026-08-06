@@ -333,16 +333,11 @@ function distanceSquared(ax: number, ay: number, bx: number, by: number): number
 }
 
 function puddleStrength(world: World): number {
-  if (world.season === "winter" || world.season === "summer") return 0;
-  const cycle = 55;
-  const phase = ((world.elapsed % cycle) + cycle) % cycle;
-  if (world.weather === "storm") {
-    return Math.min(1, 0.2 + Math.max(0, phase - 40) / 8);
-  }
-  if (world.elapsed >= cycle && phase < 24) {
-    return Math.max(0, 1 - phase / 24);
-  }
-  return 0;
+  if (world.season === "winter") return 0;
+  // Борооны үед нэмэгдэж, дараа нь удаан хатна
+  const wet = world.groundWetness ?? 0;
+  if (wet <= 0.02) return 0;
+  return Math.min(1, wet);
 }
 
 function puddlePositionAllowed(world: World, x: number, y: number): boolean {
@@ -552,9 +547,9 @@ export function drawSpriteGround(
             ctx.ellipse(screenX, screenY + 2, puddle.width * 0.58, puddle.width * 0.22, 0, 0, Math.PI * 2);
             ctx.fill();
           }
-          ctx.globalAlpha = (0.32 + wetness * 0.46) * wetness;
+          ctx.globalAlpha = (0.38 + wetness * 0.52) * Math.min(1, wetness * 1.15);
           drawFlatCrop(ctx, sprites.structuralDetails, asset, screenX, screenY, puddle.width);
-          if (world.weather === "storm") {
+          if (world.weather === "storm" || wetness > 0.55) {
             const ripple = (world.elapsed * 0.9 + puddle.rippleSeed) % 1;
             ctx.globalAlpha = (1 - ripple) * 0.2 * wetness;
             ctx.strokeStyle = "#b5d2d2";

@@ -40,10 +40,14 @@ export function drawLighting(
   if (a <= 0.02) return;
 
   const fire = state.world.campfire;
+  const outdoorFire =
+    fire.placed &&
+    !state.parentsReturned &&
+    (fire.lit || fire.igniting > 0);
 
-  if (a < 0.3 || !fire.lit) {
+  if (a < 0.3 || !outdoorFire) {
     // Энгийн тинт (гэрлийн нүх шаардлагагүй үед мөн адил, гэхдээ галтай бол нүхлэх)
-    if (!fire.lit && fire.igniting <= 0) {
+    if (!outdoorFire) {
       ctx.fillStyle = `rgba(${r | 0},${g | 0},${b | 0},${a})`;
       ctx.fillRect(0, 0, VIEW_W, VIEW_H);
       return;
@@ -57,7 +61,7 @@ export function drawLighting(
 
   lc.globalCompositeOperation = "destination-out";
 
-  if (fire.lit || fire.igniting > 0) {
+  if (outdoorFire) {
     const fx = fire.pos.x - cam.x;
     const fy = fire.pos.y - cam.y;
     const igniteP =

@@ -7,16 +7,20 @@ import {
   overButton,
   SHOP_ITEMS,
 } from "../ui";
+import { drawGameIcon } from "../icons";
 import { roundRectPath } from "../utils";
-import { drawHerderHairBack, drawHerderHairFront, drawParentNpc } from "./entities";
+import { drawParentNpc, drawPlayer } from "./entities";
 import {
   drawPlayerWithSprites,
   type PlayerSpriteSet,
 } from "./playerSprites";
 
+const GER_SLEEP_DURATION = 5;
+
 const GER_ART_SRC = {
   horse: "/assets/ger/horse-painting.png",
   tara: "/assets/ger/white-tara.png",
+  family: "/assets/ger/family-portrait.png",
 } as const;
 
 type GerArtKind = keyof typeof GER_ART_SRC;
@@ -45,63 +49,24 @@ export function drawSleepingHerder(
   const cy = bed.y + bed.h * 0.52;
   // Зүүн ор — толгой зүүн (дэр), баруун ор — толгой баруун
   const headLeft = left;
-  const breath = Math.sin(time * 2.2) * 1.2;
+  const breath = Math.sin(time * 2.2) * 0.6;
+
+  const sleeper: Player = {
+    ...state.player,
+    pos: { x: 0, y: breath * 0.15 },
+    facing: { x: 1, y: 0 },
+    moving: false,
+    riding: false,
+    invuln: 0,
+    attackAnim: 0,
+    attackMelee: false,
+  };
 
   ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(scale * 0.88, scale * 0.88);
+  ctx.translate(cx, cy + 4);
+  ctx.scale(scale * 0.92, scale * 0.92);
   ctx.rotate(headLeft ? -Math.PI / 2 : Math.PI / 2);
-
-  // Хөл
-  ctx.strokeStyle = "#2a2a30";
-  ctx.lineWidth = 3.2;
-  ctx.beginPath();
-  ctx.moveTo(-3.5, 3);
-  ctx.lineTo(-3.5, 11);
-  ctx.moveTo(3.5, 3);
-  ctx.lineTo(3.5, 11);
-  ctx.stroke();
-
-  // Дээл
-  const deel = ctx.createLinearGradient(-8, -10, 8, 6);
-  deel.addColorStop(0, "#3a62a0");
-  deel.addColorStop(1, "#24457a");
-  ctx.fillStyle = deel;
-  ctx.beginPath();
-  ctx.ellipse(0, -1 + breath * 0.15, 9.5, 10.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#e8c56a";
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(1, -10);
-  ctx.quadraticCurveTo(7, -5, 5, 1);
-  ctx.stroke();
-  ctx.strokeStyle = "#d88a2a";
-  ctx.lineWidth = 2.8;
-  ctx.beginPath();
-  ctx.moveTo(-9, 1);
-  ctx.lineTo(9, 1);
-  ctx.stroke();
-
-  // Толгой
-  const hy = -14 + breath * 0.1;
-  drawHerderHairBack(ctx, 0, hy, 1, time);
-  ctx.fillStyle = "#e0b890";
-  ctx.beginPath();
-  ctx.arc(0, hy, 6, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "#2a2018";
-  ctx.lineWidth = 1.1;
-  ctx.beginPath();
-  ctx.moveTo(-3.2, hy - 0.5);
-  ctx.quadraticCurveTo(-2, hy + 0.8, -0.6, hy - 0.5);
-  ctx.moveTo(0.6, hy - 0.5);
-  ctx.quadraticCurveTo(2, hy + 0.8, 3.2, hy - 0.5);
-  ctx.stroke();
-
-  drawHerderHairFront(ctx, 0, hy, 1);
-
+  drawPlayer(ctx, sleeper, { x: 0, y: 0 }, time, false, 0, true);
   ctx.restore();
 
   for (let i = 0; i < 3; i++) {
@@ -116,6 +81,69 @@ export function drawSleepingHerder(
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = "left";
+}
+
+/** Унтах үед нүдний хэлбэрээр аажмаар хаагдаж харанхуй болно */
+function drawSleepEyelids(ctx: CanvasRenderingContext2D, progress: number): void {
+  // 0–0.32 хаагдана · 0.32–0.72 харанхуй · 0.72–1 нээгдэнэ
+  let close = 0;
+  if (progress < 0.32) close = progress / 0.32;
+  else if (progress < 0.72) close = 1;
+  else close = Math.max(0, 1 - (progress - 0.72) / 0.28);
+
+  // Зөөлөн ease
+  close = close * close * (3 - 2 * close);
+  if (close <= 0.005) return;
+
+  const mid = VIEW_H * 0.5;
+  const cover = mid * close;
+  const curve = 22 * close;
+  const lid = "#0a070c";
+
+  // Дээд зовхи
+  ctx.fillStyle = lid;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(VIEW_W, 0);
+  ctx.lineTo(VIEW_W, cover);
+  ctx.quadraticCurveTo(VIEW_W * 0.5, cover + curve, 0, cover);
+  ctx.closePath();
+  ctx.fill();
+
+  // Доод зовхи
+  ctx.beginPath();
+  ctx.moveTo(0, VIEW_H);
+  ctx.lineTo(VIEW_W, VIEW_H);
+  ctx.lineTo(VIEW_W, VIEW_H - cover);
+  ctx.quadraticCurveTo(VIEW_W * 0.5, VIEW_H - cover - curve, 0, VIEW_H - cover);
+  ctx.closePath();
+  ctx.fill();
+
+  // Бараг хаагдсан үед төв завсрыг бүрэн бүрхэнэ
+  if (close > 0.88) {
+    const a = Math.min(1, (close - 0.88) / 0.12);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = lid;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    ctx.globalAlpha = 1;
+  }
+
+  // Зовхины ирмэг — нүдний хэлбэр
+  if (close > 0.08 && close < 0.95) {
+    ctx.strokeStyle = `rgba(40,28,36,${0.55 * Math.min(1, close * 1.4)})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, cover);
+    ctx.quadraticCurveTo(VIEW_W * 0.5, cover + curve * 0.85, VIEW_W, cover);
+    ctx.moveTo(0, VIEW_H - cover);
+    ctx.quadraticCurveTo(
+      VIEW_W * 0.5,
+      VIEW_H - cover - curve * 0.85,
+      VIEW_W,
+      VIEW_H - cover,
+    );
+    ctx.stroke();
+  }
 }
 
 /** Уламжлалт будсан авдар — улаан бие, булангийн хээ, төв медальон, түгжээ */
@@ -921,12 +949,13 @@ function drawGerHorsePainting(
   fy: number,
   fw: number,
   fh: number,
+  hover = false,
 ): void {
   ctx.fillStyle = "#5a3418";
   roundRectPath(ctx, fx - 4, fy - 4, fw + 8, fh + 8, 3);
   ctx.fill();
-  ctx.strokeStyle = "#d8a040";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = hover ? "#ffe080" : "#d8a040";
+  ctx.lineWidth = hover ? 3 : 2;
   roundRectPath(ctx, fx - 4, fy - 4, fw + 8, fh + 8, 3);
   ctx.stroke();
 
@@ -961,19 +990,20 @@ function drawGerHorsePainting(
   ctx.restore();
 }
 
-/** Хойморын хана — хүү, аав, ээжийн хамт зураг */
+/** Хойморын хана — гэр бүлийн зураг */
 function drawFamilyPortrait(
   ctx: CanvasRenderingContext2D,
   fx: number,
   fy: number,
   fw: number,
   fh: number,
+  hover = false,
 ): void {
   ctx.fillStyle = "#4a2a10";
   roundRectPath(ctx, fx - 5, fy - 5, fw + 10, fh + 10, 3);
   ctx.fill();
-  ctx.strokeStyle = "#e8c56a";
-  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = hover ? "#ffe080" : "#e8c56a";
+  ctx.lineWidth = hover ? 3.2 : 2.2;
   roundRectPath(ctx, fx - 5, fy - 5, fw + 10, fh + 10, 3);
   ctx.stroke();
 
@@ -981,69 +1011,90 @@ function drawFamilyPortrait(
   roundRectPath(ctx, fx, fy, fw, fh, 2);
   ctx.clip();
 
-  const bg = ctx.createLinearGradient(fx, fy, fx, fy + fh);
-  bg.addColorStop(0, "#6a8aa0");
-  bg.addColorStop(0.55, "#c8b898");
-  bg.addColorStop(1, "#a89070");
-  ctx.fillStyle = bg;
-  ctx.fillRect(fx, fy, fw, fh);
+  const img = gerArt("family");
+  if (img) {
+    const ir = img.naturalWidth / img.naturalHeight;
+    const fr = fw / fh;
+    let dw = fw;
+    let dh = fh;
+    let dx = fx;
+    let dy = fy;
+    if (ir > fr) {
+      dw = fh * ir;
+      dx = fx + (fw - dw) / 2;
+    } else {
+      dh = fw / ir;
+      dy = fy + (fh - dh) / 2;
+    }
+    ctx.drawImage(img, dx, dy, dw, dh);
+  } else {
+    const bg = ctx.createLinearGradient(fx, fy, fx, fy + fh);
+    bg.addColorStop(0, "#6a8aa0");
+    bg.addColorStop(0.55, "#c8b898");
+    bg.addColorStop(1, "#a89070");
+    ctx.fillStyle = bg;
+    ctx.fillRect(fx, fy, fw, fh);
+  }
+  ctx.restore();
+}
 
-  const midX = fx + fw / 2;
-  const baseY = fy + fh * 0.72;
-  const scale = Math.min(fw, fh) / 70;
+/** Зураг томруулж харах — дэлгэцийн ихэнхийг эзэлнэ */
+function drawGerArtZoom(
+  ctx: CanvasRenderingContext2D,
+  kind: "horse" | "family" | "tara",
+): void {
+  ctx.fillStyle = "rgba(8,6,4,0.82)";
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-  const drawPerson = (
-    px: number,
-    py: number,
-    sc: number,
-    deel: string,
-    deel2: string,
-    isChild: boolean,
-  ): void => {
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.scale(sc, sc);
-    // Бие / дээл
-    const g = ctx.createLinearGradient(-8, -6, 8, 12);
-    g.addColorStop(0, deel);
-    g.addColorStop(1, deel2);
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.ellipse(0, 4, isChild ? 7 : 9, isChild ? 9 : 11, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Толгой
-    ctx.fillStyle = "#e0b890";
-    ctx.beginPath();
-    ctx.arc(0, -8, isChild ? 5 : 6, 0, Math.PI * 2);
-    ctx.fill();
-    // Үс
-    ctx.fillStyle = "#2a2018";
-    ctx.beginPath();
-    ctx.ellipse(0, -11, isChild ? 5 : 6.5, isChild ? 3 : 3.5, 0, Math.PI, 0);
-    ctx.fill();
-    // Нүд
-    ctx.fillStyle = "#1a1208";
-    ctx.beginPath();
-    ctx.arc(-2, -8, 0.8, 0, Math.PI * 2);
-    ctx.arc(2, -8, 0.8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  };
+  const margin = 28;
+  const maxW = VIEW_W - margin * 2;
+  const maxH = VIEW_H - margin * 2 - 36;
+  const img = gerArt(kind);
 
-  // Аав (зүүн), ээж (баруун), хүү (урд гол)
-  drawPerson(midX - 22 * scale, baseY - 2, scale * 1.05, "#3a5a90", "#244070", false);
-  drawPerson(midX + 22 * scale, baseY - 2, scale * 1.0, "#a04050", "#702030", false);
-  drawPerson(midX, baseY + 4, scale * 0.85, "#4a7ab0", "#2a5080", true);
+  let dw = maxW;
+  let dh = maxH;
+  if (img) {
+    const ir = img.naturalWidth / Math.max(1, img.naturalHeight);
+    if (maxW / maxH > ir) {
+      dh = maxH;
+      dw = dh * ir;
+    } else {
+      dw = maxW;
+      dh = dw / ir;
+    }
+  }
 
+  const dx = (VIEW_W - dw) / 2;
+  const dy = (VIEW_H - dh) / 2 - 8;
+
+  ctx.fillStyle = "#3a2410";
+  roundRectPath(ctx, dx - 10, dy - 10, dw + 20, dh + 20, 6);
+  ctx.fill();
+  ctx.strokeStyle = "#e8c56a";
+  ctx.lineWidth = 3;
+  roundRectPath(ctx, dx - 10, dy - 10, dw + 20, dh + 20, 6);
+  ctx.stroke();
+
+  ctx.save();
+  roundRectPath(ctx, dx, dy, dw, dh, 3);
+  ctx.clip();
+  if (img) {
+    ctx.drawImage(img, dx, dy, dw, dh);
+  } else {
+    ctx.fillStyle = "#2a1c12";
+    ctx.fillRect(dx, dy, dw, dh);
+  }
   ctx.restore();
 
-  ctx.fillStyle = "rgba(20,12,6,0.55)";
-  roundRectPath(ctx, fx + 6, fy + fh - 13, fw - 12, 10, 2);
-  ctx.fill();
-  ctx.fillStyle = "#ffe9a8";
-  ctx.font = "600 8px system-ui, sans-serif";
+  const title =
+    kind === "family" ? "Гэр бүл" : kind === "horse" ? "Морины зураг" : "Цагаан дарь эх";
   ctx.textAlign = "center";
-  ctx.fillText("Гэр бүл", midX, fy + fh - 5);
+  ctx.fillStyle = "#f2e8d5";
+  ctx.font = "600 16px system-ui, sans-serif";
+  ctx.fillText(title, VIEW_W / 2, dy + dh + 28);
+  ctx.fillStyle = "rgba(242,232,213,0.55)";
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillText("Дараад хаах · Esc", VIEW_W / 2, VIEW_H - 14);
   ctx.textAlign = "left";
 }
 
@@ -1186,6 +1237,8 @@ function drawAvdarOfferings(
   y: number,
   w: number,
   time: number,
+  lampLit: boolean,
+  taraHover = false,
 ): void {
   const topY = y - 2;
   const cx = x + w / 2;
@@ -1198,8 +1251,8 @@ function drawAvdarOfferings(
   ctx.fillStyle = "#3a2410";
   roundRectPath(ctx, bx - 3, by - 3, bw + 6, bh + 6, 2);
   ctx.fill();
-  ctx.strokeStyle = "#e8c060";
-  ctx.lineWidth = 1.8;
+  ctx.strokeStyle = taraHover ? "#ffe080" : "#e8c060";
+  ctx.lineWidth = taraHover ? 2.6 : 1.8;
   roundRectPath(ctx, bx - 3, by - 3, bw + 6, bh + 6, 2);
   ctx.stroke();
 
@@ -1228,7 +1281,7 @@ function drawAvdarOfferings(
   }
   ctx.restore();
 
-  // Нэг зул — зургийн баруун талд
+  // Зул — зөвхөн зуух ассан үед асна (гал шиг харагдахгүй)
   const zx = bx + bw + 14;
   const zy = topY - 10;
   ctx.fillStyle = "#c8b090";
@@ -1237,15 +1290,21 @@ function drawAvdarOfferings(
   ctx.fillStyle = "#a89070";
   roundRectPath(ctx, zx - 3.5, zy - 2, 7, 3, 1);
   ctx.fill();
-  const f = 0.7 + 0.3 * Math.sin(time * 11);
-  ctx.fillStyle = `rgba(255,190,60,${0.55 * f + 0.4})`;
-  ctx.beginPath();
-  ctx.ellipse(zx, zy - 7, 2.6, 3.5 * f + 2.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = `rgba(255,240,160,${0.75 * f})`;
-  ctx.beginPath();
-  ctx.ellipse(zx, zy - 8, 1.2, 1.8 * f + 1.2, 0, 0, Math.PI * 2);
-  ctx.fill();
+  if (lampLit) {
+    const f = 0.75 + 0.25 * Math.sin(time * 8);
+    ctx.fillStyle = `rgba(255,190,60,${0.45 * f + 0.35})`;
+    ctx.beginPath();
+    ctx.ellipse(zx, zy - 7, 2.4, 3.2 * f + 2.2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(255,240,160,${0.7 * f})`;
+    ctx.beginPath();
+    ctx.ellipse(zx, zy - 8, 1.1, 1.6 * f + 1.1, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Унтарсан фитиль
+    ctx.fillStyle = "#5a5048";
+    ctx.fillRect(zx - 0.7, zy - 5, 1.4, 4);
+  }
 
   // Жижиг тахилын аяга
   ctx.fillStyle = "#d0d0d8";
@@ -1652,10 +1711,25 @@ export function drawGerInterior(
   );
 
   // Ханын зургууд — морь (жижиг) + гэр бүл (төв)
-  drawGerHorsePainting(ctx, 145, 185, 110, 76);
-  const familyX = VIEW_W / 2 - 55;
-  const familyY = 172;
-  drawFamilyPortrait(ctx, familyX, familyY, 110, 78);
+  const artLay = gerLayout();
+  const canClickArt =
+    !state.shopOpen && !state.craftOpen && !state.gerArtZoom && state.gerSleepTimer <= 0;
+  drawGerHorsePainting(
+    ctx,
+    artLay.artHorse.x,
+    artLay.artHorse.y,
+    artLay.artHorse.w,
+    artLay.artHorse.h,
+    canClickArt && overButton(artLay.artHorse, state.input),
+  );
+  drawFamilyPortrait(
+    ctx,
+    artLay.artFamily.x,
+    artLay.artFamily.y,
+    artLay.artFamily.w,
+    artLay.artFamily.h,
+    canClickArt && overButton(artLay.artFamily, state.input),
+  );
 
   // ===== АВДАР — хоёр талд + гэр бүлийн доор эгц урд =====
   const lay = gerLayout();
@@ -1676,7 +1750,15 @@ export function drawGerInterior(
     drawPaintedAvdar(ctx, ch.x, ch.y, ch.w, ch.h, hover, side);
     ctx.restore();
     if (side < 0) {
-      drawAvdarOfferings(ctx, ch.x, ch.y, ch.w, time);
+      drawAvdarOfferings(
+        ctx,
+        ch.x,
+        ch.y,
+        ch.w,
+        time,
+        state.gerStoveLit,
+        canClickArt && overButton(artLay.artTara, state.input),
+      );
     }
     if (!label) continue;
     ctx.textAlign = "center";
@@ -1693,10 +1775,18 @@ export function drawGerInterior(
   drawMongolBed(ctx, lay.bedL.x, lay.bedL.y, lay.bedL.w, lay.bedL.h, -1);
   drawMongolBed(ctx, lay.bedR.x, lay.bedR.y, lay.bedR.w, lay.bedR.h, 1);
 
-  // Орой гэрт орсон аав ээж — орны дэргэд
+  // Орой гэрт орсон аав ээж — баруун ор дээр цуг сууна
   if (state.parentsReturned && state.parents) {
     const cam0 = { x: 0, y: 0 };
-    const drawIndoor = (src: ParentNpc, x: number, y: number, face: 1 | -1) => {
+    const bed = lay.bedR;
+    // Тоглогч (gerScale 2.85) -оос том — ор дээр багтахаар
+    const parentScale = 3.45;
+    const drawIndoor = (
+      src: ParentNpc,
+      x: number,
+      y: number,
+      face: 1 | -1,
+    ) => {
       if (!src.insideGer) return;
       const p: ParentNpc = {
         ...src,
@@ -1708,13 +1798,24 @@ export function drawGerInterior(
       };
       ctx.save();
       ctx.translate(x, y);
-      ctx.scale(2.2, 2.2);
+      ctx.scale(parentScale, parentScale);
       ctx.translate(-x, -y);
       drawParentNpc(ctx, p, cam0, time);
       ctx.restore();
     };
-    drawIndoor(state.parents.father, lay.bedL.x + 95, lay.bedL.y + 95, 1);
-    drawIndoor(state.parents.mother, lay.bedR.x + 135, lay.bedR.y + 95, -1);
+    // Баруун ор — аав зүүн талд, ээж баруун талд, хоёулаа дотогш харсан
+    drawIndoor(
+      state.parents.father,
+      bed.x + bed.w * 0.34,
+      bed.y + bed.h * 0.58,
+      1,
+    );
+    drawIndoor(
+      state.parents.mother,
+      bed.x + bed.w * 0.66,
+      bed.y + bed.h * 0.58,
+      -1,
+    );
   }
 
   // Хаалга (гарах)
@@ -1786,50 +1887,68 @@ export function drawGerInterior(
 
   // Унтах анимэйшний прогресс
   if (state.gerSleepTimer > 0) {
-    const progress = 1 - state.gerSleepTimer / 5;
-    const bw = 220;
-    const bx = (VIEW_W - bw) / 2;
-    const by = VIEW_H - 52;
-    ctx.fillStyle = "rgba(12,10,8,0.8)";
-    roundRectPath(ctx, bx - 10, by - 28, bw + 20, 48, 10);
-    ctx.fill();
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#ffe9a8";
-    ctx.font = "600 13px system-ui, sans-serif";
-    ctx.fillText("Унтаж байна… Zzz", VIEW_W / 2, by - 8);
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    roundRectPath(ctx, bx, by + 2, bw, 10, 5);
-    ctx.fill();
-    ctx.fillStyle = "#7ab8e8";
-    roundRectPath(ctx, bx, by + 2, bw * progress, 10, 5);
-    ctx.fill();
-    ctx.textAlign = "left";
+    const progress = 1 - state.gerSleepTimer / GER_SLEEP_DURATION;
+    const lidClose =
+      progress < 0.32
+        ? progress / 0.32
+        : progress < 0.72
+          ? 1
+          : Math.max(0, 1 - (progress - 0.72) / 0.28);
+    if (lidClose < 0.85) {
+      const bw = 220;
+      const bx = (VIEW_W - bw) / 2;
+      const by = VIEW_H - 52;
+      ctx.globalAlpha = 1 - lidClose;
+      ctx.fillStyle = "rgba(12,10,8,0.8)";
+      roundRectPath(ctx, bx - 10, by - 28, bw + 20, 48, 10);
+      ctx.fill();
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffe9a8";
+      ctx.font = "600 13px system-ui, sans-serif";
+      ctx.fillText("Унтаж байна… Zzz", VIEW_W / 2, by - 8);
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      roundRectPath(ctx, bx, by + 2, bw, 10, 5);
+      ctx.fill();
+      ctx.fillStyle = "#7ab8e8";
+      roundRectPath(ctx, bx, by + 2, bw * progress, 10, 5);
+      ctx.fill();
+      ctx.textAlign = "left";
+      ctx.globalAlpha = 1;
+    }
   }
 
-  // Дулаан гэрлийн vignette
-  const warmAmp = state.gerStoveLit ? 0.16 : 0.08;
-  const warm = ctx.createRadialGradient(cx, 340, 100, cx, 340, 560);
-  warm.addColorStop(0, `rgba(255,170,80,${warmAmp})`);
-  warm.addColorStop(1, "rgba(0,0,0,0.45)");
-  ctx.fillStyle = warm;
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  // Дулаан гэрлийн vignette — зөвхөн зуух ассан үед улбар шар
+  if (state.gerStoveLit) {
+    const warm = ctx.createRadialGradient(cx, 340, 100, cx, 340, 560);
+    warm.addColorStop(0, "rgba(255,170,80,0.16)");
+    warm.addColorStop(1, "rgba(0,0,0,0.45)");
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  } else {
+    const cool = ctx.createRadialGradient(cx, 340, 120, cx, 340, 560);
+    cool.addColorStop(0, "rgba(0,0,0,0)");
+    cool.addColorStop(1, "rgba(0,0,0,0.42)");
+    ctx.fillStyle = cool;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
 
-  // Оноо ба эзэмшил
-  ctx.fillStyle = "rgba(12,10,8,0.75)";
-  roundRectPath(ctx, 14, 14, 210, 36, 10);
-  ctx.fill();
-  ctx.fillStyle = COLORS.hudAccent;
-  ctx.font = "600 14px system-ui, sans-serif";
-  ctx.fillText(`Оноо: ${state.score}`, 28, 37);
-  const ownedIcons = SHOP_ITEMS.filter(
-    (it): it is Extract<typeof it, { type: "gear" }> =>
-      it.type === "gear" && state.player.gear[it.id],
-  )
-    .map((it) => it.icon)
-    .join(" ");
-  if (ownedIcons) {
-    ctx.font = "15px system-ui, sans-serif";
-    ctx.fillText(ownedIcons, 130, 37);
+  // Зоос ба эзэмшил
+  if (state.gerSleepTimer <= 0) {
+    ctx.fillStyle = "rgba(12,10,8,0.75)";
+    roundRectPath(ctx, 14, 14, 210, 36, 10);
+    ctx.fill();
+    ctx.fillStyle = COLORS.hudAccent;
+    ctx.font = "600 14px system-ui, sans-serif";
+    ctx.fillText(`Зоос: ${state.score}`, 28, 37);
+    const owned = SHOP_ITEMS.filter(
+      (it): it is Extract<typeof it, { type: "gear" }> =>
+        it.type === "gear" && state.player.gear[it.id],
+    );
+    let gx = 130;
+    for (const it of owned) {
+      drawGameIcon(ctx, it.icon, gx + 8, 28, 16);
+      gx += 18;
+    }
   }
 
   // Удирдлагын заавар
@@ -1838,7 +1957,9 @@ export function drawGerInterior(
     ctx.fillStyle = "rgba(242,232,213,0.55)";
     ctx.font = "12px system-ui, sans-serif";
     ctx.fillText(
-      "WASD — алхах · E — харьцах · Хаалга руу алхаж гарна",
+      state.gerArtZoom
+        ? "Дараад / Esc — хаах"
+        : "WASD — алхах · E — харьцах · Зураг дээр дарж томруул · Хаалга руу алхаж гарна",
       VIEW_W / 2,
       VIEW_H - 8,
     );
@@ -1847,6 +1968,13 @@ export function drawGerInterior(
 
   if (state.shopOpen) drawChest(ctx, state);
   if (state.craftOpen) drawCraft(ctx, state);
+  if (state.gerArtZoom) drawGerArtZoom(ctx, state.gerArtZoom);
+
+  // Унтах — нүд аниж харанхуй (хамгийн дээр)
+  if (state.gerSleepTimer > 0) {
+    const progress = 1 - state.gerSleepTimer / GER_SLEEP_DURATION;
+    drawSleepEyelids(ctx, progress);
+  }
 }
 
 export function makeVignette(): HTMLCanvasElement {

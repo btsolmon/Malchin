@@ -1,6 +1,7 @@
 // Авдар/өвгөний арилжааны бараа ба худалдан авалт
 
 import { sfx } from "./audio";
+import type { GameIconId } from "./icons";
 import { addLivestock } from "./livestock";
 import {
   LIVESTOCK_MN,
@@ -14,7 +15,7 @@ export type ShopItem =
   | {
       type: "gear";
       id: GearId;
-      icon: string;
+      icon: GameIconId;
       name: string;
       desc: string;
       price: number;
@@ -22,7 +23,7 @@ export type ShopItem =
   | {
       type: "livestock";
       kind: LivestockKind;
-      icon: string;
+      icon: GameIconId;
       name: string;
       desc: string;
       price: number;
@@ -30,7 +31,7 @@ export type ShopItem =
   | {
       type: "sell";
       key: "wool" | "cashmere" | "milk" | "felt" | "aaruul" | "fish";
-      icon: string;
+      icon: GameIconId;
       name: string;
       desc: string;
       price: number;
@@ -40,7 +41,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "gear",
     id: "dog",
-    icon: "🐕",
+    icon: "dog",
     name: "Нохой",
     desc: "Сүргийг чононоос хамгаална",
     price: 300,
@@ -48,7 +49,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "gear",
     id: "horse",
-    icon: "🐎",
+    icon: "horse",
     name: "Унах морь",
     desc: "Унаж явахад хурд +50%",
     price: 500,
@@ -56,7 +57,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "gear",
     id: "bow",
-    icon: "🏹",
+    icon: "bow",
     name: "Нум",
     desc: "Харвах — сум хэрэгтэй (урлалаар хийнэ)",
     price: 400,
@@ -64,7 +65,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "gear",
     id: "axe",
-    icon: "🪓",
+    icon: "axe",
     name: "Сүх",
     desc: "Мод/түлээ нэг цохилтоор унагана",
     price: 500,
@@ -72,7 +73,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "gear",
     id: "urga",
-    icon: "🪢",
+    icon: "urga",
     name: "Уурга",
     desc: "Зэрлэг морийг уургална",
     price: 180,
@@ -80,7 +81,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "gear",
     id: "fishingRod",
-    icon: "🎣",
+    icon: "fishingRod",
     name: "Загасны уурга",
     desc: "Голоос загас барина · Q-аар иднэ",
     price: 220,
@@ -88,7 +89,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "livestock",
     kind: "cattle",
-    icon: "🐄",
+    icon: "cattle",
     name: "Үхэр",
     desc: "Сүргийн үхэр · сүү өгнө",
     price: 220,
@@ -96,7 +97,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "livestock",
     kind: "horse",
-    icon: "🐴",
+    icon: "horseHerd",
     name: "Морь (сүрэг)",
     desc: "Сүргийн морь · сүү өгнө",
     price: 320,
@@ -104,7 +105,7 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "livestock",
     kind: "camel",
-    icon: "🐪",
+    icon: "camel",
     name: "Тэмээ",
     desc: "Сүргийн тэмээ · сүү/ноос",
     price: 400,
@@ -112,49 +113,49 @@ export const SHOP_ITEMS: ShopItem[] = [
   {
     type: "sell",
     key: "wool",
-    icon: "🧶",
+    icon: "wool",
     name: "Ноос зарах",
-    desc: "1 ноос → 8 оноо",
+    desc: "1 ноос → 8 зоос",
     price: 8,
   },
   {
     type: "sell",
     key: "cashmere",
-    icon: "🧵",
+    icon: "cashmere",
     name: "Ноолуур зарах",
-    desc: "1 ноолуур → 22 оноо",
+    desc: "1 ноолуур → 22 зоос",
     price: 22,
   },
   {
     type: "sell",
     key: "milk",
-    icon: "🥛",
+    icon: "milk",
     name: "Сүү зарах",
-    desc: "1 сүү → 6 оноо",
+    desc: "1 сүү → 6 зоос",
     price: 6,
   },
   {
     type: "sell",
     key: "felt",
-    icon: "🧺",
+    icon: "felt",
     name: "Эсгий зарах",
-    desc: "1 эсгий → 45 оноо",
+    desc: "1 эсгий → 45 зоос",
     price: 45,
   },
   {
     type: "sell",
     key: "aaruul",
-    icon: "🧀",
+    icon: "aaruul",
     name: "Ааруул зарах",
-    desc: "1 ааруул → 30 оноо",
+    desc: "1 ааруул → 30 зоос",
     price: 30,
   },
   {
     type: "sell",
     key: "fish",
-    icon: "🐟",
+    icon: "fish",
     name: "Загас зарах",
-    desc: "1 загас → 12 оноо",
+    desc: "1 загас → 12 зоос",
     price: 12,
   },
 ];
@@ -189,13 +190,13 @@ export function buyItem(state: GameState, idx: number): void {
     inv[item.key] -= 1;
     state.score += item.price;
     sfx("buy");
-    setMessage(state, `${item.name}: +${item.price} оноо`, 2);
+    setMessage(state, `${item.name}: +${item.price} зоос`, 2);
     return;
   }
 
   if (item.type === "livestock") {
     if (state.score < item.price) {
-      setMessage(state, `Оноо хүрэхгүй — ${item.price} оноо хэрэгтэй.`, 2);
+      setMessage(state, `Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.`, 2);
       sfx("move");
       return;
     }
@@ -216,7 +217,7 @@ export function buyItem(state: GameState, idx: number): void {
     return;
   }
   if (state.score < item.price) {
-    setMessage(state, `Оноо хүрэхгүй — ${item.price} оноо хэрэгтэй.`, 2);
+    setMessage(state, `Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.`, 2);
     sfx("move");
     return;
   }
@@ -247,7 +248,7 @@ export function buyItem(state: GameState, idx: number): void {
     state.world.mountHorse = null;
     setMessage(
       state,
-      "Унах морь авлаа! Гэрийн зүүн талд уяа бослоо. H — бууж уях.",
+      "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. H — бууж уях.",
       3.5,
     );
     return;
