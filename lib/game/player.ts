@@ -30,18 +30,22 @@ import {
 } from "../game/types";
 import {
   allocId,
+  angleFromOrient,
+  anglesNearlyEqual,
   canHarvestHay,
   clamp,
   collidePlayerWithGates,
   createStarterPen,
   dayInSeason,
   dist,
+  fenceAngle,
   fenceOrientFromFacing,
   fencePlacePos,
   fencesOverlap,
   gerDoorPos,
   nearestFence,
   normalize,
+  orientFromAngle,
   pastureCenter,
   pastureRefillForSeason,
   randRange,
@@ -73,6 +77,7 @@ import {
   nearestReadyAnimal,
   tryCatchWildHorse,
 } from "./livestock";
+import { nearFishingSpot, tryCatchFish } from "./fish";
 import { nearestRiddleHost, openRiddleAtHost, spotKindLabel } from "./riddles";
 import { nearElder, openElder } from "./elder";
 import { handlePlayerDeath } from "./spirit";
@@ -621,6 +626,14 @@ export function tryInteract(state: GameState): void {
     }
   }
 
+  // Загасны уурга — голоос загас барих
+  if (player.gear.fishingRod && nearFishingSpot(player.pos)) {
+    tryCatchFish(state);
+    player.chopCooldown = 0.7;
+    state.input.interact = false;
+    return;
+  }
+
   // Бэлэн бүтээгдэхүүн цуглуулах
   const ready = nearestReadyAnimal(player.pos, world.flock.visuals, 42);
   if (ready) {
@@ -753,8 +766,60 @@ export function tryEatBerry(state: GameState): void {
   const { player } = state;
   if (!state.input.eat || player.eatCooldown > 0) return;
 
-  // Ааруул — өвлийн нөөц (жимс байхгүй үед)
-  if (player.inventory.berries <= 0 && player.inventory.aaruul > 0) {
+  // Жимс → загас → ааруул
+  if (player.inventory.berries > 0) {
+    player.inventory.berries -= 1;
+    player.vitals.hunger = clamp(
+      player.vitals.hunger + 28,
+      0,
+      player.vitals.maxHunger,
+    );
+    player.vitals.health = clamp(
+      player.vitals.health + 4,
+      0,
+      player.vitals.maxHealth,
+    );
+    player.eatCooldown = 0.5;
+    state.input.eat = false;
+    sfx("eat");
+    spawnParticles(
+      state,
+      { x: player.pos.x, y: player.pos.y - 16 },
+      4,
+      "#e04070",
+      { speed: 40, gravity: -20, size: 2 },
+    );
+    spawnText(state, player.pos, "+28 хоол", "#ffd080");
+    return;
+  }
+
+  if (player.inventory.fish > 0) {
+    player.inventory.fish -= 1;
+    player.vitals.hunger = clamp(
+      player.vitals.hunger + 36,
+      0,
+      player.vitals.maxHunger,
+    );
+    player.vitals.health = clamp(
+      player.vitals.health + 6,
+      0,
+      player.vitals.maxHealth,
+    );
+    player.eatCooldown = 0.55;
+    state.input.eat = false;
+    sfx("eat");
+    spawnParticles(
+      state,
+      { x: player.pos.x, y: player.pos.y - 16 },
+      5,
+      "#6ab0e8",
+      { speed: 40, gravity: -20, size: 2 },
+    );
+    spawnText(state, player.pos, "+36 хоол", "#7ec8ff");
+    return;
+  }
+
+  if (player.inventory.aaruul > 0) {
     player.inventory.aaruul -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 40,
@@ -773,38 +838,8 @@ export function tryEatBerry(state: GameState): void {
     return;
   }
 
-  if (player.inventory.berries <= 0) {
-    setMessage(state, "Жимс/ааруул алга. Бутнаас E эсвэл урла.", 2);
-    state.input.eat = false;
-    return;
-  }
-
-  player.inventory.berries -= 1;
-  player.vitals.hunger = clamp(
-    player.vitals.hunger + 28,
-    0,
-    player.vitals.maxHunger,
-  );
-  player.vitals.health = clamp(
-    player.vitals.health + 4,
-    0,
-    player.vitals.maxHealth,
-  );
-  player.eatCooldown = 0.5;
+  setMessage(state, "Хоол алга. Жимс · загас · ааруул цуглуул.", 2.5);
   state.input.eat = false;
-  sfx("eat");
-  spawnParticles(
-    state,
-    { x: player.pos.x, y: player.pos.y - 16 },
-    4,
-    "#e04070",
-    {
-      speed: 40,
-      gravity: -20,
-      size: 2,
-    },
-  );
-  spawnText(state, player.pos, "+28 хоол", "#ffd080");
 }
 
 export function tryLightCampfire(state: GameState): void {
@@ -949,6 +984,33 @@ export function tryDemolishFence(state: GameState): boolean {
   return true;
 }
 
+/** Хашаа preview — ←→ өнцөг (15°), ↑↓ эгнээний дагуу */
+export function updateFencePreviewAim(state: GameState): void {
+  const { input } = state;
+  const maxStep = 6;
+  const step = Math.PI / 12; // 15°
+
+  if (input.menuLeft) {
+    state.fencePreviewAngle -= step;
+    sfx("select");
+  }
+  if (input.menuRight) {
+    state.fencePreviewAngle += step;
+    sfx("select");
+  }
+
+  let dy = 0;
+  if (input.menuUp) dy -= 1;
+  if (input.menuDown) dy += 1;
+  if (dy !== 0) {
+    state.fencePreviewOffset = {
+      x: state.fencePreviewOffset.x,
+      y: clamp(state.fencePreviewOffset.y + dy, -maxStep, maxStep),
+    };
+    sfx("select");
+  }
+}
+
 export function tryBuildFence(state: GameState): void {
   if (!state.input.buildFence) return;
   state.input.buildFence = false;
@@ -956,31 +1018,45 @@ export function tryBuildFence(state: GameState): void {
   const { player, world } = state;
   if (player.chopCooldown > 0) return;
 
-  // Эхний B — цагаан preview; хоёр дахь B — барих/шинэчлэх
+  // Эхний B — preview; дараагийн B бүр — барих (preview нээлттэй үлдэнэ)
   if (!state.fencePreview) {
     state.fencePreview = true;
-    setMessage(state, "Байршлыг хар. Дахин B дарж барина (P = цуцлах).", 2.5);
+    state.fencePreviewAngle = angleFromOrient(
+      fenceOrientFromFacing(player.facing),
+    );
+    state.fencePreviewOffset = { x: 0, y: 0 };
+    setMessage(
+      state,
+      "←→ өнцөг · ↑↓ эгнээ · B дахин барина · P цуцлах",
+      3.5,
+    );
     return;
   }
 
-  state.fencePreview = false;
+  const angle = state.fencePreviewAngle;
+  const orient = orientFromAngle(angle);
+  const pos = fencePlacePos(
+    player.pos,
+    player.facing,
+    FENCE_GRID,
+    state.fencePreviewOffset,
+    angle,
+    world.fences,
+  );
 
-  const pos = fencePlacePos(player.pos, player.facing, FENCE_GRID);
-  const orient = fenceOrientFromFacing(player.facing);
-
-  // Ойролцоо/ижил цэг дээрх хашааг шинэчлэнэ
   const existing = world.fences.find((f) => fencesOverlap(pos, f.pos));
   if (existing) {
     tryUpgradeFence(state, existing);
     return;
   }
 
-  // Ижил чиглэлийн хөрш — давхцуулахгүй (үзүүр нийлэх зай = 1 тор)
-  const sameOrientNear = world.fences.find(
-    (f) => f.orient === orient && dist(f.pos, pos) < FENCE_GRID * 0.85,
+  const overlapNear = world.fences.find(
+    (f) =>
+      anglesNearlyEqual(fenceAngle(f), angle) &&
+      dist(f.pos, pos) < FENCE_GRID * 0.35,
   );
-  if (sameOrientNear) {
-    tryUpgradeFence(state, sameOrientNear);
+  if (overlapNear) {
+    tryUpgradeFence(state, overlapNear);
     return;
   }
 
@@ -989,7 +1065,6 @@ export function tryBuildFence(state: GameState): void {
     return;
   }
 
-  const center = pastureCenter(world);
   const gerPos = gerDoorPos(world);
 
   if (!world.gerPacked && dist(pos, gerPos) < 78) {
@@ -1017,12 +1092,13 @@ export function tryBuildFence(state: GameState): void {
   }
 
   if (!state.unlimitedWood) player.inventory.wood -= FENCE_COST;
-  player.chopCooldown = 0.28;
-  const isGate = wouldCloseFenceLoop(pos, orient, world.fences);
+  player.chopCooldown = 0.22;
+  const isGate = wouldCloseFenceLoop(pos, angle, world.fences);
   world.fences.push({
     id: allocId(state),
     pos,
     radius: FENCE_RADIUS,
+    angle,
     orient,
     tier: 1,
     hp: FENCE_MAX_HP_BY_TIER[1],
@@ -1033,15 +1109,14 @@ export function tryBuildFence(state: GameState): void {
   });
   state.score += 2;
   sfx("chop");
-  spawnParticles(state, pos, 8, "#8a6a3a", { speed: 70, size: 2.5 });
+  spawnParticles(state, pos, 8, "#8a6a3a", { speed: 70, life: 2.5 });
   if (!state.unlimitedWood) {
     spawnText(state, pos, `−${FENCE_COST} мод`, "#e8c56a");
   }
   if (isGate) {
     setMessage(state, "Хаалга босголоо — түлхэж нээнэ.", 2);
-  } else {
-    setMessage(state, `${FENCE_TIER_NAMES[1]} босголоо.`, 1.2);
   }
+  // Preview нээлттэй — дараагийн B-ээр эгнээг үргэлжлүүлнэ
 }
 
 /** Чононд хохирол өгөх — цохилт, сум, нохойн хазалт бүгд эндээс */
