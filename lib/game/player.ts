@@ -1,6 +1,7 @@
 // Хүн 2 — малчин: хөдөлгөөн, амьдрах механик, XP/ур чадвар, цаг агаар
 
 import {
+  CAMPFIRE_WOOD_COST,
   DAY_LENGTH_SEC,
   CAMPFIRE_IGNITE_SEC,
   FENCE_COST,
@@ -80,8 +81,15 @@ import {
 } from "./livestock";
 import { nearFishingSpot, tryCatchFish } from "./fish";
 import { nearestRiddleHost, openRiddleAtHost, spotKindLabel } from "./riddles";
-import { nearElder, openElder } from "./elder";
+import {
+  beginDawnElderDialogue,
+  beginPostWolfElderDialogue,
+  beginStormTraceElderDialogue,
+  nearElder,
+  openElder,
+} from "./elder";
 import { handlePlayerDeath } from "./spirit";
+import { tryCallOpeningLivestock, tryInspectStormTrace } from "./story";
 
 export const SKILL_POOL: Skill[] = [
   {
@@ -435,11 +443,7 @@ export function dismountHorse(
   const tie = opts?.tie ?? nearGer;
   const hitch = horseHitchPos(state.world);
   // Уясан үед гэр рүү (зүүнээс баруун тийш / гэр рүү) харна
-  const face: 1 | -1 = tie
-    ? -1
-    : player.facing.x < 0
-      ? -1
-      : 1;
+  const face: 1 | -1 = tie ? -1 : player.facing.x < 0 ? -1 : 1;
   const pos = tie
     ? hitch
     : { x: player.pos.x + face * 18, y: player.pos.y + 6 };
@@ -452,7 +456,11 @@ export function dismountHorse(
     setMessage(state, "Морьноос бууж уяан дээр уялаа. H — дахин унах.", 2.8);
   } else {
     spawnText(state, pos, "Буулаа", "#e8c56a");
-    setMessage(state, "Морьноос буулаа. Гэрийн уяан дэргэд бууваас уягдана.", 2.8);
+    setMessage(
+      state,
+      "Морьноос буулаа. Гэрийн уяан дэргэд бууваас уягдана.",
+      2.8,
+    );
   }
 }
 
@@ -570,6 +578,14 @@ export function tryInteract(state: GameState): void {
   const center = pastureCenter(world);
   const gerPos = gerDoorPos(world);
   if (!world.gerPacked && dist(player.pos, gerPos) < 62) {
+    if (
+      state.story.firstNightStage === "protecting" ||
+      state.story.firstNightStage === "elderIntervention" ||
+      state.story.firstNightStage === "elderApproach"
+    ) {
+      state.input.interact = false;
+      return;
+    }
     hitchHorseOutside(state);
     state.phase = "ger";
     state.shopOpen = false;
@@ -581,8 +597,54 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  if (tryCallOpeningLivestock(state)) {
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (tryInspectStormTrace(state)) {
+    player.chopCooldown = 0.35;
+    return;
+  }
+
   // Өвгөн — арилжаа / яриа
-  if (nearElder(state)) {
+  if (nearElder(state) && state.story.activeMainObjective === "talkToOldMan") {
+    beginPostWolfElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "returnToOldManWithTrace"
+  ) {
+    beginStormTraceElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "visitOldManAtDawn"
+  ) {
+    if (world.dayPhase === "dawn" || world.dayPhase === "day") {
+      beginDawnElderDialogue(state);
+    } else {
+      setMessage(
+        state,
+        "Өвгөн: «Үүрийн гэгээ ортол голомтоо түшиж амар, хүү минь.»",
+        3,
+      );
+    }
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (nearElder(state) && !state.story.activeMainObjective) {
     openElder(state);
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -590,11 +652,7 @@ export function tryInteract(state: GameState): void {
   }
 
   // Оньсогын асуулт (мод / бут / чулуу)
-  const riddleHost = nearestRiddleHost(
-    player.pos,
-    world,
-    player.radius + 28,
-  );
+  const riddleHost = nearestRiddleHost(player.pos, world, player.radius + 28);
   if (riddleHost) {
     if (riddleHost.solved) {
       setMessage(
@@ -720,7 +778,8 @@ export function tryInteract(state: GameState): void {
     }
 
     world.pastureGrass -= HAY_GRASS_COST;
-    const gained = world.season === "spring" ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
+    const gained =
+      world.season === "spring" ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
     const add = Math.min(gained, MAX_HAY - player.inventory.hay);
     player.inventory.hay += add;
     player.chopCooldown = 0.4;
@@ -857,12 +916,18 @@ export function tryLightCampfire(state: GameState): void {
     return;
   }
 
-  const cost = 3;
-  if (!state.unlimitedWood && player.inventory.wood < cost) {
-    setMessage(state, `Галд ${cost} түлээ хэрэгтэй.`, 2);
+  if (!state.unlimitedWood && player.inventory.wood < CAMPFIRE_WOOD_COST) {
+    setMessage(state, `Галд ${CAMPFIRE_WOOD_COST} түлээ хэрэгтэй.`, 2);
+    state.input.lightFire = false;
     return;
   }
 
+<<<<<<< HEAD
+  if (!state.unlimitedWood) player.inventory.wood -= CAMPFIRE_WOOD_COST;
+  fire.lit = true;
+  fire.fuel = Math.max(fire.fuel, 0) + 18;
+  state.input.lightFire = false;
+=======
   const near =
     fire.placed && dist(player.pos, fire.pos) < fire.radius + player.radius;
 
@@ -899,6 +964,7 @@ export function tryLightCampfire(state: GameState): void {
   fire.lit = false;
   fire.fuel = 18;
   fire.igniting = CAMPFIRE_IGNITE_SEC;
+>>>>>>> origin/main
   sfx("fire");
   spawnParticles(state, fire.pos, 8, "#c8a070", { speed: 40, gravity: -20 });
   setMessage(state, "Тонгойж чулуу цохиж гал асааж байна…", 2.5);
@@ -916,11 +982,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   const nextName = FENCE_TIER_NAMES[next];
 
   if (state.level < cost.minLevel) {
-    setMessage(
-      state,
-      `${nextName} — түвшин ${cost.minLevel}+ хэрэгтэй.`,
-      2,
-    );
+    setMessage(state, `${nextName} — түвшин ${cost.minLevel}+ хэрэгтэй.`, 2);
     return;
   }
   if (!state.unlimitedWood && player.inventory.wood < cost.wood) {
@@ -932,11 +994,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
     return;
   }
   if (player.inventory.berries < cost.berries) {
-    setMessage(
-      state,
-      `${nextName} — ${cost.berries} жимс хэрэгтэй.`,
-      2,
-    );
+    setMessage(state, `${nextName} — ${cost.berries} жимс хэрэгтэй.`, 2);
     return;
   }
 
@@ -950,9 +1008,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   sfx("chop");
   const color = next === 3 ? "#7ec8ff" : "#a8a8a8";
   spawnParticles(state, fence.pos, 12, color, { speed: 80, size: 2.5 });
-  const spent: string[] = state.unlimitedWood
-    ? []
-    : [`−${cost.wood} мод`];
+  const spent: string[] = state.unlimitedWood ? [] : [`−${cost.wood} мод`];
   if (cost.score > 0) spent.push(`−${cost.score} оноо`);
   if (cost.berries > 0) spent.push(`−${cost.berries} жимс`);
   if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
@@ -969,7 +1025,10 @@ export function tryDemolishFence(state: GameState): boolean {
   const wasGate = fence.isGate;
   world.fences.splice(idx, 1);
 
-  const refund = Math.max(1, Math.floor(FENCE_COST * (0.5 + fence.tier * 0.25)));
+  const refund = Math.max(
+    1,
+    Math.floor(FENCE_COST * (0.5 + fence.tier * 0.25)),
+  );
   if (!state.unlimitedWood) {
     player.inventory.wood += refund;
   }
@@ -1026,11 +1085,7 @@ export function tryBuildFence(state: GameState): void {
       fenceOrientFromFacing(player.facing),
     );
     state.fencePreviewOffset = { x: 0, y: 0 };
-    setMessage(
-      state,
-      "←→ өнцөг · ↑↓ эгнээ · B дахин барина · P цуцлах",
-      3.5,
-    );
+    setMessage(state, "←→ өнцөг · ↑↓ эгнээ · B дахин барина · P цуцлах", 3.5);
     return;
   }
 
@@ -1130,20 +1185,15 @@ export function updateSurvival(state: GameState, dt: number): void {
     world.mountHorse.face = -1;
   }
   const fire = world.campfire;
+  const openingHearthProtected =
+    world.dayNumber === 1 &&
+    state.story.campfireRelit &&
+    !state.story.firstNightNormalTimeRestored;
+  const storyHealthFloor = state.story.temporaryPlayerProtectionActive
+    ? Math.min(12, player.vitals.maxHealth)
+    : 0;
 
-  if (fire.placed && fire.igniting > 0) {
-    fire.igniting = Math.max(0, fire.igniting - dt);
-    if (fire.igniting <= 0) {
-      fire.igniting = 0;
-      fire.lit = true;
-      sfx("fire");
-      spawnParticles(state, fire.pos, 16, "#ffb347", {
-        speed: 80,
-        gravity: -45,
-      });
-      setMessage(state, "Гал асаалаа.", 2);
-    }
-  } else if (fire.lit) {
+  if (fire.lit && !openingHearthProtected) {
     fire.fuel -= dt;
     if (fire.fuel <= 0) {
       fire.lit = false;
@@ -1160,9 +1210,7 @@ export function updateSurvival(state: GameState, dt: number): void {
   const nearFire =
     fire.lit && fire.placed && dist(player.pos, fire.pos) < fire.radius;
   const night =
-    world.dayPhase === "night" ||
-    world.timeOfDay < 6 ||
-    world.timeOfDay > 20;
+    world.dayPhase === "night" || world.timeOfDay < 6 || world.timeOfDay > 20;
   const coldWeather =
     world.weather === "snow" ||
     world.weather === "storm" ||
@@ -1188,15 +1236,16 @@ export function updateSurvival(state: GameState, dt: number): void {
   );
 
   if (player.vitals.warmth <= 0) {
-    if (!state.godMode) {
-      player.vitals.health = clamp(
-        player.vitals.health - 3 * dt,
-        0,
-        player.vitals.maxHealth,
-      );
-      if (player.vitals.health <= 0) {
-        handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
-      }
+    player.vitals.health = clamp(
+      player.vitals.health - 3 * dt,
+      storyHealthFloor,
+      player.vitals.maxHealth,
+    );
+    if (
+      !state.story.temporaryPlayerProtectionActive &&
+      player.vitals.health <= 0
+    ) {
+      handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
     }
   }
 
@@ -1206,21 +1255,24 @@ export function updateSurvival(state: GameState, dt: number): void {
     player.vitals.maxHunger,
   );
   if (player.vitals.hunger <= 0) {
-    if (!state.godMode) {
-      player.vitals.health = clamp(
-        player.vitals.health - 5 * dt,
-        0,
-        player.vitals.maxHealth,
-      );
-      if (player.vitals.health <= 0) {
-        handlePlayerDeath(state, "Өлсөж үхлээ…");
-      }
+    player.vitals.health = clamp(
+      player.vitals.health - 5 * dt,
+      storyHealthFloor,
+      player.vitals.maxHealth,
+    );
+    if (
+      !state.story.temporaryPlayerProtectionActive &&
+      player.vitals.health <= 0
+    ) {
+      handlePlayerDeath(state, "Өлсөж үхлээ…");
     }
   }
 
   updatePastureAndFlockFeed(state, dt);
   updateNewborns(state, dt);
-  updateOutdoorNightRisk(state, dt);
+  if (!state.story.activeMainObjective) {
+    updateOutdoorNightRisk(state, dt);
+  }
 
   for (const tree of world.trees) {
     if (tree.hp > 0) continue;
@@ -1262,10 +1314,8 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
   if (flock.total <= 0 || state.phase !== "playing") return;
 
   const feeder = world.feeder;
-  const needPerSec =
-    (flock.total * HAY_PER_SHEEP_PER_DAY) / DAY_LENGTH_SEC;
-  const grazePerSec =
-    (flock.total * GRAZE_PER_ANIMAL_PER_DAY) / DAY_LENGTH_SEC;
+  const needPerSec = (flock.total * HAY_PER_SHEEP_PER_DAY) / DAY_LENGTH_SEC;
+  const grazePerSec = (flock.total * GRAZE_PER_ANIMAL_PER_DAY) / DAY_LENGTH_SEC;
 
   if (world.season === "winter") {
     // Өвөл бэлчээр хөлдөнө — зөвхөн тэвш
@@ -1337,7 +1387,12 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
           flock.starveAcc = 0;
           const lost = loseSheep(state, 1);
           if (lost > 0) {
-            spawnText(state, pastureCenter(world), "−1 мал (өвсгүй)", "#ff9080");
+            spawnText(
+              state,
+              pastureCenter(world),
+              "−1 мал (өвсгүй)",
+              "#ff9080",
+            );
             setMessage(
               state,
               "Өвс дууссан — мал өлсөж байна! G-ээр нүү эсвэл өвс өг.",
@@ -1418,7 +1473,11 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (world.flockOut) {
-    setMessage(state, "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.", 3);
+    setMessage(
+      state,
+      "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.",
+      3,
+    );
     return;
   }
   const ger = gerDoorPos(world);

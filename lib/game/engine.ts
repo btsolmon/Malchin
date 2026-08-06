@@ -14,8 +14,19 @@ import {
   type Vector2,
   type WorldStone,
 } from "./types";
-import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
-import { isInRiver, sampleBushPos, sampleStonePos, sampleTreePos } from "./biomes";
+import {
+  dist,
+  setMessage,
+  updateGates,
+  allocId,
+  createStarterPen,
+} from "./utils";
+import {
+  isInRiver,
+  sampleBushPos,
+  sampleStonePos,
+  sampleTreePos,
+} from "./biomes";
 import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
   ensureAudio,
@@ -31,7 +42,7 @@ import {
   tryHorseMount,
   tryInteract,
   tryLightCampfire,
-  tryMigrateGer,
+  // tryMigrateGer,
   updateFencePreviewAim,
   updatePlayerMovement,
   updateSurvival,
@@ -99,7 +110,22 @@ import {
   type ElderUiSnapshot,
 } from "./elder";
 import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
-import { pullFlockToPen } from "./daycycle";
+import {
+  createInitialStoryState,
+  debugSkipCurrentStoryStage,
+  ensureStoryState,
+  firstNightElderCutsceneActive,
+  initializeOpeningLivestock,
+  openingStoryControlsWorldTime,
+  storyWolfUsesExistingAi,
+  updateHearthQuest,
+  updateLivestockRecoveryQuest,
+  updateMilestone3,
+  updateMilestone4,
+  updateMilestone7,
+  updateMilestone8,
+  updateOpeningSequence,
+} from "./story";
 
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
@@ -111,10 +137,7 @@ export function createTrees(count: number): Tree[] {
     do {
       pos = sampleTreePos(center);
       attempts++;
-    } while (
-      (dist(pos, center) < 220 || isInRiver(pos, 45)) &&
-      attempts < 50
-    );
+    } while ((dist(pos, center) < 220 || isInRiver(pos, 45)) && attempts < 50);
 
     trees.push({
       id: i,
@@ -141,10 +164,7 @@ export function createBushes(count: number): BerryBush[] {
     do {
       pos = sampleBushPos(center);
       attempts++;
-    } while (
-      (dist(pos, center) < 140 || isInRiver(pos, 40)) &&
-      attempts < 50
-    );
+    } while ((dist(pos, center) < 140 || isInRiver(pos, 40)) && attempts < 50);
 
     bushes.push({
       id: 1000 + i,
@@ -283,7 +303,7 @@ export function createInitialState(): GameState {
       dayNumber: 1,
       elapsed: 0,
       dayPhase: "dawn",
-      flockOut: false,
+      flockOut: true,
       outdoorRiskAcc: 0,
       nextWolfIn: 72,
       nextThiefIn: 140,
@@ -301,6 +321,7 @@ export function createInitialState(): GameState {
       fish: [],
       mountHorse: null,
     },
+    story: createInitialStoryState(),
     fencePreview: false,
     fencePreviewAngle: 0,
     fencePreviewOffset: { x: 0, y: 0 },
@@ -362,8 +383,7 @@ export function createInitialState(): GameState {
       emberAcc: 0,
       dustAcc: 0,
     },
-    message:
-      "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
+    message: "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
     messageTimer: 6,
     score: 0,
     xp: 0,
@@ -409,7 +429,7 @@ export function createInitialState(): GameState {
   state.world.fences = createStarterPen(spawn, () => allocId(state));
   state.world.fish = createRiverFish(() => allocId(state));
   syncVisualFlock(state);
-  pullFlockToPen(state, 1);
+  initializeOpeningLivestock(state);
   return state;
 }
 
@@ -544,13 +564,9 @@ export function bindInput(
   const onKeyDown = (e: KeyboardEvent): void => {
     setKey(e.code, true);
     if (
-      [
-        "Space",
-        "ArrowUp",
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight",
-      ].includes(e.code)
+      ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+        e.code,
+      )
     ) {
       e.preventDefault();
     }
@@ -571,11 +587,15 @@ export function bindInput(
 // ---------------------------------------------------------------------------
 
 export function update(state: GameState, dt: number): void {
+  ensureStoryState(state);
   const phaseBefore = state.phase;
 
   // Меню ба пауз
   if (state.phase === "menu") {
     updateMenu(state);
+  } else if (state.phase === "intro") {
+    updateOpeningSequence(state, dt);
+    state.fencePreview = false;
   } else if (state.phase === "paused") {
     updatePauseMenu(state);
   } else if (state.phase === "ger") {
@@ -590,7 +610,14 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "elder") {
     // React ElderModal хариуцна — P/Esc дарвал хаана
-    if (state.input.pause && !state.elderShowingChoices) {
+    if (
+      state.input.interact &&
+      state.story.shortDialogueStarted &&
+      !state.story.shortDialogueCompleted
+    ) {
+      advanceElderDialogue(state);
+      state.input.interact = false;
+    } else if (state.input.pause && !state.elderShowingChoices) {
       closeElder(state);
     }
     state.fencePreview = false;
@@ -683,12 +710,16 @@ export function update(state: GameState, dt: number): void {
   }
 
   if (state.phase === "playing" && !hitStopped) {
+    const openingMilestoneActive =
+      state.story.familyReunionEffectRemaining > 0 ||
+      (state.story.activeMainObjective !== null &&
+        state.story.activeMainObjective !== "growFlock");
     if (state.input.debugXp) {
       state.score += 1000;
       spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
       sfx("buy");
     }
-    if (state.input.debugBoss) {
+    if (state.input.debugBoss && !openingMilestoneActive) {
       forceStartTumurShulmasBoss(state);
     }
     if (state.input.debugWood) {
@@ -704,33 +735,68 @@ export function update(state: GameState, dt: number): void {
       }
       sfx("buy");
     }
-    updateWeatherCycle(state, dt);
-    const lighting = state.world.campfire.igniting > 0;
-    if (!lighting) updateCombat(state, dt);
-    updatePlayerMovement(state, dt);
-    if (!lighting) {
-      const usedRouteInteraction = tryInteractFirstRoute(state);
-      if (!usedRouteInteraction) tryInteract(state);
-      tryEatBerry(state);
-      tryHorseMount(state);
-      tryMigrateGer(state);
+    if (!openingStoryControlsWorldTime(state)) {
+      updateWeatherCycle(state, dt);
+    }
+    const firstNightCutscene =
+      firstNightElderCutsceneActive(state) ||
+      state.story.familyReunionEffectRemaining > 0;
+    if (!firstNightCutscene) {
+      updateCombat(state, dt);
+      updatePlayerMovement(state, dt);
+      const usedRouteInteraction =
+        !openingMilestoneActive && tryInteractFirstRoute(state);
+      updateWeatherCycle(state, dt);
+      const lighting = state.world.campfire.igniting > 0;
+      if (!lighting) updateCombat(state, dt);
+      updatePlayerMovement(state, dt);
+      if (!lighting) {
+        const usedRouteInteraction = tryInteractFirstRoute(state);
+        if (!usedRouteInteraction) tryInteract(state);
+        tryEatBerry(state);
+        tryHorseMount(state);
+        // tryMigrateGer(state);
+        tryLightCampfire(state);
+        tryBuildFence(state);
+      } else {
+        state.player.moving = false;
+        state.input.attack = false;
+        state.input.attackPressed = false;
+        state.input.parry = false;
+        state.input.parryPressed = false;
+        state.input.dodge = false;
+        state.input.dodgePressed = false;
+        state.input.shoot = false;
+        state.input.interact = false;
+      }
     }
     tryLightCampfire(state);
-    if (!lighting) tryBuildFence(state);
+    // if (!lighting) tryBuildFence(state);
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
     updateParents(state, dt);
     updateWildHorses(state, dt);
+    if (!openingMilestoneActive) {
+      updateFirstRoute(state, dt);
+      updateTumurShulmasEncounter(state, dt);
+    }
     updateFish(state, dt);
     updateFirstRoute(state, dt);
     updateTumurShulmasEncounter(state, dt);
     // Boss-ийн death frame дээр "won" болсон бол дараагийн survival/threat
     // систем ялалтын төлөвийг "lost"-оор дарж болохгүй.
     if (state.phase === "playing") {
-      updateThreatTimers(state, dt);
-      updateWolves(state, dt);
-      updateThieves(state, dt);
+      if (!openingMilestoneActive) {
+        updateThreatTimers(state, dt);
+        updateWolves(state, dt);
+        updateThieves(state, dt);
+      } else if (
+        storyWolfUsesExistingAi(state) &&
+        state.story.storyWolfId !== null
+      ) {
+        updateWolves(state, dt, state.story.storyWolfId);
+      }
       updateDog(state, dt);
       updateProjectiles(state, dt);
       updateSurvival(state, dt);
@@ -763,6 +829,13 @@ export function update(state: GameState, dt: number): void {
       if (state.messageTimer > 0) state.messageTimer -= dt;
     }
   }
+
+  updateHearthQuest(state, dt);
+  updateLivestockRecoveryQuest(state, dt);
+  updateMilestone3(state, dt);
+  updateMilestone4(state, dt);
+  updateMilestone7(state, dt);
+  updateMilestone8(state, dt);
 
   // Шилжилтийн манан — playing дээр ч үлдэгдэл байж болно
   if (state.phase === "playing" && state.spiritTransition > 0) {
@@ -816,6 +889,8 @@ export interface HerderGameHandle {
   retreatElderDialogue: () => void;
   chooseElderOption: (id: ElderChoiceId) => void;
   closeElderModal: () => void;
+  /** Түр хөгжүүлэлтийн cheat — одоогийн opening story үеийг алгасана. */
+  skipStoryStage: () => void;
 }
 
 export interface MountHerderOptions {
@@ -863,6 +938,16 @@ export function mountHerderGame(
   };
 
   let state = createInitialState();
+  // const unbindInput = bindInput(() => state.input);
+
+  // Түр хөгжүүлэлтийн shortcut: C дармагц opening story-н одоогийн үеийг алгасана.
+  const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
+    if (event.code !== "KeyC" || event.repeat) return;
+    event.preventDefault();
+    debugSkipCurrentStoryStage(state);
+  };
+  window.addEventListener("keydown", onStoryCheatKeyDown);
+
   const unbindInput = bindInput(
     () => state.input,
     () => state.fencePreview,
@@ -890,7 +975,10 @@ export function mountHerderGame(
           snap.eyeMode,
           snap.score,
           snap.trades
-            .map((t) => `${t.id}:${t.have}:${t.owned ? 1 : 0}:${t.canTrade ? 1 : 0}:${t.detail}`)
+            .map(
+              (t) =>
+                `${t.id}:${t.have}:${t.owned ? 1 : 0}:${t.canTrade ? 1 : 0}:${t.detail}`,
+            )
             .join(","),
           snap.activeDialogue
             ? `${snap.activeDialogue.id}:${snap.activeDialogue.beatIndex}:${snap.activeDialogue.showingChoices}`
@@ -958,7 +1046,10 @@ export function mountHerderGame(
     const phaseBefore = state.phase;
     update(state, dt);
     // Play дармагц браузерийн fullscreen руу орно
-    if (phaseBefore === "menu" && state.phase === "playing") {
+    if (
+      phaseBefore === "menu" &&
+      (state.phase === "intro" || state.phase === "playing")
+    ) {
       enterBrowserFullscreen();
     }
     notifyRiddleUi();
@@ -974,6 +1065,7 @@ export function mountHerderGame(
       alive = false;
       cancelAnimationFrame(raf);
       unbindInput();
+      window.removeEventListener("keydown", onStoryCheatKeyDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", unlockAudio);
@@ -1017,6 +1109,11 @@ export function mountHerderGame(
     },
     closeElderModal: () => {
       closeElder(state);
+      notifyElderUi();
+    },
+    skipStoryStage: () => {
+      debugSkipCurrentStoryStage(state);
+      notifyRiddleUi();
       notifyElderUi();
     },
   };

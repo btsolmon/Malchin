@@ -369,7 +369,15 @@ function updateMother(state: GameState, dt: number): void {
 
 export function updateParents(state: GameState, dt: number): void {
   if (!state.parentsReturned || !state.parents) return;
-  if (state.phase !== "playing" || state.world.gerPacked) return;
+  if (
+    state.phase !== "playing" ||
+    state.world.gerPacked ||
+    state.story.familyReunionEffectRemaining > 0 ||
+    (state.story.familyReunionDialogueStarted &&
+      !state.story.familyReunionDialogueCompleted)
+  ) {
+    return;
+  }
 
   updateFather(state, dt);
   updateMother(state, dt);

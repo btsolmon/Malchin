@@ -186,19 +186,15 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
   state.world.elder.eyeMode = "idle";
 
   if (parentsFreed) {
-    // Аав ээжтэйгээ гэртээ буцаж, тоглоом үргэлжилнэ
+    // Хар хүлээс тасарч, гэр бүлийн төгсгөлийн cutscene гэрт эхэлнэ.
     ensureParents(state);
     state.player.pos = {
       x: state.world.campPos.x + 28,
       y: state.world.campPos.y + 55,
     };
     state.phase = "playing";
-    setMessage(
-      state,
-      "Шулмас аав ээжийг буцаан өглөө. Одоо гэр бүлээрээ хамт амьдарна!",
-      6,
-    );
-    sfx("win");
+    state.story.activeMainObjective = null;
+    setMessage(state, "Хүлээс тасарч, сүнсний манан сарнив.", 2.4);
     return;
   }
 
@@ -277,6 +273,12 @@ export function updateSpiritWorld(state: GameState, dt: number): void {
     const tumur = state.world.tumurShulmas;
     const route = state.world.firstRoute;
     if (tumur.active) {
+      state.spiritCleared = tumur.defeated;
+      return;
+    }
+    // Нээлтийн story зам нээгдсэн бол таван сахиул, mini-boss, сэлэм,
+    // Төмөр шулмас бүгд нэг тасралтгүй аялал. Дундаас нь E-ээр буцаахгүй.
+    if (state.story.spiritPathOpened) {
       state.spiritCleared = tumur.defeated;
       return;
     }

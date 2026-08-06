@@ -119,14 +119,19 @@ export function nearestSheep(
 export function spawnWolf(
   state: GameState,
   kind: "wolf" | "bear" = "wolf",
-): void {
-  const edge = Math.floor(Math.random() * 4);
+  options: { pos?: Vector2; silent?: boolean; id?: number } = {},
+): Wolf {
   let pos: Vector2;
-  if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
-  else if (edge === 1)
-    pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
-  else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
-  else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
+  if (options.pos) {
+    pos = { ...options.pos };
+  } else {
+    const edge = Math.floor(Math.random() * 4);
+    if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
+    else if (edge === 1)
+      pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
+    else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
+    else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
+  }
 
   const night = isNight(state.world);
   const lvl = state.level - 1;
@@ -134,8 +139,8 @@ export function spawnWolf(
   // Баавгай: чононоос 2 дахин их амь, 2 дахин их хүчтэй, том биетэй, удаан
   const baseHp = Math.round((night ? 45 : 30) * (1 + 0.12 * lvl));
   const hp = bear ? baseHp * 2 : baseHp;
-  state.world.wolves.push({
-    id: allocId(state),
+  const wolf: Wolf = {
+    id: options.id ?? allocId(state),
     kind,
     pos,
     vel: { x: 0, y: 0 },
@@ -165,17 +170,24 @@ export function spawnWolf(
     attackDirection: { x: 0, y: 1 },
     attackHitDone: false,
     knockbackResistance: bear ? 0.45 : 0.15,
-  });
-  sfx("howl");
-  setMessage(
-    state,
-    bear
-      ? "Баавгай мал руу дайрлаа — маш аюултай!"
-      : night
-        ? "Шөнийн чоно мал руу дайрлаа!"
-        : "Чоно ойртлоо — хамгаал!",
-    3,
-  );
+  };
+  if (options.id !== undefined) {
+    state.nextEntityId = Math.max(state.nextEntityId, options.id + 1);
+  }
+  state.world.wolves.push(wolf);
+  if (!options.silent) {
+    sfx("howl");
+    setMessage(
+      state,
+      bear
+        ? "Баавгай мал руу дайрлаа — маш аюултай!"
+        : night
+          ? "Шөнийн чоно мал руу дайрлаа!"
+          : "Чоно ойртлоо — хамгаал!",
+      3,
+    );
+  }
+  return wolf;
 }
 
 export function spawnThief(state: GameState): void {
@@ -260,10 +272,44 @@ export function updateFlock(state: GameState, dt: number): void {
   const dog = world.dog;
   const out = world.flockOut;
   const flock = world.flock.visuals;
+  const story = state.story;
 
   for (const sheep of flock) {
-    const home = out ? center : pen;
-    const homeR = out ? PASTURE_RADIUS : PEN_RADIUS * 0.92;
+    const openingAnchor = story.openingLivestockAnchors.find(
+      (anchor) => anchor.id === sheep.id,
+    );
+    const openingOriginalActive =
+      openingAnchor !== undefined && !story.livestockQuestCompleted;
+    const openingFound = story.livestockFoundIds.includes(sheep.id);
+    const openingReturned = story.livestockReturnedIds.includes(sheep.id);
+    const openingMissing =
+      openingOriginalActive && !openingFound && !openingReturned;
+    const openingFollowing =
+      openingOriginalActive &&
+      story.livestockQuestStarted &&
+      story.activeMainObjective === "findScatteredLivestock" &&
+      openingFound &&
+      !openingReturned;
+    const openingPenned =
+      openingOriginalActive &&
+      story.livestockQuestStarted &&
+      story.activeMainObjective === "findScatteredLivestock" &&
+      openingReturned;
+    const questSteered = openingMissing || openingFollowing || openingPenned;
+    const home = openingMissing
+      ? openingAnchor.pos
+      : openingPenned
+        ? pen
+        : out
+          ? center
+          : pen;
+    const homeR = openingMissing
+      ? 28
+      : openingPenned
+        ? PEN_RADIUS * 0.72
+        : out
+          ? PASTURE_RADIUS
+          : PEN_RADIUS * 0.92;
     const toCenter = normalize({
       x: home.x - sheep.pos.x,
       y: home.y - sheep.pos.y,
@@ -324,7 +370,7 @@ export function updateFlock(state: GameState, dt: number): void {
     // N барих — ойрхон хонийг нүүрний чигт тууна
     let herdX = 0;
     let herdY = 0;
-    if (herding) {
+    if (herding && !questSteered) {
       const dPlayer = dist(sheep.pos, player.pos);
       if (dPlayer < 180) {
         const away =
@@ -353,7 +399,83 @@ export function updateFlock(state: GameState, dt: number): void {
       x: gate.x - pen.x,
       y: gate.y - pen.y,
     });
-    if (out && insidePen) {
+    const playerInsidePen = animalInPen(player.pos, world);
+    const shouldRouteIntoPen =
+      !insidePen &&
+      (openingPenned ||
+        (openingFollowing && (playerInsidePen || !out)) ||
+        (!openingFollowing && !openingPenned && !openingMissing && !out));
+
+    if (openingMissing) {
+      const anchor = openingAnchor?.pos ?? home;
+      const ang = world.elapsed * 0.12 + sheep.id * 1.83 + sheep.grazeSeed;
+      const rad = 12 + ((sheep.id * 13) % 11);
+      const spot = {
+        x: anchor.x + Math.cos(ang) * rad,
+        y: anchor.y + Math.sin(ang * 0.9) * rad,
+      };
+      const toSpot = normalize({
+        x: spot.x - sheep.pos.x,
+        y: spot.y - sheep.pos.y,
+      });
+      steerX = toSpot.x;
+      steerY = toSpot.y;
+      pull = dist(sheep.pos, spot) > 15 ? 1.25 : 0.12;
+      if (dCenter > homeR) {
+        steerX += toCenter.x * 1.2;
+        steerY += toCenter.y * 1.2;
+        pull = Math.max(pull, 2.1);
+      }
+    } else if (shouldRouteIntoPen) {
+      routingGate = true;
+      const dGate = dist(sheep.pos, gate);
+      if (dGate > 26) {
+        const toGate = normalize({
+          x: gate.x - sheep.pos.x,
+          y: gate.y - sheep.pos.y,
+        });
+        steerX = toGate.x;
+        steerY = toGate.y;
+        pull = 3.2;
+      } else {
+        // Хаалгаар орж төв рүү
+        const toPen = normalize({
+          x: pen.x - sheep.pos.x,
+          y: pen.y - sheep.pos.y,
+        });
+        steerX = toPen.x;
+        steerY = toPen.y;
+        pull = 3.4;
+      }
+    } else if (openingFollowing) {
+      const side = ((sheep.id % 3) - 1) * 8;
+      const target = {
+        x: player.pos.x - drive.x * 34 - drive.y * side,
+        y: player.pos.y - drive.y * 34 + drive.x * side,
+      };
+      const toFollow = normalize({
+        x: target.x - sheep.pos.x,
+        y: target.y - sheep.pos.y,
+      });
+      const followDistance = dist(sheep.pos, target);
+      steerX = toFollow.x;
+      steerY = toFollow.y;
+      pull = followDistance > 150 ? 4.6 : followDistance > 48 ? 3.2 : 0.08;
+    } else if (openingPenned) {
+      const ang = world.elapsed * 0.16 + sheep.id * 2.17 + sheep.grazeSeed;
+      const rad = homeR * (0.25 + ((sheep.id * 19) % 9) * 0.045);
+      const spot = {
+        x: pen.x + Math.cos(ang) * rad,
+        y: pen.y + Math.sin(ang * 0.9) * rad,
+      };
+      const toSpot = normalize({
+        x: spot.x - sheep.pos.x,
+        y: spot.y - sheep.pos.y,
+      });
+      steerX = toSpot.x;
+      steerY = toSpot.y;
+      pull = dist(sheep.pos, spot) > 20 ? 1.1 : 0.12;
+    } else if (out && insidePen) {
       routingGate = true;
       const dGate = dist(sheep.pos, gate);
       if (dGate > 30) {
@@ -377,27 +499,6 @@ export function updateFlock(state: GameState, dt: number): void {
         steerX = toOut.x;
         steerY = toOut.y;
         pull = 3.6;
-      }
-    } else if (!out && !insidePen) {
-      routingGate = true;
-      const dGate = dist(sheep.pos, gate);
-      if (dGate > 26) {
-        const toGate = normalize({
-          x: gate.x - sheep.pos.x,
-          y: gate.y - sheep.pos.y,
-        });
-        steerX = toGate.x;
-        steerY = toGate.y;
-        pull = 3.2;
-      } else {
-        // Хаалгаар орж төв рүү
-        const toPen = normalize({
-          x: pen.x - sheep.pos.x,
-          y: pen.y - sheep.pos.y,
-        });
-        steerX = toPen.x;
-        steerY = toPen.y;
-        pull = 3.4;
       }
     } else if (herding) {
       pull = dCenter > homeR * 1.4 ? 0.35 : 0.05;
@@ -449,9 +550,9 @@ export function updateFlock(state: GameState, dt: number): void {
         pull = Math.max(pull, 1.2);
       }
     }
-    const playerPull = herding ? 0 : 0.02;
-    const sepScale = routingGate ? 0.25 : 1.8;
-    const wanderScale = routingGate ? 0.15 : 1;
+    const playerPull = herding || questSteered ? 0 : 0.02;
+    const sepScale = routingGate ? 0.25 : questSteered ? 0.65 : 1.8;
+    const wanderScale = routingGate ? 0.15 : questSteered ? 0.3 : 1;
 
     sheep.vel.x +=
       (steerX * pull +
@@ -592,9 +693,15 @@ function collideEntityWithFences(
   return { contactDps, knockback, hitTier };
 }
 
-export function updateWolves(state: GameState, dt: number): void {
+export function updateWolves(
+  state: GameState,
+  dt: number,
+  onlyWolfId?: number,
+): void {
   for (const wolf of state.world.wolves) {
-    if (!wolf.alive) continue;
+    if (!wolf.alive || (onlyWolfId !== undefined && wolf.id !== onlyWolfId)) {
+      continue;
+    }
     const contact = collideEntityWithFences(
       state,
       wolf.pos,
@@ -607,18 +714,23 @@ export function updateWolves(state: GameState, dt: number): void {
     }
   }
 
-  updateCombatWolves(state, dt);
+  updateCombatWolves(state, dt, onlyWolfId);
 
   for (const wolf of state.world.wolves) {
-    if (!wolf.alive) continue;
+    if (!wolf.alive || (onlyWolfId !== undefined && wolf.id !== onlyWolfId)) {
+      continue;
+    }
+    const storyProtected =
+      state.story.temporaryLivestockProtectionActive &&
+      state.story.storyWolfId === wolf.id;
     const contact = collideEntityWithFences(
       state,
       wolf.pos,
       wolf.radius * wolf.scale,
       wolf.kind === "bear" ? "bear" : "wolf",
-      dt,
+      storyProtected ? 0 : dt,
     );
-    if (contact.contactDps > 0 && wolf.alive) {
+    if (!storyProtected && contact.contactDps > 0 && wolf.alive) {
       const before = wolf.hp;
       wolf.hp -= contact.contactDps * dt;
       wolf.flash = Math.max(wolf.flash, 0.05);
@@ -647,7 +759,9 @@ export function updateWolves(state: GameState, dt: number): void {
     }
   }
 
-  state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
+  if (onlyWolfId === undefined) {
+    state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
+  }
 }
 
 export function updateThieves(state: GameState, dt: number): void {

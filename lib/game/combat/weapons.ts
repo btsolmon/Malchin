@@ -18,16 +18,38 @@ import { damageRouteEnemy, inShulmasSpirit } from "../firstRoute";
 import { damageTumurShulmasFromPlayer } from "../tumurShulmas";
 
 export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
-  wolf.hp -= dmg;
+  const isOpeningStoryWolf = state.story.storyWolfId === wolf.id;
+  const storyTutorialProtected =
+    isOpeningStoryWolf &&
+    state.story.milestone3Completed &&
+    !state.story.milestone4Completed &&
+    (!state.story.storyWolfParryCompleted ||
+      wolf.attackPhase !== "stunned");
+  const storyProtected =
+    isOpeningStoryWolf &&
+    (!state.story.milestone3Completed || storyTutorialProtected);
+  if (!storyProtected) wolf.hp -= dmg;
   wolf.flash = 0.12;
   sfx("hit");
   spawnParticles(state, wolf.pos, 8, "#c03030", { speed: 100 });
+
+  if (storyProtected) {
+    wolf.hp = Math.max(1, wolf.hp);
+    wolf.alive = true;
+    return;
+  }
+
+  if (isOpeningStoryWolf && wolf.attackPhase === "stunned") {
+    state.story.storyWolfCounterCompleted = true;
+    state.story.storyWolfOpeningActive = false;
+  }
 
   if (wolf.hp <= 0) {
     const bear = wolf.kind === "bear";
     const score = bear ? 60 : 25;
     const xp = bear ? 45 : 22;
     wolf.alive = false;
+    if (isOpeningStoryWolf) state.story.storyWolfDefeated = true;
     sfx("kill");
     state.score += score;
     spawnParticles(state, wolf.pos, bear ? 22 : 16, "#909090", { speed: 130 });

@@ -68,6 +68,7 @@ export default function HerderGame() {
     handleRef.current?.closeElderModal();
   }, []);
 
+
   return (
     <div className="herder-stage-wrap">
       <canvas
