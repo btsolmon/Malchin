@@ -901,13 +901,16 @@ export function mountHerderGame(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context дэмжигдэхгүй");
 
-  // Retina дэмжлэг — CSS-ээр viewport дүүргэнэ (object-fit: contain)
-  const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = VIEW_W * dpr;
-  canvas.height = VIEW_H * dpr;
-  canvas.style.width = "";
-  canvas.style.height = "";
-  ctx.scale(dpr, dpr);
+  // Логик 960×540 тогтмол — CSS viewport-ыг дүүргэж томруулна (харьцаа хадгална)
+  const applyCanvasBuffer = (): void => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = VIEW_W * dpr;
+    canvas.height = VIEW_H * dpr;
+    canvas.style.width = "";
+    canvas.style.height = "";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  applyCanvasBuffer();
 
   const enterBrowserFullscreen = (): void => {
     const root = canvas.parentElement ?? canvas;
@@ -931,6 +934,12 @@ export function mountHerderGame(
     tumurShulmasSprites: loadTumurShulmasSprites(),
     worldSprites: loadWorldSprites(),
   };
+
+  const onWindowResize = (): void => {
+    applyCanvasBuffer();
+  };
+  window.addEventListener("resize", onWindowResize);
+  document.addEventListener("fullscreenchange", onWindowResize);
 
   let state = createInitialState();
   const unbindInput = bindInput(
@@ -1055,6 +1064,8 @@ export function mountHerderGame(
       alive = false;
       cancelAnimationFrame(raf);
       unbindInput();
+      window.removeEventListener("resize", onWindowResize);
+      document.removeEventListener("fullscreenchange", onWindowResize);
       window.removeEventListener("keydown", onStoryCheatKeyDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
