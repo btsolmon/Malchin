@@ -2961,9 +2961,9 @@ export function debugJumpToFamilyLife(state: GameState): void {
 
   state.player.hasSkySword = true;
   state.player.weapon = "skySword";
-  state.player.hp = state.player.maxHp;
-  state.player.hunger = Math.max(state.player.hunger, 70);
-  state.player.warmth = Math.max(state.player.warmth, 70);
+  state.player.vitals.health = state.player.vitals.maxHealth;
+  state.player.vitals.hunger = Math.max(state.player.vitals.hunger, 70);
+  state.player.vitals.warmth = Math.max(state.player.vitals.warmth, 70);
 
   // Сүнсний орноос гаргана
   if (state.spiritSavedWolves) {
