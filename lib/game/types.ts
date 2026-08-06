@@ -945,7 +945,6 @@ export const START_SHEEP = 2;
 export const START_GOATS = 2;
 export const CAMPFIRE_WOOD_COST = 3;
 export const MAX_VISUAL_SHEEP = 36;
-export const MAX_VISUAL_SHEEP = 1000;
 export const MAX_FEEDER_HAY = 80;
 /** Малын бүтээгдэхүүн гарах хугацаа (сек) */
 export const PRODUCE_INTERVAL: Record<LivestockKind, number> = {

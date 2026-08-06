@@ -36,7 +36,7 @@ import {
   tryHorseMount,
   tryInteract,
   tryLightCampfire,
-  tryMigrateGer,
+  // tryMigrateGer,
   updateFencePreviewAim,
   updatePlayerMovement,
   updateSurvival,
@@ -730,7 +730,7 @@ export function update(state: GameState, dt: number): void {
         if (!usedRouteInteraction) tryInteract(state);
         tryEatBerry(state);
         tryHorseMount(state);
-        tryMigrateGer(state);
+        // tryMigrateGer(state);
         tryLightCampfire(state);
         tryBuildFence(state);
       } else {
@@ -746,7 +746,7 @@ export function update(state: GameState, dt: number): void {
       }
     }
     tryLightCampfire(state);
-    if (!lighting) tryBuildFence(state);
+    // if (!lighting) tryBuildFence(state);
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
@@ -913,7 +913,7 @@ export function mountHerderGame(
   };
 
   let state = createInitialState();
-  const unbindInput = bindInput(() => state.input);
+  // const unbindInput = bindInput(() => state.input);
 
   // Түр хөгжүүлэлтийн shortcut: C дармагц opening story-н одоогийн үеийг алгасана.
   const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
