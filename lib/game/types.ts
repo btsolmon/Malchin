@@ -17,7 +17,14 @@ export type GamePhase =
   | "spirit";
 
 /** Дэлгүүрээс авч болох эд зүйлс */
-export type GearId = "dog" | "horse" | "bow" | "gun" | "axe" | "urga";
+export type GearId =
+  | "dog"
+  | "horse"
+  | "bow"
+  | "gun"
+  | "axe"
+  | "urga"
+  | "fishingRod";
 export type CombatPhase = "idle" | "startup" | "active" | "recovery";
 export type AttackVariant = 0 | 1 | 2;
 export type PlayerWeapon = "staff" | "skySword";
@@ -111,6 +118,8 @@ export interface Inventory {
   felt: number;
   /** Ааруул */
   aaruul: number;
+  /** Голоос барьсан загас */
+  fish: number;
 }
 
 export interface Player {
@@ -199,6 +208,10 @@ export interface Campfire {
   lit: boolean;
   fuel: number;
   radius: number;
+  /** Хээр түлсэн эсэх — false бол гал зурагдахгүй */
+  placed: boolean;
+  /** Гал асааж буй үлдсэн секунд (0 = бүрэн ассан) */
+  igniting: number;
 }
 
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
@@ -209,7 +222,12 @@ export interface Fence {
   id: number;
   pos: Vector2;
   radius: number;
-  /** 0 = зүүн–баруун төмөр, 1 = хойд–өмнөд төмөр */
+  /**
+   * Сегментийн чиглэл (радиан). 0 = зүүн–баруун төмөр.
+   * π/2 = хойд–өмнөд. Бусад өнцөг = налуу тал.
+   */
+  angle: number;
+  /** 0 ≈ хэвтээ, 1 ≈ босоо — depth sort / хурдан ангилал */
   orient: 0 | 1;
   /** 1 анхан · 2 дунд · 3 дээд */
   tier: FenceTier;
@@ -303,6 +321,16 @@ export interface WildHorse {
   radius: number;
   face: 1 | -1;
   spooked: number;
+}
+
+/** Голын загас — уургаар барина */
+export interface Fish {
+  id: number;
+  pos: Vector2;
+  vel: Vector2;
+  radius: number;
+  face: 1 | -1;
+  spook: number;
 }
 
 export interface Wolf {
@@ -576,6 +604,8 @@ export interface World {
   pastureSeason: Season | null;
   feeder: Feeder;
   wildHorses: WildHorse[];
+  /** Голын загас */
+  fish: Fish[];
   /** Буусан / гадаа уясан унах морь (riding=false үед) */
   mountHorse: MountHorse | null;
 }
@@ -615,6 +645,8 @@ export interface InputState {
   debugXp: boolean;
   /** Debug — . дарж мод хязгааргүй болгох */
   debugWood: boolean;
+  /** Debug — , дарж үхэшгүй болгох */
+  debugGod: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
   debugBoss: boolean;
   /** N барих — хонь туух */
@@ -837,7 +869,7 @@ export interface GameState {
   pauseIndex: number;
   /** Гэр доторх дэлгүүр нээлттэй эсэх */
   shopOpen: boolean;
-  /** Гэр доторх урлал (тахилын ширээ) нээлттэй эсэх */
+  /** Гэр доторх урлал (зүүн авдар / тахил) нээлттэй эсэх */
   craftOpen: boolean;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */
   gerPlayer: Vector2;
@@ -845,12 +877,22 @@ export interface GameState {
   gerSleepTimer: number;
   /** Аль орон дээр унтаж байгаа */
   gerSleepBed: "L" | "R" | null;
+  /** Гэр доторх зуух ассан эсэх */
+  gerStoveLit: boolean;
+  /** Зуухны түлшний үлдэгдэл (сек) */
+  gerStoveFuel: number;
   /** Пауз менюгээс үндсэн цэс рүү буцах */
   requestRestart: boolean;
   /** B эхний даралт — хашааны цагаан preview идэвхтэй */
   fencePreview: boolean;
+  /** Preview үеийн хашааны өнцөг (радиан). 0 = зүүн–баруун */
+  fencePreviewAngle: number;
+  /** Preview байршлын нэмэлт алхам (хагас тор) — сумнаар */
+  fencePreviewOffset: Vector2;
   /** . cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
+  /** , cheat — амь багасахгүй, үхэхгүй */
+  godMode: boolean;
   /** Melee/parry үед хэвийн хөдөлгөөн түгжигдсэн */
   combatMovementLocked: boolean;
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
@@ -903,6 +945,7 @@ export const START_SHEEP = 2;
 export const START_GOATS = 2;
 export const CAMPFIRE_WOOD_COST = 3;
 export const MAX_VISUAL_SHEEP = 36;
+export const MAX_VISUAL_SHEEP = 1000;
 export const MAX_FEEDER_HAY = 80;
 /** Малын бүтээгдэхүүн гарах хугацаа (сек) */
 export const PRODUCE_INTERVAL: Record<LivestockKind, number> = {

@@ -196,17 +196,31 @@ export function updateEffects(state: GameState, dt: number): void {
 
   // Галын оч
   const fire = state.world.campfire;
-  if (fire.lit) {
+  if (fire.lit || fire.igniting > 0) {
     fx.emberAcc += dt;
-    while (fx.emberAcc > 0.08) {
-      fx.emberAcc -= 0.08;
+    const interval = fire.igniting > 0 ? 0.05 : 0.08;
+    while (fx.emberAcc > interval) {
+      fx.emberAcc -= interval;
+      const igniteP =
+        fire.igniting > 0 ? Math.max(0.3, 1 - fire.igniting / 4) : 1;
       fx.particles.push({
-        pos: { x: fire.pos.x + randRange(-6, 6), y: fire.pos.y - 8 },
-        vel: { x: randRange(-14, 14), y: randRange(-70, -30) },
+        pos: {
+          x: fire.pos.x + randRange(-6, 6),
+          y: fire.pos.y - 8,
+        },
+        vel: {
+          x: randRange(-14, 14),
+          y: randRange(-70 * igniteP, -30 * igniteP),
+        },
         life: randRange(0.4, 0.9),
         maxLife: 0.9,
-        size: randRange(1.5, 3),
-        color: Math.random() < 0.5 ? "#ffb347" : "#ff7733",
+        size: randRange(1.5, 3) * igniteP,
+        color:
+          fire.igniting > 0 && Math.random() < 0.4
+            ? "#c8a070"
+            : Math.random() < 0.5
+              ? "#ffb347"
+              : "#ff7733",
         gravity: -30,
       });
     }

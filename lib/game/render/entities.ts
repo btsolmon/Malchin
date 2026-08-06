@@ -5,6 +5,7 @@ import {
   Dog,
   type Elder,
   type Fence,
+  type Fish,
   FENCE_GRID,
   type ParentNpc,
   Player,
@@ -493,6 +494,8 @@ export function drawCampfire(
 ): void {
   const x = fire.pos.x - cam.x;
   const y = fire.pos.y - cam.y;
+  const igniteProgress =
+    fire.igniting > 0 ? clamp(1 - fire.igniting / 4, 0, 1) : fire.lit ? 1 : 0;
 
   drawShadow(ctx, x, y + 6, 17, 7);
 
@@ -515,40 +518,81 @@ export function drawCampfire(
   ctx.lineTo(x + 9, y + 4);
   ctx.stroke();
 
-  if (fire.lit) {
+  // Асаах үе — утаа, оч, аажмаар томрох дөл
+  if (fire.igniting > 0 || fire.lit) {
+    const p = igniteProgress;
     const f1 = 1 + Math.sin(time * 11) * 0.15;
     const f2 = 1 + Math.sin(time * 17 + 2) * 0.2;
 
-    // Гадна дөл
-    const outer = ctx.createLinearGradient(x, y - 26 * f1, x, y + 2);
-    outer.addColorStop(0, "rgba(255,120,30,0.15)");
-    outer.addColorStop(0.4, "#ff8c2a");
-    outer.addColorStop(1, "#d84a10");
-    ctx.fillStyle = outer;
-    ctx.beginPath();
-    ctx.moveTo(x, y - 26 * f1);
-    ctx.quadraticCurveTo(x + 11, y - 8, x + 8, y + 2);
-    ctx.lineTo(x - 8, y + 2);
-    ctx.quadraticCurveTo(x - 11, y - 8, x, y - 26 * f1);
-    ctx.fill();
+    // Утаа (эхэнд илүү, дараа нь багасна)
+    if (p < 0.95) {
+      const smokeA = (1 - p) * 0.35 + 0.08;
+      for (let i = 0; i < 3; i++) {
+        const sy =
+          y - 8 - p * 18 - i * 10 - Math.sin(time * 3 + i) * 3;
+        const sx = x + Math.sin(time * 2.2 + i * 1.7) * (4 + i * 2);
+        const sr = 4 + i * 2.5 + p * 2;
+        ctx.fillStyle = `rgba(90,90,95,${smokeA * (1 - i * 0.25)})`;
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, sr, sr * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
-    // Дотор дөл
-    ctx.fillStyle = "#ffe066";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 14 * f2);
-    ctx.quadraticCurveTo(x + 5, y - 4, x + 4, y + 1);
-    ctx.lineTo(x - 4, y + 1);
-    ctx.quadraticCurveTo(x - 5, y - 4, x, y - 14 * f2);
-    ctx.fill();
+    // Оч — асаах үед
+    if (fire.igniting > 0) {
+      for (let i = 0; i < 5; i++) {
+        const ang = time * 4 + i * 1.3;
+        const bounce = (Math.sin(time * 9 + i * 2) + 1) * 0.5;
+        const ox = x + Math.cos(ang) * (3 + bounce * 8 * p);
+        const oy = y - 2 - bounce * (10 + p * 16) - i * 2;
+        ctx.fillStyle =
+          i % 2 === 0
+            ? `rgba(255,180,60,${0.4 + p * 0.5})`
+            : `rgba(255,100,40,${0.35 + p * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 1.2 + p * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
-    // Газрын гэрэлт толбо
-    const glow = ctx.createRadialGradient(x, y, 4, x, y, 42);
-    glow.addColorStop(0, "rgba(255,150,50,0.28)");
-    glow.addColorStop(1, "rgba(255,150,50,0)");
-    ctx.fillStyle = glow;
-    ctx.beginPath();
-    ctx.arc(x, y, 42, 0, Math.PI * 2);
-    ctx.fill();
+    if (p > 0.08) {
+      const h = 26 * f1 * p;
+      // Гадна дөл
+      const outer = ctx.createLinearGradient(x, y - h, x, y + 2);
+      outer.addColorStop(0, `rgba(255,120,30,${0.1 + p * 0.05})`);
+      outer.addColorStop(0.4, `rgba(255,140,42,${0.55 + p * 0.45})`);
+      outer.addColorStop(1, `rgba(216,74,16,${0.5 + p * 0.5})`);
+      ctx.fillStyle = outer;
+      ctx.beginPath();
+      ctx.moveTo(x, y - h);
+      ctx.quadraticCurveTo(x + 11 * p, y - 8 * p, x + 8 * p, y + 2);
+      ctx.lineTo(x - 8 * p, y + 2);
+      ctx.quadraticCurveTo(x - 11 * p, y - 8 * p, x, y - h);
+      ctx.fill();
+
+      // Дотор дөл
+      if (p > 0.25) {
+        const ih = 14 * f2 * ((p - 0.25) / 0.75);
+        ctx.fillStyle = `rgba(255,224,102,${0.5 + p * 0.5})`;
+        ctx.beginPath();
+        ctx.moveTo(x, y - ih);
+        ctx.quadraticCurveTo(x + 5 * p, y - 4 * p, x + 4 * p, y + 1);
+        ctx.lineTo(x - 4 * p, y + 1);
+        ctx.quadraticCurveTo(x - 5 * p, y - 4 * p, x, y - ih);
+        ctx.fill();
+      }
+
+      // Газрын гэрэлт толбо
+      const glowR = 42 * p;
+      const glow = ctx.createRadialGradient(x, y, 4, x, y, glowR);
+      glow.addColorStop(0, `rgba(255,150,50,${0.28 * p})`);
+      glow.addColorStop(1, "rgba(255,150,50,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, glowR, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
@@ -560,21 +604,22 @@ export function drawFence(
 ): void {
   const x = fence.pos.x - cam.x;
   const y = fence.pos.y - cam.y;
-  const ns = fence.orient === 1;
+  const angle = fence.angle ?? (fence.orient === 1 ? Math.PI / 2 : 0);
   const tier = fence.tier ?? 1;
   const open = fence.isGate ? fence.gateOpen : 0;
 
   ctx.save();
   ctx.translate(x, y);
-  if (ns) drawShadow(ctx, 0, 2, 6, FENCE_HALF + 2);
-  else drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
+  ctx.rotate(angle);
+  // Локал X дагуу хэвтээ хашаа — бүх өнцөгт ижил
+  drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
 
   if (tier === 1) {
-    drawFenceWood(ctx, 0, 0, ns, fence.isGate, open);
+    drawFenceWood(ctx, 0, 0, false, fence.isGate, open);
   } else if (tier === 2) {
-    drawFenceBarbed(ctx, 0, 0, ns, fence.isGate, open);
+    drawFenceBarbed(ctx, 0, 0, false, fence.isGate, open);
   } else {
-    drawFenceElectric(ctx, 0, 0, ns, time, fence.id, fence.isGate, open);
+    drawFenceElectric(ctx, 0, 0, false, time, fence.id, fence.isGate, open);
   }
 
   ctx.restore();
@@ -597,16 +642,22 @@ export function drawFence(
 export function drawFenceGhost(
   ctx: CanvasRenderingContext2D,
   pos: Vector2,
-  orient: 0 | 1,
+  orientOrAngle: 0 | 1 | number,
   cam: Camera,
 ): void {
   const x = pos.x - cam.x;
   const y = pos.y - cam.y;
-  const ns = orient === 1;
+  const angle =
+    orientOrAngle === 0 || orientOrAngle === 1
+      ? orientOrAngle === 1
+        ? Math.PI / 2
+        : 0
+      : orientOrAngle;
 
   ctx.save();
   ctx.globalAlpha = 0.55;
   ctx.translate(x, y);
+  ctx.rotate(angle);
 
   const post = (px: number, py: number): void => {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
@@ -618,22 +669,14 @@ export function drawFenceGhost(
   ctx.strokeStyle = "rgba(255,255,255,0.7)";
   ctx.lineWidth = 3;
   ctx.lineCap = "butt";
-  if (ns) {
-    post(0, 0);
-    ctx.beginPath();
-    ctx.moveTo(0, -FENCE_HALF);
-    ctx.lineTo(0, FENCE_HALF);
-    ctx.stroke();
-  } else {
-    post(-FENCE_HALF, 0);
-    post(FENCE_HALF, 0);
-    ctx.beginPath();
-    ctx.moveTo(-FENCE_HALF, -14);
-    ctx.lineTo(FENCE_HALF, -14);
-    ctx.moveTo(-FENCE_HALF, -7);
-    ctx.lineTo(FENCE_HALF, -7);
-    ctx.stroke();
-  }
+  post(-FENCE_HALF, 0);
+  post(FENCE_HALF, 0);
+  ctx.beginPath();
+  ctx.moveTo(-FENCE_HALF, -14);
+  ctx.lineTo(FENCE_HALF, -14);
+  ctx.moveTo(-FENCE_HALF, -7);
+  ctx.lineTo(FENCE_HALF, -7);
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -1561,6 +1604,61 @@ export function drawWildHorse(
   ctx.textAlign = "left";
 }
 
+/** Голын загас */
+export function drawFish(
+  ctx: CanvasRenderingContext2D,
+  fish: Fish,
+  cam: Camera,
+  time: number,
+): void {
+  const x = fish.pos.x - cam.x;
+  const y = fish.pos.y - cam.y;
+  if (x < -40 || x > 1000 || y < -40 || y > 600) return;
+  const flip = fish.face;
+  const wiggle = Math.sin(time * 9 + fish.id) * 1.2;
+
+  ctx.save();
+  ctx.translate(x, y + wiggle * 0.3);
+  ctx.scale(flip, 1);
+
+  // Усны гялбаа / сүүдэр
+  ctx.fillStyle = "rgba(20,40,70,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(0, 4, 9, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Бие
+  const body = ctx.createLinearGradient(-8, -3, 8, 3);
+  body.addColorStop(0, "#5a9ad0");
+  body.addColorStop(0.5, "#3a78b0");
+  body.addColorStop(1, "#2a5a90");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 9, 3.6 + wiggle * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Сүүл
+  ctx.fillStyle = "#2a68a0";
+  ctx.beginPath();
+  ctx.moveTo(-7, 0);
+  ctx.lineTo(-13, -4 + wiggle);
+  ctx.lineTo(-13, 4 - wiggle);
+  ctx.closePath();
+  ctx.fill();
+
+  // Нүд
+  ctx.fillStyle = "#0a1828";
+  ctx.beginPath();
+  ctx.arc(5.5, -0.8, 1.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e8f4ff";
+  ctx.beginPath();
+  ctx.arc(5.8, -1.1, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function drawEnemyCombatFeedback(
   ctx: CanvasRenderingContext2D,
   enemy: Wolf,
@@ -2174,13 +2272,229 @@ export function drawHerderHair(
   drawHerderHairFront(ctx, cx, hy, flip);
 }
 
+/** Тонгойж зогсоод хоёр чулуу цохих — 4 сек асаах анимэйшн */
+function drawPlayerLightingFire(
+  ctx: CanvasRenderingContext2D,
+  player: Player,
+  cam: Camera,
+  time: number,
+  lightingFire: number,
+): void {
+  const x = player.pos.x - cam.x;
+  const y = player.pos.y - cam.y;
+  const flip = player.facing.x < 0 ? -1 : 1;
+  const progress = clamp(1 - lightingFire / 4, 0, 1);
+
+  // Цохилтын хэмнэл
+  const strike = Math.sin(time * 6.2);
+  const impact = strike > 0.82;
+  const swing = Math.max(0, -strike);
+  const approach = Math.max(0, strike);
+  // Тонгойх — урагш бөхийх
+  const bend = 5 + approach * 1.5;
+
+  if (player.invuln > 0 && Math.floor(time * 14) % 2 === 0) {
+    ctx.globalAlpha = 0.45;
+  }
+
+  drawShadow(ctx, x, y + 12, 12, 4.5);
+
+  // Хөл — зогссоон
+  ctx.strokeStyle = "#2a2a30";
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - 3.5, y + 2);
+  ctx.lineTo(x - 4.5, y + 12);
+  ctx.moveTo(x + 3.5, y + 2);
+  ctx.lineTo(x + 4.5, y + 12);
+  ctx.stroke();
+
+  // Гутал
+  ctx.fillStyle = "#1e1e24";
+  ctx.beginPath();
+  ctx.ellipse(x - 5, y + 13, 4.2, 2, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 5, y + 13, 4.2, 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Бие тонгойсон — төв доош/урд
+  const bodyY = y - 1 + bend * 0.35;
+  const bodyX = x + bend * 0.45 * flip;
+  const shoulderY = bodyY - 7;
+
+  // Дээл
+  const deel = ctx.createLinearGradient(bodyX - 9, bodyY - 12, bodyX + 9, bodyY + 6);
+  deel.addColorStop(0, "#3a62a0");
+  deel.addColorStop(1, "#24457a");
+  ctx.fillStyle = deel;
+  ctx.beginPath();
+  ctx.ellipse(bodyX, bodyY - 1, 9.8, 11, flip * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#e8c56a";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bodyX + 1 * flip, bodyY - 10);
+  ctx.quadraticCurveTo(bodyX + 7 * flip, bodyY - 5, bodyX + 5 * flip, bodyY + 3);
+  ctx.stroke();
+  ctx.strokeStyle = "#d88a2a";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(bodyX - 9, bodyY + 2);
+  ctx.lineTo(bodyX + 9, bodyY + 2);
+  ctx.stroke();
+
+  // Толгой — доош харж тонгойно
+  const hdy = bodyY - 13;
+  const hx = bodyX + bend * 0.25 * flip;
+  drawHerderHairBack(ctx, hx, hdy, flip, time);
+  ctx.fillStyle = "#e0b890";
+  ctx.beginPath();
+  ctx.arc(hx, hdy, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  const faceX = 1.6 * flip;
+  ctx.fillStyle = "#2a2018";
+  ctx.beginPath();
+  ctx.arc(hx + faceX - 2.2, hdy - 0.2, 0.9, 0, Math.PI * 2);
+  ctx.arc(hx + faceX + 2.2, hdy - 0.2, 0.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#3a2c1c";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(hx + faceX - 3.4, hdy - 2.4);
+  ctx.lineTo(hx + faceX - 0.8, hdy - 1.9);
+  ctx.moveTo(hx + faceX + 0.8, hdy - 1.9);
+  ctx.lineTo(hx + faceX + 3.4, hdy - 2.4);
+  ctx.stroke();
+  ctx.strokeStyle = "#8a5838";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(hx + faceX * 0.5 - 1.2, hdy + 2.4);
+  ctx.lineTo(hx + faceX * 0.5 + 1.2, hdy + 2.4);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(214,110,80,0.35)";
+  ctx.beginPath();
+  ctx.arc(hx + faceX - 3.5, hdy + 1.4, 1.3, 0, Math.PI * 2);
+  ctx.arc(hx + faceX + 3.5, hdy + 1.4, 1.3, 0, Math.PI * 2);
+  ctx.fill();
+  drawHerderHairFront(ctx, hx, hdy, flip);
+
+  // Чулуу цохих цэг — биеийн өмнө, бүсний өндөрт
+  const clashX = bodyX + 10 * flip;
+  const clashY = bodyY + 6;
+
+  // Зүүн гар — нэг чулуу (бааз, бага хөдөлнө)
+  const leftHandX = clashX - 5 - approach * 1.5;
+  const leftHandY = clashY + 1 + swing * 1.5;
+  ctx.strokeStyle = "#d8b088";
+  ctx.lineWidth = 2.9;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(bodyX - 6 * flip, shoulderY + 1);
+  ctx.quadraticCurveTo(
+    bodyX - 2 * flip + 4,
+    shoulderY + 8,
+    leftHandX,
+    leftHandY,
+  );
+  ctx.stroke();
+  ctx.fillStyle = "#d8b088";
+  ctx.beginPath();
+  ctx.arc(leftHandX, leftHandY, 2.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Зүүн чулуу
+  ctx.fillStyle = "#7a7568";
+  ctx.beginPath();
+  ctx.ellipse(leftHandX + 3.5, leftHandY + 0.5, 4, 3, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#9a9488";
+  ctx.beginPath();
+  ctx.ellipse(leftHandX + 2.5, leftHandY - 0.5, 1.5, 1, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(40,38,32,0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(leftHandX + 3.5, leftHandY + 0.5, 4, 3, -0.2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Баруун гар — нөгөө чулуугаар цохино
+  const rightHandX = clashX + 5 + swing * 10 - approach * 6;
+  const rightHandY = clashY - 2 - swing * 8 + approach * 5;
+  ctx.strokeStyle = "#d8b088";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(bodyX + 6 * flip, shoulderY);
+  ctx.quadraticCurveTo(
+    bodyX + 10 * flip + swing * 2,
+    shoulderY + 4 - swing * 5,
+    rightHandX,
+    rightHandY,
+  );
+  ctx.stroke();
+  ctx.fillStyle = "#d8b088";
+  ctx.beginPath();
+  ctx.arc(rightHandX, rightHandY, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Баруун чулуу
+  ctx.fillStyle = "#6a6560";
+  ctx.beginPath();
+  ctx.ellipse(rightHandX - 2.5, rightHandY + 1, 3.6, 2.8, 0.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#8a8580";
+  ctx.beginPath();
+  ctx.ellipse(rightHandX - 1.5, rightHandY, 1.3, 0.9, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(30,28,24,0.5)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(rightHandX - 2.5, rightHandY + 1, 3.6, 2.8, 0.35, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Цохилтын оч
+  if (impact || progress > 0.55) {
+    const sparkBurst = impact ? 1 : 0.35 + progress * 0.4;
+    const cx = (leftHandX + rightHandX) / 2 + 1;
+    const cy = (leftHandY + rightHandY) / 2;
+    for (let i = 0; i < 6; i++) {
+      const a = time * 18 + i * 1.1;
+      const len = (3 + (i % 3) * 2.5) * sparkBurst;
+      ctx.strokeStyle =
+        i % 2 === 0
+          ? `rgba(255,220,80,${0.55 * sparkBurst})`
+          : `rgba(255,140,40,${0.45 * sparkBurst})`;
+      ctx.lineWidth = 1.2;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len - 2);
+      ctx.stroke();
+    }
+    if (impact) {
+      ctx.fillStyle = `rgba(255,240,180,${0.35 + progress * 0.25})`;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3.5 + progress, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+}
+
 export function drawPlayer(
   ctx: CanvasRenderingContext2D,
   player: Player,
   cam: Camera,
   time: number,
   gerPacked = false,
+  lightingFire = 0,
 ): void {
+  if (lightingFire > 0) {
+    drawPlayerLightingFire(ctx, player, cam, time, lightingFire);
+    return;
+  }
+
   const x = player.pos.x - cam.x;
   const y = player.pos.y - cam.y;
   // facing.x < 0 → зүүн тийш нүүр / бие
@@ -3591,4 +3905,102 @@ export function drawParentNpc(
   ctx.fillStyle = isFather ? "#c8d8f0" : "#f0c8d0";
   ctx.fillText(label, x, y - 28);
   ctx.textAlign = "left";
+}
+
+/**
+ * Загасны уурга — байнга харагдана; эрэг дээр уургалахад шугам + дэнс.
+ * casting: эрэг дээр уургалаж байгаа эсэх
+ */
+export function drawFishingRod(
+  ctx: CanvasRenderingContext2D,
+  player: Player,
+  cam: Camera,
+  time: number,
+  casting: boolean,
+  bobber: Vector2 | null,
+): void {
+  if (!player.gear.fishingRod) return;
+  const x = player.pos.x - cam.x;
+  const y = player.pos.y - cam.y + (player.riding ? -14 : 0);
+  const flip = player.facing.x < 0 ? -1 : 1;
+
+  if (!casting || !bobber) {
+    // Нуруун дээр / хажууд — богино уурга
+    const bx = x - 9 * flip;
+    const by = y - 10;
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate((-0.55 - flip * 0.15) * flip);
+    ctx.strokeStyle = "#6b4420";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(0, -22);
+    ctx.stroke();
+    ctx.strokeStyle = "#8a5a28";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -22);
+    ctx.quadraticCurveTo(6 * flip, -28, 10 * flip, -26);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  // Уургалаж байгаа: гар → уурга → шугам → дэнс
+  const bx = bobber.x - cam.x;
+  const by = bobber.y - cam.y;
+  const handX = x + 8 * flip;
+  const handY = y - 6;
+  const tipX = handX + (bx - handX) * 0.22;
+  const tipY = handY - 18 + Math.sin(time * 2.2) * 1.2;
+
+  ctx.save();
+  ctx.strokeStyle = "#5a3a18";
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(handX, handY);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+  // Уурганы үзүүр (гох)
+  ctx.strokeStyle = "#8a6028";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX + 5 * flip, tipY - 4);
+  ctx.stroke();
+
+  // Шугам
+  const sag = 10 + Math.sin(time * 3 + player.pos.x * 0.01) * 3;
+  ctx.strokeStyle = "rgba(230,235,240,0.75)";
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(tipX + 5 * flip, tipY - 4);
+  ctx.quadraticCurveTo(
+    (tipX + bx) * 0.5,
+    Math.max(tipY, by) + sag,
+    bx,
+    by,
+  );
+  ctx.stroke();
+
+  // Дэнс
+  const bob = Math.sin(time * 4.5) * 1.5;
+  ctx.fillStyle = "#c04040";
+  ctx.beginPath();
+  ctx.ellipse(bx, by + bob, 3.2, 2.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e8e8e8";
+  ctx.beginPath();
+  ctx.ellipse(bx, by + bob - 1.5, 2.2, 1.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Жижиг долгион
+  ctx.strokeStyle = "rgba(180,220,255,0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(bx, by + 3, 7 + Math.sin(time * 5) * 1.5, 2.2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }

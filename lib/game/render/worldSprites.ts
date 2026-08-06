@@ -358,7 +358,8 @@ function puddlePositionAllowed(world: World, x: number, y: number): boolean {
   if (distanceSq(world.elder.pos.x, world.elder.pos.y, 82)) return false;
   if (distanceSq(world.elder.gerPos.x, world.elder.gerPos.y, 120)) return false;
   if (distanceSq(world.feeder.pos.x, world.feeder.pos.y, 56)) return false;
-  if (distanceSq(world.campfire.pos.x, world.campfire.pos.y, 48)) return false;
+  if (world.campfire.placed && distanceSq(world.campfire.pos.x, world.campfire.pos.y, 48))
+    return false;
   for (const tree of world.trees) {
     if (distanceSq(tree.pos.x, tree.pos.y, 48)) return false;
   }
@@ -431,7 +432,8 @@ function detailPositionAllowed(
   if (blocked(world.elder.pos.x, world.elder.pos.y, 75)) return false;
   if (blocked(world.elder.gerPos.x, world.elder.gerPos.y, 110)) return false;
   if (blocked(world.feeder.pos.x, world.feeder.pos.y, 46)) return false;
-  if (blocked(world.campfire.pos.x, world.campfire.pos.y, 42)) return false;
+  if (world.campfire.placed && blocked(world.campfire.pos.x, world.campfire.pos.y, 42))
+    return false;
   if (world.rocks.some((rock) => blocked(rock.pos.x, rock.pos.y, 30))) return false;
   if (world.bushes.some((bush) => blocked(bush.pos.x, bush.pos.y, 25))) return false;
   if (world.fences.some((fence) => blocked(fence.pos.x, fence.pos.y, 24))) return false;

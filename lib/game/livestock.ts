@@ -85,7 +85,64 @@ export function createHerdAnimal(
   };
 }
 
-/** Төрөл бүрийн харьцаагаар дүрслэл синк */
+/** Төрөл бүрийн харьцаагаар дүрслэлийн слот хуваарилна — байгаа төрөл бүрт ≥1 */
+function allocateVisualSlots(
+  counts: Record<LivestockKind, number>,
+  total: number,
+  want: number,
+): Record<LivestockKind, number> {
+  const slots = emptyCounts();
+  const present = LIVESTOCK_KINDS.filter((k) => counts[k] > 0);
+  if (present.length === 0 || want <= 0 || total <= 0) return slots;
+
+  const quotas = present.map((k) => ({
+    k,
+    exact: (counts[k] / total) * want,
+  }));
+
+  let assigned = 0;
+  // Эхлээд floor, гэхдээ төрөл бүрт дор хаяж 1
+  for (const q of quotas) {
+    slots[q.k] = Math.min(counts[q.k], Math.max(1, Math.floor(q.exact)));
+    assigned += slots[q.k];
+  }
+
+  // want-аас хэтэрвэл — хамгийн ихээс нь хасна (1-ээс доош буулгахгүй)
+  while (assigned > want) {
+    let best: LivestockKind | null = null;
+    let bestN = 1;
+    for (const k of present) {
+      if (slots[k] > bestN) {
+        bestN = slots[k];
+        best = k;
+      }
+    }
+    if (!best) break;
+    slots[best] -= 1;
+    assigned -= 1;
+  }
+
+  // Үлдсэн слотыг largest remainder-аар нэмнэ
+  while (assigned < want) {
+    let best: LivestockKind | null = null;
+    let bestRem = -Infinity;
+    for (const q of quotas) {
+      if (slots[q.k] >= counts[q.k]) continue;
+      const rem = q.exact - slots[q.k];
+      if (rem > bestRem) {
+        bestRem = rem;
+        best = q.k;
+      }
+    }
+    if (!best) break;
+    slots[best] += 1;
+    assigned += 1;
+  }
+
+  return slots;
+}
+
+/** Төрөл бүрийн харьцаагаар дүрслэл синк — бүх байгаа төрөл харагдана */
 export function syncVisualFlock(state: GameState): void {
   const { flock, flockOut } = state.world;
   syncFlockTotal(flock);
@@ -94,40 +151,26 @@ export function syncVisualFlock(state: GameState): void {
     : penCenter(state.world);
   const spread = flockOut ? PASTURE_RADIUS * 0.7 : PEN_RADIUS * 0.75;
   const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
+  const target = allocateVisualSlots(flock.counts, flock.total, want);
 
   const have = emptyCounts();
   for (const v of flock.visuals) have[v.kind]++;
 
+  // Илүүдийг хасна — зорилтот хэмжээнээс хэтэрсэн төрлүүд
   for (let i = flock.visuals.length - 1; i >= 0; i--) {
-    const v = flock.visuals[i];
-    if (have[v.kind] > flock.counts[v.kind]) {
+    const v = flock.visuals[i]!;
+    if (have[v.kind] > target[v.kind] || have[v.kind] > flock.counts[v.kind]) {
       flock.visuals.splice(i, 1);
       have[v.kind]--;
     }
   }
-  while (flock.visuals.length > want) {
-    const v = flock.visuals.pop();
-    if (v) have[v.kind]--;
-  }
 
-  while (flock.visuals.length < want) {
-    let best: LivestockKind | null = null;
-    let bestDiff = -Infinity;
-    for (const k of LIVESTOCK_KINDS) {
-      if (flock.counts[k] <= 0) continue;
-      if (have[k] >= flock.counts[k]) continue;
-      const target = (flock.counts[k] / Math.max(1, flock.total)) * want;
-      const diff = target - have[k];
-      if (diff > bestDiff) {
-        bestDiff = diff;
-        best = k;
-      }
+  // Дутууг нэмнэ
+  for (const k of LIVESTOCK_KINDS) {
+    while (have[k] < target[k]) {
+      flock.visuals.push(createHerdAnimal(allocId(state), center, k, spread));
+      have[k]++;
     }
-    if (!best) break;
-    flock.visuals.push(
-      createHerdAnimal(allocId(state), center, best, spread),
-    );
-    have[best]++;
   }
 }
 

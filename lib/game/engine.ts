@@ -13,7 +13,13 @@ import {
   type Tree,
   type Vector2,
 } from "./types";
-import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
+import {
+  dist,
+  setMessage,
+  updateGates,
+  allocId,
+  createStarterPen,
+} from "./utils";
 import { isInRiver, sampleBushPos, sampleTreePos } from "./biomes";
 import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
@@ -31,6 +37,7 @@ import {
   tryInteract,
   tryLightCampfire,
   tryMigrateGer,
+  updateFencePreviewAim,
   updatePlayerMovement,
   updateSurvival,
   updateWeatherCycle,
@@ -59,6 +66,7 @@ import {
   updateProduction,
   updateWildHorses,
 } from "./livestock";
+import { createRiverFish, updateFish } from "./fish";
 import { updateParents } from "./parents";
 import {
   createTumurShulmasEncounter,
@@ -123,10 +131,7 @@ export function createTrees(count: number): Tree[] {
     do {
       pos = sampleTreePos(center);
       attempts++;
-    } while (
-      (dist(pos, center) < 220 || isInRiver(pos, 45)) &&
-      attempts < 50
-    );
+    } while ((dist(pos, center) < 220 || isInRiver(pos, 45)) && attempts < 50);
 
     trees.push({
       id: i,
@@ -153,10 +158,7 @@ export function createBushes(count: number): BerryBush[] {
     do {
       pos = sampleBushPos(center);
       attempts++;
-    } while (
-      (dist(pos, center) < 140 || isInRiver(pos, 40)) &&
-      attempts < 50
-    );
+    } while ((dist(pos, center) < 140 || isInRiver(pos, 40)) && attempts < 50);
 
     bushes.push({
       id: 1000 + i,
@@ -199,6 +201,7 @@ export function createInitialState(): GameState {
         milk: 0,
         felt: 0,
         aaruul: 0,
+        fish: 0,
       },
       chopCooldown: 0,
       attackCooldown: 0,
@@ -217,6 +220,7 @@ export function createInitialState(): GameState {
         gun: false,
         axe: false,
         urga: false,
+        fishingRod: false,
       },
       horseHp: 0,
       horseMaxHp: 0,
@@ -249,10 +253,12 @@ export function createInitialState(): GameState {
       trees: createTrees(72),
       bushes: createBushes(36),
       campfire: {
-        pos: { x: spawn.x + 52, y: spawn.y + 14 },
+        pos: { x: spawn.x, y: spawn.y },
         lit: false,
         fuel: 0,
         radius: 56,
+        placed: false,
+        igniting: 0,
       },
       fences: [],
       flock: {
@@ -287,11 +293,15 @@ export function createInitialState(): GameState {
       pastureSeason: "autumn",
       feeder: createFeeder(spawn),
       wildHorses: [],
+      fish: [],
       mountHorse: null,
     },
     story: createInitialStoryState(),
     fencePreview: false,
+    fencePreviewAngle: 0,
+    fencePreviewOffset: { x: 0, y: 0 },
     unlimitedWood: false,
+    godMode: false,
     combatMovementLocked: false,
     combatDodgeActive: false,
     input: {
@@ -312,6 +322,7 @@ export function createInitialState(): GameState {
       eat: false,
       debugXp: false,
       debugWood: false,
+      debugGod: false,
       debugBoss: false,
       herd: false,
       migrate: false,
@@ -347,8 +358,7 @@ export function createInitialState(): GameState {
       emberAcc: 0,
       dustAcc: 0,
     },
-    message:
-      "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
+    message: "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
     messageTimer: 6,
     score: 0,
     xp: 0,
@@ -365,6 +375,8 @@ export function createInitialState(): GameState {
     gerPlayer: { x: 480, y: 435 },
     gerSleepTimer: 0,
     gerSleepBed: null,
+    gerStoveLit: false,
+    gerStoveFuel: 0,
     requestRestart: false,
     nextEntityId: 100,
     activeRiddleId: null,
@@ -390,6 +402,7 @@ export function createInitialState(): GameState {
 
   assignRiddlesToWorld(state.world, spawn, 11);
   state.world.fences = createStarterPen(spawn, () => allocId(state));
+  state.world.fish = createRiverFish(() => allocId(state));
   syncVisualFlock(state);
   initializeOpeningLivestock(state);
   return state;
@@ -399,29 +412,45 @@ export function createInitialState(): GameState {
 // Дуу — Web Audio (процедурал ая ба эффект, гадны файл шаардлагагүй)
 // ---------------------------------------------------------------------------
 
-export function bindInput(getInput: () => InputState): () => void {
+export function bindInput(
+  getInput: () => InputState,
+  getFencePreview: () => boolean = () => false,
+): () => void {
   const setKey = (code: string, pressed: boolean): void => {
     const input = getInput();
+    const fenceAim = getFencePreview();
     switch (code) {
       case "KeyW":
-      case "ArrowUp":
         input.up = pressed;
         if (pressed) input.menuUp = true;
         break;
+      case "ArrowUp":
+        if (pressed) input.menuUp = true;
+        if (!fenceAim) input.up = pressed;
+        break;
       case "KeyS":
-      case "ArrowDown":
         input.down = pressed;
         if (pressed) input.menuDown = true;
         break;
+      case "ArrowDown":
+        if (pressed) input.menuDown = true;
+        if (!fenceAim) input.down = pressed;
+        break;
       case "KeyA":
-      case "ArrowLeft":
         input.left = pressed;
         if (pressed) input.menuLeft = true;
         break;
+      case "ArrowLeft":
+        if (pressed) input.menuLeft = true;
+        if (!fenceAim) input.left = pressed;
+        break;
       case "KeyD":
-      case "ArrowRight":
         input.right = pressed;
         if (pressed) input.menuRight = true;
+        break;
+      case "ArrowRight":
+        if (pressed) input.menuRight = true;
+        if (!fenceAim) input.right = pressed;
         break;
       case "KeyE":
         // Дарахад асаана, update() эсвэл хэрэглэгч нь унтраана —
@@ -472,6 +501,9 @@ export function bindInput(getInput: () => InputState): () => void {
       case "Period":
         if (pressed) input.debugWood = true;
         break;
+      case "Comma":
+        if (pressed) input.debugGod = true;
+        break;
       case "KeyN":
         input.herd = pressed;
         break;
@@ -507,13 +539,9 @@ export function bindInput(getInput: () => InputState): () => void {
   const onKeyDown = (e: KeyboardEvent): void => {
     setKey(e.code, true);
     if (
-      [
-        "Space",
-        "ArrowUp",
-        "ArrowDown",
-        "ArrowLeft",
-        "ArrowRight",
-      ].includes(e.code)
+      ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+        e.code,
+      )
     ) {
       e.preventDefault();
     }
@@ -611,6 +639,12 @@ export function update(state: GameState, dt: number): void {
     state.requestRestart = true;
     sfx("select");
   }
+
+  // Хашаа preview — сумнаар чиглэл/байрлал (menu flag арилгахаас өмнө)
+  if (state.phase === "playing" && state.fencePreview) {
+    updateFencePreviewAim(state);
+  }
+
   state.input.confirm = false;
   state.input.pause = false;
   state.input.menuUp = false;
@@ -633,6 +667,22 @@ export function update(state: GameState, dt: number): void {
   const hitStopped =
     (state.phase === "playing" || state.phase === "spirit") &&
     updateHitStop(state, dt);
+
+  if (
+    (state.phase === "playing" || state.phase === "spirit") &&
+    state.input.debugGod
+  ) {
+    state.godMode = !state.godMode;
+    if (state.godMode) {
+      state.player.vitals.health = state.player.vitals.maxHealth;
+      spawnText(state, state.player.pos, "Үхэшгүй!", "#7dffb0");
+      setMessage(state, "Үхэшгүй горим аслаа — амь багасахгүй.", 2.5);
+    } else {
+      spawnText(state, state.player.pos, "Үхэшгүй унтарлаа", "#a89880");
+      setMessage(state, "Үхэшгүй горим унтарлаа.", 2);
+    }
+    sfx("buy");
+  }
 
   if (state.phase === "playing" && !hitStopped) {
     const openingMilestoneActive =
@@ -671,23 +721,32 @@ export function update(state: GameState, dt: number): void {
       updatePlayerMovement(state, dt);
       const usedRouteInteraction =
         !openingMilestoneActive && tryInteractFirstRoute(state);
-      if (!usedRouteInteraction) tryInteract(state);
-      tryEatBerry(state);
-      tryHorseMount(state);
-      tryMigrateGer(state);
-      tryLightCampfire(state);
-      tryBuildFence(state);
-    } else {
-      state.player.moving = false;
-      state.input.attack = false;
-      state.input.attackPressed = false;
-      state.input.parry = false;
-      state.input.parryPressed = false;
-      state.input.dodge = false;
-      state.input.dodgePressed = false;
-      state.input.shoot = false;
-      state.input.interact = false;
+      updateWeatherCycle(state, dt);
+      const lighting = state.world.campfire.igniting > 0;
+      if (!lighting) updateCombat(state, dt);
+      updatePlayerMovement(state, dt);
+      if (!lighting) {
+        const usedRouteInteraction = tryInteractFirstRoute(state);
+        if (!usedRouteInteraction) tryInteract(state);
+        tryEatBerry(state);
+        tryHorseMount(state);
+        tryMigrateGer(state);
+        tryLightCampfire(state);
+        tryBuildFence(state);
+      } else {
+        state.player.moving = false;
+        state.input.attack = false;
+        state.input.attackPressed = false;
+        state.input.parry = false;
+        state.input.parryPressed = false;
+        state.input.dodge = false;
+        state.input.dodgePressed = false;
+        state.input.shoot = false;
+        state.input.interact = false;
+      }
     }
+    tryLightCampfire(state);
+    if (!lighting) tryBuildFence(state);
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
@@ -697,6 +756,9 @@ export function update(state: GameState, dt: number): void {
       updateFirstRoute(state, dt);
       updateTumurShulmasEncounter(state, dt);
     }
+    updateFish(state, dt);
+    updateFirstRoute(state, dt);
+    updateTumurShulmasEncounter(state, dt);
     // Boss-ийн death frame дээр "won" болсон бол дараагийн survival/threat
     // систем ялалтын төлөвийг "lost"-оор дарж болохгүй.
     if (state.phase === "playing") {
@@ -771,6 +833,7 @@ export function update(state: GameState, dt: number): void {
   state.input.buildFence = false;
   state.input.debugXp = false;
   state.input.debugWood = false;
+  state.input.debugGod = false;
   state.input.debugBoss = false;
   state.input.migrate = false;
   state.input.horseMount = false;
@@ -860,6 +923,10 @@ export function mountHerderGame(
   };
   window.addEventListener("keydown", onStoryCheatKeyDown);
 
+  const unbindInput = bindInput(
+    () => state.input,
+    () => state.fencePreview,
+  );
   let lastRiddleKey = "";
   let lastElderKey = "";
 
@@ -882,7 +949,12 @@ export function mountHerderGame(
           snap.tab,
           snap.eyeMode,
           snap.score,
-          snap.trades.map((t) => `${t.id}:${t.have}`).join(","),
+          snap.trades
+            .map(
+              (t) =>
+                `${t.id}:${t.have}:${t.owned ? 1 : 0}:${t.canTrade ? 1 : 0}:${t.detail}`,
+            )
+            .join(","),
           snap.activeDialogue
             ? `${snap.activeDialogue.id}:${snap.activeDialogue.beatIndex}:${snap.activeDialogue.showingChoices}`
             : "none",
