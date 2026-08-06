@@ -1,7 +1,7 @@
 import {
-  CAMPFIRE_WOOD_COST, Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
+  Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
-import { canHarvestHay, clamp, dist, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
+import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock, drawWorldStone } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
 import {
@@ -218,6 +218,8 @@ export function render(
   // Гэрийн дотор — тусдаа дэлгэц
   if (state.phase === "ger") {
     drawGerInterior(ctx, state, time, rc.playerSprites);
+    drawHud(ctx, state);
+    drawHearthCompletionEffect(ctx, state, getCamera(state));
     return;
   }
 
@@ -376,8 +378,9 @@ export function render(
   }
 
   if (!world.gerPacked) {
+    // Суурийн Y — хойно (баг Y) = гэрийн ард, урд (том Y) = гэрийн дээр
     addDrawable("ger", {
-      y: center.y + 24,
+      y: center.y,
       key: -2,
       debugPos: center,
       draw: () =>
@@ -386,6 +389,8 @@ export function render(
           center.x - cam.x,
           center.y - 24 - cam.y,
           world.season === "winter",
+          state.gerStoveLit,
+          time,
         ),
     });
   }
@@ -524,18 +529,22 @@ export function render(
     });
   }
   if (state.parentsReturned && state.parents && !world.gerPacked) {
-    addDrawable("parentNpc", {
-      y: state.parents.father.pos.y,
-      key: -4,
-      draw: () =>
-        drawParentNpc(ctx, state.parents!.father, cam, time),
-    });
-    addDrawable("parentNpc", {
-      y: state.parents.mother.pos.y,
-      key: -3,
-      draw: () =>
-        drawParentNpc(ctx, state.parents!.mother, cam, time),
-    });
+    if (!state.parents.father.insideGer) {
+      addDrawable("parentNpc", {
+        y: state.parents.father.pos.y,
+        key: -4,
+        draw: () =>
+          drawParentNpc(ctx, state.parents!.father, cam, time),
+      });
+    }
+    if (!state.parents.mother.insideGer) {
+      addDrawable("parentNpc", {
+        y: state.parents.mother.pos.y,
+        key: -3,
+        draw: () =>
+          drawParentNpc(ctx, state.parents!.mother, cam, time),
+      });
+    }
   }
   if (world.campfire.placed) {
     addDrawable("campfire", {
@@ -545,9 +554,9 @@ export function render(
     });
   }
   for (const fence of world.fences) {
-    // Preserve the remote fence depth correction inside the layered queue.
+    // Босоо хашаа/хаалга — ижил Y дээр тоглогчийн урд биш ард зурагдана
     const sortY =
-      fence.isGate || Math.abs(Math.sin(fence.angle ?? (fence.orient === 1 ? Math.PI / 2 : 0))) > 0.7
+      fence.isGate || fence.orient === 1
         ? fence.pos.y - 20
         : fence.pos.y;
     addDrawable("fence", {
@@ -565,7 +574,7 @@ export function render(
       state.fencePreviewAngle,
       world.fences,
     );
-    const ghostOrient = state.fencePreviewAngle;
+    const ghostOrient = fenceOrientFromFacing(state.player.facing);
     addDrawable("fenceGhost", {
       y: ghostPos.y,
       key: 2999,
@@ -741,7 +750,8 @@ export function render(
   }
   addDrawable("player", {
     y: state.player.pos.y,
-    key: Number.MAX_SAFE_INTEGER,
+    // Гэртэй ижил Y үед урд (хүүхэд/тоглогч гэрийн дээр) зурагдана
+    key: 900000,
     debugPos: state.player.pos,
     draw: () => {
       drawPlayerWithSprites(
@@ -861,21 +871,18 @@ export function render(
       ctx.textAlign = "left";
     } else if (
       state.story.activeMainObjective === "restoreHearth" &&
-      !world.campfire.lit &&
-      dFire < world.campfire.radius + 18
+      !state.story.campfireRelit &&
+      dGer < 90
     ) {
-      const tx = world.campfire.pos.x - cam.x;
-      const ty = world.campfire.pos.y - 34 - cam.y;
-      const wood = state.unlimitedWood
-        ? CAMPFIRE_WOOD_COST
-        : Math.min(CAMPFIRE_WOOD_COST, state.player.inventory.wood);
-      const tip = `F — Гал асаах (${wood}/${CAMPFIRE_WOOD_COST} түлээ)`;
+      const tx = gp.x - cam.x;
+      const ty = gp.y - 66 - cam.y;
       ctx.textAlign = "center";
       ctx.font = "600 12px system-ui, sans-serif";
-      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
+      const tip = "E — Гэрт орож зууханд гал асаа";
       ctx.strokeText(tip, tx, ty);
-      ctx.fillStyle = "#ffe09a";
+      ctx.fillStyle = "#ffe9a8";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (dGer < 70) {
@@ -892,10 +899,28 @@ export function render(
       ctx.fillStyle = "#ffe9a8";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
+    } else if (
+      state.story.activeMainObjective === "restoreHearth" &&
+      !state.story.campfireRelit &&
+      !world.campfire.lit &&
+      dFire < world.campfire.radius + 18
+    ) {
+      // Эхний квест — гадаа гал биш, гэрийн зуух
+      const tx = world.campfire.pos.x - cam.x;
+      const ty = world.campfire.pos.y - 34 - cam.y;
+      const tip = "Гэртээ орж зууханд гал асаа";
+      ctx.textAlign = "center";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#ffe09a";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
     } else if (callableLivestock) {
       const tx = callableLivestock.pos.x - cam.x;
       const ty = callableLivestock.pos.y - 32 - cam.y;
-      const tip = "E — Малаа дууд";
+      const tip = "N — Малаа туу";
       ctx.textAlign = "center";
       ctx.font = "600 12px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.75)";

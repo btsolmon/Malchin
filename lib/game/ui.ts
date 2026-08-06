@@ -289,21 +289,35 @@ export const CRAFT_RECIPES: Array<{
 export function gerLayout(): {
   chestL: UiButton;
   chestR: UiButton;
+  chestC: UiButton;
   door: UiButton;
   bedL: UiButton;
   bedR: UiButton;
   stove: UiButton;
 } {
+  // Хивсний төв: (480, 420) — тулга яг голд
+  const carpetCx = 480;
+  const carpetCy = 420;
+  const stoveW = 100;
+  const stoveH = 72;
   return {
     // Ижил авдар — хойморын зүүн/баруун
     chestL: { x: 240, y: 255, w: 140, h: 95, label: "" },
     chestR: { x: 580, y: 255, w: 140, h: 95, label: "" },
+    // Гэр бүлийн зургийн доор — эгц урагшаа харсан
+    chestC: { x: 420, y: 258, w: 120, h: 88, label: "" },
     door: { x: 400, y: 452, w: 160, h: 72, label: "" },
     // Хэвтээ ор — шалан дээр, гүнтэй биет
     bedL: { x: 32, y: 290, w: 230, h: 138, label: "" },
     bedR: { x: 698, y: 290, w: 230, h: 138, label: "" },
-    // Төв тулга / зуух
-    stove: { x: 430, y: 318, w: 100, h: 72, label: "" },
+    // Тулга — хивсний яг төв
+    stove: {
+      x: carpetCx - stoveW / 2,
+      y: carpetCy - stoveH * 0.72,
+      w: stoveW,
+      h: stoveH,
+      label: "",
+    },
   };
 }
 
@@ -311,6 +325,7 @@ export function gerLayout(): {
 export function gerProximity(state: GameState): {
   nearChestL: boolean;
   nearChestR: boolean;
+  nearChestC: boolean;
   nearChest: boolean;
   nearBed: boolean;
   nearBedL: boolean;
@@ -329,10 +344,12 @@ export function gerProximity(state: GameState): {
   const nearBedR = nearRect(lay.bedR, 50);
   const nearChestL = nearRect(lay.chestL, 55);
   const nearChestR = nearRect(lay.chestR, 55);
+  const nearChestC = nearRect(lay.chestC, 55);
   return {
     nearChestL,
     nearChestR,
-    nearChest: nearChestL || nearChestR,
+    nearChestC,
+    nearChest: nearChestL || nearChestR || nearChestC,
     nearBed: nearBedL || nearBedR,
     nearBedL,
     nearBedR,
@@ -500,7 +517,14 @@ function tryLightGerStove(state: GameState): void {
   state.gerStoveLit = true;
   state.gerStoveFuel = 30;
   sfx("fire");
-  setMessage(state, "Зууханд гал асаалаа!", 2.5);
+  if (
+    state.story.activeMainObjective === "restoreHearth" &&
+    !state.story.campfireRelit
+  ) {
+    setMessage(state, "Зууханд гал асаалаа! Голомт сэргэж байна…", 3);
+  } else {
+    setMessage(state, "Зууханд гал асаалаа!", 2.5);
+  }
 }
 
 export function updateGer(state: GameState, dt: number): void {
@@ -649,7 +673,9 @@ export function updateGer(state: GameState, dt: number): void {
 
   if (
     (input.interact && prox.nearChestR) ||
-    (input.mouseClicked && overButton(lay.chestR, input))
+    (input.interact && prox.nearChestC) ||
+    (input.mouseClicked && overButton(lay.chestR, input)) ||
+    (input.mouseClicked && overButton(lay.chestC, input))
   ) {
     state.shopOpen = true;
     state.craftOpen = false;
@@ -1465,7 +1491,7 @@ export function drawMinimap(
   for (const s of state.world.flock.visuals) {
     ctx.fillRect(mx + s.pos.x * sx - 1, my + s.pos.y * sy - 1, 2, 2);
   }
-  // Зэрлэг морь
+  // Баригдаагүй морь
   ctx.fillStyle = "#e8c56a";
   for (const h of state.world.wildHorses) {
     ctx.fillRect(mx + h.pos.x * sx - 1.5, my + h.pos.y * sy - 1.5, 3, 3);
@@ -2076,7 +2102,9 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   if (
     state.messageTimer > 0 &&
     state.message &&
-    (state.phase === "playing" || state.phase === "spirit")
+    (state.phase === "playing" ||
+      state.phase === "spirit" ||
+      state.phase === "ger")
   ) {
     const alpha = clamp(state.messageTimer / 0.4, 0, 1);
     ctx.font = "13px 'Courier New', monospace";

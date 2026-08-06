@@ -16,7 +16,7 @@ import {
   type Vector2,
   type WildHorse,
 } from "./types";
-import { allocId, clamp, dist, normalize, pastureCenter, penCenter, PEN_RADIUS, randRange, setMessage } from "./utils";
+import { allocId, clamp, dist, normalize, pastureCenter, penCenter, PEN_RADIUS, pushOutOfFences, pushOutOfGer, randRange, setMessage } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 
@@ -398,7 +398,7 @@ export function spawnWildHorse(state: GameState): void {
     face: 1,
     spooked: 0,
   });
-  setMessage(state, "Зэрлэг морь гарлаа — уургатай ойртож E!", 3.5);
+  setMessage(state, "Морь гарлаа — уургатай ойртож E!", 3.5);
 }
 
 export function updateWildHorses(state: GameState, dt: number): void {
@@ -444,8 +444,18 @@ export function updateWildHorses(state: GameState, dt: number): void {
     const dir = normalize({ x: ax, y: ay });
     h.vel.x = dir.x * spd;
     h.vel.y = dir.y * spd;
-    h.pos.x = clamp(h.pos.x + h.vel.x * dt, 30, WORLD_W - 30);
-    h.pos.y = clamp(h.pos.y + h.vel.y * dt, 30, WORLD_H - 30);
+    // Жижиг алхмаар — хашаа/гэр нэвтрэхгүй
+    const stepDist = Math.hypot(h.vel.x, h.vel.y) * dt;
+    const steps = Math.max(1, Math.min(8, Math.ceil(stepDist / 3)));
+    const inv = 1 / steps;
+    for (let s = 0; s < steps; s++) {
+      h.pos.x += h.vel.x * dt * inv;
+      h.pos.y += h.vel.y * dt * inv;
+      pushOutOfFences(h.pos, h.radius, world.fences);
+      pushOutOfGer(h.pos, h.radius, world);
+    }
+    h.pos.x = clamp(h.pos.x, 30, WORLD_W - 30);
+    h.pos.y = clamp(h.pos.y, 30, WORLD_H - 30);
     if (Math.abs(h.vel.x) > 8) h.face = h.vel.x > 0 ? 1 : -1;
   }
 }

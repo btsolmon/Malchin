@@ -115,6 +115,8 @@ export function drawGer(
   x: number,
   y: number,
   winterClosed = false,
+  smoking = false,
+  time = 0,
 ): void {
   // Тоглоомын зөөлөн градиент хэв маягт буулгасан, жишээ зургийн элементтэй гэр:
   // хөх дээврийн хээ, улаан цагираг тооно, алтан хана мод, улаан хаалга
@@ -322,6 +324,22 @@ export function drawGer(
   ctx.fillRect(x - 2, toonoY - 16, 4, 14);
   ctx.fillStyle = "rgba(255,250,235,0.25)";
   ctx.fillRect(x - 2, toonoY - 16, 1.3, 14);
+
+  // Зуух ассан үед яндангаас утаа
+  if (smoking) {
+    for (let i = 0; i < 5; i++) {
+      const phase = time * 0.85 + i * 1.55;
+      const rise = (phase % 3.4) / 3.4;
+      const sx = x + Math.sin(phase * 1.4 + i) * (1.5 + rise * 5);
+      const sy = toonoY - 18 - rise * 34;
+      const r = 2.5 + rise * 8;
+      const a = (1 - rise) * 0.32;
+      ctx.fillStyle = `rgba(72,72,78,${a})`;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, r * 1.15, r * 0.75, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
   // ===== Хаалга — улаан хүрээ, алтан дотор, ногоон самбар =====
   {
@@ -610,22 +628,21 @@ export function drawFence(
 ): void {
   const x = fence.pos.x - cam.x;
   const y = fence.pos.y - cam.y;
-  const angle = fence.angle ?? (fence.orient === 1 ? Math.PI / 2 : 0);
+  const ns = fence.orient === 1;
   const tier = fence.tier ?? 1;
   const open = fence.isGate ? fence.gateOpen : 0;
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(angle);
-  // Локал X дагуу хэвтээ хашаа — бүх өнцөгт ижил
-  drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
+  if (ns) drawShadow(ctx, 0, 2, 6, FENCE_HALF + 2);
+  else drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
 
   if (tier === 1) {
-    drawFenceWood(ctx, 0, 0, false, fence.isGate, open);
+    drawFenceWood(ctx, 0, 0, ns, fence.isGate, open);
   } else if (tier === 2) {
-    drawFenceBarbed(ctx, 0, 0, false, fence.isGate, open);
+    drawFenceBarbed(ctx, 0, 0, ns, fence.isGate, open);
   } else {
-    drawFenceElectric(ctx, 0, 0, false, time, fence.id, fence.isGate, open);
+    drawFenceElectric(ctx, 0, 0, ns, time, fence.id, fence.isGate, open);
   }
 
   ctx.restore();
@@ -648,22 +665,16 @@ export function drawFence(
 export function drawFenceGhost(
   ctx: CanvasRenderingContext2D,
   pos: Vector2,
-  orientOrAngle: 0 | 1 | number,
+  orient: 0 | 1,
   cam: Camera,
 ): void {
   const x = pos.x - cam.x;
   const y = pos.y - cam.y;
-  const angle =
-    orientOrAngle === 0 || orientOrAngle === 1
-      ? orientOrAngle === 1
-        ? Math.PI / 2
-        : 0
-      : orientOrAngle;
+  const ns = orient === 1;
 
   ctx.save();
   ctx.globalAlpha = 0.55;
   ctx.translate(x, y);
-  ctx.rotate(angle);
 
   const post = (px: number, py: number): void => {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
@@ -675,14 +686,22 @@ export function drawFenceGhost(
   ctx.strokeStyle = "rgba(255,255,255,0.7)";
   ctx.lineWidth = 3;
   ctx.lineCap = "butt";
-  post(-FENCE_HALF, 0);
-  post(FENCE_HALF, 0);
-  ctx.beginPath();
-  ctx.moveTo(-FENCE_HALF, -14);
-  ctx.lineTo(FENCE_HALF, -14);
-  ctx.moveTo(-FENCE_HALF, -7);
-  ctx.lineTo(FENCE_HALF, -7);
-  ctx.stroke();
+  if (ns) {
+    post(0, 0);
+    ctx.beginPath();
+    ctx.moveTo(0, -FENCE_HALF);
+    ctx.lineTo(0, FENCE_HALF);
+    ctx.stroke();
+  } else {
+    post(-FENCE_HALF, 0);
+    post(FENCE_HALF, 0);
+    ctx.beginPath();
+    ctx.moveTo(-FENCE_HALF, -14);
+    ctx.lineTo(FENCE_HALF, -14);
+    ctx.moveTo(-FENCE_HALF, -7);
+    ctx.lineTo(FENCE_HALF, -7);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -1384,6 +1403,7 @@ function drawHerdHorseBody(
   flip: 1 | -1,
   walk: number,
   graze: number,
+  longMane = false,
 ): void {
   // Дөрвөн хөл
   ctx.strokeStyle = "#3a2a18";
@@ -1440,11 +1460,33 @@ function drawHerdHorseBody(
 
   // Дэл
   ctx.strokeStyle = "#241808";
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = longMane ? 2.8 : 2.2;
   ctx.beginPath();
   ctx.moveTo(x + 8 * flip, y - 5);
   ctx.lineTo(x + 15 * flip, y - 13 + drop);
   ctx.stroke();
+  if (longMane) {
+    // Урт үс — хүзүүнээс унасан дэл
+    ctx.lineWidth = 1.9;
+    const strands = [
+      { t: 0.2, len: 11 },
+      { t: 0.45, len: 13 },
+      { t: 0.7, len: 10 },
+    ];
+    for (const { t, len } of strands) {
+      const sx = x + (8 + t * 7) * flip;
+      const sy = y - 5 - t * 8 + drop * t;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(
+        sx + 2 * flip,
+        sy + len * 0.45,
+        sx - 1 * flip,
+        sy + len,
+      );
+      ctx.stroke();
+    }
+  }
 
   // Нүд
   ctx.fillStyle = "#1a1208";
@@ -1601,13 +1643,7 @@ export function drawWildHorse(
   const walk = moving ? Math.sin(time * 10 + horse.id) * 2 : 0;
 
   drawShadow(ctx, x, y + 8, 13, 4);
-  drawHerdHorseBody(ctx, x, y, flip, walk, 0);
-
-  ctx.fillStyle = "rgba(255,220,120,0.85)";
-  ctx.font = "bold 10px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText("зэрлэг", x, y - 22);
-  ctx.textAlign = "left";
+  drawHerdHorseBody(ctx, x, y, flip, walk, 0, true);
 }
 
 /** Голын загас */

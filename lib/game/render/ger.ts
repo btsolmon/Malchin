@@ -1,4 +1,4 @@
-import { COLORS, GameState, Player, VIEW_H, VIEW_W } from "../types";
+import { COLORS, GameState, Player, VIEW_H, VIEW_W, type ParentNpc } from "../types";
 import {
   drawChest,
   drawCraft,
@@ -8,7 +8,7 @@ import {
   SHOP_ITEMS,
 } from "../ui";
 import { roundRectPath } from "../utils";
-import { drawHerderHairBack, drawHerderHairFront } from "./entities";
+import { drawHerderHairBack, drawHerderHairFront, drawParentNpc } from "./entities";
 import {
   drawPlayerWithSprites,
   type PlayerSpriteSet,
@@ -126,8 +126,8 @@ function drawPaintedAvdar(
   w: number,
   h: number,
   hover: boolean,
-  /** -1 зүүн (гүн зүүн талд), 1 баруун (гүн баруун талд) */
-  side: -1 | 1 = 1,
+  /** -1 зүүн · 0 эгц урд · 1 баруун */
+  side: -1 | 0 | 1 = 1,
 ): void {
   const bodyH = h - 11;
   const lidH = 10;
@@ -146,11 +146,27 @@ function drawPaintedAvdar(
   ctx.fillRect(x + 6, y + h - 11, 14, 11);
   ctx.fillRect(x + w - 20, y + h - 11, 14, 11);
 
-  // Гүн ба таг — ижил булангийн цэгээр нийлнэ (зай үлдэхгүй)
+  // Гүн ба таг
   const lidBackY = y - lidH + 2;
   const faceTopY = y;
   ctx.fillStyle = woodSide;
-  if (side > 0) {
+  if (side === 0) {
+    // Эгц урд — хоёр хажуу нимгэн, таг шууд хойш
+    ctx.beginPath();
+    ctx.moveTo(x, faceTopY);
+    ctx.lineTo(x - depth * 0.35, lidBackY);
+    ctx.lineTo(x - depth * 0.35, y + bodyH - 4);
+    ctx.lineTo(x, y + bodyH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + w, faceTopY);
+    ctx.lineTo(x + w + depth * 0.35, lidBackY);
+    ctx.lineTo(x + w + depth * 0.35, y + bodyH - 4);
+    ctx.lineTo(x + w, y + bodyH);
+    ctx.closePath();
+    ctx.fill();
+  } else if (side > 0) {
     // Баруун хажуу
     ctx.beginPath();
     ctx.moveTo(x + w, faceTopY);
@@ -176,10 +192,15 @@ function drawPaintedAvdar(
     ctx.stroke();
   }
 
-  // Таг / дээд — хажуутай ижил булан
+  // Таг / дээд
   ctx.fillStyle = wood;
   ctx.beginPath();
-  if (side > 0) {
+  if (side === 0) {
+    ctx.moveTo(x, faceTopY);
+    ctx.lineTo(x - depth * 0.35, lidBackY);
+    ctx.lineTo(x + w + depth * 0.35, lidBackY);
+    ctx.lineTo(x + w, faceTopY);
+  } else if (side > 0) {
     ctx.moveTo(x, faceTopY);
     ctx.lineTo(x + depth * 0.7, lidBackY);
     ctx.lineTo(x + w + depth, lidBackY);
@@ -196,7 +217,7 @@ function drawPaintedAvdar(
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // Урд самбар — дээд өнцгийг шоо (дугуй булан зай үүсгэдэг)
+  // Урд самбар
   const face = ctx.createLinearGradient(x, y, x, y + bodyH);
   face.addColorStop(0, "#c4583c");
   face.addColorStop(0.55, red);
@@ -204,7 +225,9 @@ function drawPaintedAvdar(
   ctx.fillStyle = face;
   ctx.beginPath();
   const br = 3;
-  if (side > 0) {
+  if (side === 0) {
+    roundRectPath(ctx, x, y, w, bodyH, br);
+  } else if (side > 0) {
     // Дээд баруун шоо, бусад дугуй
     ctx.moveTo(x + br, y);
     ctx.lineTo(x + w, y);
@@ -214,6 +237,7 @@ function drawPaintedAvdar(
     ctx.quadraticCurveTo(x, y + bodyH, x, y + bodyH - br);
     ctx.lineTo(x, y + br);
     ctx.quadraticCurveTo(x, y, x + br, y);
+    ctx.closePath();
   } else {
     // Дээд зүүн шоо
     ctx.moveTo(x, y);
@@ -224,8 +248,11 @@ function drawPaintedAvdar(
     ctx.lineTo(x + br, y + bodyH);
     ctx.quadraticCurveTo(x, y + bodyH, x, y + bodyH - br);
     ctx.lineTo(x, y);
+    ctx.closePath();
   }
-  ctx.closePath();
+  if (side !== 0) {
+    // path already closed above
+  }
   ctx.fill();
 
   // Гадна хүрээ
@@ -1613,7 +1640,7 @@ export function drawGerInterior(
     }
   }
 
-  // Зуух — хар төмөр тулга (яндан байхгүй)
+  // Зуух — хар төмөр тулга (хивсний яг төв)
   const stoveBox = gerLayout().stove;
   drawGerTulga(
     ctx,
@@ -1626,16 +1653,19 @@ export function drawGerInterior(
 
   // Ханын зургууд — морь (жижиг) + гэр бүл (төв)
   drawGerHorsePainting(ctx, 145, 185, 110, 76);
-  drawFamilyPortrait(ctx, VIEW_W / 2 - 55, 172, 110, 78);
+  const familyX = VIEW_W / 2 - 55;
+  const familyY = 172;
+  drawFamilyPortrait(ctx, familyX, familyY, 110, 78);
 
-  // ===== АВДАР — хоёр талд, гүн нь төв рүү харна =====
-  // ===== АВДАР — хоёр талд, гүн нь төв рүү харна =====
+  // ===== АВДАР — хоёр талд + гэр бүлийн доор эгц урд =====
   const lay = gerLayout();
-  const chests: Array<{ ch: typeof lay.chestL; side: -1 | 1 }> = [
-    { ch: lay.chestL, side: -1 },
-    { ch: lay.chestR, side: 1 },
-  ];
-  for (const { ch, side } of chests) {
+  const chests: Array<{ ch: typeof lay.chestL; side: -1 | 0 | 1; label: string }> =
+    [
+      { ch: lay.chestL, side: -1, label: "Урлал" },
+      { ch: lay.chestC, side: 0, label: "" },
+      { ch: lay.chestR, side: 1, label: "Авдар" },
+    ];
+  for (const { ch, side, label } of chests) {
     const hover =
       overButton(ch, state.input) && !state.shopOpen && !state.craftOpen;
     const pulse = 1 + 0.02 * Math.sin(time * 5);
@@ -1648,12 +1678,12 @@ export function drawGerInterior(
     if (side < 0) {
       drawAvdarOfferings(ctx, ch.x, ch.y, ch.w, time);
     }
+    if (!label) continue;
     ctx.textAlign = "center";
     ctx.font = "600 13px system-ui, sans-serif";
     ctx.strokeStyle = "rgba(0,0,0,0.7)";
     ctx.lineWidth = 3;
-    const label = side < 0 ? "Урлал" : "Авдар";
-    const labelY = side < 0 ? ch.y + ch.h + 14 : ch.y - 12;
+    const labelY = ch.y + ch.h + 14;
     ctx.strokeText(label, ch.x + ch.w / 2, labelY);
     ctx.fillStyle = "#ffe9a8";
     ctx.fillText(label, ch.x + ch.w / 2, labelY);
@@ -1662,6 +1692,30 @@ export function drawGerInterior(
   // Ор — зүүн/баруун хана дагуу босоо монгол ор
   drawMongolBed(ctx, lay.bedL.x, lay.bedL.y, lay.bedL.w, lay.bedL.h, -1);
   drawMongolBed(ctx, lay.bedR.x, lay.bedR.y, lay.bedR.w, lay.bedR.h, 1);
+
+  // Орой гэрт орсон аав ээж — орны дэргэд
+  if (state.parentsReturned && state.parents) {
+    const cam0 = { x: 0, y: 0 };
+    const drawIndoor = (src: ParentNpc, x: number, y: number, face: 1 | -1) => {
+      if (!src.insideGer) return;
+      const p: ParentNpc = {
+        ...src,
+        pos: { x, y },
+        face,
+        facing: { x: face, y: 0 },
+        moving: false,
+        workPulse: 0,
+      };
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(2.2, 2.2);
+      ctx.translate(-x, -y);
+      drawParentNpc(ctx, p, cam0, time);
+      ctx.restore();
+    };
+    drawIndoor(state.parents.father, lay.bedL.x + 95, lay.bedL.y + 95, 1);
+    drawIndoor(state.parents.mother, lay.bedR.x + 135, lay.bedR.y + 95, -1);
+  }
 
   // Хаалга (гарах)
   const door = lay.door;
@@ -1710,7 +1764,7 @@ export function drawGerInterior(
     const prox = gerProximity(state);
     let hint = "";
     if (prox.nearChestL) hint = "E — Урлал";
-    else if (prox.nearChestR) hint = "E — Авдар";
+    else if (prox.nearChestC || prox.nearChestR) hint = "E — Авдар";
     else if (prox.nearStove)
       hint = state.gerStoveLit
         ? "E — Түлээ нэмэх"

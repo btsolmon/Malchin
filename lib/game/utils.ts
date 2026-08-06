@@ -46,10 +46,45 @@ export function pastureCenter(world: World): Vector2 {
   return { x: world.campPos.x, y: world.campPos.y };
 }
 
-/** Гэрийн хаалганы байрлал */
+/** Гэрийн хаалганы байрлал — урд талд (гаднаас ойртоход E дарж орно) */
 export function gerDoorPos(world: World): Vector2 {
   const c = pastureCenter(world);
-  return { x: c.x, y: c.y - 20 };
+  return { x: c.x, y: c.y + 18 };
+}
+
+/**
+ * Монгол гэрийн биеийн мөргөлдөөн — эллипсээс гадагш түлхэнэ.
+ * Тоглогч/аав ээж/мал/дайсан бүгдэд адилхан.
+ */
+export function pushOutOfGer(
+  pos: Vector2,
+  radius: number,
+  world: World,
+): boolean {
+  if (world.gerPacked) return false;
+
+  const center = pastureCenter(world);
+  const gerPos = { x: center.x, y: center.y - 14 };
+  const rx = 34;
+  const ry = 22;
+  const pad = radius;
+
+  const dx = pos.x - gerPos.x;
+  const dy = pos.y - gerPos.y;
+  const nx = dx / (rx + pad);
+  const ny = dy / (ry + pad);
+  const d = Math.hypot(nx, ny);
+  if (d >= 1 || d < 1e-6) {
+    if (d < 1e-6) {
+      pos.y = gerPos.y + ry + pad;
+      return true;
+    }
+    return false;
+  }
+
+  pos.x = gerPos.x + dx / d;
+  pos.y = gerPos.y + dy / d;
+  return true;
 }
 
 /** Эхлэлийн хашааны хэмжээ (тал бүрт торны тоо) */
@@ -417,6 +452,8 @@ export function wouldCloseFenceLoop(
   orientOrAngle: 0 | 1 | number,
   fences: Fence[],
 ): boolean {
+  // Аль хэдийн хаалга байвал шинэ хаалга үүсгэхгүй
+  if (fences.some((f) => f.isGate)) return false;
   if (fences.length < 3) return false;
   const angle =
     orientOrAngle === 0 || orientOrAngle === 1
@@ -474,6 +511,21 @@ export function gateDoorwayBlocked(
   for (const thief of world.thieves) {
     if (!thief.alive) continue;
     if (dist(thief.pos, fence.pos) < thief.radius + r) return true;
+  }
+  if (state.parents) {
+    const pr = 12 + r;
+    if (
+      !state.parents.father.insideGer &&
+      dist(state.parents.father.pos, fence.pos) < pr
+    ) {
+      return true;
+    }
+    if (
+      !state.parents.mother.insideGer &&
+      dist(state.parents.mother.pos, fence.pos) < pr
+    ) {
+      return true;
+    }
   }
   return false;
 }

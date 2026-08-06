@@ -29,8 +29,10 @@ import {
   clamp,
   dist,
   normalize,
+  pastureCenter,
   penCenter,
   PEN_RADIUS,
+  pushOutOfGer,
   roundRectPath,
   setMessage,
 } from "./utils";
@@ -44,7 +46,7 @@ export const OPENING_STORY_SECTIONS = [
 export const HEARTH_QUEST = {
   title: "Галаа асаа",
   description:
-    "Гал унтарсан байна. Түлээ бэлтгэж, галаа асаа.",
+    "Голомт унтарсан байна. Түлээ бэлтгэж, гэртээ орж зууханд гал асаа.",
 } as const;
 
 export const SCATTERED_LIVESTOCK_QUEST = {
@@ -1501,7 +1503,7 @@ export function updateHearthQuest(state: GameState, dt: number): void {
       state.player.inventory.wood,
     );
 
-    if (state.world.campfire.lit && !story.campfireRelit) {
+    if (state.gerStoveLit && !story.campfireRelit) {
       story.hearthWoodCollected = CAMPFIRE_WOOD_COST;
       story.campfireRelit = true;
       story.hearthQuestCompleted = true;
@@ -1511,12 +1513,14 @@ export function updateHearthQuest(state: GameState, dt: number): void {
       state.message = "";
       state.messageTimer = 0;
       sfx("levelup");
-      spawnParticles(state, state.world.campfire.pos, 18, "#ffd27a", {
+      const hearth = pastureCenter(state.world);
+      spawnParticles(state, hearth, 18, "#ffd27a", {
         speed: 105,
         life: 1.1,
         size: 3,
         gravity: -65,
       });
+      setMessage(state, "Голомт сэргэв! Зуухны гал ассан.", 4);
     }
   }
 
@@ -1972,6 +1976,7 @@ function walkOldManIntoCutscene(state: GameState, dt: number): void {
   const step = Math.min(distance, Math.max(0, dt) * speed);
   elder.pos.x += (dx / distance) * step;
   elder.pos.y += (dy / distance) * step;
+  pushOutOfGer(elder.pos, elder.radius * 0.45, state.world);
   elder.pose = "walking";
   elder.face = dx < 0 ? -1 : 1;
   elder.walkPhase += Math.max(0, dt) * 6.5;
@@ -2861,13 +2866,17 @@ export function updateLivestockRecoveryQuest(
     for (const animal of state.world.flock.visuals) {
       if (
         !story.openingLivestockIds.includes(animal.id) ||
-        !story.livestockFoundIds.includes(animal.id) ||
-        story.livestockReturnedIds.includes(animal.id) ||
         !animalInPen(animal.pos, state.world)
       ) {
         continue;
       }
-      story.livestockReturnedIds.push(animal.id);
+      // Хашаанд ормогц олдсон/буцаасан гэж тооцно (N-ээр тууж оруулсан)
+      if (!story.livestockFoundIds.includes(animal.id)) {
+        story.livestockFoundIds.push(animal.id);
+      }
+      if (!story.livestockReturnedIds.includes(animal.id)) {
+        story.livestockReturnedIds.push(animal.id);
+      }
     }
 
     const allReturned =
@@ -2894,6 +2903,7 @@ export function updateLivestockRecoveryQuest(
         size: 2.7,
         gravity: 18,
       });
+      setMessage(state, "Мал бүрдэв!", 3);
     }
   }
   if (!story.livestockQuestCompleted) {
@@ -3299,7 +3309,7 @@ export function drawMainObjectivePanel(
     );
     ctx.fillStyle = fireDone ? "#8fd48f" : COLORS.hudText;
     ctx.fillText(
-      `Гал асаах: ${fireDone ? 1 : 0} / 1`,
+      `Зууханд гал: ${fireDone ? 1 : 0} / 1`,
       x + 16,
       y + 141,
     );
@@ -3387,7 +3397,7 @@ export function drawHearthCompletionEffect(
 ): void {
   const remaining = state.story.hearthCompletionEffectRemaining;
   if (
-    state.phase !== "playing" ||
+    (state.phase !== "playing" && state.phase !== "ger") ||
     remaining <= 0 ||
     !state.story.hearthCompletionEffectShown
   ) {
@@ -3400,8 +3410,15 @@ export function drawHearthCompletionEffect(
     0,
     1,
   );
-  const fireX = clamp(state.world.campfire.pos.x - camera.x, 70, VIEW_W - 70);
-  const fireY = clamp(state.world.campfire.pos.y - camera.y, 70, VIEW_H - 70);
+  // Гэрт — дэлгэцийн төв (зуух); гадаа — галын байрлал
+  const fireX =
+    state.phase === "ger"
+      ? VIEW_W / 2
+      : clamp(state.world.campfire.pos.x - camera.x, 70, VIEW_W - 70);
+  const fireY =
+    state.phase === "ger"
+      ? VIEW_H * 0.42
+      : clamp(state.world.campfire.pos.y - camera.y, 70, VIEW_H - 70);
 
   ctx.save();
   const edge = ctx.createRadialGradient(
@@ -3511,20 +3528,20 @@ export function drawLivestockCompletionEffect(
   ctx.lineWidth = 5;
   ctx.strokeStyle = "rgba(20,10,4,0.78)";
   ctx.font = "700 43px system-ui, sans-serif";
-  ctx.strokeText("СҮРЭГ БҮРДЭВ", VIEW_W / 2, 266);
+  ctx.strokeText("МАЛ БҮРДЭВ", VIEW_W / 2, 266);
   ctx.fillStyle = "#ffe5a0";
-  ctx.fillText("СҮРЭГ БҮРДЭВ", VIEW_W / 2, 266);
+  ctx.fillText("МАЛ БҮРДЭВ", VIEW_W / 2, 266);
 
   ctx.font = "15px system-ui, sans-serif";
   ctx.lineWidth = 3;
   ctx.strokeText(
-    "Тарсан мал хотондоо эргэж, талын чимээ намдав.",
+    "Тарсан мал хашаандаа орж, хотон бүрдэв.",
     VIEW_W / 2,
     299,
   );
   ctx.fillStyle = "#f2e8d5";
   ctx.fillText(
-    "Тарсан мал хотондоо эргэж, талын чимээ намдав.",
+    "Тарсан мал хашаандаа орж, хотон бүрдэв.",
     VIEW_W / 2,
     299,
   );

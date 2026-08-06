@@ -105,6 +105,8 @@ function makeParentPortrait(role: "father" | "mother"): ParentNpc {
     targetId: null,
     walkTarget: null,
     walkPhase: 0,
+    insideGer: false,
+    attackCooldown: 0,
   };
 }
 

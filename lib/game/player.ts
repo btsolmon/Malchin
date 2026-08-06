@@ -49,6 +49,7 @@ import {
   normalize,
   pastureCenter,
   pastureRefillForSeason,
+  pushOutOfGer,
   randRange,
   seasonForDay,
   setMessage,
@@ -310,6 +311,7 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 0.85);
     clampPlayerToWorld(player, world.width, world.height);
     collidePlayerWithWorldPlants(state);
+    collidePlayerWithGer(state);
     collidePlayerWithGates(state);
     return;
   }
@@ -320,6 +322,7 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 1);
     clampPlayerToWorld(player, world.width, world.height);
     collidePlayerWithWorldPlants(state);
+    collidePlayerWithGer(state);
     collidePlayerWithGates(state);
     return;
   }
@@ -345,6 +348,7 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
   if (state.phase === "playing") applyRiverCurrent(player.pos, dt, 1);
   clampPlayerToWorld(player, world.width, world.height);
   collidePlayerWithWorldPlants(state);
+  collidePlayerWithGer(state);
   collidePlayerWithGates(state);
 }
 
@@ -384,6 +388,15 @@ function collidePlayerWithWorldPlants(state: GameState): void {
     player.pos.y += (dy / distance) * push;
   }
 
+  clampPlayerToWorld(player, world.width, world.height);
+}
+
+/** Монгол гэр — хатуу; хаалганы өмнө ойртож болно, дундуур нэвтрэхгүй */
+function collidePlayerWithGer(state: GameState): void {
+  const { player, world } = state;
+  if (world.gerPacked || state.phase !== "playing") return;
+  const pad = player.radius + (player.riding ? 5 : 0);
+  pushOutOfGer(player.pos, pad, world);
   clampPlayerToWorld(player, world.width, world.height);
 }
 

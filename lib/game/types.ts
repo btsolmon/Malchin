@@ -291,7 +291,12 @@ export type ParentTask =
   | "herd"
   | "fillFeeder"
   | "collect"
-  | "craft";
+  | "craft"
+  | "gatherStone"
+  | "gatherBerry"
+  | "gatherWood"
+  | "fight"
+  | "goHome";
 
 export interface ParentNpc {
   role: "father" | "mother";
@@ -309,6 +314,10 @@ export interface ParentNpc {
   walkTarget: Vector2 | null;
   /** Алхалтын фаза (хөл/гар) */
   walkPhase: number;
+  /** Орой гэрт орсон — гаднаа харагдахгүй */
+  insideGer: boolean;
+  /** Тулааны цохилтын хүлээлт */
+  attackCooldown: number;
 }
 
 /** Хуучин нэр — нийцүүлэлт */
