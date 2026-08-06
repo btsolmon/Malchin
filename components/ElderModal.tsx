@@ -19,6 +19,7 @@ export default function ElderModal({
   onClose,
 }: ElderModalProps) {
   const [selected, setSelected] = useState(0);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const skipScrollRef = useRef(false);
@@ -27,24 +28,41 @@ export default function ElderModal({
     setSelected((i) => Math.min(i, Math.max(0, ui.trades.length - 1)));
   }, [ui.trades.length]);
 
+  useEffect(() => {
+    setFeedback(null);
+  }, [ui.tab]);
+
   const tradeAt = useCallback(
     (index: number) => {
       const t = ui.trades[index];
-      if (!t || t.owned) return;
+      if (!t) return;
+      if (t.owned) {
+        setFeedback(`${t.nameMn} аль хэдийн бий.`);
+        return;
+      }
+      if (!t.canTrade) {
+        if (t.action === "sell") {
+          setFeedback(`${t.nameMn.replace(" зарах", "")} алга — олж ирээд зараарай.`);
+        } else {
+          setFeedback(`Оноо хүрэхгүй — ${t.price} оноо хэрэгтэй. (Одоо: ${ui.score})`);
+        }
+        return;
+      }
       onTrade(t.id);
+      setFeedback(
+        t.action === "sell"
+          ? `${t.nameMn}: +${t.price} оноо`
+          : `${t.nameMn} авлаа! (−${t.price})`,
+      );
     },
-    [onTrade, ui.trades],
+    [onTrade, ui.score, ui.trades],
   );
 
-  const selectByKey = useCallback(
-    (next: number) => {
-      skipScrollRef.current = false;
-      setSelected(next);
-    },
-    [],
-  );
+  const selectByKey = useCallback((next: number) => {
+    skipScrollRef.current = false;
+    setSelected(next);
+  }, []);
 
-  // Зөвхөн гарны ↑↓-д жагсаалтын дотор гүйлгэнэ (хулгана/wheel-тэй зөрчилдөхгүй)
   useEffect(() => {
     if (ui.tab !== "trade") return;
     if (skipScrollRef.current) {
@@ -99,9 +117,30 @@ export default function ElderModal({
 
   return (
     <div className="elder-backdrop" role="dialog" aria-modal="true">
-      <div className={`elder-panel elder-shop-panel ${eyeClass}`}>
-        <div className="elder-panel-inner elder-shop-inner">
-          <div className="elder-tabs elder-shop-tabs">
+      <div
+        className={`elder-panel ${eyeClass}`}
+        style={{
+          width: "min(640px, 94%)",
+          maxHeight: "min(520px, 92%)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          border: "2px solid #e8c56a",
+          borderRadius: 14,
+          background: "rgba(26, 17, 10, 0.97)",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 20px 16px",
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+          }}
+        >
+          <div className="elder-tabs" style={{ margin: "0 0 8px", justifyContent: "center" }}>
             <button
               type="button"
               className={ui.tab === "trade" ? "active" : ""}
@@ -120,19 +159,55 @@ export default function ElderModal({
 
           {ui.tab === "trade" ? (
             <>
-              <div className="elder-shop-header">
-                <h2 className="elder-shop-title">АРИЛЖАА</h2>
-                <span className="elder-shop-score">Оноо: {ui.score}</span>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                  gap: 12,
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 24,
+                    fontWeight: 700,
+                    color: "#e8c56a",
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  АРИЛЖАА
+                </h2>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#f2e8d5" }}>
+                  Оноо: {ui.score}
+                </span>
               </div>
 
-              <ul className="elder-shop-rows" ref={listRef}>
+              <ul
+                ref={listRef}
+                style={{
+                  listStyle: "none",
+                  margin: 0,
+                  padding: "0 2px 0 0",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                  overflowX: "hidden",
+                  overflowY: "auto",
+                  height: 264,
+                  minHeight: 264,
+                  maxHeight: 264,
+                  flexShrink: 0,
+                }}
+              >
                 {ui.trades.map((t, i) => {
                   const afford = t.canTrade || t.owned;
+                  const isSelected = selected === i;
                   return (
-                    <li key={t.id}>
+                    <li key={t.id} style={{ margin: 0, padding: 0, flexShrink: 0 }}>
                       <button
                         type="button"
-                        className={`elder-shop-row${selected === i ? " selected" : ""}${t.owned ? " owned" : ""}${t.rare ? " rare" : ""}`}
                         ref={(el) => {
                           rowRefs.current[i] = el;
                         }}
@@ -145,16 +220,75 @@ export default function ElderModal({
                           setSelected(i);
                           tradeAt(i);
                         }}
+                        style={{
+                          width: "100%",
+                          boxSizing: "border-box",
+                          display: "grid",
+                          gridTemplateColumns: "36px 1fr auto",
+                          gap: 10,
+                          alignItems: "center",
+                          textAlign: "left",
+                          padding: isSelected ? "7px 11px" : "8px 12px",
+                          height: 48,
+                          borderRadius: 8,
+                          border: isSelected
+                            ? "2px solid #e8c56a"
+                            : "1px solid rgba(232, 197, 106, 0.22)",
+                          background: t.owned
+                            ? "rgba(70, 95, 55, 0.35)"
+                            : isSelected
+                              ? "rgba(232, 197, 106, 0.14)"
+                              : "rgba(12, 10, 8, 0.6)",
+                          color: "#f2e8d5",
+                          font: "inherit",
+                          cursor: t.owned ? "default" : "pointer",
+                        }}
                       >
-                        <span className="elder-shop-icon" aria-hidden>
+                        <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden>
                           {t.icon}
                         </span>
-                        <span className="elder-shop-text">
-                          <strong>{t.nameMn}</strong>
-                          <em>{t.desc}</em>
+                        <span
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 2,
+                            minWidth: 0,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <strong
+                            style={{
+                              fontSize: 14,
+                              fontWeight: 600,
+                              color: isSelected ? "#e8c56a" : "#f2e8d5",
+                            }}
+                          >
+                            {t.nameMn}
+                          </strong>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              color: "#a89880",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {t.desc}
+                          </span>
                         </span>
                         <span
-                          className={`elder-shop-price${t.owned ? " ok" : afford ? " price" : " bad"}`}
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            whiteSpace: "nowrap",
+                            justifySelf: "end",
+                            color: t.owned
+                              ? "#a0d890"
+                              : afford
+                                ? "#ffd060"
+                                : "#e07070",
+                          }}
                         >
                           {t.detail}
                         </span>
@@ -164,9 +298,32 @@ export default function ElderModal({
                 })}
               </ul>
 
-              <p className="elder-shop-hint">
-                ↑↓ гүйлгэх · Enter авах/зарах · {ui.trades.length} бараа
-              </p>
+              {feedback ? (
+                <p
+                  style={{
+                    margin: "8px 0 0",
+                    textAlign: "center",
+                    fontSize: 12,
+                    color: "#ffe9a8",
+                    flexShrink: 0,
+                  }}
+                >
+                  {feedback}
+                </p>
+              ) : (
+                <p
+                  style={{
+                    margin: "10px 0 8px",
+                    textAlign: "center",
+                    fontSize: 11,
+                    color: "#a89880",
+                    flexShrink: 0,
+                  }}
+                >
+                  ↑↓ гүйлгэх · Enter авах/зарах · {ui.trades.length} бараа
+                  {ui.score <= 0 ? " · Эхлээд ноос г.м зарж оноо цуглуул" : ""}
+                </p>
+              )}
             </>
           ) : (
             <>
@@ -192,7 +349,12 @@ export default function ElderModal({
             </>
           )}
 
-          <button type="button" className="elder-dismiss elder-shop-close" onClick={onClose}>
+          <button
+            type="button"
+            className="elder-dismiss"
+            onClick={onClose}
+            style={{ alignSelf: "center", minWidth: 140, marginTop: 8 }}
+          >
             Хаах (P)
           </button>
         </div>

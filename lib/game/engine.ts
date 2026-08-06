@@ -31,6 +31,7 @@ import {
   tryInteract,
   tryLightCampfire,
   tryMigrateGer,
+  updateFencePreviewAim,
   updatePlayerMovement,
   updateSurvival,
   updateWeatherCycle,
@@ -59,6 +60,7 @@ import {
   updateProduction,
   updateWildHorses,
 } from "./livestock";
+import { createRiverFish, updateFish } from "./fish";
 import { updateParents } from "./parents";
 import {
   createTumurShulmasEncounter,
@@ -184,6 +186,7 @@ export function createInitialState(): GameState {
         milk: 0,
         felt: 0,
         aaruul: 0,
+        fish: 0,
       },
       chopCooldown: 0,
       attackCooldown: 0,
@@ -202,6 +205,7 @@ export function createInitialState(): GameState {
         gun: false,
         axe: false,
         urga: false,
+        fishingRod: false,
       },
       horseHp: 0,
       horseMaxHp: 0,
@@ -274,9 +278,12 @@ export function createInitialState(): GameState {
       pastureSeason: "autumn",
       feeder: createFeeder(spawn),
       wildHorses: [],
+      fish: [],
       mountHorse: null,
     },
     fencePreview: false,
+    fencePreviewAngle: 0,
+    fencePreviewOffset: { x: 0, y: 0 },
     unlimitedWood: false,
     godMode: false,
     combatMovementLocked: false,
@@ -353,6 +360,8 @@ export function createInitialState(): GameState {
     gerPlayer: { x: 480, y: 435 },
     gerSleepTimer: 0,
     gerSleepBed: null,
+    gerStoveLit: false,
+    gerStoveFuel: 0,
     requestRestart: false,
     nextEntityId: 100,
     activeRiddleId: null,
@@ -378,6 +387,7 @@ export function createInitialState(): GameState {
 
   assignRiddlesToWorld(state.world, spawn, 11);
   state.world.fences = createStarterPen(spawn, () => allocId(state));
+  state.world.fish = createRiverFish(() => allocId(state));
   syncVisualFlock(state);
   pullFlockToPen(state, 1);
   return state;
@@ -387,29 +397,45 @@ export function createInitialState(): GameState {
 // Дуу — Web Audio (процедурал ая ба эффект, гадны файл шаардлагагүй)
 // ---------------------------------------------------------------------------
 
-export function bindInput(getInput: () => InputState): () => void {
+export function bindInput(
+  getInput: () => InputState,
+  getFencePreview: () => boolean = () => false,
+): () => void {
   const setKey = (code: string, pressed: boolean): void => {
     const input = getInput();
+    const fenceAim = getFencePreview();
     switch (code) {
       case "KeyW":
-      case "ArrowUp":
         input.up = pressed;
         if (pressed) input.menuUp = true;
         break;
+      case "ArrowUp":
+        if (pressed) input.menuUp = true;
+        if (!fenceAim) input.up = pressed;
+        break;
       case "KeyS":
-      case "ArrowDown":
         input.down = pressed;
         if (pressed) input.menuDown = true;
         break;
+      case "ArrowDown":
+        if (pressed) input.menuDown = true;
+        if (!fenceAim) input.down = pressed;
+        break;
       case "KeyA":
-      case "ArrowLeft":
         input.left = pressed;
         if (pressed) input.menuLeft = true;
         break;
+      case "ArrowLeft":
+        if (pressed) input.menuLeft = true;
+        if (!fenceAim) input.left = pressed;
+        break;
       case "KeyD":
-      case "ArrowRight":
         input.right = pressed;
         if (pressed) input.menuRight = true;
+        break;
+      case "ArrowRight":
+        if (pressed) input.menuRight = true;
+        if (!fenceAim) input.right = pressed;
         break;
       case "KeyE":
         // Дарахад асаана, update() эсвэл хэрэглэгч нь унтраана —
@@ -591,6 +617,12 @@ export function update(state: GameState, dt: number): void {
     state.requestRestart = true;
     sfx("select");
   }
+
+  // Хашаа preview — сумнаар чиглэл/байрлал (menu flag арилгахаас өмнө)
+  if (state.phase === "playing" && state.fencePreview) {
+    updateFencePreviewAim(state);
+  }
+
   state.input.confirm = false;
   state.input.pause = false;
   state.input.menuUp = false;
@@ -670,6 +702,7 @@ export function update(state: GameState, dt: number): void {
     updateProduction(state, dt);
     updateParents(state, dt);
     updateWildHorses(state, dt);
+    updateFish(state, dt);
     updateFirstRoute(state, dt);
     updateTumurShulmasEncounter(state, dt);
     // Boss-ийн death frame дээр "won" болсон бол дараагийн survival/threat
@@ -810,7 +843,10 @@ export function mountHerderGame(
   };
 
   let state = createInitialState();
-  const unbindInput = bindInput(() => state.input);
+  const unbindInput = bindInput(
+    () => state.input,
+    () => state.fencePreview,
+  );
   let lastRiddleKey = "";
   let lastElderKey = "";
 

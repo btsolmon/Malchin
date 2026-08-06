@@ -279,28 +279,35 @@ export const CRAFT_RECIPES: Array<{
 ];
 
 export function gerLayout(): {
-  chest: UiButton;
+  chestL: UiButton;
+  chestR: UiButton;
   door: UiButton;
   bedL: UiButton;
   bedR: UiButton;
-  altar: UiButton;
+  stove: UiButton;
 } {
   return {
-    chest: { x: 580, y: 255, w: 140, h: 95, label: "" },
+    // Ижил авдар — хойморын зүүн/баруун
+    chestL: { x: 240, y: 255, w: 140, h: 95, label: "" },
+    chestR: { x: 580, y: 255, w: 140, h: 95, label: "" },
     door: { x: 400, y: 452, w: 160, h: 72, label: "" },
-    bedL: { x: 55, y: 300, w: 190, h: 84, label: "" },
-    bedR: { x: 715, y: 300, w: 190, h: 84, label: "" },
-    altar: { x: 390, y: 255, w: 180, h: 90, label: "" },
+    // Хэвтээ ор — шалан дээр, гүнтэй биет
+    bedL: { x: 32, y: 290, w: 230, h: 138, label: "" },
+    bedR: { x: 698, y: 290, w: 230, h: 138, label: "" },
+    // Төв тулга / зуух
+    stove: { x: 430, y: 318, w: 100, h: 72, label: "" },
   };
 }
 
 /** Гэр доторх малчны ойролцоо байгаа зүйлс */
 export function gerProximity(state: GameState): {
+  nearChestL: boolean;
+  nearChestR: boolean;
   nearChest: boolean;
   nearBed: boolean;
   nearBedL: boolean;
   nearBedR: boolean;
-  nearAltar: boolean;
+  nearStove: boolean;
   atDoor: boolean;
 } {
   const p = state.gerPlayer;
@@ -312,12 +319,16 @@ export function gerProximity(state: GameState): {
   };
   const nearBedL = nearRect(lay.bedL, 50);
   const nearBedR = nearRect(lay.bedR, 50);
+  const nearChestL = nearRect(lay.chestL, 55);
+  const nearChestR = nearRect(lay.chestR, 55);
   return {
-    nearChest: nearRect(lay.chest, 55),
+    nearChestL,
+    nearChestR,
+    nearChest: nearChestL || nearChestR,
     nearBed: nearBedL || nearBedR,
     nearBedL,
     nearBedR,
-    nearAltar: nearRect(lay.altar, 55),
+    nearStove: nearRect(lay.stove, 52),
     atDoor: p.y > 492 && Math.abs(p.x - 480) < 90,
   };
 }
@@ -459,8 +470,46 @@ export function craftItem(state: GameState, idx: number): void {
   setMessage(state, `${recipe.name} хийлээ!`, 2.5);
 }
 
+function tryLightGerStove(state: GameState): void {
+  const cost = 3;
+  const player = state.player;
+  if (!state.unlimitedWood && player.inventory.wood < cost) {
+    setMessage(state, `Зууханд ${cost} түлээ хэрэгтэй.`, 2);
+    sfx("move");
+    return;
+  }
+  if (!state.unlimitedWood) player.inventory.wood -= cost;
+
+  if (state.gerStoveLit) {
+    state.gerStoveFuel += 24;
+    sfx("fire");
+    setMessage(state, "Зууханд түлээ нэмлээ.", 2);
+    return;
+  }
+
+  state.gerStoveLit = true;
+  state.gerStoveFuel = 30;
+  sfx("fire");
+  setMessage(state, "Зууханд гал асаалаа!", 2.5);
+}
+
 export function updateGer(state: GameState, dt: number): void {
   const input = state.input;
+
+  // Зуухны түлш шатах + дулаан
+  if (state.gerStoveLit) {
+    state.gerStoveFuel -= dt;
+    if (state.gerStoveFuel <= 0) {
+      state.gerStoveFuel = 0;
+      state.gerStoveLit = false;
+      setMessage(state, "Зуухны гал унтарлаа.", 2);
+    } else {
+      state.player.vitals.warmth = Math.min(
+        100,
+        state.player.vitals.warmth + 8 * dt,
+      );
+    }
+  }
 
   if (state.gerSleepTimer > 0) {
     state.gerSleepTimer = Math.max(0, state.gerSleepTimer - dt);
@@ -553,18 +602,30 @@ export function updateGer(state: GameState, dt: number): void {
     const nx = dir.x / len;
     const ny = dir.y / len;
     player.facing = { x: nx, y: ny };
-    state.gerPlayer.x = clamp(state.gerPlayer.x + nx * 170 * dt, 100, 860);
-    state.gerPlayer.y = clamp(state.gerPlayer.y + ny * 170 * dt, 330, 508);
+    state.gerPlayer.x = clamp(state.gerPlayer.x + nx * 170 * dt, 70, 890);
+    state.gerPlayer.y = clamp(state.gerPlayer.y + ny * 170 * dt, 300, 508);
   }
 
   const prox = gerProximity(state);
 
   if (
-    (input.interact && prox.nearChest) ||
-    (input.mouseClicked && overButton(lay.chest, input))
+    (input.interact && prox.nearStove) ||
+    (input.lightFire && prox.nearStove) ||
+    (input.mouseClicked && overButton(lay.stove, input))
   ) {
-    state.shopOpen = true;
-    state.craftOpen = false;
+    input.interact = false;
+    input.lightFire = false;
+    tryLightGerStove(state);
+    return;
+  }
+  if (input.lightFire) input.lightFire = false;
+
+  if (
+    (input.interact && prox.nearChestL) ||
+    (input.mouseClicked && overButton(lay.chestL, input))
+  ) {
+    state.craftOpen = true;
+    state.shopOpen = false;
     state.menuIndex = 0;
     state.input.interact = false;
     sfx("select");
@@ -572,11 +633,11 @@ export function updateGer(state: GameState, dt: number): void {
   }
 
   if (
-    (input.interact && prox.nearAltar) ||
-    (input.mouseClicked && overButton(lay.altar, input))
+    (input.interact && prox.nearChestR) ||
+    (input.mouseClicked && overButton(lay.chestR, input))
   ) {
-    state.craftOpen = true;
-    state.shopOpen = false;
+    state.shopOpen = true;
+    state.craftOpen = false;
     state.menuIndex = 0;
     state.input.interact = false;
     sfx("select");
@@ -1654,7 +1715,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["L", "Сөрөх (parry) — дайралт няцаах"],
     ["1 / 2", "Нударга / Хөх тэнгэрийн сэлэм"],
     ["E", "Мод / жимс / өвс / тэвш / мал гаргах·оруулах"],
-    ["Q", "Жимс / ааруул идэх"],
+    ["Q", "Жимс / загас / ааруул идэх"],
     ["F", "Хүссэн газартаа гал түлэх (түлээ)"],
     ["B", "Хашаа барих / шинэчлэх"],
     ["N", "Мал туух"],
@@ -1911,6 +1972,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       val: state.unlimitedWood ? "∞" : String(player.inventory.wood),
     },
     { icon: "🍒", val: String(player.inventory.berries) },
+    { icon: "🐟", val: String(player.inventory.fish) },
     { icon: "🌾", val: String(player.inventory.hay) },
   ];
   const qW = qItems.length * (qSize + 4) - 4 + 8;

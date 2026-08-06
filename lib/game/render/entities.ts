@@ -5,6 +5,7 @@ import {
   Dog,
   type Elder,
   type Fence,
+  type Fish,
   FENCE_GRID,
   type ParentNpc,
   Player,
@@ -603,21 +604,22 @@ export function drawFence(
 ): void {
   const x = fence.pos.x - cam.x;
   const y = fence.pos.y - cam.y;
-  const ns = fence.orient === 1;
+  const angle = fence.angle ?? (fence.orient === 1 ? Math.PI / 2 : 0);
   const tier = fence.tier ?? 1;
   const open = fence.isGate ? fence.gateOpen : 0;
 
   ctx.save();
   ctx.translate(x, y);
-  if (ns) drawShadow(ctx, 0, 2, 6, FENCE_HALF + 2);
-  else drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
+  ctx.rotate(angle);
+  // Локал X дагуу хэвтээ хашаа — бүх өнцөгт ижил
+  drawShadow(ctx, 0, 5, FENCE_HALF + 4, 5);
 
   if (tier === 1) {
-    drawFenceWood(ctx, 0, 0, ns, fence.isGate, open);
+    drawFenceWood(ctx, 0, 0, false, fence.isGate, open);
   } else if (tier === 2) {
-    drawFenceBarbed(ctx, 0, 0, ns, fence.isGate, open);
+    drawFenceBarbed(ctx, 0, 0, false, fence.isGate, open);
   } else {
-    drawFenceElectric(ctx, 0, 0, ns, time, fence.id, fence.isGate, open);
+    drawFenceElectric(ctx, 0, 0, false, time, fence.id, fence.isGate, open);
   }
 
   ctx.restore();
@@ -640,16 +642,22 @@ export function drawFence(
 export function drawFenceGhost(
   ctx: CanvasRenderingContext2D,
   pos: Vector2,
-  orient: 0 | 1,
+  orientOrAngle: 0 | 1 | number,
   cam: Camera,
 ): void {
   const x = pos.x - cam.x;
   const y = pos.y - cam.y;
-  const ns = orient === 1;
+  const angle =
+    orientOrAngle === 0 || orientOrAngle === 1
+      ? orientOrAngle === 1
+        ? Math.PI / 2
+        : 0
+      : orientOrAngle;
 
   ctx.save();
   ctx.globalAlpha = 0.55;
   ctx.translate(x, y);
+  ctx.rotate(angle);
 
   const post = (px: number, py: number): void => {
     ctx.fillStyle = "rgba(255,255,255,0.75)";
@@ -661,22 +669,14 @@ export function drawFenceGhost(
   ctx.strokeStyle = "rgba(255,255,255,0.7)";
   ctx.lineWidth = 3;
   ctx.lineCap = "butt";
-  if (ns) {
-    post(0, 0);
-    ctx.beginPath();
-    ctx.moveTo(0, -FENCE_HALF);
-    ctx.lineTo(0, FENCE_HALF);
-    ctx.stroke();
-  } else {
-    post(-FENCE_HALF, 0);
-    post(FENCE_HALF, 0);
-    ctx.beginPath();
-    ctx.moveTo(-FENCE_HALF, -14);
-    ctx.lineTo(FENCE_HALF, -14);
-    ctx.moveTo(-FENCE_HALF, -7);
-    ctx.lineTo(FENCE_HALF, -7);
-    ctx.stroke();
-  }
+  post(-FENCE_HALF, 0);
+  post(FENCE_HALF, 0);
+  ctx.beginPath();
+  ctx.moveTo(-FENCE_HALF, -14);
+  ctx.lineTo(FENCE_HALF, -14);
+  ctx.moveTo(-FENCE_HALF, -7);
+  ctx.lineTo(FENCE_HALF, -7);
+  ctx.stroke();
 
   ctx.restore();
 }
@@ -1602,6 +1602,61 @@ export function drawWildHorse(
   ctx.textAlign = "center";
   ctx.fillText("зэрлэг", x, y - 22);
   ctx.textAlign = "left";
+}
+
+/** Голын загас */
+export function drawFish(
+  ctx: CanvasRenderingContext2D,
+  fish: Fish,
+  cam: Camera,
+  time: number,
+): void {
+  const x = fish.pos.x - cam.x;
+  const y = fish.pos.y - cam.y;
+  if (x < -40 || x > 1000 || y < -40 || y > 600) return;
+  const flip = fish.face;
+  const wiggle = Math.sin(time * 9 + fish.id) * 1.2;
+
+  ctx.save();
+  ctx.translate(x, y + wiggle * 0.3);
+  ctx.scale(flip, 1);
+
+  // Усны гялбаа / сүүдэр
+  ctx.fillStyle = "rgba(20,40,70,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(0, 4, 9, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Бие
+  const body = ctx.createLinearGradient(-8, -3, 8, 3);
+  body.addColorStop(0, "#5a9ad0");
+  body.addColorStop(0.5, "#3a78b0");
+  body.addColorStop(1, "#2a5a90");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 9, 3.6 + wiggle * 0.15, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Сүүл
+  ctx.fillStyle = "#2a68a0";
+  ctx.beginPath();
+  ctx.moveTo(-7, 0);
+  ctx.lineTo(-13, -4 + wiggle);
+  ctx.lineTo(-13, 4 - wiggle);
+  ctx.closePath();
+  ctx.fill();
+
+  // Нүд
+  ctx.fillStyle = "#0a1828";
+  ctx.beginPath();
+  ctx.arc(5.5, -0.8, 1.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e8f4ff";
+  ctx.beginPath();
+  ctx.arc(5.8, -1.1, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 function drawEnemyCombatFeedback(
@@ -3615,4 +3670,102 @@ export function drawParentNpc(
   ctx.fillStyle = isFather ? "#c8d8f0" : "#f0c8d0";
   ctx.fillText(label, x, y - 28);
   ctx.textAlign = "left";
+}
+
+/**
+ * Загасны уурга — байнга харагдана; эрэг дээр уургалахад шугам + дэнс.
+ * casting: эрэг дээр уургалаж байгаа эсэх
+ */
+export function drawFishingRod(
+  ctx: CanvasRenderingContext2D,
+  player: Player,
+  cam: Camera,
+  time: number,
+  casting: boolean,
+  bobber: Vector2 | null,
+): void {
+  if (!player.gear.fishingRod) return;
+  const x = player.pos.x - cam.x;
+  const y = player.pos.y - cam.y + (player.riding ? -14 : 0);
+  const flip = player.facing.x < 0 ? -1 : 1;
+
+  if (!casting || !bobber) {
+    // Нуруун дээр / хажууд — богино уурга
+    const bx = x - 9 * flip;
+    const by = y - 10;
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate((-0.55 - flip * 0.15) * flip);
+    ctx.strokeStyle = "#6b4420";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(0, 8);
+    ctx.lineTo(0, -22);
+    ctx.stroke();
+    ctx.strokeStyle = "#8a5a28";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(0, -22);
+    ctx.quadraticCurveTo(6 * flip, -28, 10 * flip, -26);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  // Уургалаж байгаа: гар → уурга → шугам → дэнс
+  const bx = bobber.x - cam.x;
+  const by = bobber.y - cam.y;
+  const handX = x + 8 * flip;
+  const handY = y - 6;
+  const tipX = handX + (bx - handX) * 0.22;
+  const tipY = handY - 18 + Math.sin(time * 2.2) * 1.2;
+
+  ctx.save();
+  ctx.strokeStyle = "#5a3a18";
+  ctx.lineWidth = 3.2;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(handX, handY);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+  // Уурганы үзүүр (гох)
+  ctx.strokeStyle = "#8a6028";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(tipX + 5 * flip, tipY - 4);
+  ctx.stroke();
+
+  // Шугам
+  const sag = 10 + Math.sin(time * 3 + player.pos.x * 0.01) * 3;
+  ctx.strokeStyle = "rgba(230,235,240,0.75)";
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(tipX + 5 * flip, tipY - 4);
+  ctx.quadraticCurveTo(
+    (tipX + bx) * 0.5,
+    Math.max(tipY, by) + sag,
+    bx,
+    by,
+  );
+  ctx.stroke();
+
+  // Дэнс
+  const bob = Math.sin(time * 4.5) * 1.5;
+  ctx.fillStyle = "#c04040";
+  ctx.beginPath();
+  ctx.ellipse(bx, by + bob, 3.2, 2.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#e8e8e8";
+  ctx.beginPath();
+  ctx.ellipse(bx, by + bob - 1.5, 2.2, 1.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Жижиг долгион
+  ctx.strokeStyle = "rgba(180,220,255,0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.ellipse(bx, by + 3, 7 + Math.sin(time * 5) * 1.5, 2.2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }

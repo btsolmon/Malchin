@@ -29,7 +29,7 @@ export type ShopItem =
     }
   | {
       type: "sell";
-      key: "wool" | "cashmere" | "milk" | "felt" | "aaruul";
+      key: "wool" | "cashmere" | "milk" | "felt" | "aaruul" | "fish";
       icon: string;
       name: string;
       desc: string;
@@ -84,6 +84,14 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "Уурга",
     desc: "Зэрлэг морийг уургална",
     price: 180,
+  },
+  {
+    type: "gear",
+    id: "fishingRod",
+    icon: "🎣",
+    name: "Загасны уурга",
+    desc: "Голоос загас барина · Q-аар иднэ",
+    price: 220,
   },
   {
     type: "livestock",
@@ -148,6 +156,14 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "Ааруул зарах",
     desc: "1 ааруул → 30 оноо",
     price: 30,
+  },
+  {
+    type: "sell",
+    key: "fish",
+    icon: "🐟",
+    name: "Загас зарах",
+    desc: "1 загас → 12 оноо",
+    price: 12,
   },
 ];
 

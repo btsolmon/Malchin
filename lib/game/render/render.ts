@@ -1,8 +1,13 @@
 import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
-import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
+import { canHarvestHay, clamp, dist, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearMountHorse } from "../player";
+import {
+  fishNearBobber,
+  fishingBobberPos,
+  nearFishingSpot,
+} from "../fish";
 import { drawGerInterior } from "./ger";
 import {
   drawPlayerWithSprites,
@@ -73,6 +78,7 @@ type RenderEntityKind =
   | "elder"
   | "parentNpc"
   | "sheep"
+  | "fish"
   | "wildHorse"
   | "wolf"
   | "thief"
@@ -117,6 +123,7 @@ function getRenderLayer(entity: RenderEntityKind): RenderLayer {
     case "elder":
     case "parentNpc":
     case "sheep":
+    case "fish":
     case "wildHorse":
     case "wolf":
     case "thief":
@@ -525,7 +532,9 @@ export function render(
   for (const fence of world.fences) {
     // Preserve the remote fence depth correction inside the layered queue.
     const sortY =
-      fence.isGate || fence.orient === 1 ? fence.pos.y - 20 : fence.pos.y;
+      fence.isGate || Math.abs(Math.sin(fence.angle ?? (fence.orient === 1 ? Math.PI / 2 : 0))) > 0.7
+        ? fence.pos.y - 20
+        : fence.pos.y;
     addDrawable("fence", {
       y: sortY,
       key: 3000 + fence.id,
@@ -537,8 +546,11 @@ export function render(
       state.player.pos,
       state.player.facing,
       FENCE_GRID,
+      state.fencePreviewOffset,
+      state.fencePreviewAngle,
+      world.fences,
     );
-    const ghostOrient = fenceOrientFromFacing(state.player.facing);
+    const ghostOrient = state.fencePreviewAngle;
     addDrawable("fenceGhost", {
       y: ghostPos.y,
       key: 2999,
@@ -578,6 +590,13 @@ export function render(
       y: wh.pos.y,
       key: 2500 + wh.id,
       draw: () => drawWildHorse(ctx, wh, cam, time),
+    });
+  }
+  for (const fish of world.fish) {
+    addDrawable("fish", {
+      y: fish.pos.y,
+      key: 2400 + fish.id,
+      draw: () => drawFish(ctx, fish, cam, time),
     });
   }
   for (const wolf of world.wolves) {
@@ -702,7 +721,7 @@ export function render(
     y: state.player.pos.y,
     key: Number.MAX_SAFE_INTEGER,
     debugPos: state.player.pos,
-    draw: () =>
+    draw: () => {
       drawPlayerWithSprites(
         ctx,
         state.player,
@@ -712,7 +731,19 @@ export function render(
         state.fx.hurtFlash,
         world.gerPacked,
         world.campfire.igniting,
-      ),
+      );
+      const casting =
+        state.player.gear.fishingRod &&
+        nearFishingSpot(state.player.pos);
+      drawFishingRod(
+        ctx,
+        state.player,
+        cam,
+        time,
+        casting,
+        casting ? fishingBobberPos(state.player.pos) : null,
+      );
+    },
   });
 
   drawables.sort((a, b) => {
@@ -936,7 +967,25 @@ export function render(
       } else {
         const bush = nearestBerryBush(state.player, world.bushes);
         const tree = nearestAliveTree(state.player, world.trees);
-        if (bush) {
+        if (
+          state.player.gear.fishingRod &&
+          nearFishingSpot(state.player.pos)
+        ) {
+          const tx = state.player.pos.x - cam.x;
+          const ty = state.player.pos.y - 36 - cam.y;
+          ctx.textAlign = "center";
+          ctx.font = "600 11px system-ui, sans-serif";
+          ctx.strokeStyle = "rgba(0,0,0,0.7)";
+          ctx.lineWidth = 3;
+          const canPull = !!fishNearBobber(state);
+          const tip = canPull
+            ? "E — Загас татах!"
+            : "E — Уургалах (загас ойртохыг хүлээ)";
+          ctx.strokeText(tip, tx, ty);
+          ctx.fillStyle = canPull ? "#a8f0ff" : "#7ec8ff";
+          ctx.fillText(tip, tx, ty);
+          ctx.textAlign = "left";
+        } else if (bush) {
           const tx = bush.pos.x - cam.x;
           const ty = bush.pos.y - 28 - cam.y;
           ctx.textAlign = "center";
