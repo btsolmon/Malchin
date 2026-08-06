@@ -1733,12 +1733,85 @@ export function drawWolf(
   wolf: Wolf,
   cam: Camera,
   time: number,
+  showCombatFeedback = true,
 ): void {
   const x = wolf.pos.x - cam.x;
   const y = wolf.pos.y - cam.y;
   const flip = wolf.face;
   const run = Math.sin(time * 14 + wolf.id) * 3;
   const s = wolf.scale;
+
+  if (!wolf.alive) {
+    // Үхсэн чоно амьд зогсож буй мэт харагдахгүйгээр хажуу тийш
+    // унасан, хөдөлгөөнгүй corpse pose-оор үлдэнэ. Story wolf дараагийн
+    // өгүүлэмж эхлэх хүртэл world-д хадгалагддаг тул энд тусад нь зурна.
+    drawShadow(ctx, x + 2 * flip * s, y + 8 * s, 18 * s, 5 * s);
+
+    ctx.save();
+    ctx.translate(x, y + 4 * s);
+    ctx.scale(s, s);
+    ctx.rotate(-0.16 * flip);
+
+    ctx.strokeStyle = "#35363a";
+    ctx.lineWidth = 2.8;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-7, 3);
+    ctx.lineTo(-12, 7);
+    ctx.lineTo(-8, 9);
+    ctx.moveTo(1, 4);
+    ctx.lineTo(6, 8);
+    ctx.lineTo(10, 7);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#424348";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-13 * flip, 0);
+    ctx.quadraticCurveTo(-18 * flip, 4, -22 * flip, 5);
+    ctx.stroke();
+
+    const deadBody = ctx.createLinearGradient(0, -7, 0, 7);
+    deadBody.addColorStop(0, "#575960");
+    deadBody.addColorStop(1, "#34353a");
+    ctx.fillStyle = deadBody;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 15.5, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const hx = 13 * flip;
+    ctx.fillStyle = "#484a50";
+    ctx.beginPath();
+    ctx.ellipse(hx, 1, 7, 5.7, 0.12 * flip, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#38393e";
+    ctx.beginPath();
+    ctx.ellipse(hx + 5 * flip, 2.2, 4, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#34353a";
+    ctx.beginPath();
+    ctx.moveTo(hx - 2 * flip, -3);
+    ctx.lineTo(hx - 1 * flip, -8);
+    ctx.lineTo(hx + 2 * flip, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "#17181a";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(hx + 0.5 * flip, -0.6);
+    ctx.lineTo(hx + 4 * flip, -0.2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#18191b";
+    ctx.beginPath();
+    ctx.arc(hx + 8.3 * flip, 2, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+    return;
+  }
 
   drawShadow(ctx, x, y + 9 * s, 15 * s, 5 * s);
 
@@ -1839,7 +1912,9 @@ export function drawWolf(
     );
     ctx.fill();
   }
-  drawEnemyCombatFeedback(ctx, wolf, x, y, s, time);
+  if (showCombatFeedback) {
+    drawEnemyCombatFeedback(ctx, wolf, x, y, s, time);
+  }
 }
 
 /** Баавгай — чононоос хоёр дахин том, хүчтэй араатан */
@@ -3361,6 +3436,157 @@ export function drawDismantledGer(
   ctx.stroke();
 }
 
+function drawStandingElder(
+  ctx: CanvasRenderingContext2D,
+  elder: Elder,
+  x: number,
+  y: number,
+  time: number,
+): void {
+  const walking = elder.pose === "walking";
+  const cycle = walking ? Math.sin(elder.walkPhase) : 0;
+  const step = cycle * 2.4;
+  const bob = walking
+    ? Math.abs(cycle) * 0.9
+    : Math.sin(time * 1.6) * 0.35;
+  const armSwing = walking ? -cycle * 3.2 : Math.sin(time * 1.4) * 0.35;
+  const flip = elder.face;
+  const beardGlow = 0.25 + 0.2 * Math.sin(time * 2.1);
+
+  ctx.save();
+  drawShadow(ctx, x, y + 12, 12, 4.5);
+
+  // Алхахад л хөл, гар нь үл ялиг солбицоно.
+  ctx.strokeStyle = "#2a2a30";
+  ctx.lineWidth = 3.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - 3.5, y + 3);
+  ctx.lineTo(x - 3.5 + step, y + 12);
+  ctx.moveTo(x + 3.5, y + 3);
+  ctx.lineTo(x + 3.5 - step, y + 12);
+  ctx.stroke();
+
+  const shoulderY = y - 7 - bob * 0.3;
+  ctx.strokeStyle = "#c49a72";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(x - 6 * flip, shoulderY);
+  ctx.lineTo(x - 9 * flip - armSwing * 0.35, shoulderY + 8);
+  ctx.stroke();
+
+  // Сууж буй дүрийн хөх-бор дээл, бүс, эртний хээг хэвээр хэрэглэнэ.
+  const deel = ctx.createLinearGradient(x - 10, y - 12, x + 10, y + 5);
+  deel.addColorStop(0, "#3a4a62");
+  deel.addColorStop(0.5, "#4a5a48");
+  deel.addColorStop(1, "#3a3830");
+  ctx.fillStyle = deel;
+  ctx.beginPath();
+  ctx.ellipse(x, y - 3 - bob * 0.35, 10.5, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#8a7050";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(x - 6, y - 11 - bob * 0.35);
+  ctx.quadraticCurveTo(x, y - 7, x + 6, y - 11 - bob * 0.35);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(200,160,80,0.45)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x - 5, y - 2);
+  ctx.lineTo(x + 5, y - 2);
+  ctx.moveTo(x, y - 6);
+  ctx.lineTo(x, y + 2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#6a4828";
+  ctx.fillRect(x - 10, y + 1, 20, 3);
+  ctx.fillStyle = "#c8a860";
+  ctx.beginPath();
+  ctx.arc(x + 7 * flip, y + 2, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#7ec8ff";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x + 7 * flip, y + 2, 1.8, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#c49a72";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(x + 6 * flip, shoulderY);
+  ctx.lineTo(x + 9 * flip + armSwing * 0.35, shoulderY + 8);
+  ctx.stroke();
+
+  const headY = y - 19 - bob;
+  ctx.fillStyle = "#c49a72";
+  ctx.beginPath();
+  ctx.ellipse(x, headY, 7.5, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#a87850";
+  ctx.beginPath();
+  ctx.ellipse(x - 5.5, headY + 2, 2.2, 3, 0, 0, Math.PI * 2);
+  ctx.ellipse(x + 5.5, headY + 2, 2.2, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#d8d0c0";
+  ctx.beginPath();
+  ctx.arc(x, headY - 8, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#a89880";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(x, headY - 8);
+  ctx.lineTo(x + flip, headY - 14);
+  ctx.stroke();
+
+  if (elder.eyeMode !== "idle") {
+    ctx.fillStyle = `rgba(180,210,255,${beardGlow * 0.35})`;
+    ctx.beginPath();
+    ctx.ellipse(x, headY + 10, 11, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = "#e8e4dc";
+  ctx.beginPath();
+  ctx.moveTo(x - 7, headY + 4);
+  ctx.quadraticCurveTo(x - 10, headY + 14, x, headY + 20);
+  ctx.quadraticCurveTo(x + 10, headY + 14, x + 7, headY + 4);
+  ctx.quadraticCurveTo(x, headY + 12, x - 7, headY + 4);
+  ctx.fill();
+
+  const eyeY = headY - 1;
+  if (elder.eyeMode === "idle") {
+    ctx.strokeStyle = "#2a2018";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x - 4, eyeY);
+    ctx.quadraticCurveTo(x - 2.5, eyeY + 1.2, x - 1, eyeY);
+    ctx.moveTo(x + 1, eyeY);
+    ctx.quadraticCurveTo(x + 2.5, eyeY + 1.2, x + 4, eyeY);
+    ctx.stroke();
+  } else {
+    const glow =
+      elder.eyeMode === "spirit"
+        ? `rgba(100,180,255,${0.55 + beardGlow * 0.4})`
+        : `rgba(255,200,80,${0.55 + beardGlow * 0.4})`;
+    const pupil = elder.eyeMode === "spirit" ? "#7ec8ff" : "#e8c56a";
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x - 2.5, eyeY, 3.5, 0, Math.PI * 2);
+    ctx.arc(x + 2.5, eyeY, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = pupil;
+    ctx.beginPath();
+    ctx.arc(x - 2.5, eyeY, 1.6, 0, Math.PI * 2);
+    ctx.arc(x + 2.5, eyeY, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
 /** Өвгөн — ширэн дэвсгэр дээр завилж, буурал сахалтай */
 export function drawElder(
   ctx: CanvasRenderingContext2D,
@@ -3372,6 +3598,11 @@ export function drawElder(
   const y = elder.pos.y - cam.y;
   const breath = Math.sin(time * 1.6) * 0.8;
   const beardGlow = 0.25 + 0.2 * Math.sin(time * 2.1);
+
+  if (elder.pose === "walking" || elder.pose === "standing") {
+    drawStandingElder(ctx, elder, x, y, time);
+    return;
+  }
 
   // Ширэн дэвсгэр
   drawShadow(ctx, x, y + 10, 28, 10);

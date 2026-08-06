@@ -5,6 +5,7 @@ export type Season = "summer" | "autumn" | "winter" | "spring";
 export type DayPhase = "dawn" | "day" | "evening" | "night";
 export type GamePhase =
   | "menu"
+  | "intro"
   | "playing"
   | "paused"
   | "won"
@@ -67,6 +68,10 @@ export interface Elder {
   radius: number;
   /** Нүдний туяа: idle / сүнсний яриа / ховор бараа */
   eyeMode: "idle" | "spirit" | "rare";
+  /** Нээлтийн түүхийн үеэр нэг NPC сууж/алхаж/зогсож харагдах төлөв. */
+  pose: "seated" | "walking" | "standing";
+  face: 1 | -1;
+  walkPhase: number;
 }
 
 /** Оньсогын асуулттай объектын төрөл */
@@ -225,6 +230,8 @@ export interface Campfire {
 
 /** Гал асаах анимэйшн (сек) */
 export const CAMPFIRE_IGNITE_SEC = 3;
+/** Гал асаахад шаардлагатай түлээ */
+export const CAMPFIRE_WOOD_COST = 3;
 
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
 export type FenceTier = 1 | 2 | 3;
@@ -751,11 +758,121 @@ export interface Skill {
   apply: (state: GameState) => void;
 }
 
+export type MainObjectiveId =
+  | "restoreHearth"
+  | "findScatteredLivestock"
+  | "protectFlock"
+  | "observeWolfMovement"
+  | "parryStoryWolf"
+  | "counterStoryWolf"
+  | "talkToOldMan"
+  | "visitOldManAtDawn"
+  | "inspectStormTrace"
+  | "returnToOldManWithTrace"
+  | "defeatSpiritGuards"
+  | "reachCursedGate"
+  | "defeatShulmasBaatar"
+  | "claimSkySword"
+  | "openBlackIronGate"
+  | "defeatTumurShulmas"
+  | "returnFromSpirit"
+  | "growFlock";
+
+export interface OpeningLivestockAnchor {
+  id: number;
+  pos: Vector2;
+}
+
+export type FirstNightStage =
+  | "pending"
+  | "recoveringLivestock"
+  | "sunset"
+  | "nightNarration"
+  | "wolfWarning"
+  | "protecting"
+  | "elderIntervention"
+  | "elderApproach"
+  | "elderDialogue"
+  | "completed";
+
+export interface StoryState {
+  introCompleted: boolean;
+  introSection: number;
+  introSectionElapsed: number;
+  hearthQuestStarted: boolean;
+  hearthWoodCollected: number;
+  campfireRelit: boolean;
+  hearthQuestCompleted: boolean;
+  activeMainObjective: MainObjectiveId | null;
+  hearthCompletionEffectRemaining: number;
+  hearthCompletionEffectShown: boolean;
+  livestockQuestStarted: boolean;
+  livestockNarrationShown: boolean;
+  openingLivestockIds: number[];
+  openingLivestockAnchors: OpeningLivestockAnchor[];
+  openingLivestockTotal: number;
+  livestockFoundIds: number[];
+  livestockReturnedIds: number[];
+  livestockQuestCompleted: boolean;
+  livestockCompletionEffectRemaining: number;
+  livestockCompletionEffectShown: boolean;
+  firstNightStage: FirstNightStage;
+  firstNightStageRemaining: number;
+  firstDayTimeAccelerationStarted: boolean;
+  firstDayEveningHoldActive: boolean;
+  firstNightSunsetStarted: boolean;
+  firstNightNormalTimeRestored: boolean;
+  firstNightNarrationShown: boolean;
+  firstNightWolfWarningShown: boolean;
+  wolfThreatQuestStarted: boolean;
+  storyWolfId: number | null;
+  storyWolfSpawned: boolean;
+  storyWolfSceneElapsed: number;
+  helplessPhaseElapsed: number;
+  storyWolfAttackAttempts: number;
+  storyWolfAttackInProgress: boolean;
+  temporaryPlayerProtectionActive: boolean;
+  temporaryLivestockProtectionActive: boolean;
+  oldManArrivalStarted: boolean;
+  oldManArrived: boolean;
+  oldManArrivalElapsed: number;
+  shortDialogueStarted: boolean;
+  shortDialogueCompleted: boolean;
+  milestone3Completed: boolean;
+  milestone4Started: boolean;
+  storyWolfRedSignalSeen: boolean;
+  storyWolfParryCompleted: boolean;
+  storyWolfOpeningActive: boolean;
+  storyWolfCounterCompleted: boolean;
+  storyWolfDefeated: boolean;
+  nightCompletionEffectRemaining: number;
+  nightCompletionEffectShown: boolean;
+  milestone4Completed: boolean;
+  milestone5Started: boolean;
+  milestone5DialogueCompleted: boolean;
+  milestone6Started: boolean;
+  milestone6DialogueCompleted: boolean;
+  milestone7Started: boolean;
+  stormTracePos: Vector2 | null;
+  stormTraceInspected: boolean;
+  stormTraceEffectRemaining: number;
+  stormTraceDialogueCompleted: boolean;
+  spiritPathOpened: boolean;
+  milestone7Completed: boolean;
+  milestone8Started: boolean;
+  familyReunionEffectRemaining: number;
+  familyReunionEffectShown: boolean;
+  familyReunionDialogueStarted: boolean;
+  familyReunionDialogueCompleted: boolean;
+  milestone8Completed: boolean;
+}
+
 export type MenuScreen = "main" | "settings" | "controls" | "credits";
 
 export interface GameState {
   player: Player;
   world: World;
+  story: StoryState;
   input: InputState;
   fx: Effects;
   message: string;

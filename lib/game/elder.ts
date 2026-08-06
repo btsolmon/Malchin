@@ -17,12 +17,13 @@ import { WORLD_H, WORLD_W } from "./types";
 /** Авдрын дэлгүүрийн бараа — өвгөний арилжаанд тэр чигт нь */
 export const ELDER_TRADE_LIST: ShopItem[] = SHOP_ITEMS;
 
-export type DialogueSpeaker = "boy" | "elder";
+export type DialogueSpeaker = "boy" | "elder" | "father" | "mother";
 
 export interface DialogueBeat {
   speaker: DialogueSpeaker;
   text: string;
-
+  /** Хүү ярьж байх үед баруун талд харагдах сонсогч. */
+  listener?: "elder" | "father" | "mother";
   stage?: string;
 }
 
@@ -31,7 +32,187 @@ export interface ElderDialogue {
   title: string;
   beats: DialogueBeat[];
   spirit?: boolean;
+  /** Нээлтийн түүхээр л автоматаар тоглоно; хуучин ярианы жагсаалтад орохгүй. */
+  storyOnly?: boolean;
 }
+
+export const FIRST_NIGHT_ELDER_DIALOGUE: ElderDialogue = {
+  id: "first_night_elder",
+  title: "Анхны шөнө",
+  storyOnly: true,
+  beats: [
+    {
+      speaker: "elder",
+      text: "Хүү минь, бүү сандар. Би дэргэд чинь байна.",
+    },
+    {
+      speaker: "boy",
+      text: "Би яахаа мэдэхгүй байна.",
+    },
+    {
+      speaker: "elder",
+      text: "Мэдэхгүй байх гэм биш ээ. Харин харалгүй дайрах нь л аюултай.",
+    },
+    {
+      speaker: "elder",
+      text: "Араатны нүдийг бус, хөдөлгөөнийг нь ажигла.",
+    },
+  ],
+};
+
+export const POST_WOLF_ELDER_DIALOGUE: ElderDialogue = {
+  id: "post_wolf_elder",
+  title: "Голомтын дэргэд",
+  storyOnly: true,
+  beats: [
+    {
+      speaker: "elder",
+      text: "Нааш суу, хүү минь. Шөнийн хүйтэн биеэс чинь хараахан гараагүй байна.",
+    },
+    {
+      speaker: "boy",
+      text: "Та намайг хаанаас ажиглаж байсан юм бэ?",
+    },
+    {
+      speaker: "elder",
+      text: "Хөгшин хүний нүд холыг бус, эвгүйг түрүүлж анзаардаг юм.",
+    },
+    {
+      speaker: "boy",
+      text: "Өнгөрсөн шөнийн шуурга аав, ээжийг минь авч одсон.",
+    },
+    {
+      speaker: "elder",
+      text: "Тэр салхи тэнгэрийнх бус байлаа. Хүйтэн инээдийг нь би ч бас сонссон.",
+    },
+    {
+      speaker: "boy",
+      text: "Тэгвэл та тэднийг хаашаа одсоныг мэдэх үү?",
+    },
+    {
+      speaker: "elder",
+      text: "Шөнийн үгийг үүрийн гэрэлд тайлдаг ёстой. Одоо голомтоо түшиж амар, хүү минь.",
+    },
+    {
+      speaker: "elder",
+      text: "Нар ургахад зүүн толгодын бууцанд минь ир. Мэдсэн бүхнээ тэнд өгүүлье.",
+    },
+  ],
+};
+
+export const DAWN_ELDER_DIALOGUE: ElderDialogue = {
+  id: "dawn_elder_truth",
+  title: "Үүрийн цагаан гэгээ",
+  storyOnly: true,
+  beats: [
+    {
+      speaker: "elder",
+      text: "Ирэв үү, хүү минь. Үүрийн цагаан гэгээ шөнийн мөрийг нууж амжаагүй байна.",
+    },
+    {
+      speaker: "boy",
+      text: "Та хар шуурганы учрыг хэлнэ гэсэн.",
+    },
+    {
+      speaker: "elder",
+      text: "Тэр хар үүл тэнгэрээс хуралдаагүй. Газрын гүнд нойрссон муу амьсгал талд сэвэлзсэн нь тэр.",
+    },
+    {
+      speaker: "boy",
+      text: "Аав, ээж минь амьд байгаа юу?",
+    },
+    {
+      speaker: "elder",
+      text: "Амьдын гол нь тасраагүй ээ, хүү минь. Гэвч хүний хөлөөр хүрдэг замд бус, ил ба далдын завсарт хүлээстэй байна.",
+    },
+    {
+      speaker: "boy",
+      text: "Тэр газар нь Сүнсний орон гэж үү?",
+    },
+    {
+      speaker: "elder",
+      text: "Эртний хүмүүс тийн нэрлэдэгсэн. Түүний хаалга зоригт хүнд бус, мөрийг зөв таньсан хүнд нээгддэг юм.",
+    },
+    {
+      speaker: "boy",
+      text: "Би хаанаас эхлэх вэ?",
+    },
+    {
+      speaker: "elder",
+      text: "Бууцнаас минь зүүн хойших чулуун завсарт хар үнс, хахир хүйтэн мөр үлджээ. Тэнд очоод гараар бүү хүр. Салхины эсрэг талд зогсон, юу хөдөлж буйг анзаар.",
+    },
+    {
+      speaker: "elder",
+      text: "Мөр чамайг зөвшөөрвөл дараагийн замыг би нээнэ. Яарсан хөл төөрдөг, анзаарсан нүд зам олдог юм даа.",
+    },
+  ],
+};
+
+export const STORM_TRACE_ELDER_DIALOGUE: ElderDialogue = {
+  id: "storm_trace_elder",
+  title: "Хар мөрийн хариу",
+  storyOnly: true,
+  beats: [
+    {
+      speaker: "elder",
+      text: "Мөрийг олж харав уу, хүү минь?",
+    },
+    {
+      speaker: "boy",
+      text: "Хар үнс салхины өөдөөс хөдөлж, чулуун завсраас өнөөх хүйтэн инээд сонсогдсон.",
+    },
+    {
+      speaker: "elder",
+      text: "Тэгвэл чи мөрийг харсан төдийгүй, мөр чамайг таньжээ.",
+    },
+    {
+      speaker: "elder",
+      text: "Бөөгийн толинд үлдсэн гэгээгээр ил ба далдын завсрыг түр нээж болно. Гэвч цаана нь хараалд автсан таван сахиул зам манана.",
+    },
+    {
+      speaker: "boy",
+      text: "Тэдний цаана аав, ээжийн минь мөр байгаа бол би буцахгүй.",
+    },
+    {
+      speaker: "elder",
+      text: "Тэгвэл амьсгалаа тогтоож, харсан бүхнээ санаж яв. Яарсан гар бус, анзаарсан нүд чамайг буцааж авчирна.",
+    },
+  ],
+};
+
+export const FAMILY_REUNION_DIALOGUE: ElderDialogue = {
+  id: "family_reunion",
+  title: "Гэр бүл эргэн нэгдэв",
+  storyOnly: true,
+  beats: [
+    {
+      speaker: "father",
+      text: "Хүү минь... голомтын чинь гал биднийг харанхуйн дундаас замчилж ирлээ.",
+    },
+    {
+      speaker: "boy",
+      listener: "father",
+      text: "Аав аа... Ээж ээ... Би та хоёрыг заавал олно гэж өөртөө амласан.",
+    },
+    {
+      speaker: "mother",
+      text: "Амлалт чинь биднийг бус, чамайг энд хүртэл авчирчээ. Нааш ир, үр минь.",
+    },
+    {
+      speaker: "father",
+      text: "Хар шуурга нутгийн сүргийг тарааж, бууцыг хоосолжээ. Гэвч голомт асаж байхад амьдрал дахин дэлгэрнэ.",
+    },
+    {
+      speaker: "boy",
+      listener: "mother",
+      text: "Тэгвэл бид нутгаа дахин сэргээж, сүргээ урьдынхаас ч олон болгоно.",
+    },
+    {
+      speaker: "mother",
+      text: "Тийн ээ, хүү минь. Голомтоо сахиж, сүргээ өсгөе. Энэ удаа бид хамт байна.",
+    },
+  ],
+};
 
 export const SPIRIT_GATE_DIALOGUE: ElderDialogue = {
   id: "spirit_gate",
@@ -76,7 +257,14 @@ export const SPIRIT_GATE_DIALOGUE: ElderDialogue = {
   ],
 };
 
-export const ELDER_DIALOGUES: ElderDialogue[] = [SPIRIT_GATE_DIALOGUE];
+export const ELDER_DIALOGUES: ElderDialogue[] = [
+  SPIRIT_GATE_DIALOGUE,
+  FIRST_NIGHT_ELDER_DIALOGUE,
+  POST_WOLF_ELDER_DIALOGUE,
+  DAWN_ELDER_DIALOGUE,
+  STORM_TRACE_ELDER_DIALOGUE,
+  FAMILY_REUNION_DIALOGUE,
+];
 
 export type ElderChoiceId = "enter_spirit" | "prepare";
 
@@ -140,6 +328,9 @@ export function createElder(camp: Vector2): {
   pos: Vector2;
   gerPos: Vector2;
   radius: number;
+  pose: "seated";
+  face: 1;
+  walkPhase: number;
 } {
   let gerPos = {
     x: camp.x + 320,
@@ -150,7 +341,14 @@ export function createElder(camp: Vector2): {
     y: Math.max(120, Math.min(WORLD_H - 120, gerPos.y)),
   };
   const pos = { x: gerPos.x - 36, y: gerPos.y + 18 };
-  return { pos, gerPos, radius: 42 };
+  return {
+    pos,
+    gerPos,
+    radius: 42,
+    pose: "seated",
+    face: 1,
+    walkPhase: 0,
+  };
 }
 
 export function nearElder(state: GameState): boolean {
@@ -172,6 +370,20 @@ export function openElder(state: GameState): void {
 
 export function closeElder(state: GameState): void {
   if (state.phase !== "elder") return;
+  if (
+    ((state.elderDialogueId === FIRST_NIGHT_ELDER_DIALOGUE.id &&
+      !state.story.shortDialogueCompleted) ||
+      (state.elderDialogueId === POST_WOLF_ELDER_DIALOGUE.id &&
+        !state.story.milestone5DialogueCompleted) ||
+      (state.elderDialogueId === DAWN_ELDER_DIALOGUE.id &&
+        !state.story.milestone6DialogueCompleted) ||
+      (state.elderDialogueId === STORM_TRACE_ELDER_DIALOGUE.id &&
+        !state.story.stormTraceDialogueCompleted) ||
+      (state.elderDialogueId === FAMILY_REUNION_DIALOGUE.id &&
+        !state.story.familyReunionDialogueCompleted))
+  ) {
+    return;
+  }
   state.phase = "playing";
   state.elderTab = "trade";
   state.elderDialogueId = null;
@@ -206,10 +418,219 @@ export function startElderDialogue(state: GameState, dialogueId: string): void {
   state.menuIndex = 0;
   if (d.spirit) state.world.elder.eyeMode = "spirit";
   else state.world.elder.eyeMode = "idle";
-  if (!state.elderHeardDialogues.includes(d.id)) {
+  if (!d.storyOnly && !state.elderHeardDialogues.includes(d.id)) {
     state.elderHeardDialogues = [...state.elderHeardDialogues, d.id];
   }
   sfx("select");
+}
+
+/** Нээлтийн чонын үеийн дөрвөн мөрт яриаг нэг удаа шууд эхлүүлнэ. */
+export function beginFirstNightElderDialogue(state: GameState): void {
+  if (
+    state.story.shortDialogueStarted ||
+    state.story.shortDialogueCompleted ||
+    state.story.milestone3Completed
+  ) {
+    return;
+  }
+
+  state.story.shortDialogueStarted = true;
+  state.story.firstNightStage = "elderDialogue";
+  state.story.firstNightStageRemaining = 0;
+  state.world.elder.pose = "standing";
+  state.world.elder.eyeMode = "idle";
+  state.phase = "elder";
+  startElderDialogue(state, FIRST_NIGHT_ELDER_DIALOGUE.id);
+}
+
+/** Чоно унасны дараах голомтын дэргэдэх танилцах яриаг эхлүүлнэ. */
+export function beginPostWolfElderDialogue(state: GameState): void {
+  if (
+    !state.story.milestone4Completed ||
+    state.story.milestone5Started ||
+    state.story.milestone5DialogueCompleted ||
+    state.story.activeMainObjective !== "talkToOldMan"
+  ) {
+    return;
+  }
+
+  state.story.milestone5Started = true;
+  state.world.elder.pose = "seated";
+  state.world.elder.eyeMode = "idle";
+  state.phase = "elder";
+  startElderDialogue(state, POST_WOLF_ELDER_DIALOGUE.id);
+}
+
+function completePostWolfElderDialogue(state: GameState): void {
+  const story = state.story;
+  story.milestone5Started = true;
+  story.milestone5DialogueCompleted = true;
+  story.activeMainObjective = "visitOldManAtDawn";
+
+  const elder = state.world.elder;
+  elder.pos = {
+    x: elder.gerPos.x - 36,
+    y: elder.gerPos.y + 18,
+  };
+  elder.pose = "seated";
+  elder.face = -1;
+  elder.walkPhase = 0;
+  elder.eyeMode = "idle";
+
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.elderTab = "trade";
+  state.phase = "playing";
+  sfx("select");
+  setMessage(state, "Өвгөн талын харанхуйд чимээгүйхэн одов.", 3.2);
+}
+
+/** Үүрээр бууцанд нь очиход хар шуурганы мөрийн тухай яриаг эхлүүлнэ. */
+export function beginDawnElderDialogue(state: GameState): void {
+  if (
+    !state.story.milestone5DialogueCompleted ||
+    state.story.milestone6Started ||
+    state.story.milestone6DialogueCompleted ||
+    state.story.activeMainObjective !== "visitOldManAtDawn"
+  ) {
+    return;
+  }
+
+  state.story.milestone6Started = true;
+  state.world.elder.pose = "seated";
+  state.world.elder.eyeMode = "idle";
+  state.phase = "elder";
+  startElderDialogue(state, DAWN_ELDER_DIALOGUE.id);
+}
+
+function completeDawnElderDialogue(state: GameState): void {
+  const story = state.story;
+  story.milestone6Started = true;
+  story.milestone6DialogueCompleted = true;
+  story.activeMainObjective = "inspectStormTrace";
+
+  state.world.elder.pose = "seated";
+  state.world.elder.eyeMode = "idle";
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.elderTab = "trade";
+  state.phase = "playing";
+  sfx("select");
+  setMessage(state, "Өвгөн зүүн хойших чулуун завсрыг заав.", 3.2);
+}
+
+/** Хар мөрийг шинжилсний дараа Сүнсний замыг нээх яриа. */
+export function beginStormTraceElderDialogue(state: GameState): void {
+  if (
+    !state.story.stormTraceInspected ||
+    state.story.stormTraceDialogueCompleted ||
+    state.story.activeMainObjective !== "returnToOldManWithTrace"
+  ) {
+    return;
+  }
+
+  state.world.elder.pose = "seated";
+  state.world.elder.eyeMode = "idle";
+  state.phase = "elder";
+  startElderDialogue(state, STORM_TRACE_ELDER_DIALOGUE.id);
+}
+
+function completeStormTraceElderDialogue(state: GameState): void {
+  const story = state.story;
+  story.milestone7Started = true;
+  story.stormTraceDialogueCompleted = true;
+  story.spiritPathOpened = true;
+  story.activeMainObjective = "defeatSpiritGuards";
+
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.elderTab = "trade";
+  state.phase = "playing";
+  state.world.elder.eyeMode = "spirit";
+  ensureShulmasHelpers(state);
+  enterSpiritWorld(state);
+  setMessage(
+    state,
+    "Ил ба далдын завсар нээгдэв. Замыг манах таван сахиулыг дар.",
+    4.5,
+  );
+}
+
+export function beginFamilyReunionDialogue(state: GameState): void {
+  const story = state.story;
+  if (
+    !state.parentsReturned ||
+    !state.parents ||
+    story.familyReunionDialogueStarted ||
+    story.familyReunionDialogueCompleted
+  ) {
+    return;
+  }
+
+  story.milestone8Started = true;
+  story.familyReunionDialogueStarted = true;
+  story.activeMainObjective = null;
+  state.phase = "elder";
+  startElderDialogue(state, FAMILY_REUNION_DIALOGUE.id);
+}
+
+function completeFamilyReunionDialogue(state: GameState): void {
+  const story = state.story;
+  story.milestone8Started = true;
+  story.familyReunionDialogueStarted = true;
+  story.familyReunionDialogueCompleted = true;
+  story.milestone8Completed = true;
+  story.activeMainObjective = "growFlock";
+
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.elderTab = "trade";
+  state.phase = "playing";
+  sfx("win");
+  setMessage(
+    state,
+    "Голомтоо сахиж, сүргээ 1000 толгойд хүргэ.",
+    4.2,
+  );
+}
+
+function completeFirstNightElderDialogue(state: GameState): void {
+  const story = state.story;
+  const wolf = state.world.wolves.find((candidate) => {
+    return story.storyWolfId !== null && candidate.id === story.storyWolfId;
+  });
+
+  if (wolf) {
+    wolf.alive = true;
+    wolf.hp = Math.max(1, wolf.hp);
+    wolf.vel.x = 0;
+    wolf.vel.y = 0;
+    wolf.attackPhase = "recovery";
+    wolf.attackTimer = Math.max(wolf.attackTimer, 0.8);
+    wolf.attackCooldown = Math.max(wolf.attackCooldown, 1.2);
+    wolf.attackHitDone = true;
+    wolf.combatPhase = "recovery";
+    wolf.combatTimer = Math.max(wolf.combatTimer, 0.8);
+    wolf.flash = 0;
+  }
+
+  story.storyWolfAttackInProgress = false;
+  story.temporaryPlayerProtectionActive = false;
+  story.temporaryLivestockProtectionActive = false;
+  story.shortDialogueCompleted = true;
+  story.milestone3Completed = true;
+  story.firstNightStage = "completed";
+  story.firstNightStageRemaining = 0;
+  story.activeMainObjective = "observeWolfMovement";
+  state.world.elder.pose = "standing";
+  state.world.elder.eyeMode = "idle";
+
+  sfx("select");
+  closeElder(state);
 }
 
 export function advanceElderDialogue(state: GameState): void {
@@ -221,6 +642,20 @@ export function advanceElderDialogue(state: GameState): void {
     sfx("select");
     return;
   }
+  if (d.storyOnly) {
+    if (d.id === FIRST_NIGHT_ELDER_DIALOGUE.id) {
+      completeFirstNightElderDialogue(state);
+    } else if (d.id === POST_WOLF_ELDER_DIALOGUE.id) {
+      completePostWolfElderDialogue(state);
+    } else if (d.id === DAWN_ELDER_DIALOGUE.id) {
+      completeDawnElderDialogue(state);
+    } else if (d.id === STORM_TRACE_ELDER_DIALOGUE.id) {
+      completeStormTraceElderDialogue(state);
+    } else if (d.id === FAMILY_REUNION_DIALOGUE.id) {
+      completeFamilyReunionDialogue(state);
+    }
+    return;
+  }
   // Сүүлийн мөр — сонголт харуулна
   state.elderShowingChoices = true;
   state.menuIndex = 0;
@@ -230,6 +665,12 @@ export function advanceElderDialogue(state: GameState): void {
 /** Өмнөх ярианы мөр рүү буцах (сонголт дээр байвал сүүлийн мөр рүү) */
 export function retreatElderDialogue(state: GameState): void {
   if (!state.elderDialogueId) return;
+  if (
+    state.elderDialogueId === FIRST_NIGHT_ELDER_DIALOGUE.id ||
+    state.elderDialogueId === POST_WOLF_ELDER_DIALOGUE.id ||
+    state.elderDialogueId === DAWN_ELDER_DIALOGUE.id ||
+    state.elderDialogueId === STORM_TRACE_ELDER_DIALOGUE.id
+  ) return;
   if (state.elderShowingChoices) {
     state.elderShowingChoices = false;
     sfx("select");
@@ -309,7 +750,10 @@ export function tradeWithElder(state: GameState, itemId: string): boolean {
 }
 
 export function speakerLabel(speaker: DialogueSpeaker): string {
-  return speaker === "boy" ? "Хүү" : "Өвгөн";
+  if (speaker === "boy") return "Хүү";
+  if (speaker === "father") return "Аав";
+  if (speaker === "mother") return "Ээж";
+  return "Өвгөн";
 }
 
 export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
@@ -389,7 +833,7 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
     eyeMode: state.world.elder.eyeMode,
     score: state.score,
     trades,
-    dialogues: ELDER_DIALOGUES.map((d) => ({
+    dialogues: ELDER_DIALOGUES.filter((d) => !d.storyOnly).map((d) => ({
       id: d.id,
       title: d.title,
       heard: state.elderHeardDialogues.includes(d.id),

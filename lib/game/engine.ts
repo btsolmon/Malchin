@@ -100,6 +100,22 @@ import {
 } from "./elder";
 import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
 import { pullFlockToPen } from "./daycycle";
+import {
+  createInitialStoryState,
+  debugSkipCurrentStoryStage,
+  ensureStoryState,
+  firstNightElderCutsceneActive,
+  initializeOpeningLivestock,
+  openingStoryControlsWorldTime,
+  storyWolfUsesExistingAi,
+  updateHearthQuest,
+  updateLivestockRecoveryQuest,
+  updateMilestone3,
+  updateMilestone4,
+  updateMilestone7,
+  updateMilestone8,
+  updateOpeningSequence,
+} from "./story";
 
 export function createTrees(count: number): Tree[] {
   const trees: Tree[] = [];
@@ -301,6 +317,7 @@ export function createInitialState(): GameState {
       fish: [],
       mountHorse: null,
     },
+    story: createInitialStoryState(),
     fencePreview: false,
     fencePreviewAngle: 0,
     fencePreviewOffset: { x: 0, y: 0 },
@@ -410,6 +427,9 @@ export function createInitialState(): GameState {
   state.world.fish = createRiverFish(() => allocId(state));
   syncVisualFlock(state);
   pullFlockToPen(state, 1);
+  initializeOpeningLivestock(state);
+  // Opening livestock are placed outside the pen — keep them free to roam.
+  state.world.flockOut = true;
   return state;
 }
 
@@ -571,11 +591,15 @@ export function bindInput(
 // ---------------------------------------------------------------------------
 
 export function update(state: GameState, dt: number): void {
+  ensureStoryState(state);
   const phaseBefore = state.phase;
 
   // Меню ба пауз
   if (state.phase === "menu") {
     updateMenu(state);
+  } else if (state.phase === "intro") {
+    updateOpeningSequence(state, dt);
+    state.fencePreview = false;
   } else if (state.phase === "paused") {
     updatePauseMenu(state);
   } else if (state.phase === "ger") {
@@ -590,7 +614,14 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "elder") {
     // React ElderModal хариуцна — P/Esc дарвал хаана
-    if (state.input.pause && !state.elderShowingChoices) {
+    if (
+      state.input.interact &&
+      state.story.shortDialogueStarted &&
+      !state.story.shortDialogueCompleted
+    ) {
+      advanceElderDialogue(state);
+      state.input.interact = false;
+    } else if (state.input.pause && !state.elderShowingChoices) {
       closeElder(state);
     }
     state.fencePreview = false;
@@ -683,12 +714,16 @@ export function update(state: GameState, dt: number): void {
   }
 
   if (state.phase === "playing" && !hitStopped) {
+    const openingMilestoneActive =
+      state.story.familyReunionEffectRemaining > 0 ||
+      (state.story.activeMainObjective !== null &&
+        state.story.activeMainObjective !== "growFlock");
     if (state.input.debugXp) {
       state.score += 1000;
       spawnText(state, state.player.pos, "+1000 оноо", "#ffd060");
       sfx("buy");
     }
-    if (state.input.debugBoss) {
+    if (state.input.debugBoss && !openingMilestoneActive) {
       forceStartTumurShulmasBoss(state);
     }
     if (state.input.debugWood) {
@@ -704,33 +739,60 @@ export function update(state: GameState, dt: number): void {
       }
       sfx("buy");
     }
-    updateWeatherCycle(state, dt);
-    const lighting = state.world.campfire.igniting > 0;
-    if (!lighting) updateCombat(state, dt);
-    updatePlayerMovement(state, dt);
-    if (!lighting) {
-      const usedRouteInteraction = tryInteractFirstRoute(state);
-      if (!usedRouteInteraction) tryInteract(state);
-      tryEatBerry(state);
-      tryHorseMount(state);
-      tryMigrateGer(state);
+    if (!openingStoryControlsWorldTime(state)) {
+      updateWeatherCycle(state, dt);
     }
-    tryLightCampfire(state);
-    if (!lighting) tryBuildFence(state);
+    const lighting = state.world.campfire.igniting > 0;
+    const firstNightCutscene =
+      firstNightElderCutsceneActive(state) ||
+      state.story.familyReunionEffectRemaining > 0;
+    if (!firstNightCutscene) {
+      if (!lighting) updateCombat(state, dt);
+      updatePlayerMovement(state, dt);
+      if (!lighting) {
+        const usedRouteInteraction =
+          !openingMilestoneActive && tryInteractFirstRoute(state);
+        if (!usedRouteInteraction) tryInteract(state);
+        tryEatBerry(state);
+        tryHorseMount(state);
+        tryMigrateGer(state);
+      }
+      tryLightCampfire(state);
+      if (!lighting) tryBuildFence(state);
+    } else {
+      state.player.moving = false;
+      state.input.attack = false;
+      state.input.attackPressed = false;
+      state.input.parry = false;
+      state.input.parryPressed = false;
+      state.input.dodge = false;
+      state.input.dodgePressed = false;
+      state.input.shoot = false;
+      state.input.interact = false;
+    }
     updateGates(state, dt);
     updateFlock(state, dt);
     updateProduction(state, dt);
     updateParents(state, dt);
     updateWildHorses(state, dt);
     updateFish(state, dt);
-    updateFirstRoute(state, dt);
-    updateTumurShulmasEncounter(state, dt);
+    if (!openingMilestoneActive) {
+      updateFirstRoute(state, dt);
+      updateTumurShulmasEncounter(state, dt);
+    }
     // Boss-ийн death frame дээр "won" болсон бол дараагийн survival/threat
     // систем ялалтын төлөвийг "lost"-оор дарж болохгүй.
     if (state.phase === "playing") {
-      updateThreatTimers(state, dt);
-      updateWolves(state, dt);
-      updateThieves(state, dt);
+      if (!openingMilestoneActive) {
+        updateThreatTimers(state, dt);
+        updateWolves(state, dt);
+        updateThieves(state, dt);
+      } else if (
+        storyWolfUsesExistingAi(state) &&
+        state.story.storyWolfId !== null
+      ) {
+        updateWolves(state, dt, state.story.storyWolfId);
+      }
       updateDog(state, dt);
       updateProjectiles(state, dt);
       updateSurvival(state, dt);
@@ -763,6 +825,13 @@ export function update(state: GameState, dt: number): void {
       if (state.messageTimer > 0) state.messageTimer -= dt;
     }
   }
+
+  updateHearthQuest(state, dt);
+  updateLivestockRecoveryQuest(state, dt);
+  updateMilestone3(state, dt);
+  updateMilestone4(state, dt);
+  updateMilestone7(state, dt);
+  updateMilestone8(state, dt);
 
   // Шилжилтийн манан — playing дээр ч үлдэгдэл байж болно
   if (state.phase === "playing" && state.spiritTransition > 0) {
@@ -816,6 +885,8 @@ export interface HerderGameHandle {
   retreatElderDialogue: () => void;
   chooseElderOption: (id: ElderChoiceId) => void;
   closeElderModal: () => void;
+  /** Түр хөгжүүлэлтийн cheat — одоогийн opening story үеийг алгасана. */
+  skipStoryStage: () => void;
 }
 
 export interface MountHerderOptions {
@@ -867,6 +938,14 @@ export function mountHerderGame(
     () => state.input,
     () => state.fencePreview,
   );
+
+  // Түр хөгжүүлэлтийн shortcut: C дармагц opening story-н одоогийн үеийг алгасана.
+  const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
+    if (event.code !== "KeyC" || event.repeat) return;
+    event.preventDefault();
+    debugSkipCurrentStoryStage(state);
+  };
+  window.addEventListener("keydown", onStoryCheatKeyDown);
   let lastRiddleKey = "";
   let lastElderKey = "";
 
@@ -958,7 +1037,10 @@ export function mountHerderGame(
     const phaseBefore = state.phase;
     update(state, dt);
     // Play дармагц браузерийн fullscreen руу орно
-    if (phaseBefore === "menu" && state.phase === "playing") {
+    if (
+      phaseBefore === "menu" &&
+      (state.phase === "intro" || state.phase === "playing")
+    ) {
       enterBrowserFullscreen();
     }
     notifyRiddleUi();
@@ -974,6 +1056,7 @@ export function mountHerderGame(
       alive = false;
       cancelAnimationFrame(raf);
       unbindInput();
+      window.removeEventListener("keydown", onStoryCheatKeyDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", unlockAudio);
@@ -1017,6 +1100,11 @@ export function mountHerderGame(
     },
     closeElderModal: () => {
       closeElder(state);
+      notifyElderUi();
+    },
+    skipStoryStage: () => {
+      debugSkipCurrentStoryStage(state);
+      notifyRiddleUi();
       notifyElderUi();
     },
   };

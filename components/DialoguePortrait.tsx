@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { drawElder, drawPlayer } from "@/lib/game/render/entities";
-import type { Camera, Elder, Player } from "@/lib/game/types";
+import {
+  drawElder,
+  drawParentNpc,
+  drawPlayer,
+} from "@/lib/game/render/entities";
+import type { Camera, Elder, ParentNpc, Player } from "@/lib/game/types";
 
-export type DialoguePortraitKind = "boy" | "elder";
+export type DialoguePortraitKind = "boy" | "elder" | "father" | "mother";
 
 interface DialoguePortraitProps {
   kind: DialoguePortraitKind;
@@ -88,12 +92,31 @@ function makeBoyPortrait(): Player {
   };
 }
 
+function makeParentPortrait(role: "father" | "mother"): ParentNpc {
+  return {
+    role,
+    pos: { x: 0, y: 0 },
+    facing: { x: role === "father" ? -1 : 1, y: 0 },
+    face: role === "father" ? -1 : 1,
+    moving: false,
+    task: "idle",
+    taskTimer: 0,
+    workPulse: 0,
+    targetId: null,
+    walkTarget: null,
+    walkPhase: 0,
+  };
+}
+
 function makeElderPortrait(eyeMode: Elder["eyeMode"]): Elder {
   return {
     pos: { x: 0, y: 0 },
     gerPos: { x: 0, y: 0 },
     radius: 42,
     eyeMode,
+    pose: "standing",
+    face: 1,
+    walkPhase: 0,
   };
 }
 
@@ -119,8 +142,12 @@ export default function DialoguePortrait({
 
     const boy = makeBoyPortrait();
     const elder = makeElderPortrait(eyeMode);
-    const scale = kind === "boy" ? 6.2 : 5.2;
-    const groundY = kind === "boy" ? 0.78 : 0.82;
+    const parent =
+      kind === "father" || kind === "mother"
+        ? makeParentPortrait(kind)
+        : null;
+    const scale = kind === "boy" ? 6.2 : kind === "elder" ? 5.2 : 6.1;
+    const groundY = kind === "boy" ? 0.78 : kind === "elder" ? 0.82 : 0.8;
 
     let raf = 0;
     const t0 = performance.now();
@@ -145,8 +172,10 @@ export default function DialoguePortrait({
 
       if (kind === "boy") {
         drawPlayer(ctx, boy, CAM, time, false);
-      } else {
+      } else if (kind === "elder") {
         drawElder(ctx, elder, CAM, time);
+      } else if (parent) {
+        drawParentNpc(ctx, parent, CAM, time);
       }
 
       raf = requestAnimationFrame(frame);

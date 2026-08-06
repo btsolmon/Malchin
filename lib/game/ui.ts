@@ -34,6 +34,7 @@ import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
 import { drawPlayer } from "./render/entities";
 import { SHOP_ITEMS, buyItem } from "./shop";
+import { beginOpeningSequence, drawMainObjectivePanel } from "./story";
 
 export type { ShopItem } from "./shop";
 export {
@@ -214,8 +215,7 @@ export function updateMenu(state: GameState): void {
     }
 
     if (activate === 0) {
-      state.phase = "playing";
-      setMessage(state, "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.", 6);
+      beginOpeningSequence(state);
       sfx("select");
     } else if (activate === 1) {
       state.menuScreen = "settings";
@@ -1887,32 +1887,35 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawSeasonTree(ctx, clockX - 12, clockY + 24, world.season);
   drawRoundClock(ctx, clockX, clockY, 38, world.timeOfDay, world.dayNumber);
 
-  const route = world.firstRoute;
-  const routeText = world.tumurShulmas.defeated
-    ? "Төмөр шулмас дарагдав"
-    : world.tumurShulmas.active
-      ? `Төмөр шулмас · Үе ${world.tumurShulmas.bossPhase}`
-      : route.bossDefeated
-        ? route.swordDrop.collected
-          ? "Хар төмөр хаалга нээгдсэн"
-          : "Mini-boss унав · Сэлмээ ав"
-        : route.bossStarted
-          ? "Mini-boss · Шулмасын баатар"
-          : route.complete
-            ? "Хараалт хаалга нээгдсэн"
-            : `Эхний зам ${route.defeated}/${route.total}`;
-  ctx.font = "bold 11px 'Courier New', monospace";
-  const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 16;
-  const routeX = VIEW_W - routeWidth - pad;
-  const routeY = pad + 72;
-  ctx.fillStyle = "rgba(28,18,13,0.88)";
-  ctx.fillRect(routeX, routeY, routeWidth, 22);
-  ctx.strokeStyle = route.complete
-    ? "rgba(232,197,106,0.7)"
-    : "rgba(255,155,85,0.55)";
-  ctx.strokeRect(routeX + 0.5, routeY + 0.5, routeWidth - 1, 21);
-  ctx.fillStyle = route.complete ? "#ffe08a" : "#ffb078";
-  ctx.fillText(routeText, routeX + 8, routeY + 15);
+  if (!state.story.activeMainObjective) {
+    const route = world.firstRoute;
+    const routeText = world.tumurShulmas.defeated
+      ? "Төмөр шулмас дарагдав"
+      : world.tumurShulmas.active
+        ? `Төмөр шулмас · Үе ${world.tumurShulmas.bossPhase}`
+        : route.bossDefeated
+          ? route.swordDrop.collected
+            ? "Хар төмөр хаалга нээгдсэн"
+            : "Mini-boss унав · Сэлмээ ав"
+          : route.bossStarted
+            ? "Mini-boss · Шулмасын баатар"
+            : route.complete
+              ? "Хараалт хаалга нээгдсэн"
+              : `Эхний зам ${route.defeated}/${route.total}`;
+    ctx.font = "bold 11px 'Courier New', monospace";
+    const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 16;
+    const routeX = VIEW_W - routeWidth - pad;
+    const routeY = pad + 72;
+    ctx.fillStyle = "rgba(28,18,13,0.88)";
+    ctx.fillRect(routeX, routeY, routeWidth, 22);
+    ctx.strokeStyle = route.complete
+      ? "rgba(232,197,106,0.7)"
+      : "rgba(255,155,85,0.55)";
+    ctx.strokeRect(routeX + 0.5, routeY + 0.5, routeWidth - 1, 21);
+    ctx.fillStyle = route.complete ? "#ffe08a" : "#ffb078";
+    ctx.fillText(routeText, routeX + 8, routeY + 15);
+  }
+  drawMainObjectivePanel(ctx, state);
 
   // —— Доод төв: EXP + hotbar ——
   const expW = 280;

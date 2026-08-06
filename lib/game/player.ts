@@ -3,6 +3,7 @@
 import {
   DAY_LENGTH_SEC,
   CAMPFIRE_IGNITE_SEC,
+  CAMPFIRE_WOOD_COST,
   FENCE_COST,
   FENCE_GRID,
   FENCE_MAX_HP_BY_TIER,
@@ -80,7 +81,17 @@ import {
 } from "./livestock";
 import { nearFishingSpot, tryCatchFish } from "./fish";
 import { nearestRiddleHost, openRiddleAtHost, spotKindLabel } from "./riddles";
-import { nearElder, openElder } from "./elder";
+import {
+  beginDawnElderDialogue,
+  beginPostWolfElderDialogue,
+  beginStormTraceElderDialogue,
+  nearElder,
+  openElder,
+} from "./elder";
+import {
+  tryCallOpeningLivestock,
+  tryInspectStormTrace,
+} from "./story";
 import { handlePlayerDeath } from "./spirit";
 
 export const SKILL_POOL: Skill[] = [
@@ -570,6 +581,14 @@ export function tryInteract(state: GameState): void {
   const center = pastureCenter(world);
   const gerPos = gerDoorPos(world);
   if (!world.gerPacked && dist(player.pos, gerPos) < 62) {
+    if (
+      state.story.firstNightStage === "protecting" ||
+      state.story.firstNightStage === "elderIntervention" ||
+      state.story.firstNightStage === "elderApproach"
+    ) {
+      state.input.interact = false;
+      return;
+    }
     hitchHorseOutside(state);
     state.phase = "ger";
     state.shopOpen = false;
@@ -581,8 +600,53 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  if (tryCallOpeningLivestock(state)) {
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (tryInspectStormTrace(state)) {
+    player.chopCooldown = 0.35;
+    return;
+  }
+
   // Өвгөн — арилжаа / яриа
-  if (nearElder(state)) {
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "talkToOldMan"
+  ) {
+    beginPostWolfElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "returnToOldManWithTrace"
+  ) {
+    beginStormTraceElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (
+    nearElder(state) &&
+    state.story.activeMainObjective === "visitOldManAtDawn"
+  ) {
+    if (world.dayPhase === "dawn" || world.dayPhase === "day") {
+      beginDawnElderDialogue(state);
+    } else {
+      setMessage(state, "Өвгөн: «Үүрийн гэгээ ортол голомтоо түшиж амар, хүү минь.»", 3);
+    }
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
+  if (nearElder(state) && !state.story.activeMainObjective) {
     openElder(state);
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -857,16 +921,15 @@ export function tryLightCampfire(state: GameState): void {
     return;
   }
 
-  const cost = 3;
-  if (!state.unlimitedWood && player.inventory.wood < cost) {
-    setMessage(state, `Галд ${cost} түлээ хэрэгтэй.`, 2);
+  if (!state.unlimitedWood && player.inventory.wood < CAMPFIRE_WOOD_COST) {
+    setMessage(state, `Галд ${CAMPFIRE_WOOD_COST} түлээ хэрэгтэй.`, 2);
     return;
   }
 
   const near =
     fire.placed && dist(player.pos, fire.pos) < fire.radius + player.radius;
 
-  if (!state.unlimitedWood) player.inventory.wood -= cost;
+  if (!state.unlimitedWood) player.inventory.wood -= CAMPFIRE_WOOD_COST;
 
   if (near && fire.lit) {
     // Аль хэдийн ассан галд түлээ нэмнэ
@@ -1130,6 +1193,13 @@ export function updateSurvival(state: GameState, dt: number): void {
     world.mountHorse.face = -1;
   }
   const fire = world.campfire;
+  const openingHearthProtected =
+    world.dayNumber === 1 &&
+    state.story.campfireRelit &&
+    !state.story.firstNightNormalTimeRestored;
+  const storyHealthFloor = state.story.temporaryPlayerProtectionActive
+    ? Math.min(12, player.vitals.maxHealth)
+    : 0;
 
   if (fire.placed && fire.igniting > 0) {
     fire.igniting = Math.max(0, fire.igniting - dt);
@@ -1143,7 +1213,7 @@ export function updateSurvival(state: GameState, dt: number): void {
       });
       setMessage(state, "Гал асаалаа.", 2);
     }
-  } else if (fire.lit) {
+  } else if (fire.lit && !openingHearthProtected) {
     fire.fuel -= dt;
     if (fire.fuel <= 0) {
       fire.lit = false;
@@ -1191,10 +1261,13 @@ export function updateSurvival(state: GameState, dt: number): void {
     if (!state.godMode) {
       player.vitals.health = clamp(
         player.vitals.health - 3 * dt,
-        0,
+        storyHealthFloor,
         player.vitals.maxHealth,
       );
-      if (player.vitals.health <= 0) {
+      if (
+        !state.story.temporaryPlayerProtectionActive &&
+        player.vitals.health <= 0
+      ) {
         handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
       }
     }
@@ -1209,10 +1282,13 @@ export function updateSurvival(state: GameState, dt: number): void {
     if (!state.godMode) {
       player.vitals.health = clamp(
         player.vitals.health - 5 * dt,
-        0,
+        storyHealthFloor,
         player.vitals.maxHealth,
       );
-      if (player.vitals.health <= 0) {
+      if (
+        !state.story.temporaryPlayerProtectionActive &&
+        player.vitals.health <= 0
+      ) {
         handlePlayerDeath(state, "Өлсөж үхлээ…");
       }
     }
@@ -1220,7 +1296,9 @@ export function updateSurvival(state: GameState, dt: number): void {
 
   updatePastureAndFlockFeed(state, dt);
   updateNewborns(state, dt);
-  updateOutdoorNightRisk(state, dt);
+  if (!state.story.activeMainObjective) {
+    updateOutdoorNightRisk(state, dt);
+  }
 
   for (const tree of world.trees) {
     if (tree.hp > 0) continue;

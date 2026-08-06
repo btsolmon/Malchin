@@ -119,14 +119,19 @@ export function nearestSheep(
 export function spawnWolf(
   state: GameState,
   kind: "wolf" | "bear" = "wolf",
-): void {
-  const edge = Math.floor(Math.random() * 4);
+  options: { pos?: Vector2; silent?: boolean; id?: number } = {},
+): Wolf {
   let pos: Vector2;
-  if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
-  else if (edge === 1)
-    pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
-  else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
-  else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
+  if (options.pos) {
+    pos = { ...options.pos };
+  } else {
+    const edge = Math.floor(Math.random() * 4);
+    if (edge === 0) pos = { x: randRange(40, WORLD_W - 40), y: 40 };
+    else if (edge === 1)
+      pos = { x: randRange(40, WORLD_W - 40), y: WORLD_H - 40 };
+    else if (edge === 2) pos = { x: 40, y: randRange(40, WORLD_H - 40) };
+    else pos = { x: WORLD_W - 40, y: randRange(40, WORLD_H - 40) };
+  }
 
   const night = isNight(state.world);
   const lvl = state.level - 1;
@@ -134,8 +139,8 @@ export function spawnWolf(
   // Баавгай: чононоос 2 дахин их амь, 2 дахин их хүчтэй, том биетэй, удаан
   const baseHp = Math.round((night ? 45 : 30) * (1 + 0.12 * lvl));
   const hp = bear ? baseHp * 2 : baseHp;
-  state.world.wolves.push({
-    id: allocId(state),
+  const wolf: Wolf = {
+    id: options.id ?? allocId(state),
     kind,
     pos,
     vel: { x: 0, y: 0 },
@@ -165,17 +170,24 @@ export function spawnWolf(
     attackDirection: { x: 0, y: 1 },
     attackHitDone: false,
     knockbackResistance: bear ? 0.45 : 0.15,
-  });
-  sfx("howl");
-  setMessage(
-    state,
-    bear
-      ? "Баавгай мал руу дайрлаа — маш аюултай!"
-      : night
-        ? "Шөнийн чоно мал руу дайрлаа!"
-        : "Чоно ойртлоо — хамгаал!",
-    3,
-  );
+  };
+  if (options.id !== undefined) {
+    state.nextEntityId = Math.max(state.nextEntityId, options.id + 1);
+  }
+  state.world.wolves.push(wolf);
+  if (!options.silent) {
+    sfx("howl");
+    setMessage(
+      state,
+      bear
+        ? "Баавгай мал руу дайрлаа — маш аюултай!"
+        : night
+          ? "Шөнийн чоно мал руу дайрлаа!"
+          : "Чоно ойртлоо — хамгаал!",
+      3,
+    );
+  }
+  return wolf;
 }
 
 export function spawnThief(state: GameState): void {
@@ -592,9 +604,15 @@ function collideEntityWithFences(
   return { contactDps, knockback, hitTier };
 }
 
-export function updateWolves(state: GameState, dt: number): void {
+export function updateWolves(
+  state: GameState,
+  dt: number,
+  onlyWolfId?: number,
+): void {
   for (const wolf of state.world.wolves) {
-    if (!wolf.alive) continue;
+    if (!wolf.alive || (onlyWolfId !== undefined && wolf.id !== onlyWolfId)) {
+      continue;
+    }
     const contact = collideEntityWithFences(
       state,
       wolf.pos,
@@ -607,18 +625,23 @@ export function updateWolves(state: GameState, dt: number): void {
     }
   }
 
-  updateCombatWolves(state, dt);
+  updateCombatWolves(state, dt, onlyWolfId);
 
   for (const wolf of state.world.wolves) {
-    if (!wolf.alive) continue;
+    if (!wolf.alive || (onlyWolfId !== undefined && wolf.id !== onlyWolfId)) {
+      continue;
+    }
+    const storyProtected =
+      state.story.temporaryLivestockProtectionActive &&
+      state.story.storyWolfId === wolf.id;
     const contact = collideEntityWithFences(
       state,
       wolf.pos,
       wolf.radius * wolf.scale,
       wolf.kind === "bear" ? "bear" : "wolf",
-      dt,
+      storyProtected ? 0 : dt,
     );
-    if (contact.contactDps > 0 && wolf.alive) {
+    if (!storyProtected && contact.contactDps > 0 && wolf.alive) {
       const before = wolf.hp;
       wolf.hp -= contact.contactDps * dt;
       wolf.flash = Math.max(wolf.flash, 0.05);
@@ -647,7 +670,9 @@ export function updateWolves(state: GameState, dt: number): void {
     }
   }
 
-  state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
+  if (onlyWolfId === undefined) {
+    state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
+  }
 }
 
 export function updateThieves(state: GameState, dt: number): void {
