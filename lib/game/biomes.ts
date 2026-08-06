@@ -160,3 +160,8 @@ export function sampleRockPos(camp: Vector2): Vector2 {
   );
   return pos;
 }
+
+/** Түүх чулуу — тал газарт, гэрийн ойролцоо биш */
+export function sampleStonePos(camp: Vector2): Vector2 {
+  return sampleRockPos(camp);
+}

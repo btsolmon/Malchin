@@ -12,9 +12,10 @@ import {
   type InputState,
   type Tree,
   type Vector2,
+  type WorldStone,
 } from "./types";
 import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
-import { isInRiver, sampleBushPos, sampleTreePos } from "./biomes";
+import { isInRiver, sampleBushPos, sampleStonePos, sampleTreePos } from "./biomes";
 import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
   ensureAudio,
@@ -158,6 +159,23 @@ export function createBushes(count: number): BerryBush[] {
   return bushes;
 }
 
+export function createStones(count: number): WorldStone[] {
+  const stones: WorldStone[] = [];
+  const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
+
+  for (let i = 0; i < count; i++) {
+    stones.push({
+      id: 8000 + i,
+      pos: sampleStonePos(center),
+      radius: 14,
+      amount: 2 + Math.floor(Math.random() * 3),
+      maxAmount: 4,
+      respawnIn: 0,
+    });
+  }
+  return stones;
+}
+
 export function createInitialState(): GameState {
   const spawn: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
 
@@ -184,6 +202,8 @@ export function createInitialState(): GameState {
         milk: 0,
         felt: 0,
         aaruul: 0,
+        stone: 0,
+        arrows: 0,
       },
       chopCooldown: 0,
       attackCooldown: 0,
@@ -199,7 +219,6 @@ export function createInitialState(): GameState {
         dog: false,
         horse: false,
         bow: false,
-        gun: false,
         axe: false,
         urga: false,
       },
@@ -233,6 +252,7 @@ export function createInitialState(): GameState {
       height: WORLD_H,
       trees: createTrees(72),
       bushes: createBushes(36),
+      stones: createStones(48),
       campfire: {
         pos: { x: spawn.x, y: spawn.y },
         lit: false,

@@ -252,9 +252,16 @@ export const CRAFT_RECIPES: Array<{
   id: string;
   name: string;
   desc: string;
-  need: Partial<Record<"wool" | "cashmere" | "milk", number>>;
-  give: Partial<Record<"felt" | "aaruul", number>>;
+  need: Partial<Record<"wool" | "cashmere" | "milk" | "wood" | "stone", number>>;
+  give: Partial<Record<"felt" | "aaruul" | "arrows", number>>;
 }> = [
+  {
+    id: "arrows",
+    name: "Сум",
+    desc: "1 мод + 1 чулуу → 2 сум",
+    need: { wood: 1, stone: 1 },
+    give: { arrows: 2 },
+  },
   {
     id: "felt",
     name: "Эсгий",
@@ -439,8 +446,10 @@ export function craftItem(state: GameState, idx: number): void {
   const recipe = CRAFT_RECIPES[idx];
   if (!recipe) return;
   const inv = state.player.inventory;
+  type NeedKey = "wool" | "cashmere" | "milk" | "wood" | "stone";
+  type GiveKey = "felt" | "aaruul" | "arrows";
   for (const [k, need] of Object.entries(recipe.need)) {
-    const key = k as "wool" | "cashmere" | "milk";
+    const key = k as NeedKey;
     if ((inv[key] ?? 0) < (need ?? 0)) {
       setMessage(state, `Хүрэлцэхгүй — ${recipe.desc}`, 2);
       sfx("move");
@@ -448,11 +457,11 @@ export function craftItem(state: GameState, idx: number): void {
     }
   }
   for (const [k, need] of Object.entries(recipe.need)) {
-    const key = k as "wool" | "cashmere" | "milk";
+    const key = k as NeedKey;
     inv[key] -= need ?? 0;
   }
   for (const [k, give] of Object.entries(recipe.give)) {
-    const key = k as "felt" | "aaruul";
+    const key = k as GiveKey;
     inv[key] += give ?? 0;
   }
   sfx("buy");
@@ -1649,11 +1658,11 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   const lines: Array<[string, string]> = [
     ["WASD", "Алхах"],
     ["J", "Цохих (тамир зарцуулна)"],
-    ["K", "Буудах / Харвах"],
+    ["K", "Нум харвах (сум хэрэгтэй)"],
     ["Shift", "Бултах — invuln цонх"],
     ["L", "Сөрөх (parry) — дайралт няцаах"],
     ["1 / 2", "Нударга / Хөх тэнгэрийн сэлэм"],
-    ["E", "Мод / жимс / өвс / тэвш / мал гаргах·оруулах"],
+    ["E", "Мод / чулуу / жимс / өвс / тэвш / мал"],
     ["Q", "Жимс / ааруул идэх"],
     ["F", "Хүссэн газартаа гал түлэх (түлээ)"],
     ["B", "Хашаа барих / шинэчлэх"],
@@ -1872,7 +1881,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     { key: "J", icon: "👊", active: player.meleePhase !== "idle" },
     {
       key: "K",
-      icon: player.gear.gun ? "🔫" : player.gear.bow ? "🏹" : "—",
+      icon: player.gear.bow ? "🏹" : "—",
       active: !!state.input.shoot,
     },
     { key: "⇧", icon: "💨", active: player.dodgePhase !== "idle" },
@@ -1910,6 +1919,8 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       icon: "🪵",
       val: state.unlimitedWood ? "∞" : String(player.inventory.wood),
     },
+    { icon: "🪨", val: String(player.inventory.stone) },
+    { icon: "🏹", val: String(player.inventory.arrows) },
     { icon: "🍒", val: String(player.inventory.berries) },
     { icon: "🌾", val: String(player.inventory.hay) },
   ];
@@ -2221,7 +2232,10 @@ export function drawCraft(
     const selected = state.menuIndex === i;
     let can = true;
     for (const [k, need] of Object.entries(recipe.need)) {
-      if ((inv[k as "wool" | "cashmere" | "milk"] ?? 0) < (need ?? 0))
+      if (
+        (inv[k as "wool" | "cashmere" | "milk" | "wood" | "stone"] ?? 0) <
+        (need ?? 0)
+      )
         can = false;
     }
 

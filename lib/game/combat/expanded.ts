@@ -941,17 +941,24 @@ function tryRangedAttack(state: GameState): boolean {
   if (player.attackCooldown > 0) return false;
   if (!state.input.shoot) return false;
 
-  const gun = player.gear.gun;
   const bow = player.gear.bow;
   // Сүнсний оронд зэвсэггүй ч сүнсний сум харваж болно
-  const spiritBolt =
-    !gun && !bow && state.phase === "spirit";
-  if (!gun && !bow && !spiritBolt) return false;
+  const spiritBolt = !bow && state.phase === "spirit";
+  if (!bow && !spiritBolt) return false;
 
-  const range = gun ? 300 : spiritBolt ? 240 : 200;
+  if (bow && player.inventory.arrows <= 0) {
+    setMessage(
+      state,
+      "Сум алга — урлалаар хий (1 мод + 1 чулуу = 2 сум).",
+      2.5,
+    );
+    return false;
+  }
+
+  const range = spiritBolt ? 240 : 200;
 
   player.attackCooldown =
-    (gun ? 0.8 : spiritBolt ? 0.48 : 0.55) * player.cooldownMult;
+    (spiritBolt ? 0.48 : 0.55) * player.cooldownMult;
   player.attackMelee = false;
   player.attackAnim = 0.18;
 
@@ -1010,19 +1017,21 @@ function tryRangedAttack(state: GameState): boolean {
 
   dir = safeFacing(dir);
 
-  const speed = gun ? 540 : spiritBolt ? 420 : 400;
+  if (bow) player.inventory.arrows -= 1;
+
+  const speed = spiritBolt ? 420 : 400;
   world.projectiles.push({
     pos: {
       x: player.pos.x + dir.x * 14,
       y: player.pos.y - 8 + dir.y * 14,
     },
     vel: { x: dir.x * speed, y: dir.y * speed },
-    dmg: (gun ? 40 : spiritBolt ? 22 : 24) * player.damageMult,
+    dmg: (spiritBolt ? 22 : 24) * player.damageMult,
     life: range / speed + 0.15,
-    kind: gun ? "bullet" : spiritBolt ? "spiritBolt" : "arrow",
+    kind: spiritBolt ? "spiritBolt" : "arrow",
   });
 
-  sfx(gun ? "gunshot" : "shoot");
+  sfx("shoot");
   return true;
 }
 

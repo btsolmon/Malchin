@@ -1,8 +1,8 @@
 import { Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock } from "./entities";
-import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearMountHorse } from "../player";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock, drawWorldStone } from "./entities";
+import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
 import { drawGerInterior } from "./ger";
 import {
   drawPlayerWithSprites,
@@ -67,6 +67,7 @@ type RenderEntityKind =
   | "tree"
   | "berryBush"
   | "smallRock"
+  | "gatherStone"
   | "haystack"
   | "swordDrop"
   | "player"
@@ -110,6 +111,7 @@ function getRenderLayer(entity: RenderEntityKind): RenderLayer {
     case "tree":
     case "berryBush":
     case "smallRock":
+    case "gatherStone":
     case "haystack":
     case "swordDrop":
       return VEGETATION_ALWAYS_BEHIND_ACTORS ? "lowWorldObject" : "actor";
@@ -489,6 +491,15 @@ export function render(
           drawWorldRock(ctx, rock, cam, time);
         }
       },
+    });
+  }
+  for (const stone of world.stones) {
+    if (stone.amount <= 0) continue;
+    addDrawable("gatherStone", {
+      y: stone.pos.y,
+      key: 8000 + stone.id,
+      debugPos: stone.pos,
+      draw: () => drawWorldStone(ctx, stone, cam),
     });
   }
   addDrawable("dismantledGer", {
@@ -935,6 +946,7 @@ export function render(
         ctx.textAlign = "left";
       } else {
         const bush = nearestBerryBush(state.player, world.bushes);
+        const stone = nearestGatherableStone(state.player, world.stones);
         const tree = nearestAliveTree(state.player, world.trees);
         if (bush) {
           const tx = bush.pos.x - cam.x;
@@ -946,6 +958,18 @@ export function render(
           const tip = `E — Жимс түүх (${bush.berries})`;
           ctx.strokeText(tip, tx, ty);
           ctx.fillStyle = "#ff9fbf";
+          ctx.fillText(tip, tx, ty);
+          ctx.textAlign = "left";
+        } else if (stone) {
+          const tx = stone.pos.x - cam.x;
+          const ty = stone.pos.y - 28 - cam.y;
+          ctx.textAlign = "center";
+          ctx.font = "600 11px system-ui, sans-serif";
+          ctx.strokeStyle = "rgba(0,0,0,0.7)";
+          ctx.lineWidth = 3;
+          const tip = `E — Чулуу түүх (${stone.amount})`;
+          ctx.strokeText(tip, tx, ty);
+          ctx.fillStyle = "#c8c0b0";
           ctx.fillText(tip, tx, ty);
           ctx.textAlign = "left";
         } else if (tree) {

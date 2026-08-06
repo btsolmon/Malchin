@@ -57,17 +57,9 @@ export const SHOP_ITEMS: ShopItem[] = [
     type: "gear",
     id: "bow",
     icon: "🏹",
-    name: "Нум сум",
-    desc: "Холын зайнаас харвана",
+    name: "Нум",
+    desc: "Харвах — сум хэрэгтэй (урлалаар хийнэ)",
     price: 400,
-  },
-  {
-    type: "gear",
-    id: "gun",
-    icon: "🔫",
-    name: "Буу",
-    desc: "Хүчтэй бөгөөд хол тусна",
-    price: 800,
   },
   {
     type: "gear",
@@ -226,6 +218,11 @@ export function buyItem(state: GameState, idx: number): void {
       maxHp: 60,
       flash: 0,
     };
+  }
+  if (item.id === "bow") {
+    state.player.inventory.arrows += 6;
+    setMessage(state, "Нум авлаа! +6 сум. Урлалаар дахин хийж болно.", 3.5);
+    return;
   }
   if (item.id === "horse") {
     state.player.horseHp = 80;

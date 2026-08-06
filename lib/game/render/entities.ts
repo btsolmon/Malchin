@@ -14,6 +14,7 @@ import {
   Tree,
   type Vector2,
   type WorldRock,
+  type WorldStone,
   Wolf,
 } from "../types";
 import { clamp, roundRectPath } from "../utils";
@@ -2519,8 +2520,7 @@ export function drawPlayer(
   drawHerderHairFront(ctx, x, hdy, flip);
 
   const ang = Math.atan2(player.facing.y, player.facing.x);
-  const hasGun = player.gear.gun;
-  const hasBow = player.gear.bow && !hasGun;
+  const hasBow = player.gear.bow;
   const punching = player.attackMelee && player.attackAnim > 0;
 
   // Урд гар — цохих үед нударгаар урагш шидэгдэнэ, бусад үед дүүжинэ
@@ -2576,30 +2576,6 @@ export function drawPlayer(
 
   if (punching) {
     // Гараар цохих үед зэвсэг зурахгүй
-  } else if (hasGun) {
-    // Буу — барьсан байдал
-    const kick = player.attackAnim > 0 ? (1 - player.attackAnim / 0.18) * 3 : 0;
-    const gx = handX + Math.cos(ang) * (4 - kick);
-    const gy = handY + Math.sin(ang) * (4 - kick) - 1;
-    ctx.save();
-    ctx.translate(gx, gy);
-    ctx.rotate(ang);
-    ctx.fillStyle = "#3a2a1a";
-    roundRectPath(ctx, -4, -2.2, 22, 4.4, 1.5);
-    ctx.fill();
-    ctx.fillStyle = "#2a2a30";
-    roundRectPath(ctx, 14, -1.4, 10, 2.8, 1);
-    ctx.fill();
-    ctx.fillStyle = "#c9a227";
-    ctx.fillRect(2, -3.2, 3, 6.4);
-    // Галлалтын оч
-    if (player.attackAnim > 0.08) {
-      ctx.fillStyle = `rgba(255,200,80,${player.attackAnim * 4})`;
-      ctx.beginPath();
-      ctx.arc(26, 0, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
   } else if (hasBow) {
     // Нум — барьсан байдал
     const draw =
@@ -3110,7 +3086,7 @@ export function drawDog(
   }
 }
 
-/** Нум сум / бууны сум / сүнсний сум */
+/** Нумны сум / сүнсний сум */
 export function drawProjectile(
   ctx: CanvasRenderingContext2D,
   p: Projectile,
@@ -3145,7 +3121,7 @@ export function drawProjectile(
     ctx.closePath();
     ctx.fill();
     ctx.shadowBlur = 0;
-  } else if (p.kind === "arrow") {
+  } else {
     ctx.strokeStyle = "#c8a060";
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -3165,17 +3141,6 @@ export function drawProjectile(
     ctx.lineTo(-11, -2.5);
     ctx.moveTo(-8, 0);
     ctx.lineTo(-11, 2.5);
-    ctx.stroke();
-  } else {
-    ctx.fillStyle = "#ffd860";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 4, 1.8, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255,216,96,0.4)";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(-12, 0);
-    ctx.lineTo(-4, 0);
     ctx.stroke();
   }
   ctx.restore();
@@ -3224,6 +3189,42 @@ export function drawWorldRock(
   if (!rock.riddleSolved) {
     drawRiddleGlow(ctx, x + 1, y - 5, time, rock.id);
   }
+}
+
+/** Түүх боломжтой чулууны овоолго */
+export function drawWorldStone(
+  ctx: CanvasRenderingContext2D,
+  stone: WorldStone,
+  cam: Camera,
+): void {
+  if (stone.amount <= 0) return;
+  const x = stone.pos.x - cam.x;
+  const y = stone.pos.y - cam.y;
+  drawShadow(ctx, x, y + 2, 11, 5);
+
+  const drawChunk = (
+    ox: number,
+    oy: number,
+    sx: number,
+    sy: number,
+    c0: string,
+    c1: string,
+  ) => {
+    const g = ctx.createLinearGradient(x + ox - sx, y + oy - sy, x + ox + sx, y + oy + sy);
+    g.addColorStop(0, c0);
+    g.addColorStop(1, c1);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(x + ox - sx, y + oy + sy * 0.4);
+    ctx.quadraticCurveTo(x + ox - sx * 1.1, y + oy - sy * 0.6, x + ox, y + oy - sy);
+    ctx.quadraticCurveTo(x + ox + sx * 1.05, y + oy - sy * 0.5, x + ox + sx, y + oy + sy * 0.3);
+    ctx.quadraticCurveTo(x + ox, y + oy + sy * 0.85, x + ox - sx, y + oy + sy * 0.4);
+    ctx.fill();
+  };
+
+  drawChunk(-3, 1, 7, 6, "#8a8478", "#5c564c");
+  if (stone.amount >= 2) drawChunk(5, 0, 5.5, 5, "#9a9488", "#6a655c");
+  if (stone.amount >= 3) drawChunk(0, -4, 4.5, 4, "#7a756c", "#4a4640");
 }
 
 /** Задарсан өвөрмөц гэр — хана нурсан, тооно хажуу тийш */

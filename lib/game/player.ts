@@ -26,6 +26,7 @@ import {
   type Tree,
   type Vector2,
   type World,
+  type WorldStone,
 } from "../game/types";
 import {
   allocId,
@@ -538,6 +539,23 @@ export function nearestBerryBush(
   return bestD < player.radius + 34 ? best : null;
 }
 
+export function nearestGatherableStone(
+  player: Player,
+  stones: WorldStone[],
+): WorldStone | null {
+  let best: WorldStone | null = null;
+  let bestD = Infinity;
+  for (const stone of stones) {
+    if (stone.amount <= 0) continue;
+    const d = dist(player.pos, stone.pos);
+    if (d < bestD) {
+      bestD = d;
+      best = stone;
+    }
+  }
+  return bestD < player.radius + 34 ? best : null;
+}
+
 export function tryInteract(state: GameState): void {
   const { player, world } = state;
   if (player.chopCooldown > 0 || !state.input.interact) return;
@@ -644,6 +662,22 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  const stone = nearestGatherableStone(player, world.stones);
+  if (stone) {
+    stone.amount -= 1;
+    player.inventory.stone += 1;
+    player.chopCooldown = 0.4;
+    state.score += 1;
+    gainXp(state, 1);
+    sfx("chop");
+    spawnParticles(state, stone.pos, 6, "#9a9488", { speed: 70, size: 2.8 });
+    spawnText(state, stone.pos, "+1 чулуу", "#c8c0b0");
+    if (stone.amount <= 0) {
+      stone.respawnIn = 22 + Math.random() * 16;
+    }
+    return;
+  }
+
   // Бэлчээрээс өвс хадах (зун / намар / хавар)
   const nearPasture =
     dist(player.pos, center) < HAY_HARVEST_RADIUS &&
@@ -691,7 +725,7 @@ export function tryInteract(state: GameState): void {
 
   const tree = nearestAliveTree(player, world.trees);
   if (!tree) {
-    setMessage(state, "Ойрхон мод/жимс/бэлчээр алга.", 1.5);
+    setMessage(state, "Ойрхон мод/жимс/чулуу/бэлчээр алга.", 1.5);
     return;
   }
 
@@ -1127,6 +1161,15 @@ export function updateSurvival(state: GameState, dt: number): void {
     if (bush.respawnIn <= 0) {
       bush.berries = bush.maxBerries;
       bush.respawnIn = 0;
+    }
+  }
+
+  for (const stone of world.stones) {
+    if (stone.amount > 0) continue;
+    stone.respawnIn -= dt;
+    if (stone.respawnIn <= 0) {
+      stone.amount = stone.maxAmount;
+      stone.respawnIn = 0;
     }
   }
 
