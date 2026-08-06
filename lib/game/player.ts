@@ -2,6 +2,7 @@
 
 import {
   DAY_LENGTH_SEC,
+  CAMPFIRE_IGNITE_SEC,
   FENCE_COST,
   FENCE_GRID,
   FENCE_MAX_HP_BY_TIER,
@@ -876,7 +877,7 @@ export function tryLightCampfire(state: GameState): void {
     return;
   }
 
-  // Шинэ гал — тонгойж 4 сек чулуу цохино
+  // Шинэ гал — тонгойж чулуу цохино
   if (player.riding) {
     dismountHorse(state, { tie: false });
   }
@@ -897,7 +898,7 @@ export function tryLightCampfire(state: GameState): void {
   fire.placed = true;
   fire.lit = false;
   fire.fuel = 18;
-  fire.igniting = 4;
+  fire.igniting = CAMPFIRE_IGNITE_SEC;
   sfx("fire");
   spawnParticles(state, fire.pos, 8, "#c8a070", { speed: 40, gravity: -20 });
   setMessage(state, "Тонгойж чулуу цохиж гал асааж байна…", 2.5);

@@ -1,4 +1,4 @@
-import { Camera, GameState, VIEW_H, VIEW_W, World } from "../types";
+import { Camera, CAMPFIRE_IGNITE_SEC, GameState, VIEW_H, VIEW_W, World } from "../types";
 import { lerp } from "../utils";
 
 /** Өдрийн цагаас хамаарсан тинт (r,g,b,a) */
@@ -61,7 +61,9 @@ export function drawLighting(
     const fx = fire.pos.x - cam.x;
     const fy = fire.pos.y - cam.y;
     const igniteP =
-      fire.igniting > 0 ? Math.max(0.2, 1 - fire.igniting / 4) : 1;
+      fire.igniting > 0
+        ? Math.max(0.2, 1 - fire.igniting / CAMPFIRE_IGNITE_SEC)
+        : 1;
     const rad = 150 * igniteP * (1 + Math.sin(time * 9) * 0.05);
     const fg = lc.createRadialGradient(fx, fy, 8, fx, fy, rad);
     fg.addColorStop(0, `rgba(0,0,0,${0.95 * igniteP})`);

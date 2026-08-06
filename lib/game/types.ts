@@ -223,6 +223,9 @@ export interface Campfire {
   igniting: number;
 }
 
+/** Гал асаах анимэйшн (сек) */
+export const CAMPFIRE_IGNITE_SEC = 3;
+
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
 export type FenceTier = 1 | 2 | 3;
 

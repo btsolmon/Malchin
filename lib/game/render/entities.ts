@@ -2,6 +2,7 @@ import {
   BerryBush,
   Camera,
   Campfire,
+  CAMPFIRE_IGNITE_SEC,
   Dog,
   type Elder,
   type Fence,
@@ -496,7 +497,11 @@ export function drawCampfire(
   const x = fire.pos.x - cam.x;
   const y = fire.pos.y - cam.y;
   const igniteProgress =
-    fire.igniting > 0 ? clamp(1 - fire.igniting / 4, 0, 1) : fire.lit ? 1 : 0;
+    fire.igniting > 0
+      ? clamp(1 - fire.igniting / CAMPFIRE_IGNITE_SEC, 0, 1)
+      : fire.lit
+        ? 1
+        : 0;
 
   drawShadow(ctx, x, y + 6, 17, 7);
 
@@ -2194,7 +2199,7 @@ export function drawHerderHair(
   drawHerderHairFront(ctx, cx, hy, flip);
 }
 
-/** Тонгойж зогсоод хоёр чулуу цохих — 4 сек асаах анимэйшн */
+/** Тонгойж зогсоод хоёр чулуу цохих — гал асаах анимэйшн */
 function drawPlayerLightingFire(
   ctx: CanvasRenderingContext2D,
   player: Player,
@@ -2205,7 +2210,7 @@ function drawPlayerLightingFire(
   const x = player.pos.x - cam.x;
   const y = player.pos.y - cam.y;
   const flip = player.facing.x < 0 ? -1 : 1;
-  const progress = clamp(1 - lightingFire / 4, 0, 1);
+  const progress = clamp(1 - lightingFire / CAMPFIRE_IGNITE_SEC, 0, 1);
 
   // Цохилтын хэмнэл
   const strike = Math.sin(time * 6.2);
@@ -2301,77 +2306,77 @@ function drawPlayerLightingFire(
   ctx.fill();
   drawHerderHairFront(ctx, hx, hdy, flip);
 
-  // Чулуу цохих цэг — биеийн өмнө, бүсний өндөрт
-  const clashX = bodyX + 10 * flip;
-  const clashY = bodyY + 6;
+  // Чулуу цохих цэг — биеийн өмнө, богино гар
+  const clashX = bodyX + 6.5 * flip;
+  const clashY = bodyY + 4;
 
   // Зүүн гар — нэг чулуу (бааз, бага хөдөлнө)
-  const leftHandX = clashX - 5 - approach * 1.5;
-  const leftHandY = clashY + 1 + swing * 1.5;
+  const leftHandX = clashX - 3 - approach * 1;
+  const leftHandY = clashY + 1 + swing * 1;
   ctx.strokeStyle = "#d8b088";
   ctx.lineWidth = 2.9;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(bodyX - 6 * flip, shoulderY + 1);
+  ctx.moveTo(bodyX - 4.5 * flip, shoulderY + 1);
   ctx.quadraticCurveTo(
-    bodyX - 2 * flip + 4,
-    shoulderY + 8,
+    bodyX - 1.5 * flip + 2,
+    shoulderY + 5,
     leftHandX,
     leftHandY,
   );
   ctx.stroke();
   ctx.fillStyle = "#d8b088";
   ctx.beginPath();
-  ctx.arc(leftHandX, leftHandY, 2.4, 0, Math.PI * 2);
+  ctx.arc(leftHandX, leftHandY, 2.2, 0, Math.PI * 2);
   ctx.fill();
 
   // Зүүн чулуу
   ctx.fillStyle = "#7a7568";
   ctx.beginPath();
-  ctx.ellipse(leftHandX + 3.5, leftHandY + 0.5, 4, 3, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(leftHandX + 2.5, leftHandY + 0.4, 3.2, 2.5, -0.2, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#9a9488";
   ctx.beginPath();
-  ctx.ellipse(leftHandX + 2.5, leftHandY - 0.5, 1.5, 1, 0, 0, Math.PI * 2);
+  ctx.ellipse(leftHandX + 1.8, leftHandY - 0.4, 1.2, 0.8, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "rgba(40,38,32,0.45)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(leftHandX + 3.5, leftHandY + 0.5, 4, 3, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(leftHandX + 2.5, leftHandY + 0.4, 3.2, 2.5, -0.2, 0, Math.PI * 2);
   ctx.stroke();
 
   // Баруун гар — нөгөө чулуугаар цохино
-  const rightHandX = clashX + 5 + swing * 10 - approach * 6;
-  const rightHandY = clashY - 2 - swing * 8 + approach * 5;
+  const rightHandX = clashX + 3 + swing * 6 - approach * 4;
+  const rightHandY = clashY - 1 - swing * 5 + approach * 3;
   ctx.strokeStyle = "#d8b088";
   ctx.lineWidth = 3;
   ctx.beginPath();
-  ctx.moveTo(bodyX + 6 * flip, shoulderY);
+  ctx.moveTo(bodyX + 4.5 * flip, shoulderY);
   ctx.quadraticCurveTo(
-    bodyX + 10 * flip + swing * 2,
-    shoulderY + 4 - swing * 5,
+    bodyX + 6.5 * flip + swing * 1.5,
+    shoulderY + 3 - swing * 3.5,
     rightHandX,
     rightHandY,
   );
   ctx.stroke();
   ctx.fillStyle = "#d8b088";
   ctx.beginPath();
-  ctx.arc(rightHandX, rightHandY, 2.5, 0, Math.PI * 2);
+  ctx.arc(rightHandX, rightHandY, 2.2, 0, Math.PI * 2);
   ctx.fill();
 
   // Баруун чулуу
   ctx.fillStyle = "#6a6560";
   ctx.beginPath();
-  ctx.ellipse(rightHandX - 2.5, rightHandY + 1, 3.6, 2.8, 0.35, 0, Math.PI * 2);
+  ctx.ellipse(rightHandX - 1.8, rightHandY + 0.8, 2.9, 2.3, 0.35, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = "#8a8580";
   ctx.beginPath();
-  ctx.ellipse(rightHandX - 1.5, rightHandY, 1.3, 0.9, 0, 0, Math.PI * 2);
+  ctx.ellipse(rightHandX - 1.1, rightHandY, 1.1, 0.75, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = "rgba(30,28,24,0.5)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.ellipse(rightHandX - 2.5, rightHandY + 1, 3.6, 2.8, 0.35, 0, Math.PI * 2);
+  ctx.ellipse(rightHandX - 1.8, rightHandY + 0.8, 2.9, 2.3, 0.35, 0, Math.PI * 2);
   ctx.stroke();
 
   // Цохилтын оч
