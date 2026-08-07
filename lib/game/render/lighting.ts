@@ -40,10 +40,7 @@ export function drawLighting(
   if (a <= 0.02) return;
 
   const fire = state.world.campfire;
-  const outdoorFire =
-    fire.placed &&
-    !state.parentsReturned &&
-    (fire.lit || fire.igniting > 0);
+  const outdoorFire = fire.placed && (fire.lit || fire.igniting > 0);
 
   if (a < 0.3 || !outdoorFire) {
     // Энгийн тинт (гэрлийн нүх шаардлагагүй үед мөн адил, гэхдээ галтай бол нүхлэх)

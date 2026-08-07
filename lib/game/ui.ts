@@ -2125,21 +2125,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
-  // Статус дүрсүүд (buff мөр)
+  // Статус дүрсүүд (buff мөр) — нохой гэх мэт
   const iconY = pad + 90;
   const iconS = 18;
   let ix = barX;
 
-  if (player.gear.horse) {
-    drawGameIcon(
-      ctx,
-      player.riding ? "horseRide" : "horse",
-      ix + iconS / 2,
-      iconY + iconS / 2 - 2,
-      iconS + 2,
-    );
-    ix += iconS + 6;
-  }
   if (player.gear.dog) {
     drawGameIcon(ctx, "dog", ix + iconS / 2, iconY + iconS / 2 - 2, iconS + 2);
     ix += iconS + 6;
@@ -2266,10 +2256,20 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     drawHotSlot(ctx, sx, qY + 4, qSize, it.val, it.icon, false);
   });
 
-  // Малын төрөл — дүрс + тоо (нэг мөр дээш)
+  // Малын төрөл — дүрс + тоо; унах морь мөн энэ мөрт
   let lx = barX;
-  const hasBuff = player.gear.horse || player.gear.dog;
+  const hasBuff = player.gear.dog;
   const ly = hasBuff ? iconY + iconS + 2 : iconY + 12;
+  if (player.gear.horse) {
+    drawGameIcon(
+      ctx,
+      player.riding ? "horseRide" : "horse",
+      lx + 7,
+      ly - 4,
+      14,
+    );
+    lx += 26;
+  }
   for (const k of LIVESTOCK_KINDS) {
     const n = world.flock.counts[k];
     if (n <= 0) continue;

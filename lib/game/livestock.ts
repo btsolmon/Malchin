@@ -16,7 +16,20 @@ import {
   type Vector2,
   type WildHorse,
 } from "./types";
-import { allocId, clamp, dist, normalize, pastureCenter, penCenter, PEN_RADIUS, pushOutOfFences, pushOutOfGer, pushOutOfUrtz, randRange, setMessage } from "./utils";
+import {
+  allocId,
+  clamp,
+  dist,
+  normalize,
+  pastureCenter,
+  penCenter,
+  PEN_RADIUS,
+  pushOutOfFences,
+  pushOutOfGer,
+  pushOutOfUrtz,
+  randRange,
+  setMessage,
+} from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 
@@ -51,7 +64,10 @@ export function checkFlockDefeat(state: GameState): void {
   setMessage(state, "Бүх мал үгүй болов… Ялагдлаа.", 99);
 }
 
-export function syncFlockTotal(flock: { counts: Record<LivestockKind, number>; total: number }): void {
+export function syncFlockTotal(flock: {
+  counts: Record<LivestockKind, number>;
+  total: number;
+}): void {
   flock.total = recountTotal(flock.counts);
 }
 
@@ -64,7 +80,13 @@ export function createHerdAnimal(
   const ang = Math.random() * Math.PI * 2;
   const r = randRange(8, Math.max(12, spread));
   const scale =
-    kind === "camel" ? 1.35 : kind === "cattle" ? 1.25 : kind === "horse" ? 1.15 : 1;
+    kind === "camel"
+      ? 1.35
+      : kind === "cattle"
+        ? 1.25
+        : kind === "horse"
+          ? 1.15
+          : 1;
   return {
     id,
     kind,
@@ -146,9 +168,7 @@ function allocateVisualSlots(
 export function syncVisualFlock(state: GameState): void {
   const { flock, flockOut } = state.world;
   syncFlockTotal(flock);
-  const center = flockOut
-    ? pastureCenter(state.world)
-    : penCenter(state.world);
+  const center = flockOut ? pastureCenter(state.world) : penCenter(state.world);
   const spread = flockOut ? PASTURE_RADIUS * 0.7 : PEN_RADIUS * 0.75;
   const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
   const target = allocateVisualSlots(flock.counts, flock.total, want);
@@ -378,7 +398,11 @@ export function depositHayToFeeder(state: GameState, amount = 5): boolean {
   feeder.hay += move;
   sfx("chop");
   spawnText(state, feeder.pos, `+${move} өвс → тэвш`, "#b8d060");
-  setMessage(state, `Тэвшид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})`, 2);
+  setMessage(
+    state,
+    `Тэвшид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})`,
+    2,
+  );
   return true;
 }
 
@@ -386,7 +410,8 @@ export function spawnWildHorse(state: GameState): void {
   const edge = Math.floor(Math.random() * 4);
   let pos: Vector2;
   if (edge === 0) pos = { x: randRange(80, WORLD_W - 80), y: 60 };
-  else if (edge === 1) pos = { x: randRange(80, WORLD_W - 80), y: WORLD_H - 60 };
+  else if (edge === 1)
+    pos = { x: randRange(80, WORLD_W - 80), y: WORLD_H - 60 };
   else if (edge === 2) pos = { x: 60, y: randRange(80, WORLD_H - 80) };
   else pos = { x: WORLD_W - 60, y: randRange(80, WORLD_H - 80) };
 
@@ -505,11 +530,15 @@ export function tryCatchWildHorse(state: GameState): boolean {
   best.pos.x += flee.x * 40;
   best.pos.y += flee.y * 40;
   sfx("alert");
-  spawnText(state, best.pos, "Зугаллаа!", "#ffb080");
+  spawnText(state, best.pos, "Зугтлаа!", "#ffb080");
   setMessage(state, "Морь зугтав — ойртож дахин оролд!", 2.5);
   return true;
 }
 
-export function livestockSummary(counts: Record<LivestockKind, number>): string {
-  return LIVESTOCK_KINDS.map((k) => `${LIVESTOCK_MN[k]} ${counts[k]}`).join(" · ");
+export function livestockSummary(
+  counts: Record<LivestockKind, number>,
+): string {
+  return LIVESTOCK_KINDS.map((k) => `${LIVESTOCK_MN[k]} ${counts[k]}`).join(
+    " · ",
+  );
 }

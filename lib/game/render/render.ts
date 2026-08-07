@@ -545,8 +545,7 @@ export function render(
       });
     }
   }
-  // Аав ээжтэй амьдрах үед гэрийн урд гаднах гал харагдахгүй
-  if (world.campfire.placed && !state.parentsReturned) {
+  if (world.campfire.placed) {
     addDrawable("campfire", {
       y: world.campfire.pos.y,
       key: -1,
