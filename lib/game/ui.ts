@@ -2284,7 +2284,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 11px 'Courier New', monospace";
-  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score}`, barX, ly + 14);
+  ctx.fillText(
+    `Өдөр ${world.dayNumber} · ${state.unlimitedCoins ? "∞" : state.score}`,
+    barX,
+    ly + 14,
+  );
 
   ctx.fillStyle = "#d8c898";
   ctx.font = "10px 'Courier New', monospace";
@@ -2438,7 +2442,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(
-      `Зоос ${state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
+      `Зоос ${state.unlimitedCoins ? "∞" : state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );

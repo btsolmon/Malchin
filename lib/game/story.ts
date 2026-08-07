@@ -22,6 +22,7 @@ import { animalInPen, getDayPhase, TIME_RATE } from "./daycycle";
 import { spawnWolf } from "./enemies";
 import {
   ensureShulmasHelpers,
+  placePlayerNearHelpers,
   tryInteractFirstRoute,
 } from "./firstRoute";
 import { ensureParents } from "./parents";
@@ -2835,6 +2836,146 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
   }
 
   setMessage(state, "Энэ төлөвт алгасах story үе алга.", 2.5);
+}
+
+/**
+ * Cheat (`;`): Сүнсний ертөнцөд дөнгөж орсон үе рүү шилжинэ —
+ * туслахууд босоод, замын эхэнд зогсоно.
+ */
+export function debugJumpToSpiritWorld(state: GameState): void {
+  ensureStoryState(state);
+  const story = state.story;
+
+  if (state.phase === "menu") {
+    beginOpeningSequence(state);
+  }
+  if (state.phase === "intro" || !story.introCompleted) {
+    finishOpeningSequence(state);
+  }
+
+  // Эртний quest / шөнө / өвгөн — сүнс нээгдэх хүртэл дуусгана
+  story.introCompleted = true;
+  story.hearthQuestStarted = true;
+  story.hearthWoodCollected = CAMPFIRE_WOOD_COST;
+  story.campfireRelit = true;
+  story.hearthQuestCompleted = true;
+  story.hearthCompletionEffectShown = true;
+  story.hearthCompletionEffectRemaining = 0;
+  state.gerStoveLit = true;
+  state.gerStoveFuel = Math.max(state.gerStoveFuel, 40);
+
+  ensureOpeningLivestockRoster(state);
+  const livestockIds = [...story.openingLivestockIds];
+  story.livestockQuestStarted = true;
+  story.livestockNarrationShown = true;
+  story.livestockFoundIds = [...livestockIds];
+  story.livestockReturnedIds = [...livestockIds];
+  story.livestockQuestCompleted = true;
+  story.livestockCompletionEffectShown = true;
+  story.livestockCompletionEffectRemaining = 0;
+  story.firstDayTimeAccelerationStarted = true;
+  story.firstDayEveningHoldActive = false;
+  story.firstNightSunsetStarted = true;
+  story.firstNightNormalTimeRestored = true;
+  story.firstNightNarrationShown = true;
+  story.firstNightWolfWarningShown = true;
+  story.wolfThreatQuestStarted = true;
+  story.firstNightStage = "completed";
+  story.firstNightStageRemaining = 0;
+  story.temporaryPlayerProtectionActive = false;
+  story.temporaryLivestockProtectionActive = false;
+  story.oldManArrivalStarted = true;
+  story.oldManArrived = true;
+  story.shortDialogueStarted = true;
+  story.shortDialogueCompleted = true;
+  story.milestone3Completed = true;
+  story.milestone4Started = true;
+  story.milestone4Completed = true;
+  story.storyWolfDefeated = true;
+  story.storyWolfParryCompleted = true;
+  story.storyWolfCounterCompleted = true;
+  story.storyWolfOpeningActive = false;
+  story.nightCompletionEffectShown = true;
+  story.nightCompletionEffectRemaining = 0;
+  story.milestone5Started = true;
+  story.milestone5DialogueCompleted = true;
+  story.milestone6Started = true;
+  story.milestone6DialogueCompleted = true;
+  story.milestone7Started = true;
+  story.stormTraceInspected = true;
+  story.stormTraceDialogueCompleted = true;
+  story.stormTraceEffectRemaining = 0;
+  story.spiritPathOpened = true;
+  story.milestone7Completed = false;
+  story.milestone8Started = false;
+  story.familyReunionEffectShown = false;
+  story.familyReunionEffectRemaining = 0;
+  story.familyReunionDialogueStarted = false;
+  story.familyReunionDialogueCompleted = false;
+  story.milestone8Completed = false;
+  story.activeMainObjective = "defeatSpiritGuards";
+
+  // Төмөр шулмас / эхний зам — дахин эхлүүлнэ
+  const tumur = state.world.tumurShulmas;
+  tumur.unlocked = false;
+  tumur.hp = tumur.maxHp;
+  tumur.defeated = false;
+  tumur.active = false;
+  tumur.phase = "sealed";
+  tumur.phaseTimer = 0;
+  tumur.needles = [];
+  tumur.flash = 0;
+
+  const route = state.world.firstRoute;
+  route.bossStarted = false;
+  route.bossDefeated = false;
+  route.swordDrop.visible = false;
+  route.swordDrop.collected = false;
+  route.complete = false;
+  route.bolts = [];
+
+  state.player.hasSkySword = false;
+  state.player.weapon = "staff";
+  state.player.vitals.health = state.player.vitals.maxHealth;
+  state.player.vitals.hunger = Math.max(state.player.vitals.hunger, 70);
+  state.player.vitals.warmth = Math.max(state.player.vitals.warmth, 70);
+
+  state.shopOpen = false;
+  state.craftOpen = false;
+  state.gerArtZoom = null;
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.parents = null;
+  state.parentsReturned = false;
+
+  // Сүнс рүү — туслахуудыг шинээр босгоод ойрлуулна
+  if (state.phase === "spirit") {
+    // Дахин орох: буцааж stash хийхгүйгээр туслахуудыг сэргээнэ
+    ensureShulmasHelpers(state);
+    state.spiritCleared = false;
+    state.spiritTransition = 0.6;
+    placePlayerNearHelpers(state);
+  } else {
+    state.phase = "playing";
+    ensureShulmasHelpers(state);
+    enterSpiritWorld(state);
+    placePlayerNearHelpers(state);
+  }
+
+  state.fx.shake = Math.max(state.fx.shake, 2);
+  spawnParticles(state, state.player.pos, 22, "#7ec8ff", {
+    speed: 70,
+    life: 1.2,
+    size: 2.4,
+    gravity: -12,
+  });
+  sfx("howl");
+  setMessage(
+    state,
+    "CHEAT: Сүнсний ертөнц — дөнгөж орсон. Туслахуудыг дар.",
+    3.5,
+  );
 }
 
 /**

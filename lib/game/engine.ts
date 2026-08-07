@@ -114,6 +114,7 @@ import { pullFlockToPen } from "./daycycle";
 import {
   createInitialStoryState,
   debugJumpToFamilyLife,
+  debugJumpToSpiritWorld,
   debugSkipCurrentStoryStage,
   ensureStoryState,
   firstNightElderCutsceneActive,
@@ -353,6 +354,7 @@ export function createInitialState(): GameState {
     fencePreviewAngle: 0,
     fencePreviewOffset: { x: 0, y: 0 },
     unlimitedWood: false,
+    unlimitedCoins: false,
     godMode: false,
     combatMovementLocked: false,
     combatDodgeActive: false,
@@ -372,9 +374,7 @@ export function createInitialState(): GameState {
       lightFire: false,
       buildFence: false,
       eat: false,
-      debugXp: false,
-      debugWood: false,
-      debugGod: false,
+      debugCheats: false,
       debugBoss: false,
       herd: false,
       migrate: false,
@@ -565,13 +565,7 @@ export function bindInput(
         if (pressed) input.eat = true;
         break;
       case "Slash":
-        if (pressed) input.debugXp = true;
-        break;
-      case "Period":
-        if (pressed) input.debugWood = true;
-        break;
-      case "Comma":
-        if (pressed) input.debugGod = true;
+        if (pressed) input.debugCheats = true;
         break;
       case "KeyN":
         input.herd = pressed;
@@ -743,16 +737,31 @@ export function update(state: GameState, dt: number): void {
 
   if (
     (state.phase === "playing" || state.phase === "spirit") &&
-    state.input.debugGod
+    state.input.debugCheats
   ) {
-    state.godMode = !state.godMode;
-    if (state.godMode) {
+    const enable = !(
+      state.godMode &&
+      state.unlimitedWood &&
+      state.unlimitedCoins
+    );
+    state.godMode = enable;
+    state.unlimitedWood = enable;
+    state.unlimitedCoins = enable;
+    if (enable) {
       state.player.vitals.health = state.player.vitals.maxHealth;
-      spawnText(state, state.player.pos, "Үхэшгүй!", "#7dffb0");
-      setMessage(state, "Үхэшгүй горим аслаа — амь багасахгүй.", 2.5);
+      state.player.inventory.wood = 999999;
+      state.score = Math.max(state.score, 999999);
+      spawnText(state, state.player.pos, "Cheat ON", "#7dffb0");
+      setMessage(
+        state,
+        "Үхэшгүй · мод хязгааргүй · зоос хязгааргүй (/).",
+        3,
+      );
     } else {
-      spawnText(state, state.player.pos, "Үхэшгүй унтарлаа", "#a89880");
-      setMessage(state, "Үхэшгүй горим унтарлаа.", 2);
+      state.player.inventory.wood = Math.min(state.player.inventory.wood, 50);
+      state.score = Math.min(state.score, 500);
+      spawnText(state, state.player.pos, "Cheat OFF", "#a89880");
+      setMessage(state, "Cheat унтарлаа.", 2);
     }
     sfx("buy");
   }
@@ -762,26 +771,8 @@ export function update(state: GameState, dt: number): void {
       state.story.familyReunionEffectRemaining > 0 ||
       (state.story.activeMainObjective !== null &&
         state.story.activeMainObjective !== "growFlock");
-    if (state.input.debugXp) {
-      state.score += 1000;
-      spawnText(state, state.player.pos, "+1000 зоос", "#ffd060");
-      sfx("buy");
-    }
     if (state.input.debugBoss && !openingMilestoneActive) {
       forceStartTumurShulmasBoss(state);
-    }
-    if (state.input.debugWood) {
-      state.unlimitedWood = !state.unlimitedWood;
-      if (state.unlimitedWood) {
-        state.player.inventory.wood = 999999;
-        spawnText(state, state.player.pos, "Мод хязгааргүй!", "#e8c56a");
-        setMessage(state, "Мод/түлээ хязгааргүй боллоо.", 2.5);
-      } else {
-        state.player.inventory.wood = Math.min(state.player.inventory.wood, 50);
-        spawnText(state, state.player.pos, "Мод хязгаартай", "#a89880");
-        setMessage(state, "Мод хязгаартай боллоо.", 2);
-      }
-      sfx("buy");
     }
     if (!openingStoryControlsWorldTime(state)) {
       updateWeatherCycle(state, dt);
@@ -896,9 +887,7 @@ export function update(state: GameState, dt: number): void {
   state.input.eat = false;
   state.input.lightFire = false;
   state.input.buildFence = false;
-  state.input.debugXp = false;
-  state.input.debugWood = false;
-  state.input.debugGod = false;
+  state.input.debugCheats = false;
   state.input.debugBoss = false;
   state.input.migrate = false;
   state.input.horseMount = false;
@@ -996,13 +985,19 @@ export function mountHerderGame(
   );
 
   // Түр хөгжүүлэлтийн shortcut:
-  // C — одоогийн story үеийг алгасана
+  // . — одоогийн story үеийг алгасана
+  // ; — сүнсний ертөнцөд дөнгөж орсон үе рүү
   // ' — шулмасыг дийлээд аав ээжтэй амьдрах үе рүү шууд орно
   const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
-    if (event.code === "KeyC") {
+    if (event.code === "Period") {
       event.preventDefault();
       debugSkipCurrentStoryStage(state);
+      return;
+    }
+    if (event.code === "Semicolon") {
+      event.preventDefault();
+      debugJumpToSpiritWorld(state);
       return;
     }
     if (event.code === "Quote") {

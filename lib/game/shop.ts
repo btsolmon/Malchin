@@ -195,12 +195,12 @@ export function buyItem(state: GameState, idx: number): void {
   }
 
   if (item.type === "livestock") {
-    if (state.score < item.price) {
+    if (!state.unlimitedCoins && state.score < item.price) {
       setMessage(state, `Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.`, 2);
       sfx("move");
       return;
     }
-    state.score -= item.price;
+    if (!state.unlimitedCoins) state.score -= item.price;
     addLivestock(state, item.kind, 1);
     sfx("buy");
     setMessage(
@@ -216,12 +216,12 @@ export function buyItem(state: GameState, idx: number): void {
     sfx("move");
     return;
   }
-  if (state.score < item.price) {
+  if (!state.unlimitedCoins && state.score < item.price) {
     setMessage(state, `Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.`, 2);
     sfx("move");
     return;
   }
-  state.score -= item.price;
+  if (!state.unlimitedCoins) state.score -= item.price;
   state.player.gear[item.id] = true;
   sfx("buy");
   if (item.id === "dog") {

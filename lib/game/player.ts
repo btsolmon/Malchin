@@ -1014,7 +1014,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
     setMessage(state, `${nextName} болгоход ${cost.wood} мод хэрэгтэй.`, 2);
     return;
   }
-  if (state.score < cost.score) {
+  if (!state.unlimitedCoins && state.score < cost.score) {
     setMessage(state, `${nextName} — ${cost.score} зоос хэрэгтэй.`, 2);
     return;
   }
@@ -1028,7 +1028,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   }
 
   if (!state.unlimitedWood) player.inventory.wood -= cost.wood;
-  state.score -= cost.score;
+  if (!state.unlimitedCoins) state.score -= cost.score;
   player.inventory.berries -= cost.berries;
   player.chopCooldown = 0.28;
   fence.tier = next;
@@ -1040,7 +1040,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   const spent: string[] = state.unlimitedWood
     ? []
     : [`−${cost.wood} мод`];
-  if (cost.score > 0) spent.push(`−${cost.score} зоос`);
+  if (cost.score > 0 && !state.unlimitedCoins) spent.push(`−${cost.score} зоос`);
   if (cost.berries > 0) spent.push(`−${cost.berries} жимс`);
   if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
   setMessage(state, `${nextName} болголоо!`, 1.6);

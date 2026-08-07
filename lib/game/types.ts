@@ -509,6 +509,8 @@ export interface RouteEnemy {
   deathTimer: number;
   alive: boolean;
   engaged: boolean;
+  /** Алхалтын фаза — аав ээж шиг хөл/гар */
+  walkPhase: number;
 }
 
 export interface RouteBolt {
@@ -679,12 +681,8 @@ export interface InputState {
   /** B — хашаа барих / шинэчлэх */
   buildFence: boolean;
   eat: boolean;
-  /** Debug — / дарж XP нэмэх */
-  debugXp: boolean;
-  /** Debug — . дарж мод хязгааргүй болгох */
-  debugWood: boolean;
-  /** Debug — , дарж үхэшгүй болгох */
-  debugGod: boolean;
+  /** Debug — / дарж үхэшгүй + мод/зоос хязгааргүй */
+  debugCheats: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
   debugBoss: boolean;
   /** N барих — хонь туух */
@@ -929,9 +927,11 @@ export interface GameState {
   fencePreviewAngle: number;
   /** Preview байршлын нэмэлт алхам (хагас тор) — сумнаар */
   fencePreviewOffset: Vector2;
-  /** . cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
+  /** / cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
-  /** , cheat — амь багасахгүй, үхэхгүй */
+  /** / cheat — зоос хязгааргүй, худалдан авалтад хасагдахгүй */
+  unlimitedCoins: boolean;
+  /** / cheat — амь багасахгүй, үхэхгүй */
   godMode: boolean;
   /** Melee/parry үед хэвийн хөдөлгөөн түгжигдсэн */
   combatMovementLocked: boolean;
