@@ -318,10 +318,6 @@ export interface ElderUiState {
   tab: ElderTab;
   eyeMode: ElderEyeMode;
   score: number;
-  level: number;
-  xp: number;
-  xpNext: number;
-  canLevelUp: boolean;
   trades: ElderUiTradeRow[];
   dialogues: Array<{ id: string; title: string; heard: boolean }>;
   /** Тоглоом дууссаны дараа «Яриа» = соёлын асуулт */
@@ -379,6 +375,7 @@ export function faceElderTowardPlayer(state: GameState): void {
 
 export function openElder(state: GameState): void {
   state.phase = "elder";
+  state.elderTab = "trade";
   state.elderDialogueId = null;
   state.elderDialogueLine = 0;
   state.elderShowingChoices = false;
@@ -386,11 +383,8 @@ export function openElder(state: GameState): void {
   state.menuIndex = 0;
   state.world.elder.eyeMode = "idle";
   faceElderTowardPlayer(state);
-
-  // Elder Hub: энгийн үед эхлээд 3 горимын үндсэн цэс нээгдэнэ.
-  // Story-only dialogue-ууд begin* функцүүдээр шууд эхэлдэг хэвээр.
-  state.elderTab = "trade";
   sfx("select");
+  setMessage(state, "Өвгөн: «За, юу авах, юу зарах вэ?»", 2.5);
 }
 
 export function closeElder(state: GameState): void {
@@ -865,10 +859,6 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
     tab: state.elderTab,
     eyeMode: state.world.elder.eyeMode,
     score: state.score,
-    level: state.level,
-    xp: state.xp,
-    xpNext: state.xpNext,
-    canLevelUp: state.xp >= state.xpNext,
     trades,
     dialogues: talkIsQuiz
       ? []

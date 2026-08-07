@@ -156,7 +156,7 @@ export function pickSkillChoices(): Skill[] {
 }
 
 export function maybeLevelUp(_state: GameState): void {
-  // XP одоо автоматаар level болгохгүй.
+  // Dialogue V3: XP одоо автоматаар level болгохгүй.
   // Тоглогч XP-гээ цуглуулаад өвгөн дээр очиж түвшин ахина.
 }
 
