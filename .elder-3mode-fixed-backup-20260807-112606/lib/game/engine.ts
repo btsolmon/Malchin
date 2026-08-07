@@ -31,7 +31,6 @@ import {
 } from "../game/audio";
 import {
   maybeLevelUp,
-  beginElderLevelUp,
   tryBuildFence,
   tryEatBerry,
   tryHorseMount,
@@ -923,7 +922,6 @@ export interface HerderGameHandle {
   submitRiddleAnswer: (optionIndex: number) => void;
   closeRiddleModal: () => void;
   setElderTab: (tab: ElderTab) => void;
-  levelUpWithElder: () => void;
   tradeWithElder: (itemId: string) => void;
   startElderDialogue: (id: string) => void;
   advanceElderDialogue: () => void;
@@ -1034,9 +1032,6 @@ export function mountHerderGame(
           snap.tab,
           snap.eyeMode,
           snap.score,
-          snap.level,
-          snap.xp,
-          snap.xpNext,
           snap.talkIsQuiz ? 1 : 0,
           quiz
             ? `${quiz.questionId}:${quiz.feedback}:${quiz.selectedIndex}:${quiz.askedCount}:${quiz.options.join("~")}`
@@ -1151,10 +1146,6 @@ export function mountHerderGame(
     },
     setElderTab: (tab: ElderTab) => {
       setElderTab(state, tab);
-      notifyElderUi();
-    },
-    levelUpWithElder: () => {
-      beginElderLevelUp(state);
       notifyElderUi();
     },
     tradeWithElder: (itemId: string) => {

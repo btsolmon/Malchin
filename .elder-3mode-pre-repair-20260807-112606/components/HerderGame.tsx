@@ -44,10 +44,6 @@ export default function HerderGame() {
     handleRef.current?.setElderTab(tab);
   }, []);
 
-  const onElderLevelUp = useCallback(() => {
-    handleRef.current?.levelUpWithElder();
-  }, []);
-
   const onElderTrade = useCallback((itemId: string) => {
     handleRef.current?.tradeWithElder(itemId);
   }, []);
@@ -102,7 +98,6 @@ export default function HerderGame() {
         <ElderModal
           ui={elderUi}
           onTab={onElderTab}
-          onLevelUp={onElderLevelUp}
           onTrade={onElderTrade}
           onStartDialogue={onStartDialogue}
           onQuizAnswer={onQuizAnswer}

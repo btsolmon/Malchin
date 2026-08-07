@@ -7,7 +7,6 @@ import GameIcon from "@/components/GameIcon";
 interface ElderModalProps {
   ui: ElderUiState;
   onTab: (tab: "trade" | "talk") => void;
-  onLevelUp: () => void;
   onTrade: (itemId: string) => void;
   onStartDialogue: (id: string) => void;
   onQuizAnswer: (index: number) => void;
@@ -17,21 +16,15 @@ interface ElderModalProps {
 
 const QUIZ_LETTERS = ["А", "Б", "В", "Г"];
 
-type ElderScreen = "home" | "level" | "trade" | "talk";
-const HOME_COUNT = 3;
-
 export default function ElderModal({
   ui,
   onTab,
-  onLevelUp,
   onTrade,
   onStartDialogue,
   onQuizAnswer,
   onQuizNext,
   onClose,
 }: ElderModalProps) {
-  const [screen, setScreen] = useState<ElderScreen>("home");
-  const [homeSelected, setHomeSelected] = useState(0);
   const [selected, setSelected] = useState(0);
   const [feedback, setFeedback] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -44,7 +37,7 @@ export default function ElderModal({
 
   useEffect(() => {
     setFeedback(null);
-  }, [screen]);
+  }, [ui.tab]);
 
   const tradeAt = useCallback(
     (index: number) => {
@@ -82,7 +75,7 @@ export default function ElderModal({
   }, []);
 
   useEffect(() => {
-    if (screen !== "trade") return;
+    if (ui.tab !== "trade") return;
     if (skipScrollRef.current) {
       skipScrollRef.current = false;
       return;
@@ -98,82 +91,17 @@ export default function ElderModal({
     } else if (rowRect.bottom > listRect.bottom) {
       list.scrollTop += rowRect.bottom - listRect.bottom;
     }
-  }, [screen, selected]);
-
-  const openScreen = useCallback(
-    (next: ElderScreen) => {
-      setFeedback(null);
-      setScreen(next);
-      if (next === "trade") onTab("trade");
-      if (next === "talk") onTab("talk");
-    },
-    [onTab],
-  );
-
-  const activateHomeChoice = useCallback(
-    (index: number) => {
-      if (index === 0) openScreen("level");
-      else if (index === 1) openScreen("trade");
-      else openScreen("talk");
-    },
-    [openScreen],
-  );
+  }, [selected, ui.tab]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.code === "Escape" || e.code === "KeyP") {
         e.preventDefault();
-        if (screen === "home") onClose();
-        else setScreen("home");
+        onClose();
         return;
       }
 
-      if (screen !== "home" && (e.code === "Backspace" || e.code === "ArrowLeft")) {
-        e.preventDefault();
-        setScreen("home");
-        return;
-      }
-
-      if (screen === "home") {
-        if (e.code === "ArrowUp" || e.code === "KeyW") {
-          e.preventDefault();
-          setHomeSelected((i) => (i + HOME_COUNT - 1) % HOME_COUNT);
-          return;
-        }
-        if (e.code === "ArrowDown" || e.code === "KeyS") {
-          e.preventDefault();
-          setHomeSelected((i) => (i + 1) % HOME_COUNT);
-          return;
-        }
-        const direct: Record<string, number> = {
-          Digit1: 0, Numpad1: 0,
-          Digit2: 1, Numpad2: 1,
-          Digit3: 2, Numpad3: 2,
-        };
-        const directIndex = direct[e.code];
-        if (directIndex != null) {
-          e.preventDefault();
-          setHomeSelected(directIndex);
-          activateHomeChoice(directIndex);
-          return;
-        }
-        if (e.code === "Enter" || e.code === "Space" || e.code === "KeyE") {
-          e.preventDefault();
-          activateHomeChoice(homeSelected);
-        }
-        return;
-      }
-
-      if (screen === "level") {
-        if (e.code === "Enter" || e.code === "Space" || e.code === "KeyE") {
-          e.preventDefault();
-          if (ui.canLevelUp) onLevelUp();
-          else setFeedback(`Түвшин ахихад ${ui.xpNext} XP хэрэгтэй. Одоо ${ui.xp} XP байна.`);
-        }
-        return;
-      }
-
-      if (screen === "talk" && ui.talkIsQuiz && ui.cultureQuiz) {
+      if (ui.tab === "talk" && ui.talkIsQuiz && ui.cultureQuiz) {
         const quiz = ui.cultureQuiz;
         if (quiz.feedback === "correct") {
           if (e.code === "Enter" || e.code === "Space") {
@@ -183,10 +111,14 @@ export default function ElderModal({
           return;
         }
         const map: Record<string, number> = {
-          Digit1: 0, Numpad1: 0,
-          Digit2: 1, Numpad2: 1,
-          Digit3: 2, Numpad3: 2,
-          Digit4: 3, Numpad4: 3,
+          Digit1: 0,
+          Numpad1: 0,
+          Digit2: 1,
+          Numpad2: 1,
+          Digit3: 2,
+          Numpad3: 2,
+          Digit4: 3,
+          Numpad4: 3,
         };
         const idx = map[e.code];
         if (idx != null && idx < quiz.options.length) {
@@ -196,7 +128,7 @@ export default function ElderModal({
         return;
       }
 
-      if (screen !== "trade") return;
+      if (ui.tab !== "trade") return;
       const n = ui.trades.length;
       if (n <= 0) return;
 
@@ -206,7 +138,7 @@ export default function ElderModal({
       } else if (e.code === "ArrowDown" || e.code === "KeyS") {
         e.preventDefault();
         selectByKey((selected + 1) % n);
-      } else if (e.code === "Enter" || e.code === "Space" || e.code === "KeyE") {
+      } else if (e.code === "Enter" || e.code === "Space") {
         e.preventDefault();
         tradeAt(selected);
       }
@@ -214,22 +146,16 @@ export default function ElderModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [
-    activateHomeChoice,
-    homeSelected,
     onClose,
-    onLevelUp,
     onQuizAnswer,
     onQuizNext,
-    screen,
     selectByKey,
     selected,
     tradeAt,
-    ui.canLevelUp,
     ui.cultureQuiz,
+    ui.tab,
     ui.talkIsQuiz,
     ui.trades.length,
-    ui.xp,
-    ui.xpNext,
   ]);
 
   const eyeClass =
@@ -242,35 +168,23 @@ export default function ElderModal({
   const quiz = ui.cultureQuiz;
 
   return (
-    <div
-      className="elder-backdrop"
-      role="dialog"
-      aria-modal="true"
-      style={{
-        alignItems: "center",
-        justifyContent: "flex-start",
-        padding: "28px 24px",
-        background: "rgba(0, 0, 0, 0.12)",
-      }}
-    >
+    <div className="elder-backdrop" role="dialog" aria-modal="true">
       <div
         className={`elder-panel ${eyeClass}`}
         style={{
-          width: "min(430px, calc(100% - 12px))",
-          maxHeight: "min(610px, calc(100vh - 56px))",
+          width: "min(640px, 94%)",
+          maxHeight: "min(560px, 94%)",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          border: "1px solid rgba(196, 167, 104, 0.62)",
-          borderRadius: 2,
-          background: "linear-gradient(180deg, rgba(18,18,17,0.965) 0%, rgba(10,10,10,0.945) 100%)",
-          boxShadow: "0 16px 48px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.025)",
-          backdropFilter: "blur(1.5px)",
+          border: "2px solid #e8c56a",
+          borderRadius: 14,
+          background: "rgba(26, 17, 10, 0.97)",
         }}
       >
         <div
           style={{
-            padding: "0",
+            padding: "14px 20px 16px",
             display: "flex",
             flexDirection: "column",
             flex: 1,
@@ -278,232 +192,41 @@ export default function ElderModal({
             overflow: "hidden",
           }}
         >
-          {screen !== "home" ? (
-            <div
-              style={{
-                marginBottom: 0,
-                minHeight: 42,
-                padding: "0 12px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 12,
-                borderBottom: "1px solid rgba(196,167,104,0.23)",
-                background: "linear-gradient(90deg, rgba(57,50,38,0.48), rgba(15,15,15,0.15))",
-              }}
+          <div
+            className="elder-tabs"
+            style={{ margin: "0 0 8px", justifyContent: "center" }}
+          >
+            <button
+              type="button"
+              className={ui.tab === "trade" ? "active" : ""}
+              onClick={() => onTab("trade")}
             >
-              <button
-                type="button"
-                onClick={() => setScreen("home")}
-                style={{
-                  border: 0,
-                  borderRadius: 0,
-                  background: "transparent",
-                  color: "#d8c8aa",
-                  padding: "7px 2px",
-                  cursor: "pointer",
-                }}
-              >
-                ← Буцах
-              </button>
-              <span style={{ color: "#8f806b", fontSize: 11, letterSpacing: "0.12em" }}>
-                P / Esc — үндсэн цэс
-              </span>
-            </div>
-          ) : null}
+              Арилжаа
+            </button>
+            <button
+              type="button"
+              className={ui.tab === "talk" ? "active" : ""}
+              onClick={() => onTab("talk")}
+            >
+              {ui.talkIsQuiz ? "Асуулт" : "Яриа"}
+            </button>
+          </div>
 
-          {screen === "home" ? (
-            <>
-              <div
-                style={{
-                  padding: "13px 16px 12px",
-                  borderBottom: "1px solid rgba(196,167,104,0.26)",
-                  background: "linear-gradient(90deg, rgba(63,54,39,0.48), rgba(18,18,17,0.05))",
-                }}
-              >
-                <div style={{ fontSize: 11, letterSpacing: "0.18em", color: "#c7ad72", fontWeight: 700 }}>
-                  ӨВГӨН
-                </div>
-                <p
-                  style={{
-                    margin: "5px 0 0",
-                    color: "#e8e0d2",
-                    fontSize: 14,
-                    lineHeight: 1.4,
-                  }}
-                >
-                  Сайн уу, хүү минь. Юу хэрэгтэй вэ?
-                </p>
-              </div>
-
-              <div style={{ display: "grid", gap: 0, padding: "8px 0" }}>
-                {[
-                  {
-                    title: "ТҮВШИН АХИХ",
-                    desc: `Түвшин ${ui.level} · XP ${ui.xp}/${ui.xpNext}`,
-                    detail: ui.canLevelUp ? "Ахих боломжтой" : `${Math.max(0, ui.xpNext - ui.xp)} XP дутуу`,
-                  },
-                  {
-                    title: "ХУДАЛДАА",
-                    desc: "Хэрэгсэл авах, олзоо зарах",
-                    detail: `${ui.score} зоос`,
-                  },
-                  {
-                    title: ui.talkIsQuiz ? "АСУУЛТ" : "АСУУЛТ · ЯРИА",
-                    desc: ui.talkIsQuiz ? "Өв соёлын асуултад хариулах" : "Өвгөнөөс зам мөр, учир явдлыг асуух",
-                    detail: ui.talkIsQuiz ? "Өв соёл" : "Ярилцах",
-                  },
-                ].map((item, i) => {
-                  const active = homeSelected === i;
-                  return (
-                    <button
-                      key={item.title}
-                      type="button"
-                      onMouseEnter={() => setHomeSelected(i)}
-                      onClick={() => {
-                        setHomeSelected(i);
-                        activateHomeChoice(i);
-                      }}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "24px 1fr auto",
-                        alignItems: "center",
-                        gap: 10,
-                        width: "100%",
-                        minHeight: 44,
-                        padding: "6px 15px",
-                        borderRadius: 0,
-                        border: 0,
-                        borderTop: "1px solid rgba(255,255,255,0.025)",
-                        borderBottom: "1px solid rgba(196,167,104,0.08)",
-                        background: active
-                          ? "linear-gradient(90deg, rgba(181,82,34,0.92) 0%, rgba(129,57,27,0.55) 58%, rgba(19,19,18,0.08) 100%)"
-                          : "transparent",
-                        color: "#f3eadc",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        boxShadow: active ? "inset 3px 0 0 #e4bd69" : "none",
-                      }}
-                    >
-                      <span style={{ color: active ? "#ffe0a0" : "#756854", fontSize: 11, fontWeight: 800 }}>
-                        {i + 1}
-                      </span>
-                      <span style={{ minWidth: 0 }}>
-                        <strong style={{ display: "block", fontSize: 13, letterSpacing: "0.035em", color: active ? "#fff1d0" : "#ddd6ca" }}>
-                          {item.title}
-                        </strong>
-                        <span style={{ display: "block", marginTop: 1, color: active ? "#e7c9a1" : "#847c70", fontSize: 10 }}>
-                          {item.desc}
-                        </span>
-                      </span>
-                      <span style={{ color: active ? "#f6d7a5" : i === 0 && ui.canLevelUp ? "#d8b968" : "#8f8678", fontSize: 10, whiteSpace: "nowrap" }}>
-                        {item.detail}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div
-                style={{
-                  marginTop: 2,
-                  padding: "8px 14px",
-                  borderTop: "1px solid rgba(196,167,104,0.18)",
-                  background: "rgba(0,0,0,0.28)",
-                  color: "#81796d",
-                  fontSize: 10,
-                }}
-              >
-                ↑↓ / W S сонгох · E / Enter нээх · P / Esc гарах
-              </div>
-            </>
-          ) : screen === "level" ? (
-            <>
-              <div
-                style={{
-                  padding: "11px 14px",
-                  borderBottom: "1px solid rgba(196,167,104,0.22)",
-                  background: "linear-gradient(90deg, rgba(57,50,38,0.42), transparent)",
-                }}
-              >
-                <div style={{ fontSize: 13, letterSpacing: "0.08em", color: "#d6c299", fontWeight: 700 }}>ТҮВШИН АХИХ</div>
-              </div>
-
-              <div style={{ margin: "10px 14px 8px", border: "1px solid rgba(196,167,104,0.20)", borderRadius: 0, padding: 0, background: "rgba(0,0,0,0.18)" }}>
-                {[
-                  ["Түвшин", ui.level],
-                  ["Одоогийн XP", ui.xp],
-                  ["Шаардлагатай XP", ui.xpNext],
-                  ["Дутуу XP", Math.max(0, ui.xpNext - ui.xp)],
-                ].map(([label, value], i) => (
-                  <div
-                    key={String(label)}
-                    style={{
-                      minHeight: 34,
-                      padding: "0 11px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      borderBottom: i === 3 ? 0 : "1px solid rgba(196,167,104,0.10)",
-                      color: "#b9b0a2",
-                      fontSize: 12,
-                    }}
-                  >
-                    <span>{label}</span>
-                    <strong style={{ color: i === 2 ? "#d5b866" : "#e3ddd3", fontWeight: 600 }}>{value}</strong>
-                  </div>
-                ))}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (ui.canLevelUp) onLevelUp();
-                  else setFeedback(`Түвшин ахихад ${ui.xpNext} XP хэрэгтэй. Одоо ${ui.xp} XP байна.`);
-                }}
-                style={{
-                  width: "calc(100% - 28px)",
-                  margin: "2px 14px 0",
-                  borderRadius: 0,
-                  border: ui.canLevelUp ? "1px solid rgba(211,174,91,0.72)" : "1px solid rgba(196,167,104,0.18)",
-                  background: ui.canLevelUp
-                    ? "linear-gradient(90deg, rgba(181,82,34,0.88), rgba(91,43,24,0.52))"
-                    : "rgba(0,0,0,0.20)",
-                  color: ui.canLevelUp ? "#f7e4bd" : "#69645d",
-                  padding: "10px 12px",
-                  fontWeight: 800,
-                  letterSpacing: "0.06em",
-                  cursor: "pointer",
-                }}
-              >
-                {ui.canLevelUp ? "ТҮВШИН АХИХ" : `${Math.max(0, ui.xpNext - ui.xp)} XP ДУТУУ`}
-              </button>
-
-              <p style={{ margin: "9px 14px 0", textAlign: "left", color: "#81796d", fontSize: 10 }}>
-                Түвшин ахисны дараа 3 ур чадвараас нэгийг сонгоно.
-              </p>
-              {feedback ? (
-                <p style={{ margin: "10px 0 0", textAlign: "center", fontSize: 12, color: "#ffe9a8" }}>{feedback}</p>
-              ) : null}
-            </>
-          ) : screen === "trade" ? (
+          {ui.tab === "trade" ? (
             <>
               <div
                 style={{
                   display: "flex",
                   alignItems: "baseline",
                   justifyContent: "space-between",
-                  marginBottom: 0,
-                  padding: "10px 14px",
-                  borderBottom: "1px solid rgba(196,167,104,0.22)",
-                  background: "linear-gradient(90deg, rgba(57,50,38,0.42), transparent)",
+                  marginBottom: 12,
                   gap: 12,
                 }}
               >
                 <h2
                   style={{
                     margin: 0,
-                    fontSize: 16,
+                    fontSize: 24,
                     fontWeight: 700,
                     color: "#e8c56a",
                     letterSpacing: "0.04em",
@@ -523,15 +246,15 @@ export default function ElderModal({
                 style={{
                   listStyle: "none",
                   margin: 0,
-                  padding: "8px 0 0",
+                  padding: "0 2px 0 0",
                   display: "flex",
                   flexDirection: "column",
                   gap: 6,
                   overflowX: "hidden",
                   overflowY: "auto",
-                  height: 292,
-                  minHeight: 220,
-                  maxHeight: 292,
+                  height: 264,
+                  minHeight: 264,
+                  maxHeight: 264,
                   flexShrink: 0,
                 }}
               >
@@ -565,16 +288,17 @@ export default function ElderModal({
                           gap: 10,
                           alignItems: "center",
                           textAlign: "left",
-                          padding: "6px 14px",
-                          height: 44,
-                          borderRadius: 0,
-                          border: 0,
-                          borderBottom: "1px solid rgba(196,167,104,0.09)",
+                          padding: isSelected ? "7px 11px" : "8px 12px",
+                          height: 48,
+                          borderRadius: 8,
+                          border: isSelected
+                            ? "2px solid #e8c56a"
+                            : "1px solid rgba(232, 197, 106, 0.22)",
                           background: t.owned
-                            ? "rgba(55,72,47,0.22)"
+                            ? "rgba(70, 95, 55, 0.35)"
                             : isSelected
-                              ? "linear-gradient(90deg, rgba(181,82,34,0.90), rgba(92,43,24,0.42), transparent)"
-                              : "transparent",
+                              ? "rgba(232, 197, 106, 0.14)"
+                              : "rgba(12, 10, 8, 0.6)",
                           color: "#f2e8d5",
                           font: "inherit",
                           cursor: t.owned ? "default" : "pointer",
@@ -594,7 +318,7 @@ export default function ElderModal({
                             style={{
                               fontSize: 14,
                               fontWeight: 600,
-                              color: isSelected ? "#fff0cf" : "#d8d1c6",
+                              color: isSelected ? "#e8c56a" : "#f2e8d5",
                             }}
                           >
                             {t.nameMn}
@@ -775,10 +499,10 @@ export default function ElderModal({
                   style={{
                     listStyle: "none",
                     margin: 0,
-                    padding: "0 14px",
+                    padding: 0,
                     display: "grid",
-                    gridTemplateColumns: "1fr",
-                    gap: 0,
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
                   }}
                 >
                   {quiz.options.map((opt, i) => (
@@ -788,17 +512,16 @@ export default function ElderModal({
                         onClick={() => onQuizAnswer(i)}
                         style={{
                           width: "100%",
-                          minHeight: 42,
+                          minHeight: 56,
                           boxSizing: "border-box",
                           display: "flex",
                           gap: 8,
-                          alignItems: "center",
+                          alignItems: "flex-start",
                           textAlign: "left",
-                          padding: "7px 8px",
-                          borderRadius: 0,
-                          border: 0,
-                          borderBottom: "1px solid rgba(196,167,104,0.10)",
-                          background: "transparent",
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          border: "1px solid rgba(232,197,106,0.28)",
+                          background: "rgba(12,10,8,0.65)",
                           color: "#f2e8d5",
                           font: "inherit",
                           cursor: "pointer",
@@ -874,21 +597,10 @@ export default function ElderModal({
           <button
             type="button"
             className="elder-dismiss"
-            onClick={screen === "home" ? onClose : () => setScreen("home")}
-            style={{
-              alignSelf: "stretch",
-              minWidth: 0,
-              marginTop: 6,
-              borderRadius: 0,
-              borderLeft: 0,
-              borderRight: 0,
-              borderBottom: 0,
-              padding: "8px 12px",
-              fontSize: 10,
-              opacity: 0.78,
-            }}
+            onClick={onClose}
+            style={{ alignSelf: "center", minWidth: 140, marginTop: 8 }}
           >
-            {screen === "home" ? "Явах (P)" : "← Үндсэн цэс"}
+            Хаах (P)
           </button>
         </div>
       </div>

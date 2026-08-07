@@ -155,36 +155,21 @@ export function pickSkillChoices(): Skill[] {
   return pool.slice(0, 3);
 }
 
-export function maybeLevelUp(_state: GameState): void {
-  // XP одоо автоматаар level болгохгүй.
-  // Тоглогч XP-гээ цуглуулаад өвгөн дээр очиж түвшин ахина.
-}
-
-export function beginElderLevelUp(state: GameState): boolean {
-  if (state.phase !== "elder") return false;
-  if (state.xp < state.xpNext) {
-    setMessage(
-      state,
-      `Түвшин ахихад ${state.xpNext} XP хэрэгтэй. Одоо ${state.xp} XP байна.`,
-      2.8,
-    );
-    sfx("select");
-    return false;
-  }
-
+export function maybeLevelUp(state: GameState): void {
+  if (state.phase !== "playing") return;
+  if (state.xp < state.xpNext) return;
   state.xp -= state.xpNext;
   state.level += 1;
   state.xpNext = 60 + state.level * 30;
   state.skillChoices = pickSkillChoices();
   state.menuIndex = 0;
   state.phase = "levelup";
-  sfx("levelup");
-  return true;
 }
 
 export function gainXp(state: GameState, n: number, at?: Vector2): void {
   state.xp += n;
   if (at) spawnText(state, at, `+${n} XP`, "#c0a0ff");
+  maybeLevelUp(state);
 }
 
 // ---------------------------------------------------------------------------
