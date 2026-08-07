@@ -595,6 +595,8 @@ export interface TumurShulmasEncounter {
 export interface World {
   width: number;
   height: number;
+  /** Terrain, biome, detail placement-ийг тогтвортой байлгах seed. */
+  terrainSeed: number;
   trees: Tree[];
   bushes: BerryBush[];
   campfire: Campfire;

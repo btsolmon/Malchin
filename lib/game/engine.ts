@@ -17,6 +17,10 @@ import {
 } from "./types";
 import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
 import { isInRiver, sampleBushPos, sampleStonePos, sampleTreePos } from "./biomes";
+import {
+  DEFAULT_TERRAIN_SEED,
+  createSeededRandom,
+} from "./terrainGenerator";
 import { spawnText, updateEffects, updateHitStop } from "./effects";
 import {
   ensureAudio,
@@ -124,15 +128,19 @@ import {
   updateOpeningSequence,
 } from "./story";
 
-export function createTrees(count: number): Tree[] {
+export function createTrees(
+  count: number,
+  seed = DEFAULT_TERRAIN_SEED,
+): Tree[] {
   const trees: Tree[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
+  const random = createSeededRandom(seed + 101);
 
   for (let i = 0; i < count; i++) {
     let pos: Vector2;
     let attempts = 0;
     do {
-      pos = sampleTreePos(center);
+      pos = sampleTreePos(center, random, seed);
       attempts++;
     } while (
       (dist(pos, center) < 220 || isInRiver(pos, 45)) &&
@@ -154,15 +162,19 @@ export function createTrees(count: number): Tree[] {
   return trees;
 }
 
-export function createBushes(count: number): BerryBush[] {
+export function createBushes(
+  count: number,
+  seed = DEFAULT_TERRAIN_SEED,
+): BerryBush[] {
   const bushes: BerryBush[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
+  const random = createSeededRandom(seed + 202);
 
   for (let i = 0; i < count; i++) {
     let pos: Vector2;
     let attempts = 0;
     do {
-      pos = sampleBushPos(center);
+      pos = sampleBushPos(center, random, seed);
       attempts++;
     } while (
       (dist(pos, center) < 140 || isInRiver(pos, 40)) &&
@@ -172,7 +184,7 @@ export function createBushes(count: number): BerryBush[] {
     bushes.push({
       id: 1000 + i,
       pos,
-      berries: 3 + Math.floor(Math.random() * 3),
+      berries: 3 + Math.floor(random() * 3),
       maxBerries: 5,
       radius: 16,
       respawnIn: 0,
@@ -184,16 +196,20 @@ export function createBushes(count: number): BerryBush[] {
   return bushes;
 }
 
-export function createStones(count: number): WorldStone[] {
+export function createStones(
+  count: number,
+  seed = DEFAULT_TERRAIN_SEED,
+): WorldStone[] {
   const stones: WorldStone[] = [];
   const center: Vector2 = { x: WORLD_W / 2, y: WORLD_H / 2 };
+  const random = createSeededRandom(seed + 303);
 
   for (let i = 0; i < count; i++) {
     stones.push({
       id: 8000 + i,
-      pos: sampleStonePos(center),
+      pos: sampleStonePos(center, random, seed),
       radius: 14,
-      amount: 2 + Math.floor(Math.random() * 3),
+      amount: 2 + Math.floor(random() * 3),
       maxAmount: 4,
       respawnIn: 0,
     });
@@ -277,9 +293,10 @@ export function createInitialState(): GameState {
     world: {
       width: WORLD_W,
       height: WORLD_H,
-      trees: createTrees(72),
-      bushes: createBushes(36),
-      stones: createStones(48),
+      terrainSeed: DEFAULT_TERRAIN_SEED,
+      trees: createTrees(72, DEFAULT_TERRAIN_SEED),
+      bushes: createBushes(36, DEFAULT_TERRAIN_SEED),
+      stones: createStones(48, DEFAULT_TERRAIN_SEED),
       campfire: {
         pos: { x: spawn.x, y: spawn.y },
         lit: false,
@@ -950,8 +967,8 @@ export function mountHerderGame(
 
   const rc: RenderContext = {
     ctx,
-    terrain: renderTerrain(false),
-    terrainWinter: renderTerrain(true),
+    terrain: renderTerrain(false, DEFAULT_TERRAIN_SEED),
+    terrainWinter: renderTerrain(true, DEFAULT_TERRAIN_SEED),
     lightCanvas: (() => {
       const c = document.createElement("canvas");
       c.width = VIEW_W;
