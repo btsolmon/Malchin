@@ -800,13 +800,16 @@ export function updateThieves(state: GameState, dt: number): void {
 
 export function updateThreatTimers(state: GameState, dt: number): void {
   const world = state.world;
-  world.nextWolfIn -= dt;
-  world.nextThiefIn -= dt;
+  // Эцэг эхээ аварсны дараа баавгай/чоно/хулгайчийн дайралт 2 дахин олширно
+  const raidRate = state.parentsReturned ? 2 : 1;
+  world.nextWolfIn -= dt * raidRate;
+  world.nextThiefIn -= dt * raidRate;
 
   const mult = threatIntervalMult(world) * 2;
   const night = isNight(world) || world.dayPhase === "night";
   if (world.nextWolfIn <= 0) {
-    const bear = state.level >= 2 && Math.random() < 0.12;
+    const bearChance = state.parentsReturned ? 0.24 : 0.12;
+    const bear = state.level >= 2 && Math.random() < bearChance;
     spawnWolf(state, bear ? "bear" : "wolf");
     const base = night ? randRange(20, 36) : randRange(44, 76);
     world.nextWolfIn = base * mult;

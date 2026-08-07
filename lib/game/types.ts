@@ -160,6 +160,10 @@ export interface Player {
   reachMult: number;
   cooldownMult: number;
   warmthResist: number;
+  /** Стамина нөхөгдөх хурд (>1 = хурдан) */
+  staminaRegenMult: number;
+  /** Өлсгөлөн унах хурд (<1 = удаан) */
+  hungerDrainMult: number;
   /** Дэлгүүрээс авсан эд зүйлс */
   gear: Record<GearId, boolean>;
   /** Морины амь — морь цохилтын дийлэнхийг өөр дээрээ авна */

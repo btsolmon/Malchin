@@ -31,6 +31,7 @@ export function createCombatPlayer(
     damageMultiplier: 1,
     reachMultiplier: 1,
     cooldownMultiplier: 1,
+    staminaRegenMultiplier: 1,
   };
 }
 

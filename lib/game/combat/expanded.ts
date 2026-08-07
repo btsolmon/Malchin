@@ -426,9 +426,10 @@ function updateStamina(state: GameState, dt: number): void {
     player.staminaRegenDelay <= 0 &&
     player.stamina < player.maxStamina
   ) {
+    const regenMult = player.staminaRegenMult ?? 1;
     player.stamina = Math.min(
       player.maxStamina,
-      player.stamina + STAMINA_REGEN_PER_SECOND * dt,
+      player.stamina + STAMINA_REGEN_PER_SECOND * regenMult * dt,
     );
   }
 }

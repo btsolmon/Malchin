@@ -24,7 +24,7 @@ import {
   drawSwordDrop,
 } from "../firstRoute";
 
-import { drawLighting, drawWeatherFx } from "./lighting";
+import { drawColdFrostFrame, drawLighting, drawWeatherFx } from "./lighting";
 import { drawRiverFlowOverlay } from "./terrain";
 import { getCameraShakeOffset } from "../effects";
 import {
@@ -1186,6 +1186,9 @@ export function render(
 
   // Vignette
   ctx.drawImage(rc.vignette, 0, 0, VIEW_W, VIEW_H);
+
+  // Даарахад цэнхэр мөстөн хүрээ
+  drawColdFrostFrame(ctx, state, time);
 
   // Цохиулах улаан ирмэг
   if (state.fx.hurtFlash > 0) {

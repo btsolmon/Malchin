@@ -83,6 +83,7 @@ function toCombatPlayer(state: GameState): CombatPlayer {
     damageMultiplier: p.damageMult,
     reachMultiplier: p.reachMult,
     cooldownMultiplier: p.cooldownMult,
+    staminaRegenMultiplier: p.staminaRegenMult ?? 1,
   };
 }
 

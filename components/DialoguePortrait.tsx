@@ -56,6 +56,8 @@ function makeBoyPortrait(): Player {
     reachMult: 1,
     cooldownMult: 1,
     warmthResist: 1,
+    staminaRegenMult: 1,
+    hungerDrainMult: 1,
     gear: {
       dog: false,
       horse: false,

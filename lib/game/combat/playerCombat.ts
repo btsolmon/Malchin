@@ -33,9 +33,11 @@ function updateStamina(player: CombatPlayer, dt: number): void {
     player.staminaRegenDelay <= 0 &&
     player.stamina < player.maxStamina
   ) {
+    const regenMult = player.staminaRegenMultiplier ?? 1;
     player.stamina = Math.min(
       player.maxStamina,
-      player.stamina + COMBAT_CONFIG.stamina.regenerationPerSecond * dt,
+      player.stamina +
+        COMBAT_CONFIG.stamina.regenerationPerSecond * regenMult * dt,
     );
   }
 }

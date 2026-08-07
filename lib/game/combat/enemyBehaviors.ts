@@ -1755,13 +1755,15 @@ export function updateThieves(state: GameState, dt: number): void {
 
 export function updateThreatTimers(state: GameState, dt: number): void {
   const world = state.world;
-  world.nextWolfIn -= dt;
-  world.nextThiefIn -= dt;
+  const raidRate = state.parentsReturned ? 2 : 1;
+  world.nextWolfIn -= dt * raidRate;
+  world.nextThiefIn -= dt * raidRate;
 
   const night = isNight(world);
   if (world.nextWolfIn <= 0) {
     // 2-р түвшнээс эхлэн заримдаа чонын оронд баавгай гарна
-    const bear = state.level >= 2 && Math.random() < 0.25;
+    const bearChance = state.parentsReturned ? 0.5 : 0.25;
+    const bear = state.level >= 2 && Math.random() < bearChance;
     spawnWolf(state, bear ? "bear" : "wolf");
     world.nextWolfIn = night ? randRange(10, 18) : randRange(22, 38);
   }

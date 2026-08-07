@@ -48,6 +48,7 @@ export interface CombatPlayer {
   damageMultiplier: number;
   reachMultiplier: number;
   cooldownMultiplier: number;
+  staminaRegenMultiplier: number;
 }
 
 export interface CombatEnemy {

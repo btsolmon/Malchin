@@ -129,11 +129,19 @@ export const SKILL_POOL: Skill[] = [
     },
   },
   {
-    id: "reach",
-    name: "Урт таяг",
-    desc: "Цохилтын хүрээ +20%",
+    id: "stamina",
+    name: "Тэсвэртэй тамир",
+    desc: "Стамина +40% хурдан нөхөгдөнө",
     apply: (s) => {
-      s.player.reachMult *= 1.2;
+      s.player.staminaRegenMult *= 1.4;
+    },
+  },
+  {
+    id: "endurance",
+    name: "Цадсан бие",
+    desc: "Өлсгөлөн 40%-иар удаан унана",
+    apply: (s) => {
+      s.player.hungerDrainMult *= 0.6;
     },
   },
   {
@@ -1276,8 +1284,10 @@ export function updateSurvival(state: GameState, dt: number): void {
     }
   }
 
+  const hungerDrain =
+    0.7 * (player.hungerDrainMult ?? 1);
   player.vitals.hunger = clamp(
-    player.vitals.hunger - 0.7 * dt,
+    player.vitals.hunger - hungerDrain * dt,
     0,
     player.vitals.maxHunger,
   );
