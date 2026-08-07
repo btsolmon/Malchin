@@ -9,7 +9,12 @@ import {
   type World,
   type WorldRock,
 } from "../types";
-import { DESERT_Y, FOREST_Y, riverCenterX, riverHalfWidth } from "../biomes";
+import { biomeAt, riverCenterX, riverHalfWidth } from "../biomes";
+import {
+  sampleTerrain,
+  terrainDensity,
+  terrainHash,
+} from "../terrainGenerator";
 
 export interface WorldSpriteSet {
   objects: HTMLCanvasElement;
@@ -296,36 +301,6 @@ function drawFlatCrop(
   ctx.restore();
 }
 
-function terrainHash(x: number, y: number): number {
-  let value = Math.imul(x, 374761393) + Math.imul(y, 668265263);
-  value = Math.imul(value ^ (value >>> 13), 1274126177);
-  return ((value ^ (value >>> 16)) >>> 0) / 4294967295;
-}
-
-function smoothNoise(x: number, y: number, scale: number, salt: number): number {
-  const sx = x / scale;
-  const sy = y / scale;
-  const ix = Math.floor(sx);
-  const iy = Math.floor(sy);
-  const fx = sx - ix;
-  const fy = sy - iy;
-  const smoothX = fx * fx * (3 - 2 * fx);
-  const smoothY = fy * fy * (3 - 2 * fy);
-  const sample = (ox: number, oy: number): number =>
-    terrainHash(ix + ox + salt * 31, iy + oy - salt * 17);
-  const top = sample(0, 0) * (1 - smoothX) + sample(1, 0) * smoothX;
-  const bottom = sample(0, 1) * (1 - smoothX) + sample(1, 1) * smoothX;
-  return top * (1 - smoothY) + bottom * smoothY;
-}
-
-function terrainDensity(x: number, y: number): number {
-  return (
-    smoothNoise(x, y, 620, 3) * 0.52 +
-    smoothNoise(x, y, 230, 11) * 0.33 +
-    smoothNoise(x, y, 92, 23) * 0.15
-  );
-}
-
 function distanceSquared(ax: number, ay: number, bx: number, by: number): number {
   const dx = ax - bx;
   const dy = ay - by;
@@ -341,7 +316,16 @@ function puddleStrength(world: World): number {
 }
 
 function puddlePositionAllowed(world: World, x: number, y: number): boolean {
-  if (y < FOREST_Y + 28 || y > DESERT_Y - 42) return false;
+  const biome = biomeAt(x, y, world.terrainSeed);
+  const terrain = sampleTerrain(x, y, world.terrainSeed);
+  if (
+    biome === "desert" ||
+    biome === "rocky" ||
+    terrain.moisture < 0.5 ||
+    terrain.elevation > 0.68
+  ) {
+    return false;
+  }
   const riverDistance = Math.abs(x - riverCenterX(y)) - riverHalfWidth(y);
   if (riverDistance < 34) return false;
   const distanceSq = (ax: number, ay: number, radius: number): boolean => {
@@ -373,15 +357,20 @@ function puddlePositionAllowed(world: World, x: number, y: number): boolean {
 function generatePuddleCandidates(sprites: WorldSpriteSet, world: World): void {
   if (sprites.puddleCandidatesReady) return;
   const cell = 190;
+  const seed = world.terrainSeed;
+  const hash = (x: number, y: number): number => terrainHash(x, y, seed);
+
   for (let gy = 0; gy <= Math.ceil(WORLD_H / cell); gy++) {
     for (let gx = 0; gx <= Math.ceil(WORLD_W / cell); gx++) {
-      if (terrainHash(gx + 101, gy - 47) < 0.56) continue;
-      const x = gx * cell + 35 + terrainHash(gx + 17, gy + 3) * 120;
-      const y = gy * cell + 38 + terrainHash(gx - 11, gy + 41) * 112;
+      if (hash(gx + 101, gy - 47) < 0.5) continue;
+      const x = gx * cell + 35 + hash(gx + 17, gy + 3) * 120;
+      const y = gy * cell + 38 + hash(gx - 11, gy + 41) * 112;
+      const terrain = sampleTerrain(x, y, seed);
+      if (terrain.moisture < 0.5 || terrain.elevation > 0.68) continue;
       if (!puddlePositionAllowed(world, x, y)) continue;
       const assetIndex = Math.min(
         PUDDLE_DETAILS.length - 1,
-        Math.floor(terrainHash(gx + 53, gy + 79) * PUDDLE_DETAILS.length),
+        Math.floor(hash(gx + 53, gy + 79) * PUDDLE_DETAILS.length),
       );
       sprites.puddleCandidates.push({
         x,
@@ -389,10 +378,10 @@ function generatePuddleCandidates(sprites: WorldSpriteSet, world: World): void {
         assetIndex,
         width: Math.round(
           PUDDLE_DETAILS[assetIndex].targetWidth *
-            (0.78 + terrainHash(gx + 31, gy - 5) * 0.42),
+            (0.78 + hash(gx + 31, gy - 5) * 0.42),
         ),
-        wetBorder: terrainHash(gx, gy + 97) > 0.48,
-        rippleSeed: terrainHash(gx, gy),
+        wetBorder: hash(gx, gy + 97) > 0.42,
+        rippleSeed: hash(gx, gy),
       });
     }
   }
@@ -416,7 +405,12 @@ function detailPositionAllowed(
   x: number,
   y: number,
 ): boolean {
-  if (x < 24 || x > WORLD_W - 24 || y < FOREST_Y + 12 || y > DESERT_Y - 30) {
+  if (x < 24 || x > WORLD_W - 24 || y < 24 || y > WORLD_H - 24) {
+    return false;
+  }
+  const biome = biomeAt(x, y, world.terrainSeed);
+  const terrain = sampleTerrain(x, y, world.terrainSeed);
+  if (biome === "desert" || biome === "rocky" || terrain.fertility < 0.3) {
     return false;
   }
   const riverDistance = Math.abs(x - riverCenterX(y)) - riverHalfWidth(y);
@@ -442,70 +436,118 @@ function buildStaticTerrainCache(sprites: WorldSpriteSet, world: World): void {
   canvas.height = WORLD_H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  const seed = world.terrainSeed;
+  const hash = (x: number, y: number): number => terrainHash(x, y, seed);
+
   ctx.save();
   try {
     ctx.clearRect(0, 0, WORLD_W, WORLD_H);
     ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = 0.82;
 
-    // Multi-scale noise is a placement mask only. Its geometry is never drawn.
-    const clusterSize = 250;
+    const clusterSize = 225;
     for (let gy = 0; gy <= Math.ceil(WORLD_H / clusterSize); gy++) {
       for (let gx = 0; gx <= Math.ceil(WORLD_W / clusterSize); gx++) {
-        const centerX = gx * clusterSize + 45 + terrainHash(gx - 3, gy + 11) * 160;
-        const centerY = gy * clusterSize + 48 + terrainHash(gx + 5, gy + 23) * 155;
-        const riverEdge = Math.abs(centerX - riverCenterX(centerY)) - riverHalfWidth(centerY);
-        const density = terrainDensity(centerX, centerY) +
-          (riverEdge > 18 && riverEdge < 115 ? 0.18 : 0);
-        if (density < 0.54) continue;
-        const count = Math.min(6, 2 + Math.floor((density - 0.5) * 9));
+        const centerX = gx * clusterSize + 35 + hash(gx - 3, gy + 11) * 155;
+        const centerY = gy * clusterSize + 38 + hash(gx + 5, gy + 23) * 145;
+        const riverEdge =
+          Math.abs(centerX - riverCenterX(centerY)) - riverHalfWidth(centerY);
+        const biome = biomeAt(centerX, centerY, seed);
+        const terrain = sampleTerrain(centerX, centerY, seed);
+        const biomeBoost =
+          biome === "meadow"
+            ? 0.19
+            : biome === "riverbank"
+              ? 0.14
+              : biome === "forest"
+                ? 0.09
+                : biome === "drySteppe"
+                  ? -0.12
+                  : 0;
+        const density =
+          terrainDensity(centerX, centerY, seed) +
+          biomeBoost +
+          (riverEdge > 18 && riverEdge < 115 ? 0.1 : 0);
+        if (density < 0.49) continue;
+        const count = Math.min(8, 2 + Math.floor((density - 0.44) * 12));
+
         for (let i = 0; i < count; i++) {
-          const angle = terrainHash(gx * 13 + i, gy * 17 - i) * Math.PI * 2;
-          const radius = 12 + terrainHash(gx + i * 7, gy - i * 11) * 72;
+          const angle = hash(gx * 13 + i, gy * 17 - i) * Math.PI * 2;
+          const radius = 10 + hash(gx + i * 7, gy - i * 11) * 76;
           const x = centerX + Math.cos(angle) * radius;
           const y = centerY + Math.sin(angle) * radius * 0.62;
           if (!detailPositionAllowed(world, sprites, x, y)) continue;
-          const crop = SMALL_TERRAIN_DETAILS[
-            Math.floor(terrainHash(gx + 19 + i, gy - 7 - i) * SMALL_TERRAIN_DETAILS.length)
-          ];
-          const width = Math.round(crop.targetWidth *
-            (0.72 + terrainHash(gx + 31 + i, gy + 2) * 0.5));
+          const localBiome = biomeAt(x, y, seed);
+          const pool =
+            localBiome === "meadow"
+              ? SMALL_TERRAIN_DETAILS
+              : SMALL_TERRAIN_DETAILS.filter(
+                  (detail) => detail.kind !== "denseGrassPatch",
+                );
+          const crop =
+            pool[Math.floor(hash(gx + 19 + i, gy - 7 - i) * pool.length)];
+          const width = Math.round(
+            crop.targetWidth * (0.68 + hash(gx + 31 + i, gy + 2) * 0.52),
+          );
+          ctx.globalAlpha =
+            localBiome === "forest" ? 0.68 : localBiome === "riverbank" ? 0.76 : 0.82;
           drawCrop(ctx, sprites.terrainDetails, crop, x, y, width);
         }
       }
     }
 
-    // Sparse single-pixel and tiny-sprite accents break repetition without noise.
-    const smallCell = 125;
+    const smallCell = 110;
     for (let gy = 0; gy <= Math.ceil(WORLD_H / smallCell); gy++) {
       for (let gx = 0; gx <= Math.ceil(WORLD_W / smallCell); gx++) {
-        if (terrainHash(gx + 211, gy - 89) < 0.73) continue;
-        const x = gx * smallCell + 16 + terrainHash(gx + 7, gy + 29) * 92;
-        const y = gy * smallCell + 18 + terrainHash(gx - 41, gy + 13) * 88;
-        if (terrainDensity(x, y) < 0.46 || !detailPositionAllowed(world, sprites, x, y)) continue;
-        ctx.globalAlpha = 0.42;
-        ctx.fillStyle = terrainHash(gx, gy) > 0.5 ? "#657a3b" : "#86934d";
+        if (hash(gx + 211, gy - 89) < 0.68) continue;
+        const x = gx * smallCell + 14 + hash(gx + 7, gy + 29) * 82;
+        const y = gy * smallCell + 15 + hash(gx - 41, gy + 13) * 80;
+        if (
+          terrainDensity(x, y, seed) < 0.43 ||
+          !detailPositionAllowed(world, sprites, x, y)
+        ) {
+          continue;
+        }
+        const biome = biomeAt(x, y, seed);
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle =
+          biome === "forest"
+            ? "#3f6335"
+            : biome === "riverbank"
+              ? "#4d7445"
+              : biome === "drySteppe"
+                ? "#8a8249"
+                : hash(gx, gy) > 0.5
+                  ? "#657a3b"
+                  : "#86934d";
         ctx.fillRect(Math.round(x), Math.round(y), 2, 1);
-        if (terrainHash(gx + 5, gy - 3) > 0.64) {
+        if (hash(gx + 5, gy - 3) > 0.61) {
           ctx.fillRect(Math.round(x + 4), Math.round(y + 2), 1, 1);
         }
-        ctx.globalAlpha = 0.82;
       }
     }
 
-    // Tree bases get denser undergrowth, cached with all other static details.
+    ctx.globalAlpha = 0.82;
     for (const tree of world.trees) {
-      if (terrainHash(tree.id, 91) < 0.38) continue;
+      if (hash(tree.id, 91) < 0.34) continue;
       const detailCount = tree.hp > 0 ? 2 : 3;
       for (let i = 0; i < detailCount; i++) {
-        const crop = SMALL_TERRAIN_DETAILS[
-          Math.floor(terrainHash(tree.id + i * 5, 37) * SMALL_TERRAIN_DETAILS.length)
-        ];
+        const crop =
+          SMALL_TERRAIN_DETAILS[
+            Math.floor(hash(tree.id + i * 5, 37) * SMALL_TERRAIN_DETAILS.length)
+          ];
         const side = i % 2 === 0 ? -1 : 1;
-        const x = tree.pos.x + side * (15 + terrainHash(tree.id, i) * 15);
-        const y = tree.pos.y + 3 + terrainHash(tree.id + i, 73) * 10;
+        const x = tree.pos.x + side * (15 + hash(tree.id, i) * 15);
+        const y = tree.pos.y + 3 + hash(tree.id + i, 73) * 10;
         if (nearPuddleCandidate(sprites, x, y, 34)) continue;
-        drawCrop(ctx, sprites.terrainDetails, crop, x, y, Math.round(crop.targetWidth * 0.72));
+        drawCrop(
+          ctx,
+          sprites.terrainDetails,
+          crop,
+          x,
+          y,
+          Math.round(crop.targetWidth * 0.72),
+        );
       }
     }
   } finally {
