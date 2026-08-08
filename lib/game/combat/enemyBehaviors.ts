@@ -60,29 +60,6 @@ import {
 } from "../livestock";
 import { handlePlayerDeath } from "../spirit";
 
-export function createVisualSheep(id: number, around: Vector2): Sheep {
-  const ang = Math.random() * Math.PI * 2;
-  const r = randRange(20, PASTURE_RADIUS * 0.7);
-  return {
-    id,
-    kind: "sheep",
-    pos: {
-      x: around.x + Math.cos(ang) * r,
-      y: around.y + Math.sin(ang) * r,
-    },
-    vel: { x: 0, y: 0 },
-    radius: 10,
-    grazeSeed: Math.random() * 10,
-    hp: 3,
-    flash: 0,
-    face: 1,
-    produceIn: 48,
-    produceReady: false,
-    newborn: false,
-    newbornWarmth: 100,
-  };
-}
-
 export function syncVisualFlock(state: GameState): void {
   syncLivestockVisuals(state);
 }
@@ -399,9 +376,6 @@ const WOLF_CLAW_DAMAGE_MULTIPLIER = 0.8;
 const WOLF_POST_ATTACK_COOLDOWN = 1.2;
 const WOLF_CLAW_POST_ATTACK_COOLDOWN = 0.95;
 
-/** Шар telegraph улаан болж parry хийхэд тохиромжтой болох хугацаа. */
-export const WOLF_PARRY_WARNING_TIME = 0.22;
-
 /** Амжилттай parry хийсний дараах чонын stun. */
 export const WOLF_STUN_DURATION = 2;
 
@@ -556,9 +530,6 @@ const BEAR_SWIPE_POST_ATTACK_COOLDOWN = 1.25;
 const BEAR_GRAB_POST_ATTACK_COOLDOWN = 1.7;
 const BEAR_GRAB_BITE_DAMAGE_MULTIPLIER = 0.85;
 const BEAR_GRAB_FINISH_DAMAGE_MULTIPLIER = 1.15;
-
-/** Шар telegraph улаан болох үед bear swipe parry хийж болно. */
-export const BEAR_PARRY_WARNING_TIME = 0.24;
 
 /** Bear swipe parry хийсний дараах counter хийх хугацаа. */
 export const BEAR_STUN_DURATION = 1.9;

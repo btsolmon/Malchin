@@ -57,8 +57,7 @@ body {
   outline: none;
 }
 
-.elder-backdrop,
-.riddle-backdrop {
+.elder-backdrop {
   position: absolute;
   inset: 0;
   z-index: 20;
@@ -70,8 +69,7 @@ body {
   pointer-events: auto;
 }
 
-.elder-panel,
-.riddle-panel {
+.elder-panel {
   width: min(520px, 92%);
   max-height: min(480px, 90%);
   overflow: auto;
@@ -274,13 +272,11 @@ body {
   box-shadow: 0 0 24px rgba(232, 197, 106, 0.2);
 }
 
-.elder-panel-inner,
-.riddle-panel-inner {
+.elder-panel-inner {
   padding: 18px 20px 16px;
 }
 
-.elder-eyebrow,
-.riddle-eyebrow {
+.elder-eyebrow {
   margin: 0;
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -288,8 +284,7 @@ body {
   color: var(--herder-muted);
 }
 
-.elder-title,
-.riddle-title {
+.elder-title {
   margin: 4px 0 0;
   font-size: 28px;
   font-weight: 700;
@@ -326,10 +321,7 @@ body {
 .elder-trades button,
 .elder-next,
 .elder-dismiss,
-.elder-dialogue-list button,
-.riddle-option,
-.riddle-close,
-.riddle-dismiss {
+.elder-dialogue-list button {
   font: inherit;
   cursor: pointer;
   border: 1px solid rgba(232, 197, 106, 0.35);
@@ -345,8 +337,7 @@ body {
 }
 
 .elder-trades,
-.elder-dialogue-list,
-.riddle-options {
+.elder-dialogue-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -390,59 +381,10 @@ body {
   gap: 8px;
 }
 
-.elder-dismiss,
-.riddle-dismiss {
+.elder-dismiss {
   margin-top: 14px;
   width: 100%;
   color: var(--herder-muted);
-}
-
-.riddle-question {
-  margin: 12px 0 16px;
-  line-height: 1.45;
-  font-size: 15px;
-}
-
-.riddle-option {
-  width: 100%;
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  text-align: left;
-}
-
-.riddle-letter {
-  flex: 0 0 auto;
-  color: var(--herder-gold);
-  font-weight: 700;
-}
-
-.riddle-feedback {
-  margin: 12px 0 0;
-  font-size: 13px;
-}
-
-.riddle-feedback-wrong {
-  color: #ff8080;
-}
-
-.riddle-feedback-ok {
-  color: #8fd48f;
-  font-weight: 700;
-}
-
-.riddle-explain,
-.riddle-reward {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: #d8c898;
-}
-
-.riddle-close {
-  margin-top: 14px;
-  width: 100%;
-  border-color: var(--herder-gold);
-  color: var(--herder-gold);
 }
 
 /* Сүнсний хаалга — dialogue CTA */

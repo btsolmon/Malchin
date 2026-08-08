@@ -8,7 +8,15 @@ import {
   type Vector2,
   type Wolf,
 } from "../types";
-import { clamp, dist, normalize, setMessage } from "../utils";
+import {
+  clamp,
+  dist,
+  normalize,
+  pastureCenter,
+  pushOutOfGer,
+  pushOutOfUrtz,
+  setMessage,
+} from "../utils";
 import { applyRiverCurrent } from "../biomes";
 import {
   spawnImpactBurst,
@@ -1253,7 +1261,7 @@ export function updateProjectiles(state: GameState, dt: number): void {
   );
 }
 
-/** Хоньчин нохой — чоно хөөж, тоглогчийг дагана; хазуулж үхэж болно */
+/** Хоньчин нохой — чоно хөөж, сүрэг туудаг; хазуулж үхэж болно */
 export function updateDog(state: GameState, dt: number): void {
   const dog = state.world.dog;
   if (!dog) return;
@@ -1278,10 +1286,61 @@ export function updateDog(state: GameState, dt: number): void {
     }
   }
 
-  let target: Vector2 | null = null;
+  const herding = state.input.herd;
+  const visuals = state.world.flock.visuals;
+  // Туух үед ойрын чононоос бусад үед сүргээ тусална
+  const preferHerd =
+    !prey ||
+    (herding && bestDistance > 160) ||
+    (!herding && bestDistance > 240);
+  const chasePrey =
+    prey && (!preferHerd || visuals.length === 0) ? prey : null;
 
-  if (prey) {
-    target = prey.pos;
+  let target: Vector2 | null = null;
+  let speed = 140;
+
+  if (chasePrey) {
+    target = chasePrey.pos;
+    speed = 165;
+  } else if (visuals.length > 0) {
+    let cx = 0;
+    let cy = 0;
+    for (const sheep of visuals) {
+      cx += sheep.pos.x;
+      cy += sheep.pos.y;
+    }
+    cx /= visuals.length;
+    cy /= visuals.length;
+
+    // Туух чиг: N үед малчны нүүр, үгүй бол бэлчээр рүү
+    const center = pastureCenter(state.world);
+    const drive = herding
+      ? normalize(state.player.facing)
+      : normalize({ x: center.x - cx, y: center.y - cy });
+
+    // Туух чигийн ард хоцорсон хонийг сонгоод түүний ард орно
+    let bestSheep = visuals[0];
+    let bestScore = -Infinity;
+    for (const sheep of visuals) {
+      const along =
+        (sheep.pos.x - cx) * drive.x + (sheep.pos.y - cy) * drive.y;
+      const fromPlayer = dist(sheep.pos, state.player.pos);
+      const score = herding
+        ? -along + fromPlayer * 0.15
+        : dist(sheep.pos, { x: cx, y: cy });
+      if (score > bestScore) {
+        bestScore = score;
+        bestSheep = sheep;
+      }
+    }
+
+    // Хонь нохойноос урагш зугтдаг тул түүний ард байрлана
+    const behindDist = herding ? 38 : 48;
+    target = {
+      x: bestSheep.pos.x - drive.x * behindDist,
+      y: bestSheep.pos.y - drive.y * behindDist,
+    };
+    speed = herding ? 185 : 150;
   } else {
     const follow = {
       x: state.player.pos.x + 26,
@@ -1302,10 +1361,11 @@ export function updateDog(state: GameState, dt: number): void {
       dog.face = dir.x < 0 ? -1 : 1;
     }
 
-    const speed = prey ? 165 : 140;
-    const stopRange = prey ? prey.radius * prey.scale + 10 : 0;
+    const stopRange = chasePrey
+      ? chasePrey.radius * chasePrey.scale + 10
+      : 10;
 
-    if (!prey || dist(dog.pos, prey.pos) > stopRange) {
+    if (dist(dog.pos, target) > stopRange) {
       dog.pos.x += dir.x * speed * dt;
       dog.pos.y += dir.y * speed * dt;
     }
@@ -1340,6 +1400,9 @@ export function updateDog(state: GameState, dt: number): void {
     }
   }
 
+  if (state.phase === "playing") applyRiverCurrent(dog.pos, dt, 0.55);
+  pushOutOfGer(dog.pos, 12, state.world);
+  pushOutOfUrtz(dog.pos, 12, state.world);
   dog.pos.x = clamp(dog.pos.x, 20, WORLD_W - 20);
   dog.pos.y = clamp(dog.pos.y, 20, WORLD_H - 20);
 }

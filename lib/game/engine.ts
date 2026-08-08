@@ -30,7 +30,6 @@ import {
   startMusic,
 } from "../game/audio";
 import {
-  maybeLevelUp,
   beginElderLevelUp,
   tryBuildFence,
   tryEatBerry,
@@ -51,8 +50,7 @@ import {
   updateThreatTimers,
   updateWolves,
 } from "../game/enemies";
-import { updateCombat } from "../game/combat/expanded";
-import { updateDog, updateProjectiles } from "../game/combat";
+import { updateCombat, updateDog, updateProjectiles } from "../game/combat";
 import {
   updateGer,
   updateLevelUp,
@@ -77,20 +75,11 @@ import {
   updateTumurShulmasEncounter,
 } from "./tumurShulmas";
 import { trySwitchPlayerWeapon } from "./combat/playerWeapon";
-import { loadPlayerSprites } from "./render/playerSprites";
-import { loadWorldSprites } from "./render/worldSprites";
 import {
   createFirstRoute,
   tryInteractFirstRoute,
   updateFirstRoute,
 } from "./firstRoute";
-import {
-  closeRiddle,
-  assignRiddlesToWorld,
-  getRiddleUiSnapshot,
-  submitRiddleAnswer,
-  type RiddleUiSnapshot,
-} from "./riddles";
 import {
   advanceElderDialogue,
   chooseElderOption,
@@ -156,9 +145,6 @@ export function createTrees(
       maxHp: 3,
       radius: 18,
       respawnIn: 0,
-      riddleHost: false,
-      riddleSolved: false,
-      riddleId: null,
     });
   }
   return trees;
@@ -190,9 +176,6 @@ export function createBushes(
       maxBerries: 5,
       radius: 16,
       respawnIn: 0,
-      riddleHost: false,
-      riddleSolved: false,
-      riddleId: null,
     });
   }
   return bushes;
@@ -324,7 +307,6 @@ export function createInitialState(): GameState {
       },
       wolves: [],
       thieves: [],
-      rocks: [],
       elder: { ...createElder(spawn), eyeMode: "idle" as const },
       season: "autumn",
       weather: "clear",
@@ -435,11 +417,6 @@ export function createInitialState(): GameState {
     gerStoveFuel: 0,
     requestRestart: false,
     nextEntityId: 100,
-    activeRiddleId: null,
-    activeRiddleHost: null,
-    riddleFeedback: "idle",
-    riddleSelectedIndex: null,
-    riddleLastDelta: 0,
     spiritPoints: 0,
     elderTab: "trade",
     elderDialogueId: null,
@@ -463,7 +440,6 @@ export function createInitialState(): GameState {
     parents: null,
   };
 
-  assignRiddlesToWorld(state.world, spawn, 11);
   state.world.fences = createStarterPen(spawn, () => allocId(state));
   state.world.fish = createRiverFish(() => allocId(state));
   syncVisualFlock(state);
@@ -644,13 +620,6 @@ export function update(state: GameState, dt: number): void {
     updatePauseMenu(state);
   } else if (state.phase === "ger") {
     updateGer(state, dt);
-    state.fencePreview = false;
-  } else if (state.phase === "riddle") {
-    // React modal хариуцна — P дарвал хаана
-    if (state.input.pause) {
-      closeRiddle(state);
-      maybeLevelUp(state);
-    }
     state.fencePreview = false;
   } else if (state.phase === "elder") {
     // React ElderModal хариуцна — P/Esc дарвал хаана
@@ -911,8 +880,6 @@ export function update(state: GameState, dt: number): void {
 
 export interface HerderGameHandle {
   destroy: () => void;
-  submitRiddleAnswer: (optionIndex: number) => void;
-  closeRiddleModal: () => void;
   setElderTab: (tab: ElderTab) => void;
   levelUpWithElder: () => void;
   tradeWithElder: (itemId: string) => void;
@@ -928,7 +895,6 @@ export interface HerderGameHandle {
 }
 
 export interface MountHerderOptions {
-  onRiddleUi?: (snapshot: RiddleUiSnapshot) => void;
   onElderUi?: (snapshot: ElderUiSnapshot) => void;
 }
 
@@ -969,9 +935,7 @@ export function mountHerderGame(
       return c;
     })(),
     vignette: makeVignette(),
-    playerSprites: loadPlayerSprites(),
     tumurShulmasSprites: loadTumurShulmasSprites(),
-    worldSprites: loadWorldSprites(),
   };
 
   const onWindowResize = (): void => {
@@ -1008,19 +972,7 @@ export function mountHerderGame(
     }
   };
   window.addEventListener("keydown", onStoryCheatKeyDown);
-  let lastRiddleKey = "";
   let lastElderKey = "";
-
-  const notifyRiddleUi = (): void => {
-    if (!options.onRiddleUi) return;
-    const snap = getRiddleUiSnapshot(state);
-    const key = snap.open
-      ? `${snap.question}|${snap.feedback}|${snap.selectedIndex}|${snap.lastDelta}|${snap.options.join("~")}`
-      : "closed";
-    if (key === lastRiddleKey) return;
-    lastRiddleKey = key;
-    options.onRiddleUi(snap);
-  };
 
   const notifyElderUi = (): void => {
     if (!options.onElderUi) return;
@@ -1067,7 +1019,7 @@ export function mountHerderGame(
   };
   const onPointerDown = (e: PointerEvent): void => {
     // React modal үед canvas click хэрэггүй
-    if (state.phase === "riddle" || state.phase === "elder") return;
+    if (state.phase === "elder") return;
     const p = toView(e);
     state.input.mouseX = p.x;
     state.input.mouseY = p.y;
@@ -1098,9 +1050,7 @@ export function mountHerderGame(
 
     if (state.requestRestart) {
       state = createInitialState();
-      lastRiddleKey = "";
       lastElderKey = "";
-      options.onRiddleUi?.({ open: false });
       options.onElderUi?.({ open: false });
     }
 
@@ -1113,7 +1063,6 @@ export function mountHerderGame(
     ) {
       enterBrowserFullscreen();
     }
-    notifyRiddleUi();
     notifyElderUi();
     render(rc, state, now / 1000);
     raf = requestAnimationFrame(frame);
@@ -1134,17 +1083,7 @@ export function mountHerderGame(
       window.removeEventListener("keydown", unlockAudio);
       window.removeEventListener("pointerdown", unlockAudio);
       shutdownAudio();
-      options.onRiddleUi?.({ open: false });
       options.onElderUi?.({ open: false });
-    },
-    submitRiddleAnswer: (optionIndex: number) => {
-      submitRiddleAnswer(state, optionIndex);
-      notifyRiddleUi();
-    },
-    closeRiddleModal: () => {
-      closeRiddle(state);
-      maybeLevelUp(state);
-      notifyRiddleUi();
     },
     setElderTab: (tab: ElderTab) => {
       setElderTab(state, tab);
@@ -1188,7 +1127,6 @@ export function mountHerderGame(
     },
     skipStoryStage: () => {
       debugSkipCurrentStoryStage(state);
-      notifyRiddleUi();
       notifyElderUi();
     },
   };

@@ -455,25 +455,6 @@ export function startElderDialogue(state: GameState, dialogueId: string): void {
   sfx("select");
 }
 
-/** Нээлтийн чонын үеийн дөрвөн мөрт яриаг нэг удаа шууд эхлүүлнэ. */
-export function beginFirstNightElderDialogue(state: GameState): void {
-  if (
-    state.story.shortDialogueStarted ||
-    state.story.shortDialogueCompleted ||
-    state.story.milestone3Completed
-  ) {
-    return;
-  }
-
-  state.story.shortDialogueStarted = true;
-  state.story.firstNightStage = "elderDialogue";
-  state.story.firstNightStageRemaining = 0;
-  state.world.elder.pose = "standing";
-  state.world.elder.eyeMode = "idle";
-  state.phase = "elder";
-  startElderDialogue(state, FIRST_NIGHT_ELDER_DIALOGUE.id);
-}
-
 /** Чоно унасны дараах голомтын дэргэдэх танилцах яриаг эхлүүлнэ. */
 export function beginPostWolfElderDialogue(state: GameState): void {
   if (

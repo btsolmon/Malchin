@@ -17,7 +17,7 @@ import {
 import { sfx } from "./audio";
 import { beginFamilyReunionDialogue } from "./elder";
 import { spawnParticles } from "./effects";
-import { isInRiver, riverCenterX, riverHalfWidth } from "./biomes";
+import { isInRiver } from "./biomes";
 import { animalInPen, getDayPhase, TIME_RATE } from "./daycycle";
 import { spawnWolf } from "./enemies";
 import {
@@ -1268,9 +1268,6 @@ function openingLivestockSpotIsClear(
   for (const bush of world.bushes) {
     if (dist(pos, bush.pos) < bush.radius + 20) return false;
   }
-  for (const rock of world.rocks) {
-    if (dist(pos, rock.pos) < rock.radius + 20) return false;
-  }
   return true;
 }
 
@@ -1312,50 +1309,6 @@ function resolveOpeningLivestockSpot(
     }
   }
   return { x: preferred.x, y: preferred.y };
-}
-
-function findOpeningVegetationSpot(
-  state: GameState,
-  placed: OpeningLivestockAnchor[],
-): Vector2 | null {
-  const world = state.world;
-  const desired = { x: world.campPos.x + 330, y: world.campPos.y - 170 };
-  let best: Vector2 | null = null;
-  let bestScore = Infinity;
-
-  const consider = (
-    landmark: Vector2,
-    radius: number,
-    riddleHost: boolean,
-  ): void => {
-    if (riddleHost) return;
-    const campDistance = dist(landmark, world.campPos);
-    if (campDistance < 210 || campDistance > 620 || isInRiver(landmark, 46)) {
-      return;
-    }
-    const dx = world.campPos.x - landmark.x;
-    const dy = world.campPos.y - landmark.y;
-    const length = Math.hypot(dx, dy) || 1;
-    const offset = radius + 30;
-    const candidate = {
-      x: landmark.x + (dx / length) * offset,
-      y: landmark.y + (dy / length) * offset,
-    };
-    if (!openingLivestockSpotIsClear(state, candidate, placed)) return;
-    const score = dist(candidate, desired);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
-  };
-
-  for (const tree of world.trees) {
-    if (tree.hp > 0) consider(tree.pos, tree.radius, tree.riddleHost);
-  }
-  for (const bush of world.bushes) {
-    consider(bush.pos, bush.radius, bush.riddleHost);
-  }
-  return best;
 }
 
 /** Шинэ тоглоомд эхний сүргийг нэг удаа тарааж, тогтвортой id/буурийг нь хадгална. */
@@ -1773,9 +1726,6 @@ function storyWolfSpawnIsClear(state: GameState, pos: Vector2): boolean {
   }
   for (const bush of world.bushes) {
     if (dist(pos, bush.pos) < bush.radius + 24) return false;
-  }
-  for (const rock of world.rocks) {
-    if (dist(pos, rock.pos) < rock.radius + 24) return false;
   }
   return true;
 }
@@ -2292,40 +2242,7 @@ function ensureStormTracePosition(state: GameState): Vector2 {
     x: clamp(elderCamp.x + 300, 54, state.world.width - 54),
     y: clamp(elderCamp.y - 210, 54, state.world.height - 54),
   };
-  let best: Vector2 | null = null;
-  let bestScore = Number.POSITIVE_INFINITY;
-
-  for (const rock of state.world.rocks) {
-    if (rock.pos.x <= elderCamp.x + 70 || rock.pos.y >= elderCamp.y - 30) {
-      continue;
-    }
-    const campDistance = dist(rock.pos, elderCamp);
-    if (campDistance < 150 || campDistance > 620) continue;
-    const outward = normalize({
-      x: rock.pos.x - elderCamp.x,
-      y: rock.pos.y - elderCamp.y,
-    });
-    const candidate = {
-      x: clamp(
-        rock.pos.x + outward.x * (rock.radius + 30),
-        54,
-        state.world.width - 54,
-      ),
-      y: clamp(
-        rock.pos.y + outward.y * (rock.radius + 30),
-        54,
-        state.world.height - 54,
-      ),
-    };
-    if (isInRiver(candidate, 28)) continue;
-    const score = dist(candidate, desired);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
-  }
-
-  state.story.stormTracePos = best ?? desired;
+  state.story.stormTracePos = desired;
   return state.story.stormTracePos;
 }
 

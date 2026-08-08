@@ -3,24 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mountHerderGame, type HerderGameHandle } from "@/lib/game";
 import type { ElderChoiceId, ElderUiSnapshot, ElderUiState } from "@/lib/game/elder";
-import type { RiddleUiSnapshot, RiddleUiState } from "@/lib/game/riddles";
 import ElderDialogueModal from "@/components/ElderDialogueModal";
 import ElderModal from "@/components/ElderModal";
-import RiddleModal from "@/components/RiddleModal";
 
 export default function HerderGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const handleRef = useRef<HerderGameHandle | null>(null);
-  const [riddleUi, setRiddleUi] = useState<RiddleUiState | null>(null);
   const [elderUi, setElderUi] = useState<ElderUiState | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const game = mountHerderGame(canvas, {
-      onRiddleUi: (snap: RiddleUiSnapshot) => {
-        setRiddleUi(snap.open ? snap : null);
-      },
       onElderUi: (snap: ElderUiSnapshot) => {
         setElderUi(snap.open ? snap : null);
       },
@@ -30,14 +24,6 @@ export default function HerderGame() {
       game.destroy();
       handleRef.current = null;
     };
-  }, []);
-
-  const onRiddleAnswer = useCallback((index: number) => {
-    handleRef.current?.submitRiddleAnswer(index);
-  }, []);
-
-  const onRiddleClose = useCallback(() => {
-    handleRef.current?.closeRiddleModal();
   }, []);
 
   const onElderTab = useCallback((tab: "trade" | "talk") => {
@@ -108,13 +94,6 @@ export default function HerderGame() {
           onQuizAnswer={onQuizAnswer}
           onQuizNext={onQuizNext}
           onClose={onElderClose}
-        />
-      ) : null}
-      {riddleUi ? (
-        <RiddleModal
-          ui={riddleUi}
-          onAnswer={onRiddleAnswer}
-          onClose={onRiddleClose}
         />
       ) : null}
     </div>

@@ -593,38 +593,3 @@ export function gameIconDataUrl(id: GameIconId, size = 32): string {
   iconDataUrlCache.set(key, url);
   return url;
 }
-
-export function isGameIconId(value: string): value is GameIconId {
-  return (
-    value === "dog" ||
-    value === "horse" ||
-    value === "horseRide" ||
-    value === "bow" ||
-    value === "axe" ||
-    value === "urga" ||
-    value === "fishingRod" ||
-    value === "sheep" ||
-    value === "goat" ||
-    value === "cattle" ||
-    value === "horseHerd" ||
-    value === "camel" ||
-    value === "wool" ||
-    value === "cashmere" ||
-    value === "milk" ||
-    value === "felt" ||
-    value === "aaruul" ||
-    value === "fish" ||
-    value === "wood" ||
-    value === "stone" ||
-    value === "berry" ||
-    value === "hay" ||
-    value === "arrow" ||
-    value === "punch" ||
-    value === "dodge" ||
-    value === "shield" ||
-    value === "hand" ||
-    value === "fire" ||
-    value === "log" ||
-    value === "empty"
-  );
-}

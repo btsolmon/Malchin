@@ -2,7 +2,7 @@ import {
   Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock, drawWorldStone } from "./entities";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldStone } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
 import {
   fishNearBobber,
@@ -10,10 +10,6 @@ import {
   nearFishingSpot,
 } from "../fish";
 import { drawGerInterior } from "./ger";
-import {
-  drawPlayerWithSprites,
-  type PlayerSpriteSet,
-} from "./playerSprites";
 import {
   drawFirstRouteBolts,
   drawFirstRouteGate,
@@ -41,9 +37,6 @@ import {
 import { nearElder } from "../elder";
 import { drawSpiritOverlay } from "../spirit";
 import {
-  type WorldSpriteSet,
-} from "./worldSprites";
-import {
   drawFirstNightElderCutscene,
   drawFamilyReunionEffect,
   drawHearthCompletionEffect,
@@ -62,9 +55,7 @@ export interface RenderContext {
   terrainWinter: HTMLCanvasElement;
   lightCanvas: HTMLCanvasElement;
   vignette: HTMLCanvasElement;
-  playerSprites: PlayerSpriteSet;
   tumurShulmasSprites: TumurShulmasSpriteSet;
-  worldSprites: WorldSpriteSet;
 }
 
 type RenderLayer =
@@ -216,7 +207,7 @@ export function render(
 
   // Гэрийн дотор — тусдаа дэлгэц
   if (state.phase === "ger") {
-    drawGerInterior(ctx, state, time, rc.playerSprites);
+    drawGerInterior(ctx, state, time);
     drawHud(ctx, state);
     drawHearthCompletionEffect(ctx, state, getCamera(state));
     return;
@@ -491,17 +482,7 @@ export function render(
       key: 1000 + bush.id,
       debugPos: bush.pos,
       draw: () => {
-        drawBerryBush(ctx, bush, cam, time);
-      },
-    });
-  }
-  for (const rock of world.rocks) {
-    addDrawable("smallRock", {
-      y: rock.pos.y,
-      key: 7000 + rock.id,
-      debugPos: rock.pos,
-      draw: () => {
-        drawWorldRock(ctx, rock, cam, time);
+        drawBerryBush(ctx, bush, cam);
       },
     });
   }
@@ -753,13 +734,11 @@ export function render(
     key: 900000,
     debugPos: state.player.pos,
     draw: () => {
-      drawPlayerWithSprites(
+      drawPlayer(
         ctx,
         state.player,
         cam,
         time,
-        rc.playerSprites,
-        state.fx.hurtFlash,
         world.gerPacked,
         world.campfire.igniting,
       );

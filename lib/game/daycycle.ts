@@ -65,19 +65,6 @@ export function getDayPhase(
   return "night";
 }
 
-export function dayPhaseLabel(phase: DayPhase): string {
-  switch (phase) {
-    case "dawn":
-      return "Үүр";
-    case "day":
-      return "Өдөр";
-    case "evening":
-      return "Орой";
-    case "night":
-      return "Шөнө";
-  }
-}
-
 /** Унтаад босоход — дараагийн өглөөний үүр рүү шилжүүлнэ */
 export function advanceToMorning(state: GameState): void {
   const world = state.world;
@@ -413,13 +400,4 @@ export function seasonBerryRespawnMult(season: Season): number {
   if (season === "autumn") return 0.85;
   if (season === "spring") return 1.1;
   return 1.6;
-}
-
-export function seasonPasturePull(world: GameState["world"]): number {
-  // Гадаагүй бол бууц руу татна
-  if (!world.flockOut) return 0;
-  if (world.season === "summer") return 1;
-  if (world.season === "spring") return 0.9;
-  if (world.season === "autumn") return 0.85;
-  return 0.5;
 }

@@ -2,7 +2,6 @@
 
 import {
   LIVESTOCK_KINDS,
-  LIVESTOCK_MN,
   MAX_FEEDER_HAY,
   MAX_VISUAL_SHEEP,
   PASTURE_RADIUS,
@@ -281,25 +280,6 @@ export function nearestReadyAnimal(
   return best;
 }
 
-export function productLabel(
-  kind: LivestockKind,
-  season: GameState["world"]["season"] = "summer",
-): string {
-  switch (kind) {
-    case "sheep":
-      return "ноос";
-    case "goat":
-      // Ноолуур зөвхөн хавар
-      return season === "spring" && Math.random() < 0.35 ? "ноолуур" : "сүү";
-    case "cattle":
-      return "сүү";
-    case "horse":
-      return "сүү";
-    case "camel":
-      return Math.random() < 0.4 ? "ноос" : "сүү";
-  }
-}
-
 export function collectProduct(state: GameState, animal: HerdAnimal): void {
   const inv = state.player.inventory;
   const kind = animal.kind;
@@ -533,12 +513,4 @@ export function tryCatchWildHorse(state: GameState): boolean {
   spawnText(state, best.pos, "Зугтлаа!", "#ffb080");
   setMessage(state, "Морь зугтав — ойртож дахин оролд!", 2.5);
   return true;
-}
-
-export function livestockSummary(
-  counts: Record<LivestockKind, number>,
-): string {
-  return LIVESTOCK_KINDS.map((k) => `${LIVESTOCK_MN[k]} ${counts[k]}`).join(
-    " · ",
-  );
 }

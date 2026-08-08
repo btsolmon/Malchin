@@ -14,7 +14,6 @@ export type GamePhase =
   | "lost"
   | "levelup"
   | "ger"
-  | "riddle"
   | "elder"
   | "spirit";
 
@@ -74,25 +73,6 @@ export interface Elder {
   pose: "seated" | "walking" | "standing";
   face: 1 | -1;
   walkPhase: number;
-}
-
-/** Оньсогын асуулттай объектын төрөл */
-export type RiddleHostKind = "rock" | "tree" | "bush";
-
-export interface RiddleHostRef {
-  kind: RiddleHostKind;
-  id: number;
-}
-
-/** Том чулуу — зөвхөн оньсогын асуулт */
-export interface WorldRock {
-  id: number;
-  pos: Vector2;
-  radius: number;
-  /** Зөв хариулсны дараа true — дахин асуухгүй */
-  riddleSolved: boolean;
-  /** Анх нээхэд оноогдсон оньсогын id (буруу хариулбал ижил хэвээр) */
-  riddleId: string | null;
 }
 
 /** Түүх боломжтой чулууны овоолго */
@@ -204,10 +184,6 @@ export interface Tree {
   maxHp: number;
   radius: number;
   respawnIn: number;
-  /** Оньсогын асуулттай мод */
-  riddleHost: boolean;
-  riddleSolved: boolean;
-  riddleId: string | null;
 }
 
 export interface BerryBush {
@@ -217,10 +193,6 @@ export interface BerryBush {
   maxBerries: number;
   radius: number;
   respawnIn: number;
-  /** Оньсогын асуулттай бут */
-  riddleHost: boolean;
-  riddleSolved: boolean;
-  riddleId: string | null;
 }
 
 export interface Campfire {
@@ -613,7 +585,6 @@ export interface World {
   dog: Dog | null;
   projectiles: Projectile[];
   /** Оньсогын чулуунууд */
-  rocks: WorldRock[];
   /** Түүх боломжтой чулуунууд */
   stones: WorldStone[];
   /** Өвгөн NPC */
@@ -942,14 +913,6 @@ export interface GameState {
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
   combatDodgeActive: boolean;
   nextEntityId: number;
-  /** Идэвхтэй оньсогын id (phase === "riddle") */
-  activeRiddleId: string | null;
-  activeRiddleHost: RiddleHostRef | null;
-  riddleFeedback: "idle" | "wrong" | "correct";
-  /** Сүүлд сонгосон хариултын индекс (UI highlight) */
-  riddleSelectedIndex: number | null;
-  /** Сүүлчийн зоосны өөрчлөлт (шагнал/торгууль) */
-  riddleLastDelta: number;
   /** Сүнс = нэмэлт амь (хуучин арилжааны урамшуулал; одоо олгохгүй) */
   spiritPoints: number;
   elderTab: "trade" | "talk";
