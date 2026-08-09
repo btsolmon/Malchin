@@ -23,6 +23,7 @@ import {
   spawnParticles,
   spawnSoulRelease,
   spawnText,
+  startCameraShake,
   triggerHitStop,
 } from "../effects";
 import { sfx } from "../audio";
@@ -69,30 +70,113 @@ function getWolfCombatState(wolf: Wolf): WolfWithCombatState {
 // Milestone 1 — Souls-like melee timing + stamina
 // ---------------------------------------------------------------------------
 
-const STAFF_MELEE_STAMINA_COST = 20;
-const SWORD_MELEE_STAMINA_COST = 24;
-const MELEE_STARTUP_SECONDS = 0.08;
+const STAFF_MELEE_STAMINA_COST = 15;
+const SWORD_MELEE_STAMINA_COST = 20;
+const MELEE_STARTUP_SECONDS = 0.07;
 const MELEE_ACTIVE_SECONDS = 0.07;
-const MELEE_RECOVERY_SECONDS = 0.16;
+const MELEE_RECOVERY_SECONDS = 0.12;
+/** Recovery эхэлснээс хойш dodge cancel зөвшөөрөх хугацаа */
+const MELEE_DODGE_CANCEL_AFTER = 0.04;
 
 const PARRY_STAMINA_COST = 10;
 const PARRY_STARTUP_SECONDS = 0.02;
-const PARRY_ACTIVE_SECONDS = 0.5;
-const PARRY_RECOVERY_SECONDS = 0.18;
+const PARRY_ACTIVE_SECONDS = 0.42;
+const PARRY_RECOVERY_SECONDS = 0.14;
 
-const DODGE_STAMINA_COST = 22;
+const DODGE_STAMINA_COST = 17;
 const DODGE_DURATION_SECONDS = 0.28;
-const DODGE_RECOVERY_SECONDS = 0.12;
-const DODGE_SPEED = 430;
-const DODGE_INVULN_START = 0.06;
-const DODGE_INVULN_END = 0.2;
+const DODGE_RECOVERY_SECONDS = 0.08;
+const DODGE_SPEED = 450;
+const DODGE_INVULN_START = 0.025;
+const DODGE_INVULN_END = 0.24;
 
-const STAMINA_REGEN_DELAY_SECONDS = 0.75;
-const STAMINA_REGEN_PER_SECOND = 30;
+const STAMINA_REGEN_DELAY_SECONDS = 0.5;
+const STAMINA_REGEN_PER_SECOND = 38;
 
-const NORMAL_MELEE_HIT_STOP_SECONDS = 0.045;
-const HEAVY_MELEE_HIT_STOP_SECONDS = 0.07;
-const EXECUTION_HIT_STOP_SECONDS = 0.08;
+const NORMAL_MELEE_HIT_STOP_SECONDS = 0.055;
+const HEAVY_MELEE_HIT_STOP_SECONDS = 0.08;
+const EXECUTION_HIT_STOP_SECONDS = 0.09;
+
+/** Hitstop/recovery үед алдагдсан оролтыг хадгалах цонх */
+const COMBAT_INPUT_BUFFER_SECONDS = 0.15;
+const FENCE_DEMOLISH_THREAT_RADIUS = 160;
+
+type CombatInputBuffers = {
+  attack: number;
+  dodge: number;
+  parry: number;
+};
+
+const combatInputBuffers = new WeakMap<GameState, CombatInputBuffers>();
+
+function getCombatBuffers(state: GameState): CombatInputBuffers {
+  let buffers = combatInputBuffers.get(state);
+  if (!buffers) {
+    buffers = { attack: 0, dodge: 0, parry: 0 };
+    combatInputBuffers.set(state, buffers);
+  }
+  return buffers;
+}
+
+function queueCombatInputs(state: GameState): void {
+  const buffers = getCombatBuffers(state);
+  const { input } = state;
+  if (input.attack || input.attackPressed) {
+    buffers.attack = COMBAT_INPUT_BUFFER_SECONDS;
+  }
+  if (input.dodge || input.dodgePressed) {
+    buffers.dodge = COMBAT_INPUT_BUFFER_SECONDS;
+  }
+  if (input.parry || input.parryPressed) {
+    buffers.parry = COMBAT_INPUT_BUFFER_SECONDS;
+  }
+}
+
+function tickCombatBuffers(state: GameState, dt: number): void {
+  const buffers = getCombatBuffers(state);
+  buffers.attack = Math.max(0, buffers.attack - dt);
+  buffers.dodge = Math.max(0, buffers.dodge - dt);
+  buffers.parry = Math.max(0, buffers.parry - dt);
+}
+
+function isStoryCombatFocus(state: GameState): boolean {
+  const objective = state.story.activeMainObjective;
+  return (
+    state.story.temporaryPlayerProtectionActive ||
+    objective === "protectFlock" ||
+    objective === "observeWolfMovement" ||
+    objective === "parryStoryWolf" ||
+    objective === "counterStoryWolf"
+  );
+}
+
+function setStaminaFailMessage(state: GameState): void {
+  // Tutorial coaching-ийг stamina toast дарж болохгүй
+  if (isStoryCombatFocus(state) && state.messageTimer > 0.6) return;
+  setMessage(state, "Тамир тасарч, хүч барагдав.", 1.5);
+}
+
+function threatsNearPlayer(state: GameState, radius: number): boolean {
+  const { player, world } = state;
+  for (const wolf of world.wolves) {
+    if (wolf.alive && dist(player.pos, wolf.pos) <= radius) return true;
+  }
+  for (const thief of world.thieves) {
+    if (thief.alive && dist(player.pos, thief.pos) <= radius) return true;
+  }
+  for (const enemy of world.firstRoute.enemies) {
+    if (enemy.alive && dist(player.pos, enemy.pos) <= radius) return true;
+  }
+  const boss = world.tumurShulmas;
+  if (
+    boss.active &&
+    !boss.defeated &&
+    dist(player.pos, boss.pos) <= radius
+  ) {
+    return true;
+  }
+  return false;
+}
 
 function addMeleeImpact(
   state: GameState,
@@ -106,6 +190,7 @@ function addMeleeImpact(
       ? HEAVY_MELEE_HIT_STOP_SECONDS
       : NORMAL_MELEE_HIT_STOP_SECONDS,
   );
+  startCameraShake(state, heavy ? 0.12 : 0.08, heavy ? 4.2 : 2.8);
   spawnImpactBurst(state, pos, { heavy, color });
 }
 
@@ -138,7 +223,7 @@ function meleeBaseDamage(state: GameState): number {
 }
 
 function meleeWolfDamage(state: GameState): number {
-  return isSkySwordEquipped(state) ? 29 : 20;
+  return isSkySwordEquipped(state) ? 29 : 22;
 }
 
 function meleeReach(state: GameState, heavy: boolean): number {
@@ -211,17 +296,27 @@ function dodgeDirection(state: GameState): Vector2 {
 
 function beginDodge(state: GameState): boolean {
   const { player } = state;
-  if (
-    player.dodgePhase !== "idle" ||
-    player.combatPhase !== "idle" ||
-    player.parryPhase !== "idle"
-  ) {
-    return false;
-  }
+  if (player.dodgePhase !== "idle") return false;
+  if (player.parryPhase !== "idle") return false;
+
+  const recoveryElapsed =
+    player.combatPhase === "recovery"
+      ? MELEE_RECOVERY_SECONDS * player.cooldownMult - player.combatTimer
+      : 0;
+  const canCancelMelee =
+    player.combatPhase === "recovery" &&
+    recoveryElapsed >= MELEE_DODGE_CANCEL_AFTER;
+  if (player.combatPhase !== "idle" && !canCancelMelee) return false;
+
   if (player.stamina < DODGE_STAMINA_COST) {
-    setMessage(state, "Тамир тасарч, хүч барагдав.", 1.5);
+    setStaminaFailMessage(state);
     return false;
   }
+
+  if (canCancelMelee) {
+    finishMeleeAttack(state);
+  }
+
   const direction = dodgeDirection(state);
   player.stamina -= DODGE_STAMINA_COST;
   player.staminaRegenDelay = STAMINA_REGEN_DELAY_SECONDS;
@@ -230,9 +325,11 @@ function beginDodge(state: GameState): boolean {
   player.dodgeDirection = direction;
   player.facing = direction;
   player.moving = false;
-  spawnParticles(state, player.pos, 5, "#b8aa8a", {
-    speed: 55,
-    size: 2.2,
+  sfx("dodge");
+  startCameraShake(state, 0.07, 2);
+  spawnParticles(state, player.pos, 8, "#c8d8e8", {
+    speed: 70,
+    size: 2.4,
   });
   return true;
 }
@@ -451,7 +548,7 @@ function beginParry(state: GameState): boolean {
   if (player.dodgePhase !== "idle") return false;
 
   if (player.stamina < PARRY_STAMINA_COST) {
-    setMessage(state, "Тамир тасарч, хүч барагдав.", 1.5);
+    setStaminaFailMessage(state);
     return false;
   }
 
@@ -537,7 +634,7 @@ function beginMeleeAttack(state: GameState): boolean {
 
   const staminaCost = meleeStaminaCost(state);
   if (player.stamina < staminaCost) {
-    setMessage(state, "Тамир тасарч, хүч барагдав.", 1.5);
+    setStaminaFailMessage(state);
     return false;
   }
 
@@ -801,8 +898,9 @@ function resolveMeleeHit(state: GameState): void {
       y: nearestWolf.pos.y - player.pos.y,
     });
 
+    const rawKnockback = nearestWolf.kind === "bear" ? 12 : 30;
     const knockback =
-      nearestWolf.kind === "bear" ? 10 : 28;
+      rawKnockback * (1 - clamp(nearestWolf.knockbackResistance ?? 0, 0, 0.85));
 
     nearestWolf.pos.x = clamp(
       nearestWolf.pos.x + away.x * knockback,
@@ -1074,17 +1172,27 @@ function tickCombatTimers(state: GameState, dt: number): void {
  *
  * 1. Тулааны таймер (cooldown / anim / invuln)
  * 2. Тэнхэлийн regeneration
- * 3. Одоогийн melee phase
- * 4. Idle үед шинэ K/J оролт
+ * 3. Одоогийн melee / dodge / parry phase
+ * 4. Buffered K/J/L/Shift оролт (recovery үед алдахгүй)
  */
 export function updateCombat(state: GameState, dt: number): void {
   tickCombatTimers(state, dt);
   updateStamina(state, dt);
+  queueCombatInputs(state);
+  tickCombatBuffers(state, dt);
 
-  if (state.input.dodge) {
-    state.input.dodge = false;
-    beginDodge(state);
+  const buffers = getCombatBuffers(state);
+  const { player, input } = state;
+
+  // Dodge — recovery cancel + buffer-тай хамгийн өндөр ач холбогдол
+  if (buffers.dodge > 0 || input.dodge || input.dodgePressed) {
+    if (beginDodge(state)) {
+      buffers.dodge = 0;
+      input.dodge = false;
+      input.dodgePressed = false;
+    }
   }
+
   if (updateDodge(state, dt)) {
     state.combatDodgeActive = state.player.dodgePhase === "dodging";
     state.combatMovementLocked = !state.combatDodgeActive;
@@ -1095,38 +1203,48 @@ export function updateCombat(state: GameState, dt: number): void {
   updateParryPhases(state, dt);
   updateMeleePhases(state, dt);
 
-  const { player, input } = state;
   // Цохих үед алхаж болно — зөвхөн parry түгжинэ
   state.combatMovementLocked = player.parryPhase !== "idle";
 
   if (player.parryPhase !== "idle") return;
-  if (player.combatPhase !== "idle") return;
 
-  if (input.parry) {
-    input.parry = false;
-    beginParry(state);
-    state.combatMovementLocked = player.parryPhase !== "idle";
-    return;
+  if (player.combatPhase === "idle") {
+    if (buffers.parry > 0 || input.parry || input.parryPressed) {
+      if (beginParry(state)) {
+        buffers.parry = 0;
+        input.parry = false;
+        input.parryPressed = false;
+        state.combatMovementLocked = true;
+        return;
+      }
+    }
   }
+
+  if (player.combatPhase !== "idle") return;
 
   if (tryRangedAttack(state)) return;
 
-  // J — ойр хашаа нураах (дайрахаас өмнө)
+  // J — ойр хашаа нураах (дайсан ойрхон үед тулаанд өгнө)
+  const wantsAttack =
+    buffers.attack > 0 || input.attack || input.attackPressed;
   if (
-    (input.attack || input.attackPressed) &&
+    wantsAttack &&
+    !threatsNearPlayer(state, FENCE_DEMOLISH_THREAT_RADIUS) &&
     tryDemolishFence(state)
   ) {
+    buffers.attack = 0;
     input.attack = false;
     input.attackPressed = false;
     return;
   }
 
-  // attackPressed — hitstop/frame алдагдлаас хамгаалах edge
-  if (!input.attack && !input.attackPressed) return;
+  if (!wantsAttack) return;
 
-  input.attack = false;
-  input.attackPressed = false;
-  beginMeleeAttack(state);
+  if (beginMeleeAttack(state)) {
+    buffers.attack = 0;
+    input.attack = false;
+    input.attackPressed = false;
+  }
 }
 
 export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
@@ -1172,7 +1290,33 @@ export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
     );
     spawnText(state, wolf.pos, `+${score} · +${xp} XP`, "#ffd060");
     gainXp(state, xp);
-    setMessage(state, bear ? "Баавгайн сүнс одлоо." : "Чонын сүнс одлоо.", 2);
+    if (isOpeningStoryWolf) {
+      state.player.vitals.health = Math.min(
+        state.player.vitals.maxHealth,
+        state.player.vitals.health + 22,
+      );
+      spawnText(state, state.player.pos, "+22 HP", "#a8e080");
+      setMessage(state, "Чоно унав! Голомтын дэргэд өвгөн дээр оч.", 4.5);
+    } else {
+      const nearbyThreats =
+        state.world.wolves.filter((w) => w.alive).length +
+        state.world.thieves.filter((t) => t.alive).length;
+      if (nearbyThreats > 0) {
+        setMessage(
+          state,
+          bear
+            ? "Баавгайн сүнс одлоо — ойрхон аюул үлдлээ."
+            : "Чонын сүнс одлоо — ойрхон аюул үлдлээ.",
+          2.8,
+        );
+      } else {
+        setMessage(
+          state,
+          bear ? "Баавгайн сүнс одлоо." : "Чонын сүнс одлоо.",
+          2.4,
+        );
+      }
+    }
   }
 }
 

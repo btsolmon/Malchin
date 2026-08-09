@@ -81,19 +81,21 @@ export const OBSERVE_WOLF_QUEST = {
 
 export const PARRY_STORY_WOLF_QUEST = {
   title: "Дайралтыг сөр",
-  description: "Улаан туяа цахих мөчид L дарж, дайралтыг нь няцаа.",
+  description:
+    "Улаан туяа цахих мөчид L / Parry дарж, дайралтыг нь няцаа.",
   panelLines: [
     "Улаан туяа цахих мөчид",
-    "L дарж, дайралтыг нь няцаа.",
+    "L / Parry дарж няцаа.",
   ],
 } as const;
 
 export const COUNTER_STORY_WOLF_QUEST = {
   title: "Нээлттэй мөчид цохь",
-  description: "Шар туяа тодрох үед J дарж, араатны сул мөчийг ашигла.",
+  description:
+    "Шар туяа тодрох үед J / Attack дарж, араатны сул мөчийг ашигла.",
   panelLines: [
-    "Шар туяа тодрох үед J дарж,",
-    "араатны сул мөчийг ашигла.",
+    "Шар туяа тодрох үед",
+    "J / Attack дарж цохь.",
   ],
 } as const;
 
@@ -219,7 +221,7 @@ const INTRO_SECTION_DURATION = 5.2;
 const INTRO_FADE_DURATION = 1;
 export const HEARTH_COMPLETION_EFFECT_DURATION = 2.6;
 export const LIVESTOCK_COMPLETION_EFFECT_DURATION = 2.6;
-export const NIGHT_COMPLETION_EFFECT_DURATION = 2.6;
+export const NIGHT_COMPLETION_EFFECT_DURATION = 1.5;
 export const FAMILY_REUNION_EFFECT_DURATION = 3.2;
 export const LIVESTOCK_CALL_DISTANCE = 48;
 export const FIRST_NIGHT_SUNSET_DURATION = 7.25;
@@ -2128,7 +2130,7 @@ export function updateMilestone3(state: GameState, dt: number): void {
   }
 }
 
-const STORY_WOLF_RED_SIGNAL_TIME = 0.22;
+const STORY_WOLF_RED_SIGNAL_TIME = 0.3;
 
 function storyWolfIsShowingAttackSignal(wolf: Wolf): boolean {
   return wolf.attackPhase === "windup" || wolf.attackPhase === "leaping";
@@ -2150,9 +2152,12 @@ function beginNightCompletionEffect(state: GameState, wolf: Wolf): void {
   story.storyWolfOpeningActive = false;
   story.nightCompletionEffectShown = true;
   story.nightCompletionEffectRemaining = NIGHT_COMPLETION_EFFECT_DURATION;
-  story.activeMainObjective = null;
-  state.message = "";
-  state.messageTimer = 0;
+  story.activeMainObjective = "talkToOldMan";
+  state.player.vitals.health = Math.min(
+    state.player.vitals.maxHealth,
+    state.player.vitals.health + 18,
+  );
+  setMessage(state, "Чоно унав! Голомтын дэргэд өвгөн дээр оч.", 4.2);
   sfx("levelup");
   spawnParticles(state, wolf.pos, 18, "#d8e7ef", {
     speed: 92,
@@ -3453,7 +3458,8 @@ export function drawMainObjectivePanel(
     state.phase === "intro" ||
     state.story.hearthCompletionEffectRemaining > 0 ||
     state.story.livestockCompletionEffectRemaining > 0 ||
-    state.story.nightCompletionEffectRemaining > 0 ||
+    (state.story.nightCompletionEffectRemaining > 0 &&
+      objective !== "talkToOldMan") ||
     state.story.familyReunionEffectRemaining > 0 ||
     state.story.firstNightStage === "sunset" ||
     state.story.firstNightStage === "nightNarration" ||

@@ -1854,7 +1854,7 @@ function drawEnemyCombatFeedback(
   const stunned = enemy.attackPhase === "stunned";
   if (enemy.attackPhase === "windup" || enemy.attackPhase === "leaping") {
     const grab = enemy.attackKind === "bearGrab";
-    const warningWindow = enemy.kind === "bear" ? 0.24 : 0.22;
+    const warningWindow = enemy.kind === "bear" ? 0.3 : 0.3;
     const parryNow = !grab && enemy.attackTimer <= warningWindow;
     const color = grab ? "#d26cff" : parryNow ? "#ff4a42" : "#ffd35a";
     const pulse = 1 + Math.sin(time * 18) * 0.08;
@@ -1900,7 +1900,7 @@ function drawEnemyCombatFeedback(
       ctx.fillStyle = "#ffe08a";
       ctx.font = "bold 10px system-ui, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("J — ТӨГСГӨЛ", x, top - 4);
+      ctx.fillText("J / Attack", x, top - 4);
       ctx.textAlign = "left";
     }
   }

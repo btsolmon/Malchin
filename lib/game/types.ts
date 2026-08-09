@@ -207,7 +207,7 @@ export interface Campfire {
 }
 
 /** Гал асаах анимэйшн (сек) */
-export const CAMPFIRE_IGNITE_SEC = 3;
+export const CAMPFIRE_IGNITE_SEC = 1.4;
 /** Гал асаахад шаардлагатай түлээ */
 export const CAMPFIRE_WOOD_COST = 3;
 

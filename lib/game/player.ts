@@ -979,6 +979,14 @@ export function tryLightCampfire(state: GameState): void {
     return;
   }
 
+  const threatNear = world.wolves.some(
+    (w) => w.alive && dist(player.pos, w.pos) < 170,
+  );
+  if (threatNear && !(fire.placed && fire.lit)) {
+    setMessage(state, "Аюул ойрхон — эхлээд тулалдаа!", 2.6);
+    return;
+  }
+
   if (!state.unlimitedWood && player.inventory.wood < CAMPFIRE_WOOD_COST) {
     setMessage(
       state,
@@ -1344,7 +1352,15 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
 
   const hungerDrain =
-    0.48 * (player.hungerDrainMult ?? 1);
+    0.48 *
+    (player.hungerDrainMult ?? 1) *
+    (state.story.temporaryPlayerProtectionActive ||
+    state.story.activeMainObjective === "protectFlock" ||
+    state.story.activeMainObjective === "observeWolfMovement" ||
+    state.story.activeMainObjective === "parryStoryWolf" ||
+    state.story.activeMainObjective === "counterStoryWolf"
+      ? 0.4
+      : 1);
   player.vitals.hunger = clamp(
     player.vitals.hunger - hungerDrain * dt,
     0,

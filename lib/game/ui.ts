@@ -2183,7 +2183,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
 
   const slots: Array<{ key: string; icon: GameIconId; active: boolean }> = [
-    { key: "J", icon: "punch", active: player.meleePhase !== "idle" },
+    { key: "J", icon: "punch", active: player.combatPhase !== "idle" },
     {
       key: "K",
       icon: player.gear.bow ? "bow" : "empty",

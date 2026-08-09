@@ -92,9 +92,11 @@ export const EN_GAME: Record<string, string> = {
   "H — морь унах": "H — mount horse",
   "H — морьноос буух": "H — dismount horse",
   "J — ТӨГСГӨЛ": "J — FINISH",
+  "J / Attack": "J / Attack",
   "J — Хаалга нураах": "J — Tear down gate",
   "J — Хашаа нураах": "J — Tear down fence",
   "L дарж, дайралтыг нь няцаа.": "press L to turn its blow aside.",
+  "L / Parry дарж няцаа.": "press L / Parry to turn it aside.",
   "Mini-boss · Шулмасын баатар": "Mini-boss · Shulmas Warrior",
   "Mini-boss унав · Сэлмээ ав": "Mini-boss down · Take the sword",
   "N — Малаа туу": "N — Herd livestock",
@@ -121,6 +123,7 @@ export const EN_GAME: Record<string, string> = {
     "The fear did not leave, yet the boy did not bow to it.",
   "Алсад чонын улиан сонсогдоно.": "Far off, a wolf's howl carries.",
   Анхан: "Basic",
+  "Аюул ойрхон — эхлээд тулалдаа!": "Danger nearby — fight first!",
   "Ахих боломжтой": "Can level up",
   Б: "B",
   "БАРИУЛАВ!": "CAUGHT!",
@@ -133,6 +136,8 @@ export const EN_GAME: Record<string, string> = {
     "A bear is on the livestock — very dangerous!",
   "Баавгайд ялагдлаа…": "The bear beat you…",
   "Баавгайн сүнс одлоо.": "The bear's spirit departs.",
+  "Баавгайн сүнс одлоо — ойрхон аюул үлдлээ.":
+    "The bear's spirit departs — danger nearby remains.",
   Баярцогт: "Bayartsogt",
   Билгүүнтөгс: "Bilgüüntögs",
   "Бодит ертөнцөд буц": "Return to the real world",
@@ -366,6 +371,8 @@ export const EN_GAME: Record<string, string> = {
   "Улаан туяа цахих мөчид": "When the red glare flashes,",
   "Улаан туяа цахих мөчид L дарж, дайралтыг нь няцаа.":
     "When the red glare flashes, press L to turn the blow aside.",
+  "Улаан туяа цахих мөчид L / Parry дарж, дайралтыг нь няцаа.":
+    "When the red glare flashes, press L / Parry to turn the blow aside.",
   "Унаж явахад хурд +50%": "Speed +50% while riding",
   Уналаа: "Mounted",
   "Унасан баатрын дэргэд": "Take the sword left beside",
@@ -474,6 +481,10 @@ export const EN_GAME: Record<string, string> = {
     "A wolf nears the pen. Draw it from the herd and survive.",
   "Чононд ялагдлаа…": "The wolf beat you…",
   "Чонын сүнс одлоо.": "The wolf's spirit departs.",
+  "Чонын сүнс одлоо — ойрхон аюул үлдлээ.":
+    "The wolf's spirit departs — danger nearby remains.",
+  "Чоно унав! Голомтын дэргэд өвгөн дээр оч.":
+    "The wolf is down! Go to the elder by the hearth.",
   "Чонын хөдөлгөөнийг ажигла": "Watch the wolf's moves",
   "ШУЛМАСЫН БААТАР": "THE SHULMAS WARRIOR",
   "ШУЛМАСЫН СҮНСНИЙ ОРОН": "THE DEMON'S SPIRIT REALM",
@@ -481,6 +492,10 @@ export const EN_GAME: Record<string, string> = {
   "Шар туяа тодрох үед J дарж,": "When the yellow glow rises, press J",
   "Шар туяа тодрох үед J дарж, араатны сул мөчийг ашигла.":
     "When the yellow glow rises, press J and take the beast's opening.",
+  "Шар туяа тодрох үед": "When the yellow glow rises,",
+  "J / Attack дарж цохь.": "press J / Attack to strike.",
+  "Шар туяа тодрох үед J / Attack дарж, араатны сул мөчийг ашигла.":
+    "When the yellow glow rises, press J / Attack and take the beast's opening.",
   "Шидэт харваач": "Enchanted Archer",
   "Шинэ бууц! Өвөл — тэвш бэлд.": "New camp! Winter — ready the trough.",
   "Шулмасын баатар": "Shulmas Warrior",

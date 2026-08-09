@@ -157,6 +157,7 @@ export type SfxName =
   | "kill"
   | "wolfDeath"
   | "parry"
+  | "dodge"
   | "chop"
   | "berry"
   | "eat"
@@ -197,6 +198,10 @@ export function sfx(name: SfxName): void {
     case "parry":
       tone(1180, 0.08, "square", 0.2, 760);
       noiseBurst(0.06, 2400, 0.16);
+      break;
+    case "dodge":
+      noiseBurst(0.07, 1400, 0.14);
+      tone(280, 0.07, "triangle", 0.1, 90);
       break;
     case "chop":
       noiseBurst(0.07, 650, 0.38);

@@ -729,7 +729,7 @@ export function update(state: GameState, dt: number): void {
       firstNightElderCutsceneActive(state) ||
       state.story.familyReunionEffectRemaining > 0;
     if (!firstNightCutscene) {
-      if (!lighting) updateCombat(state, dt);
+      updateCombat(state, dt);
       updatePlayerMovement(state, dt);
       if (!lighting) {
         const usedRouteInteraction =
@@ -1139,7 +1139,7 @@ export function mountHerderGame(
     },
     getPhase: () => state.phase,
     setTouchMove: (x: number, y: number) => {
-      const dead = 0.28;
+      const dead = 0.18;
       state.input.left = x < -dead;
       state.input.right = x > dead;
       state.input.up = y < -dead;

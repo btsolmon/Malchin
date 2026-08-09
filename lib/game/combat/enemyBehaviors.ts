@@ -352,6 +352,8 @@ export function damagePlayer(state: GameState, dmg: number): void {
 const WOLF_PLAYER_AGGRO_RANGE = 260;
 /** Хүн маш ойрхон үед л тоглогч руу шилжинэ — эс бөгөөс мал руу дайрна */
 const WOLF_PLAYER_ENGAGE_RANGE = 105;
+/** Сүрэг хамгаалах / tutorial үед тоглогч руу илүү хурдан шилжинэ */
+const WOLF_PLAYER_ENGAGE_RANGE_DEFENSE = 140;
 const BEAR_PLAYER_AGGRO_RANGE = 360;
 const BEAR_PLAYER_ENGAGE_RANGE = 130;
 
@@ -368,18 +370,18 @@ const WOLF_LEAP_HIT_EXTRA = 38;
 /** Wolf claw urd taldaa l onono. */
 const WOLF_ATTACK_FRONT_DOT_MIN = 0.32;
 
-const WOLF_WINDUP_DURATION = 0.45;
+const WOLF_WINDUP_DURATION = 0.48;
 const WOLF_LEAP_DURATION = 0.22;
-const WOLF_RECOVERY_DURATION = 0.55;
+const WOLF_RECOVERY_DURATION = 0.5;
 const WOLF_LEAP_SPEED = 360;
 
-const WOLF_CLAW_WINDUP_DURATION = 0.32;
+const WOLF_CLAW_WINDUP_DURATION = 0.4;
 const WOLF_CLAW_ACTIVE_DURATION = 0.18;
-const WOLF_CLAW_RECOVERY_DURATION = 0.42;
+const WOLF_CLAW_RECOVERY_DURATION = 0.38;
 const WOLF_CLAW_DAMAGE_MULTIPLIER = 0.8;
 
-const WOLF_POST_ATTACK_COOLDOWN = 1.2;
-const WOLF_CLAW_POST_ATTACK_COOLDOWN = 0.95;
+const WOLF_POST_ATTACK_COOLDOWN = 0.9;
+const WOLF_CLAW_POST_ATTACK_COOLDOWN = 0.75;
 
 /** Амжилттай parry хийсний дараах чонын stun. */
 export const WOLF_STUN_DURATION = 2;
@@ -1545,13 +1547,23 @@ function updateNormalWolfChasing(
     state.story.milestone3Completed &&
     state.story.activeMainObjective === "observeWolfMovement";
 
+  const defenseFocus =
+    state.story.temporaryPlayerProtectionActive ||
+    state.story.activeMainObjective === "protectFlock" ||
+    state.story.activeMainObjective === "observeWolfMovement" ||
+    state.story.activeMainObjective === "parryStoryWolf" ||
+    state.story.activeMainObjective === "counterStoryWolf";
+  const engageRange = defenseFocus
+    ? WOLF_PLAYER_ENGAGE_RANGE_DEFENSE
+    : WOLF_PLAYER_ENGAGE_RANGE;
+
   const engagePlayer =
     openingStoryWolfMustFightPlayer ||
     state.phase === "spirit" ||
     preferPlayerOverLivestock(
       dPlayer,
       dPrey,
-      WOLF_PLAYER_ENGAGE_RANGE,
+      engageRange,
       WOLF_PLAYER_AGGRO_RANGE,
       !!prey,
     );
