@@ -214,6 +214,9 @@ export const CAMPFIRE_WOOD_COST = 3;
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
 export type FenceTier = 1 | 2 | 3;
 
+/** Хашааны төрөл — хонь/ямаа эсвэл үхэр */
+export type PenKind = "sheep" | "cattle";
+
 /** Модон хашааны нэг хэсэг — чоно/баавгай/хулгайчийг хаана */
 export interface Fence {
   id: number;
@@ -236,8 +239,9 @@ export interface Fence {
   gateOpen: number;
   /** Нээлттэй үед авто-хаагдах хүртэлх үлдсэн хугацаа (сек) */
   gateCloseIn: number;
+  /** Хонин/ямааны эсвэл үхрийн хашаа — тоглогчийн барьсан хашаанд байхгүй */
+  pen?: PenKind;
 }
-
 export interface HerdAnimal {
   id: number;
   kind: LivestockKind;
@@ -602,8 +606,10 @@ export interface World {
   elapsed: number;
   /** Үүр / өдөр / орой / шөнө */
   dayPhase: DayPhase;
-  /** Мал бэлчээрт гарсан эсэх */
+  /** Мал бэлчээрт гарсан эсэх (хонь/ямаа) */
   flockOut: boolean;
+  /** Үхэр бэлчээрт гарсан эсэх */
+  cattleOut: boolean;
   /** Шөнийн гадаа эрсдэлийн хуримтлуулагч */
   outdoorRiskAcc: number;
   nextWolfIn: number;

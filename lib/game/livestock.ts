@@ -17,12 +17,14 @@ import {
 } from "./types";
 import {
   allocId,
+  animalIsOut,
   clamp,
   dist,
   normalize,
   pastureCenter,
-  penCenter,
-  PEN_RADIUS,
+  penCenterFor,
+  penForLivestock,
+  penRadiusFor,
   pushOutOfFences,
   pushOutOfGer,
   pushOutOfUrtz,
@@ -166,10 +168,8 @@ function allocateVisualSlots(
 
 /** Төрөл бүрийн харьцаагаар дүрслэл синк — бүх байгаа төрөл харагдана */
 export function syncVisualFlock(state: GameState): void {
-  const { flock, flockOut } = state.world;
+  const { flock } = state.world;
   syncFlockTotal(flock);
-  const center = flockOut ? pastureCenter(state.world) : penCenter(state.world);
-  const spread = flockOut ? PASTURE_RADIUS * 0.7 : PEN_RADIUS * 0.75;
   const want = Math.min(MAX_VISUAL_SHEEP, flock.total);
   const target = allocateVisualSlots(flock.counts, flock.total, want);
 
@@ -185,9 +185,17 @@ export function syncVisualFlock(state: GameState): void {
     }
   }
 
-  // Дутууг нэмнэ
+  // Дутууг нэмнэ — өөрийн хашаа/бэлчээрт
   for (const k of LIVESTOCK_KINDS) {
     while (have[k] < target[k]) {
+      const out = animalIsOut(state.world, k);
+      const pen = penForLivestock(k);
+      const center = out
+        ? pastureCenter(state.world)
+        : penCenterFor(state.world, pen);
+      const spread = out
+        ? PASTURE_RADIUS * 0.7
+        : penRadiusFor(pen) * 0.75;
       flock.visuals.push(createHerdAnimal(allocId(state), center, k, spread));
       have[k]++;
     }

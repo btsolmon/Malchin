@@ -13,9 +13,10 @@ import {
   type Thief,
   type Vector2,
   type Wolf,
-} from "../game/types";
+} from "./types";
 import {
   allocId,
+  animalIsOut,
   clamp,
   dist,
   fenceBlocksMovement,
@@ -24,6 +25,9 @@ import {
   normalize,
   pastureCenter,
   pastureFenceDefense,
+  penCenterFor,
+  penForLivestock,
+  penRadiusFor,
   pushOutOfFences,
   pushOutOfGer,
   pushOutOfUrtz,
@@ -34,8 +38,6 @@ import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import {
   animalInPen,
-  penCenter,
-  PEN_RADIUS,
   threatIntervalMult,
   winterFenceBreakMult,
 } from "./daycycle";
@@ -272,17 +274,18 @@ export function spawnThief(state: GameState): void {
 
 export function updateFlock(state: GameState, dt: number): void {
   const center = pastureCenter(state.world);
-  const pen = penCenter(state.world);
   const { player, world } = state;
   const herding = state.input.herd;
   const drive = normalize(player.facing);
   const dog = world.dog;
-  const out = world.flockOut;
   const flock = world.flock.visuals;
 
   for (const sheep of flock) {
+    const penKind = penForLivestock(sheep.kind);
+    const pen = penCenterFor(world, penKind);
+    const out = animalIsOut(world, sheep.kind);
     const home = out ? center : pen;
-    const homeR = out ? PASTURE_RADIUS : PEN_RADIUS * 0.92;
+    const homeR = out ? PASTURE_RADIUS : penRadiusFor(penKind) * 0.92;
     const toCenter = normalize({
       x: home.x - sheep.pos.x,
       y: home.y - sheep.pos.y,
@@ -365,9 +368,9 @@ export function updateFlock(state: GameState, dt: number): void {
     let steerY = toCenter.y;
     let routingGate = false;
 
-    // Хашаанаас гарах/орох — зөвхөн хаалгаар (хана нэвтрэхгүй)
-    const gate = flockGatePos(world);
-    const insidePen = animalInPen(sheep.pos, world);
+    // Хашаанаас гарах/орох — зөвхөн өөрийн хаалгаар
+    const gate = flockGatePos(world, penKind);
+    const insidePen = animalInPen(sheep.pos, world, sheep.kind);
     const exitDir = normalize({
       x: gate.x - pen.x,
       y: gate.y - pen.y,

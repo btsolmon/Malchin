@@ -373,40 +373,58 @@ export function gerLayout(): {
   bedL: UiButton;
   bedR: UiButton;
   stove: UiButton;
+  woodBox: UiButton;
   artHorse: UiButton;
   artFamily: UiButton;
   artTara: UiButton;
 } {
-  // Хивсний төв: (480, 420) — тулга яг голд
+  // Хаалганаас (урдаас/өмнөд) дотогш харсан байрлал:
+  // доод = хаалга, дээд = хоймор, зүүн/баруун = ор + авдар
   const carpetCx = 480;
-  const carpetCy = 420;
+  const carpetCy = 400;
   const stoveW = 100;
   const stoveH = 72;
-  const chestL = { x: 240, y: 255, w: 140, h: 95, label: "" };
+  const stove = {
+    x: carpetCx - stoveW / 2,
+    y: carpetCy - stoveH * 0.55,
+    w: stoveW,
+    h: stoveH,
+    label: "",
+  };
+  // Түлээний дөрвөлж — зуухны урд (хаалга руу)
+  const woodBox = {
+    x: carpetCx - 34,
+    y: stove.y + stove.h - 4,
+    w: 68,
+    h: 40,
+    label: "",
+  };
+  const chestL = { x: 250, y: 248, w: 130, h: 90, label: "" };
+  const chestR = { x: 580, y: 248, w: 130, h: 90, label: "" };
+  const chestC = { x: 425, y: 242, w: 110, h: 82, label: "" };
   const taraW = 36;
   const taraH = 52;
-  const taraX = chestL.x + chestL.w / 2 - 10 - taraW / 2;
-  const taraY = chestL.y - 2 - taraH - 4;
+  // Бурхан тахил — голын авдар дээр
+  const taraX = chestC.x + chestC.w / 2 - 10 - taraW / 2;
+  const taraY = chestC.y - 2 - taraH - 4;
+  // Гэр бүлийн зураг — баруун авдрын хойно (хана)
+  const familyW = 110;
+  const familyH = 78;
+  const familyX = chestR.x + chestR.w / 2 - familyW / 2;
+  const familyY = chestR.y - familyH - 8;
   return {
-    // Ижил авдар — хойморын зүүн/баруун
     chestL,
-    chestR: { x: 580, y: 255, w: 140, h: 95, label: "" },
-    // Гэр бүлийн зургийн доор — эгц урагшаа харсан
-    chestC: { x: 420, y: 258, w: 120, h: 88, label: "" },
-    door: { x: 400, y: 452, w: 160, h: 72, label: "" },
-    // Хэвтээ ор — шалан дээр, гүнтэй биет
-    bedL: { x: 32, y: 290, w: 230, h: 138, label: "" },
-    bedR: { x: 698, y: 290, w: 230, h: 138, label: "" },
-    // Тулга — хивсний яг төв
-    stove: {
-      x: carpetCx - stoveW / 2,
-      y: carpetCy - stoveH * 0.72,
-      w: stoveW,
-      h: stoveH,
-      label: "",
-    },
-    artHorse: { x: 145, y: 185, w: 110, h: 76, label: "" },
-    artFamily: { x: VIEW_W / 2 - 55, y: 172, w: 110, h: 78, label: "" },
+    chestR,
+    chestC,
+    // Хаалга — дэлгэцийн доод (урд)
+    door: { x: 390, y: 488, w: 180, h: 48, label: "" },
+    // Ор — өргөн нарийн, урт (хоймор↔хаалга чиглэл) илүү
+    bedL: { x: 52, y: 298, w: 132, h: 112, label: "" },
+    bedR: { x: 776, y: 298, w: 132, h: 112, label: "" },
+    stove,
+    woodBox,
+    artHorse: { x: 145, y: 178, w: 110, h: 76, label: "" },
+    artFamily: { x: familyX, y: familyY, w: familyW, h: familyH, label: "" },
     artTara: { x: taraX, y: taraY, w: taraW, h: taraH, label: "" },
   };
 }
@@ -430,11 +448,13 @@ export function gerProximity(state: GameState): {
     const ny = clamp(p.y, r.y, r.y + r.h);
     return Math.hypot(p.x - nx, p.y - ny) < range;
   };
-  const nearBedL = nearRect(lay.bedL, 50);
-  const nearBedR = nearRect(lay.bedR, 50);
+  const nearBedL = nearRect(lay.bedL, 40);
+  const nearBedR = nearRect(lay.bedR, 40);
   const nearChestL = nearRect(lay.chestL, 55);
   const nearChestR = nearRect(lay.chestR, 55);
   const nearChestC = nearRect(lay.chestC, 55);
+  const nearStove =
+    nearRect(lay.stove, 48) || nearRect(lay.woodBox, 42);
   return {
     nearChestL,
     nearChestR,
@@ -443,7 +463,7 @@ export function gerProximity(state: GameState): {
     nearBed: nearBedL || nearBedR,
     nearBedL,
     nearBedR,
-    nearStove: nearRect(lay.stove, 52),
+    nearStove,
     atDoor: p.y > 492 && Math.abs(p.x - 480) < 90,
   };
 }
@@ -600,7 +620,7 @@ function tryLightGerStove(state: GameState): void {
   if (state.gerStoveLit) {
     state.gerStoveFuel += 24;
     sfx("fire");
-    setMessage(state, "Зууханд түлээ нэмлээ.", 2);
+    setMessage(state, "Түлээ дөрвөлжид хийлээ.", 2);
     return;
   }
 
@@ -611,9 +631,9 @@ function tryLightGerStove(state: GameState): void {
     state.story.activeMainObjective === "restoreHearth" &&
     !state.story.campfireRelit
   ) {
-    setMessage(state, "Зууханд гал асаалаа! Голомт сэргэж байна…", 3);
+    setMessage(state, "Дөрвөлжид түлээ хийж гал асаалаа! Голомт сэргэж байна…", 3);
   } else {
-    setMessage(state, "Зууханд гал асаалаа!", 2.5);
+    setMessage(state, "Дөрвөлжид түлээ хийж гал асаалаа!", 2.5);
   }
 }
 
@@ -753,7 +773,7 @@ export function updateGer(state: GameState, dt: number): void {
     const ny = dir.y / len;
     player.facing = { x: nx, y: ny };
     state.gerPlayer.x = clamp(state.gerPlayer.x + nx * 170 * dt, 70, 890);
-    state.gerPlayer.y = clamp(state.gerPlayer.y + ny * 170 * dt, 300, 508);
+    state.gerPlayer.y = clamp(state.gerPlayer.y + ny * 170 * dt, 285, 505);
   }
 
   const prox = gerProximity(state);
@@ -782,7 +802,8 @@ export function updateGer(state: GameState, dt: number): void {
   if (
     (input.interact && prox.nearStove) ||
     (input.lightFire && prox.nearStove) ||
-    (input.mouseClicked && overButton(lay.stove, input))
+    (input.mouseClicked &&
+      (overButton(lay.stove, input) || overButton(lay.woodBox, input)))
   ) {
     input.interact = false;
     input.lightFire = false;

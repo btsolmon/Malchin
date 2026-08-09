@@ -120,11 +120,12 @@ function routePoint(
   finalTarget: Vector2,
 ): Vector2 {
   const world = state.world;
-  const fromIn = animalInPen(from, world);
-  const toIn = animalInPen(finalTarget, world);
+  // Эцэг эх хонин хашаагаар нэвтрэнэ (үндсэн хашаа)
+  const fromIn = animalInPen(from, world, "sheep");
+  const toIn = animalInPen(finalTarget, world, "sheep");
   if (fromIn === toIn) return finalTarget;
 
-  const gate = flockGatePos(world);
+  const gate = flockGatePos(world, "sheep");
   if (dist(from, gate) > 28) {
     return { x: gate.x, y: gate.y };
   }

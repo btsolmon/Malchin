@@ -15,10 +15,12 @@ import {
   type FenceTier,
   type GameState,
   type InputState,
+  type LivestockKind,
+  type PenKind,
   type Season,
   type Vector2,
   type World,
-} from "../game/types";
+} from "./types";
 
 /** Бүх товчлуур дараагүй, хулгана хөдлөөгүй эхний оролт */
 export function neutralInput(): InputState {
@@ -160,6 +162,8 @@ export function pushOutOfUrtz(
 
 /** Эхлэлийн хашааны хэмжээ (тал бүрт торны тоо) */
 export const STARTER_PEN_SIZE = 5;
+/** Үхрийн хашааны хэмжээ */
+export const CATTLE_PEN_SIZE = 4;
 
 export function angleFromOrient(orient: 0 | 1): number {
   return orient === 1 ? Math.PI / 2 : 0;
@@ -178,31 +182,84 @@ export function fenceAngle(fence: Pick<Fence, "orient"> & { angle?: number }): n
 }
 
 /** Мал гаргах/оруулах цэг — хашааны хаалга (байхгүй бол баруун тал) */
-export function flockGatePos(world: World): Vector2 {
-  const gate = world.fences.find((f) => f.isGate);
+export function flockGatePos(
+  world: World,
+  pen: PenKind = "sheep",
+): Vector2 {
+  const gate = world.fences.find((f) => f.isGate && f.pen === pen);
   if (gate) return { x: gate.pos.x, y: gate.pos.y };
-  const pen = starterPenCenter(world.campPos);
-  const halfSide = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
-  return { x: pen.x + halfSide, y: pen.y };
+  const c = penCenterFor(world, pen);
+  const n = pen === "cattle" ? CATTLE_PEN_SIZE : STARTER_PEN_SIZE;
+  const halfSide = (n * FENCE_GRID) / 2;
+  // Хонин хашаа: зүүн тал → хаалга зүүнээс гэртэй ойр (баруун хана)
+  // Үхрийн хашаа: урд → хаалга гэртэй ойр (хойд хана)
+  if (pen === "cattle") return { x: c.x, y: c.y - halfSide };
+  return { x: c.x + halfSide, y: c.y };
+}
+
+/** Тоглогчид хамгийн ойр хаалга */
+export function nearestPenGate(
+  world: World,
+  pos: Vector2,
+): { pen: PenKind; gate: Vector2; fence: Fence | null; d: number } | null {
+  let best: { pen: PenKind; gate: Vector2; fence: Fence | null; d: number } | null =
+    null;
+  for (const pen of ["sheep", "cattle"] as const) {
+    const fence = world.fences.find((f) => f.isGate && f.pen === pen) ?? null;
+    const gate = flockGatePos(world, pen);
+    const d = dist(pos, gate);
+    if (!best || d < best.d) best = { pen, gate, fence, d };
+  }
+  return best;
 }
 
 export const FLOCK_GATE_RADIUS = 36;
 
-/** Эхний бууцын хашааны төв — гэрийн зүүн талд, зайтай */
+/** Хонин/ямааны хашааны төв — гэрийн зүүн (−X), бага зэрэг урагш */
 export function starterPenCenter(camp: Vector2): Vector2 {
   const halfSide = (STARTER_PEN_SIZE * FENCE_GRID) / 2;
   return snapFencePos(
     camp.x - halfSide - 7 * FENCE_GRID,
-    camp.y + FENCE_GRID,
+    camp.y + 3 * FENCE_GRID,
+    FENCE_GRID,
+  );
+}
+
+/** Үхрийн хашааны төв — гэрийн урд (өмнөд) */
+export function cattlePenCenter(camp: Vector2): Vector2 {
+  const halfSide = (CATTLE_PEN_SIZE * FENCE_GRID) / 2;
+  return snapFencePos(
+    camp.x,
+    camp.y + halfSide + 7 * FENCE_GRID,
     FENCE_GRID,
   );
 }
 
 /** Хашаан доторх малын бөөгнөрөх радиус */
 export const PEN_RADIUS = (STARTER_PEN_SIZE * FENCE_GRID) / 2 - 10;
+export const CATTLE_PEN_RADIUS = (CATTLE_PEN_SIZE * FENCE_GRID) / 2 - 8;
 
 export function penCenter(world: World): Vector2 {
   return starterPenCenter(world.campPos);
+}
+
+export function penCenterFor(world: World, pen: PenKind): Vector2 {
+  return pen === "cattle"
+    ? cattlePenCenter(world.campPos)
+    : starterPenCenter(world.campPos);
+}
+
+export function penRadiusFor(pen: PenKind): number {
+  return pen === "cattle" ? CATTLE_PEN_RADIUS : PEN_RADIUS;
+}
+
+/** Малын төрөл → хашаа (морь/тэмээ хонинтой цуг) */
+export function penForLivestock(kind: LivestockKind): PenKind {
+  return kind === "cattle" ? "cattle" : "sheep";
+}
+
+export function animalIsOut(world: World, kind: LivestockKind): boolean {
+  return penForLivestock(kind) === "cattle" ? world.cattleOut : world.flockOut;
 }
 
 /**
@@ -213,16 +270,51 @@ export function createStarterPen(
   camp: Vector2,
   nextId: () => number,
 ): Fence[] {
+  return createRectPen(
+    starterPenCenter(camp),
+    STARTER_PEN_SIZE,
+    "sheep",
+    "east",
+    nextId,
+  );
+}
+
+/** Үхрийн хашаа — гэрийн урд, хаалга хойд тал (гэр рүү) */
+export function createCattlePen(
+  camp: Vector2,
+  nextId: () => number,
+): Fence[] {
+  return createRectPen(
+    cattlePenCenter(camp),
+    CATTLE_PEN_SIZE,
+    "cattle",
+    "north",
+    nextId,
+  );
+}
+
+/** Хонин + үхрийн хашаа */
+export function createCampPens(
+  camp: Vector2,
+  nextId: () => number,
+): Fence[] {
+  return [...createStarterPen(camp, nextId), ...createCattlePen(camp, nextId)];
+}
+
+function createRectPen(
+  c: Vector2,
+  n: number,
+  pen: PenKind,
+  gateSide: "east" | "north",
+  nextId: () => number,
+): Fence[] {
   const g = FENCE_GRID;
-  const n = STARTER_PEN_SIZE;
-  const c = starterPenCenter(camp);
-  // n=5 → хананы урт 5 тор; сегментийн төвүүд: -2,-1,0,1,2
   const wall = (n * g) / 2;
   const left = c.x - wall;
   const right = c.x + wall;
   const top = c.y - wall;
   const bottom = c.y + wall;
-  const gateIndex = Math.floor(n / 2); // гол = хаалга
+  const gateIndex = Math.floor(n / 2);
 
   const make = (
     x: number,
@@ -241,19 +333,19 @@ export function createStarterPen(
     isGate,
     gateOpen: 0,
     gateCloseIn: 0,
+    pen,
   });
 
   const fences: Fence[] = [];
-
   for (let i = 0; i < n; i++) {
-    // Сегмент төв: хананы дагуу хагас тороор эхэлж алхамна
     const along = -wall + g / 2 + i * g;
-    fences.push(make(c.x + along, top, 0, false));
+    const eastGate = gateSide === "east" && i === gateIndex;
+    const northGate = gateSide === "north" && i === gateIndex;
+    fences.push(make(c.x + along, top, 0, northGate));
     fences.push(make(c.x + along, bottom, 0, false));
     fences.push(make(left, c.y + along, 1, false));
-    fences.push(make(right, c.y + along, 1, i === gateIndex));
+    fences.push(make(right, c.y + along, 1, eastGate));
   }
-
   return fences;
 }
 
