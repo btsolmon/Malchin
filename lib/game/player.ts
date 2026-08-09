@@ -37,7 +37,7 @@ import {
   canHarvestHay,
   clamp,
   collidePlayerWithGates,
-  createStarterPen,
+  createCampPens,
   dayInSeason,
   dist,
   fenceAngle,
@@ -206,7 +206,7 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
       const hint = dayPhaseHint(
         getDayPhase(world.timeOfDay, world.season),
         world.season,
-        world.flockOut,
+        world.flockOut || world.cattleOut,
       );
       setMessage(
         state,
@@ -619,7 +619,7 @@ export function tryInteract(state: GameState): void {
     state.craftOpen = false;
     state.gerArtZoom = null;
     state.menuIndex = 0;
-    state.gerPlayer = { x: 480, y: 435 };
+    state.gerPlayer = { x: 480, y: 455 };
     state.input.interact = false;
     sfx("select");
     return;
@@ -1449,7 +1449,7 @@ export function tryMigrateGer(state: GameState): void {
       world.pastureGrass = 0;
     }
     // Шинэ бууцанд жижиг хашаа
-    world.fences = createStarterPen(pos, () => allocId(state));
+    world.fences = createCampPens(pos, () => allocId(state));
     // Мал хашаан дотор
     pullFlockToPen(state, 1);
     for (const a of world.flock.visuals) {
@@ -1457,6 +1457,7 @@ export function tryMigrateGer(state: GameState): void {
       a.vel.y = 0;
     }
     world.flockOut = false;
+    world.cattleOut = false;
     sfx("buy");
     spawnParticles(state, pos, 20, "#e8c56a", { speed: 100, size: 3 });
     spawnText(state, pos, "Гэр буулаа!", "#ffe9a0");
@@ -1483,7 +1484,7 @@ export function tryMigrateGer(state: GameState): void {
     setMessage(state, "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
     return;
   }
-  if (world.flockOut) {
+  if (world.flockOut || world.cattleOut) {
     setMessage(state, "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.", 3);
     return;
   }

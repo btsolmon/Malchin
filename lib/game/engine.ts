@@ -15,7 +15,7 @@ import {
   type Vector2,
   type WorldStone,
 } from "./types";
-import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
+import { dist, setMessage, updateGates, allocId, createCampPens } from "./utils";
 import { isInRiver, sampleBushPos, sampleStonePos, sampleTreePos } from "./biomes";
 import {
   DEFAULT_TERRAIN_SEED,
@@ -330,6 +330,7 @@ export function createInitialState(): GameState {
       elapsed: 0,
       dayPhase: "dawn",
       flockOut: false,
+      cattleOut: false,
       outdoorRiskAcc: 0,
       nextWolfIn: 72,
       nextThiefIn: 140,
@@ -425,7 +426,7 @@ export function createInitialState(): GameState {
     shopOpen: false,
     craftOpen: false,
     gerArtZoom: null,
-    gerPlayer: { x: 480, y: 435 },
+    gerPlayer: { x: 480, y: 455 },
     gerSleepTimer: 0,
     gerSleepBed: null,
     gerStoveLit: false,
@@ -461,13 +462,14 @@ export function createInitialState(): GameState {
   };
 
   assignRiddlesToWorld(state.world, spawn, 11);
-  state.world.fences = createStarterPen(spawn, () => allocId(state));
+  state.world.fences = createCampPens(spawn, () => allocId(state));
   state.world.fish = createRiverFish(() => allocId(state));
   syncVisualFlock(state);
   pullFlockToPen(state, 1);
   initializeOpeningLivestock(state);
   // Opening livestock are placed outside the pen — keep them free to roam.
   state.world.flockOut = true;
+  state.world.cattleOut = true;
   // Унах морь — эхнээсээ гэрийн уяан дээр
   state.world.mountHorse = {
     pos: horseHitchPos(state.world),

@@ -47,7 +47,7 @@ export function drawSleepingHerder(
   const bed = left ? gerLayout().bedL : gerLayout().bedR;
   const cx = bed.x + bed.w / 2;
   const cy = bed.y + bed.h * 0.52;
-  // Зүүн ор — толгой зүүн (дэр), баруун ор — толгой баруун
+  // Зүүн ор — толгой зүүн хана руу, баруун — баруун хана руу
   const headLeft = left;
   const breath = Math.sin(time * 2.2) * 0.6;
 
@@ -63,16 +63,17 @@ export function drawSleepingHerder(
   };
 
   ctx.save();
-  ctx.translate(cx, cy + 4);
-  ctx.scale(scale * 0.92, scale * 0.92);
+  ctx.translate(cx, cy + 2);
+  // Орны хэмжээнд тааруулна
+  ctx.scale(scale * 0.55, scale * 0.55);
   ctx.rotate(headLeft ? -Math.PI / 2 : Math.PI / 2);
   drawPlayer(ctx, sleeper, { x: 0, y: 0 }, time, false, 0, true);
   ctx.restore();
 
   for (let i = 0; i < 3; i++) {
     const phase = (time * 0.7 + i * 0.85) % 1;
-    const zx = cx + (headLeft ? -36 : 36) + Math.sin(time + i) * 4;
-    const zy = cy - 18 - phase * 36;
+    const zx = cx + (headLeft ? -22 : 22) + Math.sin(time + i) * 3;
+    const zy = cy - 12 - phase * 28;
     ctx.globalAlpha = (1 - phase) * 0.9;
     ctx.fillStyle = "#d8e8ff";
     ctx.font = `${11 + i * 3}px system-ui, sans-serif`;
@@ -469,300 +470,191 @@ function lobedMedallionPath(
   ctx.closePath();
 }
 
-/**
- * Монгол сийлбэртэй ор — цайвар мод, өнгөт угалз,
- * 3 нуман нуруу, хайрцаг хашлага, торгон дэвсгэр.
- */
-function drawMongolBed(
+/** Хаалганаас харсан хажуугийн ор — жижиг улбар шар хүрээ */
+function drawGerSideBed(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
-  _side: -1 | 1,
+  side: -1 | 1,
 ): void {
-  const wood = "#e8d8c0";
-  const woodMid = "#d4c4a8";
-  const woodDeep = "#b8a888";
-  const woodDark = "#8a7858";
-  const panelBg = "#f7f0e4";
-  const red = "#c83828";
-  const blue = "#2a78c0";
-  const green = "#3a9840";
-  const gold = "#d4a838";
-  const orange = "#e07030";
-  const mattress = "#f0e4c8";
-  const mattressDeep = "#e0d0a8";
+  const orange = "#e85828";
+  const orangeDeep = "#c04018";
+  const orangeLite = "#f87840";
+  const cream = "#f2e6c8";
+  const creamDeep = "#e0d0a8";
+  const woodLine = "#8a3010";
 
-  const depth = Math.min(36, h * 0.28);
-  const faceH = Math.min(36, h * 0.28);
-  const backH = Math.min(56, h * 0.46);
-  const sideW = Math.max(32, Math.round(w * 0.14));
-  const topFrontY = y + h - faceH - 4;
-  const topBackY = topFrontY - depth;
-  const floorY = y + h;
+  // Бага перспектив — хана дагуу намхан ор
+  const frontY = y + h - 4;
+  const backY = y + 4;
+  const insetFront = 3;
+  const insetBack = 10;
+  const frontL = x + (side < 0 ? insetFront : insetBack);
+  const frontR = x + w - (side < 0 ? insetBack : insetFront);
+  const backL = x + (side < 0 ? insetBack : insetBack + 4);
+  const backR = x + w - (side < 0 ? insetBack + 4 : insetBack);
 
+  // Сүүдэр
   ctx.fillStyle = "rgba(0,0,0,0.22)";
   ctx.beginPath();
-  ctx.ellipse(x + w / 2, floorY + 2, w * 0.46, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(
+    (frontL + frontR) / 2,
+    frontY + 4,
+    (frontR - frontL) * 0.46,
+    6,
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
 
-  const baseGrad = ctx.createLinearGradient(x, topFrontY, x, floorY);
-  baseGrad.addColorStop(0, wood);
-  baseGrad.addColorStop(1, woodDeep);
-  ctx.fillStyle = baseGrad;
-  roundRectPath(ctx, x + 2, topFrontY, w - 4, faceH + 4, 3);
+  // Орны суурь
+  const frameGrad = ctx.createLinearGradient(x, backY, x, frontY);
+  frameGrad.addColorStop(0, orangeLite);
+  frameGrad.addColorStop(0.55, orange);
+  frameGrad.addColorStop(1, orangeDeep);
+  ctx.fillStyle = frameGrad;
+  ctx.beginPath();
+  ctx.moveTo(frontL - 3, frontY);
+  ctx.lineTo(frontR + 3, frontY);
+  ctx.lineTo(backR + 2, backY);
+  ctx.lineTo(backL - 2, backY);
+  ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = woodDark;
-  ctx.lineWidth = 1.4;
-  roundRectPath(ctx, x + 2, topFrontY, w - 4, faceH + 4, 3);
+  ctx.strokeStyle = woodLine;
+  ctx.lineWidth = 1.2;
   ctx.stroke();
 
-  const innerL = x + sideW + 2;
-  const innerR = x + w - sideW - 2;
-  const innerW = innerR - innerL;
-  const row1H = faceH * 0.42;
-  for (let i = 0; i < 4; i++) {
-    const pw = innerW / 4;
-    const px = innerL + i * pw + 2;
-    drawOrnatePanel(ctx, px, topFrontY + 3, pw - 4, row1H - 2, panelBg, red, blue, green, gold);
-  }
-  const row2Y = topFrontY + row1H + 2;
-  const row2H = faceH - row1H - 2;
-  for (let i = 0; i < 4; i++) {
-    const pw = innerW / 4;
-    const px = innerL + i * pw + 2;
-    drawOrnatePanel(ctx, px, row2Y, pw - 4, row2H - 3, panelBg, blue, red, gold, green);
-  }
-
-  for (const left of [true, false]) {
-    const sx = left ? x + 2 : x + w - sideW - 2;
-    const sxB = left ? x + 8 : x + w - sideW - 8;
-    ctx.fillStyle = woodMid;
-    roundRectPath(ctx, sx, topFrontY - 18, sideW, faceH + 22, 3);
-    ctx.fill();
-    ctx.strokeStyle = woodDark;
-    ctx.lineWidth = 1.3;
-    roundRectPath(ctx, sx, topFrontY - 18, sideW, faceH + 22, 3);
-    ctx.stroke();
-    drawOrnatePanel(
-      ctx,
-      sx + 4,
-      topFrontY - 12,
-      sideW - 8,
-      faceH + 10,
-      panelBg,
-      red,
-      green,
-      blue,
-      gold,
-    );
-    ctx.fillStyle = wood;
-    ctx.beginPath();
-    ctx.moveTo(sx - 1, topFrontY - 18);
-    ctx.lineTo(sx + sideW + 1, topFrontY - 18);
-    ctx.lineTo(sxB + sideW - 2, topBackY - 10);
-    ctx.lineTo(sxB - 1, topBackY - 10);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = woodDeep;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = woodDeep;
-    ctx.beginPath();
-    ctx.moveTo(left ? sx + sideW : sx, topFrontY - 18);
-    ctx.lineTo(left ? sxB + sideW - 2 : sxB - 1, topBackY - 10);
-    ctx.lineTo(left ? sxB + sideW - 2 : sxB - 1, topBackY + faceH);
-    ctx.lineTo(left ? sx + sideW : sx, topFrontY + faceH + 4);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  const deckL = x + sideW + 4;
-  const deckR = x + w - sideW - 4;
-  const deckBackL = x + sideW + 10;
-  const deckBackR = x + w - sideW - 10;
-  const matGrad = ctx.createLinearGradient(x, topBackY, x, topFrontY);
-  matGrad.addColorStop(0, mattressDeep);
-  matGrad.addColorStop(0.5, mattress);
-  matGrad.addColorStop(1, "#f8f0d8");
-  ctx.fillStyle = matGrad;
+  // Урд хашлага — намхан
+  const faceH = 11;
+  ctx.fillStyle = orangeDeep;
   ctx.beginPath();
-  ctx.moveTo(deckL, topFrontY - 2);
-  ctx.lineTo(deckR, topFrontY - 2);
-  ctx.lineTo(deckBackR, topBackY + 2);
-  ctx.lineTo(deckBackL, topBackY + 2);
+  ctx.moveTo(frontL - 3, frontY);
+  ctx.lineTo(frontR + 3, frontY);
+  ctx.lineTo(frontR + 2, frontY + faceH);
+  ctx.lineTo(frontL - 2, frontY + faceH);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(180,150,90,0.2)";
-  ctx.lineWidth = 0.8;
-  for (let i = 1; i < 5; i++) {
-    const t = i / 5;
-    const y0 = topFrontY - 2 + (topBackY + 2 - (topFrontY - 2)) * t;
-    const inset = 4 + t * 6;
-    ctx.beginPath();
-    ctx.moveTo(deckL + inset, y0);
-    ctx.lineTo(deckR - inset, y0);
-    ctx.stroke();
-  }
-  ctx.strokeStyle = woodDeep;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(deckL, topFrontY - 2);
-  ctx.lineTo(deckR, topFrontY - 2);
-  ctx.lineTo(deckBackR, topBackY + 2);
-  ctx.lineTo(deckBackL, topBackY + 2);
-  ctx.closePath();
-  ctx.stroke();
-
-  const pillowW = Math.min(78, (deckR - deckL) * 0.48);
-  const pillowD = depth * 0.48;
-  const pFront = topFrontY - 6;
-  const pBack = pFront - pillowD;
-  const midX = (deckL + deckR) / 2;
-  const midBackX = (deckBackL + deckBackR) / 2;
-  const pX = midX - pillowW / 2;
-  const pBackX = midBackX - pillowW / 2;
-  ctx.fillStyle = "rgba(0,0,0,0.1)";
-  ctx.beginPath();
-  ctx.moveTo(pX + 2, pFront + 3);
-  ctx.lineTo(pX + pillowW + 2, pFront + 3);
-  ctx.lineTo(pBackX + pillowW, pBack + 5);
-  ctx.lineTo(pBackX, pBack + 5);
-  ctx.closePath();
-  ctx.fill();
-  const pilGrad = ctx.createLinearGradient(pX, pBack, pX, pFront);
-  pilGrad.addColorStop(0, "#fff8e8");
-  pilGrad.addColorStop(1, "#e8dcc0");
-  ctx.fillStyle = pilGrad;
-  ctx.beginPath();
-  ctx.moveTo(pX, pFront);
-  ctx.lineTo(pX + pillowW, pFront);
-  ctx.lineTo(pBackX + pillowW, pBack);
-  ctx.lineTo(pBackX, pBack);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = "#c8b890";
+  ctx.strokeStyle = woodLine;
   ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.fillStyle = "#d0c4a0";
+  ctx.strokeStyle = "rgba(255,220,160,0.5)";
+  ctx.lineWidth = 1;
+  const midFace = frontY + faceH * 0.45;
   ctx.beginPath();
-  ctx.moveTo(pX, pFront);
-  ctx.lineTo(pX + pillowW, pFront);
-  ctx.lineTo(pX + pillowW - 2, pFront + 7);
-  ctx.lineTo(pX + 2, pFront + 7);
+  ctx.moveTo(frontL + 6, midFace);
+  ctx.quadraticCurveTo((frontL + frontR) / 2, midFace - 3, frontR - 6, midFace);
+  ctx.stroke();
+
+  // Хөл
+  for (const fx of [frontL + 8, frontR - 8]) {
+    ctx.fillStyle = orangeDeep;
+    roundRectPath(ctx, fx - 2.5, frontY + faceH - 1, 5, 7, 1);
+    ctx.fill();
+  }
+
+  // Гудас
+  const matL = frontL + 3;
+  const matR = frontR - 3;
+  const matBackL = backL + 4;
+  const matBackR = backR - 4;
+  const matFront = frontY - 3;
+  const matBack = backY + 8;
+  const matGrad = ctx.createLinearGradient(0, matBack, 0, matFront);
+  matGrad.addColorStop(0, creamDeep);
+  matGrad.addColorStop(0.55, cream);
+  matGrad.addColorStop(1, "#faf3dc");
+  ctx.fillStyle = matGrad;
+  ctx.beginPath();
+  ctx.moveTo(matL, matFront);
+  ctx.lineTo(matR, matFront);
+  ctx.lineTo(matBackR, matBack);
+  ctx.lineTo(matBackL, matBack);
   ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = "rgba(160,130,80,0.3)";
+  ctx.lineWidth = 0.9;
+  ctx.stroke();
 
-  const bx0 = deckBackL - 4;
-  const bx1 = deckBackR + 4;
-  const by0 = topBackY + 4;
-  const byTop = by0 - backH;
-  const spans = [0.27, 0.46, 0.27];
-  const heights = [0.88, 1, 0.88];
-
-  ctx.fillStyle = woodMid;
-  ctx.fillRect(bx0 - 2, byTop + 8, bx1 - bx0 + 4, by0 - byTop);
-  ctx.strokeStyle = woodDark;
-  ctx.lineWidth = 1.2;
-  ctx.strokeRect(bx0 - 2, byTop + 8, bx1 - bx0 + 4, by0 - byTop);
-
-  let acc = 0;
-  for (let i = 0; i < 3; i++) {
-    const a0 = acc;
-    const a1 = acc + spans[i]!;
-    const px = bx0 + a0 * (bx1 - bx0) + 3;
-    const pw = (a1 - a0) * (bx1 - bx0) - 6;
-    const ph = (by0 - byTop - 10) * heights[i]!;
-    const py = by0 - ph;
-    ctx.fillStyle = wood;
-    ctx.beginPath();
-    ctx.moveTo(px, by0);
-    ctx.lineTo(px, py + 10);
-    ctx.quadraticCurveTo(px + pw / 2, py - 2, px + pw, py + 10);
-    ctx.lineTo(px + pw, by0);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = woodDark;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    drawOrnatePanel(
-      ctx,
-      px + 4,
-      py + 12,
-      pw - 8,
-      ph - 18,
-      panelBg,
-      i === 1 ? red : blue,
-      i === 1 ? gold : green,
-      orange,
-      i === 1 ? green : red,
-    );
-    acc = a1;
-  }
+  // Дэр — хоймор/хана тал
+  const pillowW = (matBackR - matBackL) * 0.7;
+  const pillowCx = (matBackL + matBackR) / 2;
+  const pillowY = matBack + 2;
+  const pillowH = 10;
+  ctx.fillStyle = "rgba(0,0,0,0.1)";
+  ctx.beginPath();
+  ctx.ellipse(pillowCx, pillowY + pillowH * 0.7, pillowW * 0.45, 3.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  const pilGrad = ctx.createLinearGradient(0, pillowY, 0, pillowY + pillowH);
+  pilGrad.addColorStop(0, "#fff8e8");
+  pilGrad.addColorStop(1, "#e8d8b8");
+  ctx.fillStyle = pilGrad;
+  roundRectPath(ctx, pillowCx - pillowW / 2, pillowY, pillowW, pillowH, 4);
+  ctx.fill();
+  ctx.strokeStyle = "#c8b090";
+  ctx.lineWidth = 0.9;
+  roundRectPath(ctx, pillowCx - pillowW / 2, pillowY, pillowW, pillowH, 4);
+  ctx.stroke();
 }
 
-/** Цайвар самбар дээрх өнгөт медальон / угалз */
-function drawOrnatePanel(
+/** Баганын цагаан өлзий хээ */
+function drawBaganaUlzii(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  bg: string,
-  c1: string,
-  c2: string,
-  c3: string,
-  c4: string,
+  cx: number,
+  cy: number,
+  size: number,
 ): void {
-  if (w < 6 || h < 6) return;
-  ctx.fillStyle = bg;
-  roundRectPath(ctx, x, y, w, h, 2);
+  const s = size;
+  ctx.strokeStyle = "rgba(255,250,240,0.92)";
+  ctx.lineWidth = Math.max(1.4, s * 0.12);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  // Энгийн өлзий — хоёр огтлолцсон гогцоо
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.35, cy - s * 0.15);
+  ctx.bezierCurveTo(
+    cx - s * 0.55,
+    cy - s * 0.55,
+    cx + s * 0.55,
+    cy - s * 0.55,
+    cx + s * 0.35,
+    cy - s * 0.15,
+  );
+  ctx.bezierCurveTo(
+    cx + s * 0.55,
+    cy + s * 0.55,
+    cx - s * 0.55,
+    cy + s * 0.55,
+    cx - s * 0.35,
+    cy + s * 0.15,
+  );
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.15, cy - s * 0.35);
+  ctx.bezierCurveTo(
+    cx - s * 0.55,
+    cy - s * 0.55,
+    cx - s * 0.55,
+    cy + s * 0.55,
+    cx - s * 0.15,
+    cy + s * 0.35,
+  );
+  ctx.bezierCurveTo(
+    cx + s * 0.55,
+    cy + s * 0.55,
+    cx + s * 0.55,
+    cy - s * 0.55,
+    cx + s * 0.15,
+    cy - s * 0.35,
+  );
+  ctx.stroke();
+  // Төв цэг
+  ctx.fillStyle = "rgba(255,250,240,0.9)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, s * 0.08, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = c2;
-  ctx.lineWidth = 1.2;
-  roundRectPath(ctx, x, y, w, h, 2);
-  ctx.stroke();
-  ctx.strokeStyle = c4;
-  ctx.lineWidth = 0.7;
-  roundRectPath(ctx, x + 2, y + 2, w - 4, h - 4, 1);
-  ctx.stroke();
-
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const r = Math.min(w, h) * 0.32;
-
-  ctx.strokeStyle = c1;
-  ctx.lineWidth = Math.max(1, r * 0.2);
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, r * 0.9, r * 0.7, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = c2;
-  ctx.lineWidth = Math.max(0.8, r * 0.14);
-  ctx.beginPath();
-  ctx.moveTo(cx - r, cy);
-  ctx.bezierCurveTo(cx - r * 0.3, cy - r, cx + r * 0.3, cy - r, cx + r, cy);
-  ctx.stroke();
-  ctx.strokeStyle = c3;
-  ctx.beginPath();
-  ctx.moveTo(cx - r * 0.85, cy + r * 0.2);
-  ctx.bezierCurveTo(cx - r * 0.2, cy + r * 0.85, cx + r * 0.2, cy + r * 0.85, cx + r * 0.85, cy + r * 0.2);
-  ctx.stroke();
-  ctx.fillStyle = c4;
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.22, 0, Math.PI * 2);
-  ctx.fill();
-  for (const [ox, oy] of [
-    [-0.7, -0.55],
-    [0.7, -0.55],
-    [-0.7, 0.55],
-    [0.7, 0.55],
-  ] as const) {
-    ctx.fillStyle = c1;
-    ctx.beginPath();
-    ctx.ellipse(cx + ox * r, cy + oy * r, r * 0.2, r * 0.14, ox * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 /** Гэрийн хар төмөр тулга — хас тэмдэг, гоёл, дотор гал */
@@ -938,6 +830,118 @@ function drawGerTulga(
     ctx.beginPath();
     ctx.ellipse(cx, cy - h * 0.35, rx + 10, h * 0.55 + 8, 0, 0, Math.PI * 2);
     ctx.stroke();
+  }
+}
+
+/** Зуухны урд түлээний дөрвөлж */
+function drawStoveWoodBox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  fuel: number,
+  lit: boolean,
+  hover: boolean,
+): void {
+  const woodDeep = "#5a3a22";
+  const woodMid = "#7a5230";
+  const woodLite = "#9a6a40";
+  const rim = "#3a2414";
+  // Дүүргэлт — түлш ихсэх тусам дөрвөлж дүүрнэ (0→1)
+  const maxFuel = 54;
+  const fill = Math.max(0, Math.min(1, fuel / maxFuel));
+  const logCount = fill <= 0 ? 0 : Math.max(1, Math.round(fill * 10));
+
+  // Сүүдэр
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
+  ctx.beginPath();
+  ctx.ellipse(x + w / 2, y + h + 2, w * 0.5, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Дөрвөлжийн модон хана
+  const body = ctx.createLinearGradient(x, y, x + w, y + h);
+  body.addColorStop(0, woodLite);
+  body.addColorStop(0.45, woodMid);
+  body.addColorStop(1, woodDeep);
+  ctx.fillStyle = body;
+  roundRectPath(ctx, x, y, w, h, 2);
+  ctx.fill();
+  ctx.strokeStyle = hover ? "#ffe080" : rim;
+  ctx.lineWidth = hover ? 2.2 : 1.6;
+  roundRectPath(ctx, x, y, w, h, 2);
+  ctx.stroke();
+
+  // Дотор ёроол
+  const ix = x + 5;
+  const iy = y + 5;
+  const iw = w - 10;
+  const ih = h - 10;
+  ctx.fillStyle = "#1a1008";
+  roundRectPath(ctx, ix, iy, iw, ih, 1);
+  ctx.fill();
+
+  // Модон хашлага — дээд ирмэг
+  ctx.fillStyle = woodLite;
+  ctx.fillRect(x + 2, y, w - 4, 5);
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 2, y, w - 4, 5);
+
+  // Түлээ овоолол — доороос дээш дүүрнэ
+  const logColors = ["#6a4428", "#5a3820", "#7a5030", "#4a2e18", "#8a5a38", "#6e4828"];
+  const cols = 2;
+  for (let i = 0; i < logCount; i++) {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const rows = Math.ceil(logCount / cols);
+    const lw = iw * 0.42;
+    const lh = Math.min(6.5, (ih - 4) / Math.max(3, rows) - 1);
+    const lx = ix + 3 + col * (lw + 4) + (row % 2) * 2;
+    const ly = iy + ih - 4 - (row + 1) * (lh + 1.5);
+    if (ly < iy + 2) continue;
+
+    ctx.fillStyle = logColors[i % logColors.length]!;
+    roundRectPath(ctx, lx, ly, lw, lh, 1.5);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(20,10,4,0.4)";
+    ctx.lineWidth = 0.7;
+    roundRectPath(ctx, lx, ly, lw, lh, 1.5);
+    ctx.stroke();
+    // Үзүүр
+    ctx.fillStyle = "#d0b080";
+    ctx.beginPath();
+    ctx.ellipse(lx + lw, ly + lh / 2, 2.4, lh * 0.42, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#8a6840";
+    ctx.beginPath();
+    ctx.ellipse(lx, ly + lh / 2, 2, lh * 0.38, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Бараг дүүрэн үед дээрээс цухуйсан түлээ
+  if (fill > 0.75) {
+    const extra = Math.min(3, Math.floor((fill - 0.75) / 0.08) + 1);
+    for (let i = 0; i < extra; i++) {
+      const lw = iw * 0.36;
+      const lx = ix + 6 + i * 8;
+      const ly = iy + 1 + (i % 2) * 3;
+      ctx.fillStyle = logColors[(i + 2) % logColors.length]!;
+      roundRectPath(ctx, lx, ly, lw, 5, 1.5);
+      ctx.fill();
+      ctx.fillStyle = "#d0b080";
+      ctx.beginPath();
+      ctx.ellipse(lx + lw, ly + 2.5, 2, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  if (logCount === 0 && !lit) {
+    ctx.fillStyle = "rgba(200,180,150,0.4)";
+    ctx.font = "600 9px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("дөрвөлж", x + w / 2, y + h * 0.62);
+    ctx.textAlign = "left";
   }
 }
 
@@ -1331,322 +1335,259 @@ export function drawGerInterior(
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   // Шал
-  const floor = ctx.createRadialGradient(cx, 410, 60, cx, 410, 470);
+  const floor = ctx.createRadialGradient(cx, 400, 60, cx, 400, 470);
   floor.addColorStop(0, "#8a6038");
   floor.addColorStop(0.7, "#6a4526");
   floor.addColorStop(1, "#3a2412");
   ctx.fillStyle = floor;
   ctx.beginPath();
-  ctx.ellipse(cx, 415, 480, 180, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, 405, 480, 185, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Шалны банзны зураас
+  // Шалны банзны зураас — хаалгаас хоймор руу
   ctx.strokeStyle = "rgba(40,24,10,0.35)";
   ctx.lineWidth = 1.5;
   for (let i = -5; i <= 5; i++) {
     ctx.beginPath();
-    ctx.moveTo(cx + i * 44, wallBot - 40);
-    ctx.lineTo(cx + i * 82, VIEW_H);
+    ctx.moveTo(cx + i * 40, wallBot - 30);
+    ctx.lineTo(cx + i * 88, VIEW_H);
     ctx.stroke();
   }
 
   // Гол хивс
-  drawGerCarpet(ctx, cx, 420);
+  drawGerCarpet(ctx, cx, 400);
 
-  // Хана — эсгий (байгалийн саарал) + модон сүлжээ
+  // Хана — цайвар эсгий + тод модон сүлжээ (хана)
   const wallX = 20;
   const wallY = wallTop;
   const wallW = VIEW_W - 40;
   const wallH = wallBot - wallTop;
-  // Эсгийн суурь — цайвар бор/саарал, жигд бус
   const felt = ctx.createLinearGradient(wallX, wallY, wallX, wallY + wallH);
-  felt.addColorStop(0, "#d0ccc4");
-  felt.addColorStop(0.45, "#c4c0b8");
-  felt.addColorStop(1, "#b4b0a8");
+  felt.addColorStop(0, "#f2efe8");
+  felt.addColorStop(0.5, "#ebe6dc");
+  felt.addColorStop(1, "#ddd6ca");
   ctx.fillStyle = felt;
   ctx.fillRect(wallX, wallY, wallW, wallH);
-  // Эсгийн ширхэг / бүдүүн бүтэц
-  for (let i = 0; i < 420; i++) {
+  for (let i = 0; i < 280; i++) {
     const fx = wallX + ((i * 97) % wallW);
     const fy = wallY + ((i * 53) % wallH);
-    const shade = (i * 17) % 3;
     ctx.fillStyle =
-      shade === 0
-        ? "rgba(90,85,78,0.14)"
-        : shade === 1
-          ? "rgba(255,255,250,0.1)"
-          : "rgba(120,110,95,0.12)";
+      i % 2 === 0 ? "rgba(120,110,95,0.08)" : "rgba(255,252,245,0.1)";
     ctx.fillRect(fx, fy, 2 + (i % 3), 1 + (i % 2));
   }
-  for (let i = 0; i < 80; i++) {
-    const fx = wallX + ((i * 131) % wallW);
-    const fy = wallY + ((i * 79) % wallH);
-    ctx.strokeStyle = "rgba(100,95,88,0.18)";
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(fx, fy);
-    ctx.lineTo(fx + 6 + (i % 5), fy + ((i % 3) - 1) * 2);
-    ctx.stroke();
-  }
-  // Сүлжээ хана (хана мод) — эсгийн доор/дундуур бага зэрэг харагдана
-  ctx.strokeStyle = "rgba(120,75,40,0.28)";
-  ctx.lineWidth = 3;
-  for (let x = -20; x < VIEW_W + 40; x += 38) {
+  // Сүлжээ хана — цайвар мод, тод харагдана
+  ctx.strokeStyle = "rgba(190,160,120,0.72)";
+  ctx.lineWidth = 2.6;
+  ctx.lineCap = "round";
+  for (let x = -30; x < VIEW_W + 50; x += 34) {
     ctx.beginPath();
     ctx.moveTo(x, wallTop);
-    ctx.lineTo(x + 70, wallBot);
+    ctx.lineTo(x + 78, wallBot);
     ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(x + 70, wallTop);
+    ctx.moveTo(x + 78, wallTop);
     ctx.lineTo(x, wallBot);
     ctx.stroke();
   }
-  // Эсгийн нимгэн давхарга — сүлжээг бүрхэнэ
-  ctx.fillStyle = "rgba(196,192,184,0.55)";
+  // Нимгэн эсгий давхарга
+  ctx.fillStyle = "rgba(242,239,232,0.38)";
   ctx.fillRect(wallX, wallY, wallW, wallH);
-  for (let i = 0; i < 180; i++) {
-    const fx = wallX + ((i * 67) % wallW);
-    const fy = wallY + ((i * 41) % wallH);
-    ctx.fillStyle = i % 2 === 0 ? "rgba(80,76,70,0.08)" : "rgba(255,252,245,0.07)";
-    ctx.fillRect(fx, fy, 3, 2);
-  }
-  // Ханын ирмэгийн сүүдэр
   const wsh = ctx.createLinearGradient(0, 0, VIEW_W, 0);
-  wsh.addColorStop(0, "rgba(18,9,4,0.55)");
+  wsh.addColorStop(0, "rgba(18,9,4,0.4)");
   wsh.addColorStop(0.5, "rgba(18,9,4,0)");
-  wsh.addColorStop(1, "rgba(18,9,4,0.55)");
+  wsh.addColorStop(1, "rgba(18,9,4,0.4)");
   ctx.fillStyle = wsh;
   ctx.fillRect(wallX, wallY, wallW, wallH);
 
-  // Дээвэр хэсэг
-  ctx.fillStyle = "#1c0f07";
+  // ===== Дээвэр: цагаан эсгий (унь хооронд) + улбар тооно/унь/багана =====
+  const ty = 56;
+  const toonoRx = 86;
+  const toonoRy = 40;
+  const orange = "#f06028";
+  const orangeDeep = "#d04818";
+  const orangeLite = "#ff7a3a";
+  const orangeGloss = "#ff9860";
+  const uniCount = 32;
+  const uniEndY = wallTop;
+
+  // Дээврийн харанхуй суурь
+  ctx.fillStyle = "#1a100c";
   ctx.fillRect(0, 0, VIEW_W, wallTop);
 
-  // ===== Тооно + унь + багана (эгц урдаас — доороос харсан зурагт үндэслэнэ) =====
-  const ty = 56;
-  const toonoRx = 88;
-  const toonoRy = 42;
-  const orange = "#e85820";
-  const orangeDeep = "#c04014";
-  const orangeLite = "#f87838";
-  const patBlue = "#4ab0d8";
-  const patYellow = "#f0d050";
-  const patGreen = "#5caa40";
-  const patCream = "#f2e8d0";
-
-  // Унь — тооноос хана руу (олон, улбар шар, үзүүрт хээ)
-  for (let i = 0; i <= 28; i++) {
-    const t = i / 28;
-    const wx = 18 + t * (VIEW_W - 36);
+  // Унь + эсгий — эсгийг зөвхөн унь хоорондын секторт зурна (унинаас нааш гаргахгүй)
+  const uniEnds: Array<{ sx: number; sy: number; ex: number; ey: number }> = [];
+  for (let i = 0; i <= uniCount; i++) {
+    const t = i / uniCount;
+    const ex = 14 + t * (VIEW_W - 28);
     const nearCenter = Math.abs(t - 0.5);
-    // Перспектив: голд ойрхон унь тооны доод ирмэгээс, зах руу илүү нам
-    const startX = cx + (wx - cx) * 0.12;
-    const startY = ty + toonoRy * (0.55 + nearCenter * 0.35);
-    ctx.strokeStyle = i % 3 === 0 ? orangeDeep : orange;
-    ctx.lineWidth = 4.2;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(wx, wallTop + 2);
-    ctx.stroke();
-    // Тооны ойр үзүүрийн гоёл
-    ctx.strokeStyle = patBlue;
-    ctx.lineWidth = 1.4;
-    const ux = startX + (wx - startX) * 0.08;
-    const uy = startY + (wallTop + 2 - startY) * 0.08;
-    ctx.beginPath();
-    ctx.moveTo(startX, startY);
-    ctx.lineTo(ux, uy);
-    ctx.stroke();
-    if (i % 4 === 0) {
-      ctx.fillStyle = patYellow;
+    const sx = cx + (ex - cx) * 0.1;
+    const sy = ty + toonoRy * (0.5 + nearCenter * 0.4);
+    uniEnds.push({ sx, sy, ex, ey: uniEndY });
+  }
+
+  // Цагаан эсгий — зөвхөн хоёр хөрш унь хооронд
+  {
+    const roofGrad = ctx.createRadialGradient(cx, ty, 20, cx, ty + 40, 380);
+    roofGrad.addColorStop(0, "#ffffff");
+    roofGrad.addColorStop(0.4, "#f6f2ea");
+    roofGrad.addColorStop(0.85, "#e8e0d4");
+    roofGrad.addColorStop(1, "#d4cbc0");
+    ctx.fillStyle = roofGrad;
+    for (let i = 0; i < uniEnds.length - 1; i++) {
+      const a = uniEnds[i]!;
+      const b = uniEnds[i + 1]!;
       ctx.beginPath();
-      ctx.arc(startX, startY, 2.2, 0, Math.PI * 2);
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(a.ex, a.ey);
+      ctx.lineTo(b.ex, b.ey);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.closePath();
       ctx.fill();
     }
   }
 
-  // Багана — тооны хамгийн урт диаметрийн 2 үзүүрээс шал хүртэл
-  const baganaHalf = 11;
-  const baganaSpan = toonoRx; // эллипсийн хамгийн өргөн цэг (cx ± toonoRx)
-  const baganaTop = ty + 2; // тооны хэвтээ диаметрийн түвшинд залгана
-  const baganaBot = 410; // шал
+  // Унь — улбар шар (эсгийн дээр)
+  for (const u of uniEnds) {
+    ctx.strokeStyle = orangeDeep;
+    ctx.lineWidth = 3.8;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(u.sx, u.sy);
+    ctx.lineTo(u.ex, u.ey);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,200,150,0.35)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(u.sx + 1, u.sy);
+    ctx.lineTo(u.ex + 1, u.ey);
+    ctx.stroke();
+  }
+
+  // Багана — зузаан улбар, цагаан өлзий
+  const baganaHalf = 12;
+  const baganaSpan = toonoRx;
+  const baganaTop = ty + 4;
+  const baganaBot = 410;
   for (const side of [-1, 1] as const) {
     const px = cx + side * baganaSpan;
-
-    // Их бие — азагаас шал хүртэл
     const col = ctx.createLinearGradient(px - baganaHalf, baganaTop, px + baganaHalf, baganaBot);
-    col.addColorStop(0, orangeLite);
-    col.addColorStop(0.4, orange);
-    col.addColorStop(1, orangeDeep);
+    col.addColorStop(0, orangeGloss);
+    col.addColorStop(0.25, orange);
+    col.addColorStop(0.7, orangeDeep);
+    col.addColorStop(1, "#a83810");
     ctx.fillStyle = col;
-    roundRectPath(ctx, px - baganaHalf, baganaTop + 16, baganaHalf * 2, baganaBot - baganaTop - 16, 4);
+    roundRectPath(ctx, px - baganaHalf, baganaTop + 10, baganaHalf * 2, baganaBot - baganaTop - 10, 3);
     ctx.fill();
-    ctx.strokeStyle = "#8a2808";
-    ctx.lineWidth = 1.5;
-    roundRectPath(ctx, px - baganaHalf, baganaTop + 16, baganaHalf * 2, baganaBot - baganaTop - 16, 4);
-    ctx.stroke();
-
-    // Гоёл бүсүүд — угалз мөр
-    for (let i = 0; i < 8; i++) {
-      const yy = baganaTop + 40 + i * 44;
-      if (yy > baganaBot - 24) break;
-      ctx.strokeStyle = i % 2 === 0 ? patBlue : patYellow;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(px - baganaHalf + 3, yy);
-      ctx.quadraticCurveTo(px, yy - 5, px + baganaHalf - 3, yy);
-      ctx.quadraticCurveTo(px, yy + 5, px - baganaHalf + 3, yy);
-      ctx.stroke();
-      ctx.fillStyle = patGreen;
-      ctx.beginPath();
-      ctx.arc(px, yy, 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Аза / толгой — тооны цагираг доор залгана
-    const headW = 36;
-    const headH = 26;
-    const hx = px - headW / 2;
-    const hy = baganaTop - 8;
-    ctx.fillStyle = orange;
-    ctx.beginPath();
-    ctx.moveTo(hx + 4, hy + headH);
-    ctx.lineTo(hx, hy + 14);
-    ctx.lineTo(hx + 3, hy + 8);
-    ctx.lineTo(hx + 8, hy + 4);
-    ctx.lineTo(hx + 10, hy);
-    ctx.lineTo(hx + headW - 10, hy);
-    ctx.lineTo(hx + headW - 8, hy + 4);
-    ctx.lineTo(hx + headW - 3, hy + 8);
-    ctx.lineTo(hx + headW, hy + 14);
-    ctx.lineTo(hx + headW - 4, hy + headH);
-    ctx.closePath();
+    // Гялбаа
+    ctx.fillStyle = "rgba(255,220,180,0.28)";
+    roundRectPath(ctx, px - baganaHalf + 2, baganaTop + 14, 5, baganaBot - baganaTop - 28, 2);
     ctx.fill();
     ctx.strokeStyle = "#8a2808";
     ctx.lineWidth = 1.6;
-    ctx.stroke();
-    ctx.strokeStyle = patBlue;
-    ctx.lineWidth = 1.2;
-    roundRectPath(ctx, hx + 7, hy + 8, headW - 14, 12, 2);
-    ctx.stroke();
-    ctx.fillStyle = patYellow;
-    ctx.beginPath();
-    ctx.arc(px, hy + 14, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = patCream;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(hx + 8, hy + 6);
-    ctx.lineTo(hx + headW - 8, hy + 6);
+    roundRectPath(ctx, px - baganaHalf, baganaTop + 10, baganaHalf * 2, baganaBot - baganaTop - 10, 3);
     ctx.stroke();
 
-    // Шалны суурь
+    // Өлзий — дээд ба доод
+    drawBaganaUlzii(ctx, px, baganaTop + 52, 16);
+    drawBaganaUlzii(ctx, px, baganaBot - 48, 15);
+    // Дунд жижиг гоёл
+    ctx.strokeStyle = "rgba(255,248,240,0.55)";
+    ctx.lineWidth = 1.3;
+    for (const yy of [baganaTop + 110, baganaTop + 200, baganaTop + 290]) {
+      if (yy > baganaBot - 70) break;
+      ctx.beginPath();
+      ctx.moveTo(px - baganaHalf + 3, yy);
+      ctx.quadraticCurveTo(px, yy - 4, px + baganaHalf - 3, yy);
+      ctx.stroke();
+    }
+
+    // Толгой — тоонод залгана
+    const headW = 34;
+    const headH = 22;
+    const hx = px - headW / 2;
+    const hy = baganaTop - 6;
+    ctx.fillStyle = orange;
+    roundRectPath(ctx, hx, hy, headW, headH, 4);
+    ctx.fill();
+    ctx.strokeStyle = "#8a2808";
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    drawBaganaUlzii(ctx, px, hy + headH / 2, 10);
+
     ctx.fillStyle = orangeDeep;
     roundRectPath(ctx, px - baganaHalf - 4, baganaBot - 8, baganaHalf * 2 + 8, 10, 2);
     ctx.fill();
   }
 
-  // Тооно — тэнгэр + давхар цагираг + 8 хараац (урдаас эллипс)
-  // Тэнгэр
-  ctx.fillStyle = "#3a8ad0";
+  // Тооно — гялгар улбар цагираг
+  ctx.fillStyle = "#4a9ad8";
   ctx.beginPath();
-  ctx.ellipse(cx, ty, toonoRx - 6, toonoRy - 4, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, ty, toonoRx - 8, toonoRy - 5, 0, 0, Math.PI * 2);
   ctx.fill();
   const skyGlow = ctx.createRadialGradient(cx, ty - 4, 2, cx, ty, toonoRx);
-  skyGlow.addColorStop(0, "rgba(200,230,255,0.55)");
-  skyGlow.addColorStop(0.55, "rgba(80,160,220,0.25)");
+  skyGlow.addColorStop(0, "rgba(220,240,255,0.6)");
+  skyGlow.addColorStop(0.55, "rgba(100,170,230,0.28)");
   skyGlow.addColorStop(1, "rgba(40,100,180,0)");
   ctx.fillStyle = skyGlow;
   ctx.beginPath();
   ctx.ellipse(cx, ty, toonoRx, toonoRy, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Гадна цагираг (зузаан улбар)
+  // Зузаан улбар цагираг
   ctx.strokeStyle = orangeDeep;
-  ctx.lineWidth = 16;
+  ctx.lineWidth = 18;
   ctx.beginPath();
   ctx.ellipse(cx, ty, toonoRx, toonoRy, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.strokeStyle = orange;
-  ctx.lineWidth = 11;
+  ctx.lineWidth = 12;
   ctx.beginPath();
   ctx.ellipse(cx, ty, toonoRx, toonoRy, 0, 0, Math.PI * 2);
   ctx.stroke();
-  // Гадна цагиргийн угалз
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    const px = cx + Math.cos(a) * toonoRx;
-    const py = ty + Math.sin(a) * toonoRy;
-    ctx.fillStyle = i % 2 === 0 ? patBlue : patYellow;
-    ctx.beginPath();
-    ctx.arc(px, py, 2.4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.strokeStyle = patCream;
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = orangeGloss;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.ellipse(cx, ty, toonoRx + 7, toonoRy + 5, 0, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeStyle = patBlue;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.ellipse(cx, ty, toonoRx - 7, toonoRy - 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, ty - 2, toonoRx - 2, toonoRy - 3, 0, Math.PI * 1.15, Math.PI * 1.85);
   ctx.stroke();
 
-  // Дотор цагираг
-  const innerRx = toonoRx * 0.32;
-  const innerRy = toonoRy * 0.32;
+  // Дотор цагираг + хараац
+  const innerRx = toonoRx * 0.3;
+  const innerRy = toonoRy * 0.3;
   ctx.strokeStyle = orangeDeep;
-  ctx.lineWidth = 8;
+  ctx.lineWidth = 7;
   ctx.beginPath();
   ctx.ellipse(cx, ty, innerRx, innerRy, 0, 0, Math.PI * 2);
   ctx.stroke();
   ctx.strokeStyle = orangeLite;
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.ellipse(cx, ty, innerRx, innerRy, 0, 0, Math.PI * 2);
   ctx.stroke();
-  ctx.strokeStyle = patBlue;
-  ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  ctx.ellipse(cx, ty, innerRx - 3, innerRy - 2, 0, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // 8 хараац — дотор ↔ гадна
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
     const x0 = cx + Math.cos(a) * (innerRx + 2);
     const y0 = ty + Math.sin(a) * (innerRy + 2);
-    const x1 = cx + Math.cos(a) * (toonoRx - 8);
-    const y1 = ty + Math.sin(a) * (toonoRy - 6);
+    const x1 = cx + Math.cos(a) * (toonoRx - 10);
+    const y1 = ty + Math.sin(a) * (toonoRy - 7);
     ctx.strokeStyle = orangeDeep;
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 4.5;
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
     ctx.stroke();
     ctx.strokeStyle = orange;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(x0, y0);
     ctx.lineTo(x1, y1);
     ctx.stroke();
-    // Хээ
-    const mx = (x0 + x1) / 2;
-    const my = (y0 + y1) / 2;
-    ctx.fillStyle = i % 2 === 0 ? patYellow : patGreen;
-    ctx.beginPath();
-    ctx.arc(mx, my, 2.2, 0, Math.PI * 2);
-    ctx.fill();
   }
 
-  // Тооноос унжсан цэнхэр хадаг — богино, хоёрдоолон унжсан
+  // Тооноос унжсан цэнхэр хадаг — богино
   {
     const khadagTop = ty + 4;
-    const khadagLen = 42;
+    const khadagLen = 36;
     const khadagBot = khadagTop + khadagLen;
-    // Зүүн тууз
     const leftG = ctx.createLinearGradient(cx - 8, khadagTop, cx - 2, khadagBot);
     leftG.addColorStop(0, "#7ec0f0");
     leftG.addColorStop(0.5, "#3a88d0");
@@ -1654,12 +1595,11 @@ export function drawGerInterior(
     ctx.fillStyle = leftG;
     ctx.beginPath();
     ctx.moveTo(cx - 7, khadagTop);
-    ctx.quadraticCurveTo(cx - 11, khadagTop + 18, cx - 6, khadagBot);
+    ctx.quadraticCurveTo(cx - 11, khadagTop + 16, cx - 6, khadagBot);
     ctx.lineTo(cx - 1, khadagBot);
-    ctx.quadraticCurveTo(cx - 4, khadagTop + 18, cx - 2, khadagTop);
+    ctx.quadraticCurveTo(cx - 4, khadagTop + 16, cx - 2, khadagTop);
     ctx.closePath();
     ctx.fill();
-    // Баруун тууз
     const rightG = ctx.createLinearGradient(cx + 1, khadagTop, cx + 8, khadagBot);
     rightG.addColorStop(0, "#6ab0e8");
     rightG.addColorStop(0.5, "#2a78c8");
@@ -1667,50 +1607,43 @@ export function drawGerInterior(
     ctx.fillStyle = rightG;
     ctx.beginPath();
     ctx.moveTo(cx + 1, khadagTop);
-    ctx.quadraticCurveTo(cx + 6, khadagTop + 20, cx + 2, khadagBot + 2);
+    ctx.quadraticCurveTo(cx + 6, khadagTop + 18, cx + 2, khadagBot + 2);
     ctx.lineTo(cx + 7, khadagBot + 2);
-    ctx.quadraticCurveTo(cx + 10, khadagTop + 20, cx + 6, khadagTop);
+    ctx.quadraticCurveTo(cx + 10, khadagTop + 18, cx + 6, khadagTop);
     ctx.closePath();
     ctx.fill();
-    // Гэрэл
-    ctx.strokeStyle = "rgba(220,240,255,0.4)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(cx - 4, khadagTop + 4);
-    ctx.lineTo(cx - 3.5, khadagBot - 4);
-    ctx.moveTo(cx + 3.5, khadagTop + 4);
-    ctx.lineTo(cx + 4, khadagBot - 2);
-    ctx.stroke();
-    // Тоонод дэвсэж уясан
     ctx.fillStyle = "#2a70b8";
     ctx.beginPath();
     ctx.ellipse(cx, khadagTop + 1, 8, 3.5, 0, 0, Math.PI * 2);
     ctx.fill();
-    // Захны утас
-    ctx.strokeStyle = "#6ab0e8";
-    ctx.lineWidth = 0.9;
-    for (let i = -2; i <= 2; i++) {
-      if (i === 0) continue;
-      const baseX = i < 0 ? cx - 4 + i : cx + 4 + i;
-      ctx.beginPath();
-      ctx.moveTo(baseX, i < 0 ? khadagBot : khadagBot + 2);
-      ctx.lineTo(baseX + i * 0.4, (i < 0 ? khadagBot : khadagBot + 2) + 5);
-      ctx.stroke();
-    }
   }
 
-  // Зуух — хар төмөр тулга (хивсний яг төв)
+  // Зуух — хар төмөр тулга + урд түлээний дөрвөлж
   const stoveBox = gerLayout().stove;
+  const woodBox = gerLayout().woodBox;
+  const stoveHover =
+    (overButton(stoveBox, state.input) || overButton(woodBox, state.input)) &&
+    !state.shopOpen;
   drawGerTulga(
     ctx,
     stoveBox.x + stoveBox.w / 2,
     stoveBox.y + stoveBox.h * 0.72,
     time,
     state.gerStoveLit,
-    overButton(stoveBox, state.input) && !state.shopOpen,
+    stoveHover,
+  );
+  drawStoveWoodBox(
+    ctx,
+    woodBox.x,
+    woodBox.y,
+    woodBox.w,
+    woodBox.h,
+    state.gerStoveFuel,
+    state.gerStoveLit,
+    stoveHover,
   );
 
-  // Ханын зургууд — морь (жижиг) + гэр бүл (төв)
+  // Ханын зургууд — морь (зүүн) + гэр бүл (баруун авдрын хойно)
   const artLay = gerLayout();
   const canClickArt =
     !state.shopOpen && !state.craftOpen && !state.gerArtZoom && state.gerSleepTimer <= 0;
@@ -1731,7 +1664,7 @@ export function drawGerInterior(
     canClickArt && overButton(artLay.artFamily, state.input),
   );
 
-  // ===== АВДАР — хоёр талд + гэр бүлийн доор эгц урд =====
+  // ===== АВДАР — зүүн урлал / гол тахил / баруун авдар =====
   const lay = gerLayout();
   const chests: Array<{ ch: typeof lay.chestL; side: -1 | 0 | 1; label: string }> =
     [
@@ -1749,7 +1682,8 @@ export function drawGerInterior(
     ctx.translate(-(ch.x + ch.w / 2), -(ch.y + ch.h / 2));
     drawPaintedAvdar(ctx, ch.x, ch.y, ch.w, ch.h, hover, side);
     ctx.restore();
-    if (side < 0) {
+    // Бурхан тахил + зул — голын авдар дээр
+    if (side === 0) {
       drawAvdarOfferings(
         ctx,
         ch.x,
@@ -1771,16 +1705,15 @@ export function drawGerInterior(
     ctx.fillText(label, ch.x + ch.w / 2, labelY);
   }
 
-  // Ор — зүүн/баруун хана дагуу босоо монгол ор
-  drawMongolBed(ctx, lay.bedL.x, lay.bedL.y, lay.bedL.w, lay.bedL.h, -1);
-  drawMongolBed(ctx, lay.bedR.x, lay.bedR.y, lay.bedR.w, lay.bedR.h, 1);
+  // Ор — зүүн/баруун хана (хаалганаас харсан)
+  drawGerSideBed(ctx, lay.bedL.x, lay.bedL.y, lay.bedL.w, lay.bedL.h, -1);
+  drawGerSideBed(ctx, lay.bedR.x, lay.bedR.y, lay.bedR.w, lay.bedR.h, 1);
 
-  // Орой гэрт орсон аав ээж — баруун ор дээр цуг сууна
+  // Орой гэрт орсон аав ээж — баруун ор дээр сууна
   if (state.parentsReturned && state.parents) {
     const cam0 = { x: 0, y: 0 };
     const bed = lay.bedR;
-    // Тоглогч (gerScale 2.85) -оос том — ор дээр багтахаар
-    const parentScale = 3.45;
+    const parentScale = 2.6;
     const drawIndoor = (
       src: ParentNpc,
       x: number,
@@ -1803,24 +1736,26 @@ export function drawGerInterior(
       drawParentNpc(ctx, p, cam0, time);
       ctx.restore();
     };
-    // Баруун ор — аав зүүн талд, ээж баруун талд, хоёулаа дотогш харсан
     drawIndoor(
       state.parents.father,
-      bed.x + bed.w * 0.34,
-      bed.y + bed.h * 0.58,
+      bed.x + bed.w * 0.32,
+      bed.y + bed.h * 0.62,
       1,
     );
     drawIndoor(
       state.parents.mother,
-      bed.x + bed.w * 0.66,
-      bed.y + bed.h * 0.58,
+      bed.x + bed.w * 0.68,
+      bed.y + bed.h * 0.62,
       -1,
     );
   }
 
-  // Хаалга (гарах)
+  // Хаалга / гарах — дэлгэцийн доод ирмэг (хаалган дээр зогсож байгаа)
   const door = lay.door;
-  ctx.fillStyle = "#8a2828";
+  ctx.fillStyle = "rgba(20,10,6,0.55)";
+  roundRectPath(ctx, door.x - 8, door.y - 4, door.w + 16, door.h + 10, 10);
+  ctx.fill();
+  ctx.fillStyle = "#7a2424";
   roundRectPath(ctx, door.x, door.y, door.w, door.h, 8);
   ctx.fill();
   ctx.strokeStyle =
@@ -1829,7 +1764,8 @@ export function drawGerInterior(
   roundRectPath(ctx, door.x, door.y, door.w, door.h, 8);
   ctx.stroke();
   ctx.fillStyle = "#ffe9a8";
-  ctx.font = "600 14px system-ui, sans-serif";
+  ctx.font = "600 13px system-ui, sans-serif";
+  ctx.textAlign = "center";
   ctx.fillText("Гарах — P", door.x + door.w / 2, door.y + door.h / 2 + 5);
   ctx.textAlign = "left";
 
@@ -1868,8 +1804,8 @@ export function drawGerInterior(
     else if (prox.nearChestC || prox.nearChestR) hint = "E — Авдар";
     else if (prox.nearStove)
       hint = state.gerStoveLit
-        ? "E — Түлээ нэмэх"
-        : "E / F — Гал асаах (3 түлээ)";
+        ? "E — Түлээ дөрвөлжид хийх"
+        : "E / F — Дөрвөлжид түлээ хийж гал асаах (3)";
     else if (prox.nearBed)
       hint = state.player.sleepCooldown > 0 ? "Сая унтсан…" : "E — Унтах";
     if (hint) {

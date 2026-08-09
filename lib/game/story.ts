@@ -32,6 +32,8 @@ import {
   normalize,
   pastureCenter,
   penCenter,
+  penCenterFor,
+  penForLivestock,
   PEN_RADIUS,
   pushOutOfGer,
   pushOutOfUrtz,
@@ -2602,11 +2604,11 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     story.temporaryPlayerProtectionActive = true;
     story.temporaryLivestockProtectionActive = true;
 
-    const pen = penCenter(state.world);
     const animals = state.world.flock.visuals.filter((animal) =>
       ids.includes(animal.id),
     );
     animals.forEach((animal, index) => {
+      const pen = penCenterFor(state.world, penForLivestock(animal.kind));
       const angle = (index / Math.max(1, animals.length)) * Math.PI * 2;
       const radius = 26 + (index % 2) * 12;
       animal.pos.x = pen.x + Math.cos(angle) * radius;
@@ -2616,6 +2618,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     });
 
     state.world.flockOut = false;
+    state.world.cattleOut = false;
     state.world.timeOfDay = FIRST_NIGHT_TARGET_TIME;
     state.world.dayPhase = getDayPhase(
       state.world.timeOfDay,
@@ -2910,11 +2913,11 @@ export function debugJumpToFamilyLife(state: GameState): void {
   story.stormTraceEffectRemaining = 0;
   story.spiritPathOpened = true;
 
-  const pen = penCenter(state.world);
   const animals = state.world.flock.visuals.filter((animal) =>
     livestockIds.includes(animal.id),
   );
   animals.forEach((animal, index) => {
+    const pen = penCenterFor(state.world, penForLivestock(animal.kind));
     const angle = (index / Math.max(1, animals.length)) * Math.PI * 2;
     const radius = 26 + (index % 2) * 12;
     animal.pos.x = pen.x + Math.cos(angle) * radius;
@@ -2923,6 +2926,7 @@ export function debugJumpToFamilyLife(state: GameState): void {
     animal.vel.y = 0;
   });
   state.world.flockOut = false;
+  state.world.cattleOut = false;
 
   // Story чоныг арилгана
   for (const wolf of state.world.wolves) {
@@ -3037,7 +3041,7 @@ export function updateLivestockRecoveryQuest(
     for (const animal of state.world.flock.visuals) {
       if (
         !story.openingLivestockIds.includes(animal.id) ||
-        !animalInPen(animal.pos, state.world)
+        !animalInPen(animal.pos, state.world, animal.kind)
       ) {
         continue;
       }
@@ -3065,6 +3069,7 @@ export function updateLivestockRecoveryQuest(
       story.firstDayEveningHoldActive = false;
       story.firstNightSunsetStarted = true;
       state.world.flockOut = false;
+      state.world.cattleOut = false;
       state.message = "";
       state.messageTimer = 0;
       sfx("levelup");

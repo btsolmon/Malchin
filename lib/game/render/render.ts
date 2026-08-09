@@ -1,7 +1,7 @@
 import {
   Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
-import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
+import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, nearestPenGate, pastureCenter, randRange } from "../utils";
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldRock, drawWorldStone } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
 import {
@@ -420,37 +420,39 @@ export function render(
     });
   }
 
-  // Мал гаргах/оруулах цэг — хашааны хаалга
+  // Мал гаргах/оруулах цэг — хонин ба үхрийн хаалга
   if (!world.gerPacked) {
-    const gate = flockGatePos(world);
-    addDrawable("flockGate", {
-      // Шонгийн сууриас дээш depth — тоглогч ойртоход урд нь гарахгүй
-      y: gate.y - 12,
-      key: -6,
-      draw: () => {
-        const gx = gate.x - cam.x;
-        const gy = gate.y - cam.y;
-        // Хоёр богино шон + завсар (хаалганы мөр)
-        ctx.fillStyle = "rgba(20,25,15,0.22)";
-        ctx.beginPath();
-        ctx.ellipse(gx, gy + 4, 16, 5, 0, 0, Math.PI * 2);
-        ctx.fill();
-        for (const ox of [-10, 10] as const) {
-          ctx.fillStyle = "#5a3a1e";
-          ctx.fillRect(gx + ox - 2, gy - 14, 4, 16);
-          ctx.fillStyle = "#7a5230";
-          ctx.fillRect(gx + ox - 1.2, gy - 13, 2, 14);
-        }
-        ctx.strokeStyle = "rgba(90,60,30,0.45)";
-        ctx.lineWidth = 1.4;
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.moveTo(gx - 8, gy - 4);
-        ctx.lineTo(gx + 8, gy - 4);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      },
-    });
+    for (const pen of ["sheep", "cattle"] as const) {
+      const gate = flockGatePos(world, pen);
+      addDrawable("flockGate", {
+        // Шонгийн сууриас дээш depth — тоглогч ойртоход урд нь гарахгүй
+        y: gate.y - 12,
+        key: pen === "cattle" ? -5 : -6,
+        draw: () => {
+          const gx = gate.x - cam.x;
+          const gy = gate.y - cam.y;
+          // Хоёр богино шон + завсар (хаалганы мөр)
+          ctx.fillStyle = "rgba(20,25,15,0.22)";
+          ctx.beginPath();
+          ctx.ellipse(gx, gy + 4, 16, 5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          for (const ox of [-10, 10] as const) {
+            ctx.fillStyle = "#5a3a1e";
+            ctx.fillRect(gx + ox - 2, gy - 14, 4, 16);
+            ctx.fillStyle = "#7a5230";
+            ctx.fillRect(gx + ox - 1.2, gy - 13, 2, 14);
+          }
+          ctx.strokeStyle = "rgba(90,60,30,0.45)";
+          ctx.lineWidth = 1.4;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(gx - 8, gy - 4);
+          ctx.lineTo(gx + 8, gy - 4);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        },
+      });
+    }
   }
 
   for (const tree of world.trees) {
@@ -855,8 +857,9 @@ export function render(
     const dGer = dist(state.player.pos, gp);
     const dFire = dist(state.player.pos, world.campfire.pos);
     const dFeed = dist(state.player.pos, world.feeder.pos);
-    const gate = flockGatePos(world);
-    const dGate = dist(state.player.pos, gate);
+    const nearestGate = nearestPenGate(world, state.player.pos);
+    const gate = nearestGate?.gate ?? flockGatePos(world);
+    const dGate = nearestGate?.d ?? dist(state.player.pos, gate);
     const callableLivestock = nearestMissingOpeningLivestock(state);
     if (world.gerPacked) {
       const tx = state.player.pos.x - cam.x;
@@ -936,7 +939,9 @@ export function render(
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      const tip = world.flockOut
+      const penOut =
+        nearestGate?.pen === "cattle" ? world.cattleOut : world.flockOut;
+      const tip = penOut
         ? "E — Мал оруулах · J — Нураах"
         : "E — Мал гаргах · J — Нураах";
       ctx.strokeText(tip, tx, ty);
