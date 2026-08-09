@@ -18,7 +18,6 @@ import {
   type PenKind,
   type Season,
   type Vector2,
-  type WeatherKind,
   type World,
 } from "./types";
 
@@ -124,14 +123,6 @@ export function pushOutOfUrtz(
 export const STARTER_PEN_SIZE = 5;
 /** Үхрийн хашааны хэмжээ */
 export const CATTLE_PEN_SIZE = 4;
-
-/** Өнцгөөс хэвтээ/босоо ангилал */
-export function orientFromAngle(angle: number): 0 | 1 {
-  const a = ((angle % Math.PI) + Math.PI) % Math.PI;
-  const dH = Math.min(a, Math.PI - a);
-  const dV = Math.abs(a - Math.PI / 2);
-  return dV < dH ? 1 : 0;
-}
 
 export function angleFromOrient(orient: 0 | 1): number {
   return orient === 1 ? Math.PI / 2 : 0;
@@ -336,28 +327,6 @@ export function roundRectPath(
   ctx.lineTo(x, y + r);
   ctx.arcTo(x, y, x + r, y, r);
   ctx.closePath();
-}
-
-export function weatherLabel(w: WeatherKind, season: Season): string {
-  const seasonMn: Record<Season, string> = {
-    summer: "Зун",
-    autumn: "Намар",
-    winter: "Өвөл",
-    spring: "Хавар",
-  };
-  const weatherMn: Record<WeatherKind, string> = {
-    clear: "Цэлмэг",
-    wind: "Салхитай",
-    storm: "Бороотой",
-    snow: "Цастай",
-  };
-  return `${seasonMn[season]} · ${weatherMn[w]}`;
-}
-
-export function formatClock(timeOfDay: number): string {
-  const h = Math.floor(timeOfDay) % 24;
-  const m = Math.floor((timeOfDay % 1) * 60);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
 export function setMessage(

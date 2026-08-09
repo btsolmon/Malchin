@@ -3,8 +3,8 @@
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
 import { ensureParents } from "./parents";
-import { allocId, setMessage } from "./utils";
-import type { GameState, Vector2, Wolf } from "./types";
+import { setMessage } from "./utils";
+import type { GameState, Wolf } from "./types";
 
 /** Сүнс = амь: 1 сүнс зарцуулж дахин амилах */
 export function trySpendSpiritLife(state: GameState): boolean {
@@ -219,48 +219,6 @@ function cloneWolf(w: Wolf): Wolf {
     vel: { ...w.vel },
     attackDirection: { ...w.attackDirection },
   };
-}
-
-function spawnSpiritEnemies(state: GameState): void {
-  const origin = state.player.pos;
-  const count = 3 + Math.min(2, Math.floor((state.level - 1) / 2));
-  for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2 + Math.random() * 0.4;
-    const dist = 90 + Math.random() * 50;
-    const pos: Vector2 = {
-      x: origin.x + Math.cos(a) * dist,
-      y: origin.y + Math.sin(a) * dist,
-    };
-    const hp = Math.round(28 + state.level * 4);
-    state.world.wolves.push({
-      id: allocId(state),
-      kind: "wolf",
-      pos,
-      vel: { x: 0, y: 0 },
-      hp,
-      maxHp: hp,
-      radius: 14,
-      speed: 100 + Math.min(25, state.level * 2),
-      attackCooldown: 0.4 + Math.random() * 0.6,
-      damage: 10 + state.level,
-      scale: 1.05 + Math.min(0.35, state.level * 0.04),
-      flash: 0,
-      face: 1,
-      alive: true,
-      posture: 0,
-      maxPosture: 90,
-      postureRegenDelay: 0,
-      postureRecoveryDelay: 0,
-      attackPhase: "chasing",
-      attackKind: "leap",
-      attackTimer: 0,
-      combatPhase: "idle",
-      combatTimer: 0,
-      attackDirection: { x: 0, y: 1 },
-      attackHitDone: false,
-      knockbackResistance: 0.2,
-    });
-  }
 }
 
 export function updateSpiritWorld(state: GameState, dt: number): void {

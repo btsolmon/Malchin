@@ -15,7 +15,6 @@ import {
   Thief,
   Tree,
   type Vector2,
-  type WorldRock,
   type WorldStone,
   Wolf,
 } from "../types";
@@ -399,9 +398,6 @@ export function drawTree(
     ctx.beginPath();
     ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2);
     ctx.fill();
-    if (tree.riddleHost && !tree.riddleSolved) {
-      drawRiddleGlow(ctx, x, y - 6, time, tree.id);
-    }
     return;
   }
 
@@ -443,17 +439,12 @@ export function drawTree(
     roundRectPath(ctx, x - bw / 2, y - 46, (bw * tree.hp) / tree.maxHp, 5, 2);
     ctx.fill();
   }
-
-  if (tree.riddleHost && !tree.riddleSolved) {
-    drawRiddleGlow(ctx, x, y - 18, time, tree.id);
-  }
 }
 
 export function drawBerryBush(
   ctx: CanvasRenderingContext2D,
   bush: BerryBush,
   cam: Camera,
-  time = 0,
 ): void {
   const x = bush.pos.x - cam.x;
   const y = bush.pos.y - cam.y;
@@ -501,9 +492,6 @@ export function drawBerryBush(
     }
   }
 
-  if (bush.riddleHost && !bush.riddleSolved) {
-    drawRiddleGlow(ctx, x, y - 10, time, bush.id);
-  }
 }
 
 export function drawCampfire(
@@ -2458,20 +2446,6 @@ export function drawHerderHairFront(
   ctx.fill();
 }
 
-/**
- * Full hair pass when no head disk is interleaved (back then front).
- */
-export function drawHerderHair(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  hy: number,
-  flip = 1,
-  time = 0,
-): void {
-  drawHerderHairBack(ctx, cx, hy, flip, time);
-  drawHerderHairFront(ctx, cx, hy, flip);
-}
-
 // ---------------------------------------------------------------------------
 // Дүрийн нарийвчилсан туслахууд — дээл, гутал, ханцуй, нүүр
 // ---------------------------------------------------------------------------
@@ -2522,15 +2496,6 @@ const MOTHER_DEEL: DeelStyleSpec = {
   trim: "#e8c56a",
   sash: "#d4a040",
   sashDeep: "#9a7020",
-};
-
-const BOY_FACE: HerderFaceSpec = {
-  skin: "#e8bd93",
-  skinLight: "#f6d6b2",
-  brow: "#3a2c1c",
-  browWidth: 0.95,
-  eye: "round",
-  blushAlpha: 0.35,
 };
 
 const FATHER_FACE: HerderFaceSpec = {
@@ -2806,117 +2771,6 @@ function drawHerderHead(
   ctx.fillStyle = "rgba(150,90,50,0.15)";
   ctx.beginPath();
   ctx.ellipse(x + 0.5 * flip, hdy + r * 0.62, r * 0.62, r * 0.3, 0, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-/** Нүүр — цагаан нүд, хараа, гялбаа, зовхи, хөмсөг, хамар, ам, хацар */
-function drawHerderFace(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  hdy: number,
-  flip: number,
-  s: HerderFaceSpec,
-  angry = false,
-): void {
-  const fx = 1.6 * flip;
-  const eyeH = s.eye === "round" ? 1.2 : s.eye === "soft" ? 1.05 : 0.9;
-
-  for (const side of [-1, 1] as const) {
-    const px = x + fx + side * 2.2;
-    // Цагаан
-    ctx.fillStyle = "#f8f3e8";
-    ctx.beginPath();
-    ctx.ellipse(px, hdy - 0.7, 1.45, eyeH, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Хараа
-    ctx.fillStyle = "#1e150c";
-    ctx.beginPath();
-    ctx.arc(px + 0.3 * flip, hdy - 0.62, angry ? 1.0 : 0.92, 0, Math.PI * 2);
-    ctx.fill();
-    // Гялбаа
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.beginPath();
-    ctx.arc(px + 0.05, hdy - 1.05, 0.33, 0, Math.PI * 2);
-    ctx.fill();
-    // Дээд зовхи
-    ctx.strokeStyle = "rgba(72,46,26,0.6)";
-    ctx.lineWidth = 0.65;
-    ctx.beginPath();
-    ctx.arc(px, hdy - 0.8, 1.45, Math.PI * 1.12, Math.PI * 1.88);
-    ctx.stroke();
-    // Сормуус
-    if (s.eye === "soft") {
-      ctx.strokeStyle = "#1e150c";
-      ctx.lineWidth = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(px + side * 1.35, hdy - 1.35);
-      ctx.lineTo(px + side * 1.95, hdy - 1.85);
-      ctx.stroke();
-    }
-  }
-
-  // Хөмсөг
-  ctx.strokeStyle = s.brow;
-  ctx.lineWidth = angry ? s.browWidth + 0.25 : s.browWidth;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  if (angry) {
-    ctx.moveTo(x + fx - 3.6, hdy - 3.2);
-    ctx.lineTo(x + fx - 0.8, hdy - 2.2);
-    ctx.moveTo(x + fx + 0.8, hdy - 2.2);
-    ctx.lineTo(x + fx + 3.6, hdy - 3.2);
-  } else {
-    ctx.moveTo(x + fx - 3.5, hdy - 2.7);
-    ctx.quadraticCurveTo(x + fx - 2.2, hdy - 3.25, x + fx - 0.9, hdy - 2.95);
-    ctx.moveTo(x + fx + 0.9, hdy - 2.95);
-    ctx.quadraticCurveTo(x + fx + 2.2, hdy - 3.25, x + fx + 3.5, hdy - 2.7);
-  }
-  ctx.stroke();
-
-  // Хамар — зөөлөн сүүдэр
-  ctx.strokeStyle = "rgba(150,95,58,0.55)";
-  ctx.lineWidth = 0.7;
-  ctx.beginPath();
-  ctx.moveTo(x + fx * 1.05, hdy + 0.2);
-  ctx.quadraticCurveTo(x + fx * 1.3, hdy + 1.0, x + fx * 0.75, hdy + 1.3);
-  ctx.stroke();
-
-  // Ам
-  if (angry) {
-    ctx.fillStyle = "#5a2830";
-    ctx.beginPath();
-    ctx.ellipse(x + fx * 0.6, hdy + 2.6, 1.7, 1.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#c07060";
-    ctx.beginPath();
-    ctx.ellipse(x + fx * 0.6, hdy + 2.0, 1.4, 0.5, 0, Math.PI, Math.PI * 2);
-    ctx.fill();
-  } else if (s.lip) {
-    ctx.fillStyle = s.lip;
-    ctx.beginPath();
-    ctx.ellipse(x + fx * 0.6, hdy + 2.5, 1.35, 0.65, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(120,40,45,0.5)";
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.moveTo(x + fx * 0.6 - 1.2, hdy + 2.5);
-    ctx.lineTo(x + fx * 0.6 + 1.2, hdy + 2.5);
-    ctx.stroke();
-  } else {
-    ctx.strokeStyle = "#8a5334";
-    ctx.lineWidth = 0.95;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(x + fx * 0.6 - 1.4, hdy + 2.3);
-    ctx.quadraticCurveTo(x + fx * 0.6, hdy + 2.9, x + fx * 0.6 + 1.4, hdy + 2.3);
-    ctx.stroke();
-  }
-
-  // Хацрын улайлт
-  ctx.fillStyle = `rgba(224,110,86,${s.blushAlpha})`;
-  ctx.beginPath();
-  ctx.arc(x + fx - 3.6, hdy + 1.5, 1.35, 0, Math.PI * 2);
-  ctx.arc(x + fx + 3.6, hdy + 1.5, 1.35, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -4419,51 +4273,6 @@ export function drawProjectile(
     ctx.stroke();
   }
   ctx.restore();
-}
-
-export function drawRiddleGlow(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  time: number,
-  id: number,
-): void {
-  const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + id);
-  ctx.fillStyle = `rgba(232,197,106,${0.25 + pulse * 0.3})`;
-  ctx.beginPath();
-  ctx.arc(x, y, 10 + pulse * 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = `rgba(255,220,100,${0.45 + pulse * 0.4})`;
-  ctx.beginPath();
-  ctx.arc(x, y, 3.2, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-export function drawWorldRock(
-  ctx: CanvasRenderingContext2D,
-  rock: WorldRock,
-  cam: Camera,
-  time: number,
-): void {
-  const x = rock.pos.x - cam.x;
-  const y = rock.pos.y - cam.y;
-  const pulse = 0.5 + 0.5 * Math.sin(time * 2.4 + rock.id);
-  drawShadow(ctx, x, y + 2, 14, 6);
-
-  const g = ctx.createLinearGradient(x - 14, y - 12, x + 12, y + 8);
-  g.addColorStop(0, rock.riddleSolved ? "#6a655c" : "#8a8478");
-  g.addColorStop(1, rock.riddleSolved ? "#4a4640" : "#5c564c");
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.moveTo(x - 13, y + 5);
-  ctx.quadraticCurveTo(x - 16, y - 8, x - 2, y - 14);
-  ctx.quadraticCurveTo(x + 12, y - 12, x + 14, y + 3);
-  ctx.quadraticCurveTo(x + 5, y + 10, x - 13, y + 5);
-  ctx.fill();
-
-  if (!rock.riddleSolved) {
-    drawRiddleGlow(ctx, x + 1, y - 5, time, rock.id);
-  }
 }
 
 /** Түүх боломжтой чулууны овоолго */

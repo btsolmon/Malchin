@@ -2,11 +2,7 @@
 
 import {
   COLORS,
-  FENCE_COST,
-  FENCE_TIER_NAMES,
   FENCE_TIER_SHORT,
-  FENCE_UPGRADE_COST,
-  GATE_PASS_OPEN,
   LIVESTOCK_ICON,
   LIVESTOCK_KINDS,
   PASTURE_RADIUS,
@@ -17,9 +13,7 @@ import {
   type Camera,
   type GameState,
   type InputState,
-  type Season,
   type Vector2,
-  type WeatherKind,
 } from "../game/types";
 import {
   clamp,
@@ -35,7 +29,6 @@ import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
 import { drawPlayer } from "./render/entities";
 import { drawGameIcon, type GameIconId } from "./icons";
-import { SHOP_ITEMS, buyItem } from "./shop";
 import { beginOpeningSequence, drawMainObjectivePanel } from "./story";
 
 export type { ShopItem } from "./shop";
@@ -437,40 +430,6 @@ export function chestLayout(): {
   };
 }
 
-const SHOP_VISIBLE = 6;
-
-export function shopLayout(): {
-  panel: UiButton;
-  rows: UiButton[];
-  close: UiButton;
-} {
-  const w = 640;
-  const h = 76 + SHOP_VISIBLE * 54 + 70;
-  const x = (VIEW_W - w) / 2;
-  const y = (VIEW_H - h) / 2;
-  const rows: UiButton[] = [];
-  for (let i = 0; i < SHOP_VISIBLE; i++) {
-    rows.push({
-      x: x + 24,
-      y: y + 76 + i * 54,
-      w: w - 48,
-      h: 48,
-      label: "",
-    });
-  }
-  return {
-    panel: { x, y, w, h, label: "" },
-    rows,
-    close: {
-      x: x + w / 2 - 70,
-      y: y + h - 54,
-      w: 140,
-      h: 40,
-      label: "Хаах (P)",
-    },
-  };
-}
-
 export function craftLayout(): {
   panel: UiButton;
   rows: UiButton[];
@@ -498,14 +457,6 @@ export function craftLayout(): {
       label: "Хаах (P)",
     },
   };
-}
-
-function shopScrollStart(menuIndex: number): number {
-  return clamp(
-    menuIndex - SHOP_VISIBLE + 1,
-    0,
-    Math.max(0, SHOP_ITEMS.length - SHOP_VISIBLE),
-  );
 }
 
 export function craftItem(state: GameState, idx: number): void {
@@ -909,19 +860,6 @@ export function updateLevelUp(state: GameState): void {
   }
 }
 
-export function drawBarFancy(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  ratio: number,
-  color: string,
-  label: string,
-): void {
-  drawRpgBar(ctx, x, y, w, h, ratio, color, label);
-}
-
 /** Pixel RPG хэлбэрийн тэгш өнцөгт бар (HP/MP маягтай) */
 export function drawRpgBar(
   ctx: CanvasRenderingContext2D,
@@ -1058,83 +996,6 @@ function drawHudMeter(
     ctx.fillRect(x, y + height - 3, fillWidth, 3);
     ctx.restore();
   }
-}
-
-function drawSeasonTree(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  season: Season,
-): void {
-  ctx.save();
-  ctx.translate(Math.round(x), Math.round(y));
-  ctx.lineCap = "square";
-  ctx.lineJoin = "miter";
-
-  // Pixel-art trunk and branches; the clock is drawn over their center.
-  ctx.strokeStyle = "#2a1a16";
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(0, 48);
-  ctx.lineTo(-1, 5);
-  ctx.lineTo(-20, -13);
-  ctx.moveTo(-2, 13);
-  ctx.lineTo(19, -9);
-  ctx.moveTo(-10, -3);
-  ctx.lineTo(-9, -28);
-  ctx.moveTo(10, 1);
-  ctx.lineTo(28, -25);
-  ctx.stroke();
-  ctx.strokeStyle = "#684126";
-  ctx.lineWidth = 4;
-  ctx.stroke();
-  ctx.fillStyle = "#3a241b";
-  ctx.fillRect(-8, 43, 15, 6);
-
-  const leafBlocks: Array<[number, number, number]> = [
-    [-29, -23, 11],
-    [-17, -35, 13],
-    [-2, -29, 12],
-    [14, -24, 14],
-    [27, -34, 11],
-    [35, -18, 10],
-    [-36, -8, 10],
-    [23, -7, 12],
-  ];
-
-  if (season === "summer" || season === "autumn") {
-    const palette =
-      season === "summer"
-        ? ["#244f2b", "#39713a", "#5a8f43"]
-        : ["#8d4f20", "#c47a24", "#e0a83a"];
-    for (let i = 0; i < leafBlocks.length; i++) {
-      const [lx, ly, size] = leafBlocks[i];
-      ctx.fillStyle = "#231813";
-      ctx.fillRect(lx - 2, ly - 2, size + 4, size + 4);
-      ctx.fillStyle = palette[i % palette.length];
-      ctx.fillRect(lx, ly, size, size);
-      ctx.fillStyle = palette[(i + 1) % palette.length];
-      ctx.fillRect(lx + 2, ly + 2, Math.max(3, size - 5), 3);
-    }
-  } else if (season === "winter") {
-    // Snow rests on the otherwise bare branches.
-    const snowCaps: Array<[number, number, number]> = [
-      [-31, -27, 19],
-      [-14, -39, 20],
-      [8, -32, 22],
-      [25, -39, 18],
-      [23, -12, 20],
-    ];
-    for (const [sx, sy, width] of snowCaps) {
-      ctx.fillStyle = "#9eb8c7";
-      ctx.fillRect(sx, sy + 3, width, 5);
-      ctx.fillStyle = "#edf6f7";
-      ctx.fillRect(sx, sy, width, 5);
-      ctx.fillRect(sx + 3, sy - 2, Math.max(4, width - 7), 3);
-    }
-  }
-
-  ctx.restore();
 }
 
 /** Гэрийн тооно — тэнгэрээр нар/сар явж цаг харуулна */
@@ -1410,27 +1271,6 @@ function lerpColor(a: string, b: string, t: number): string {
   return `rgb(${r},${g},${bl})`;
 }
 
-function drawStatusIcon(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  bg: string,
-  draw: () => void,
-): void {
-  ctx.fillStyle = "#1a1520";
-  ctx.fillRect(x - 1, y - 1, size + 2, size + 2);
-  ctx.fillStyle = bg;
-  ctx.fillRect(x, y, size, size);
-  ctx.strokeStyle = "rgba(255,255,255,0.35)";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(x + 0.5, y + 0.5, size - 1, size - 1);
-  ctx.save();
-  ctx.translate(x + size / 2, y + size / 2);
-  draw();
-  ctx.restore();
-}
-
 function drawWoodFrame(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -1504,62 +1344,6 @@ export function shade(hex: string, amt: number): string {
   const g = clamp(((n >> 8) & 255) + amt, 0, 255);
   const b = clamp((n & 255) + amt, 0, 255);
   return `rgb(${r},${g},${b})`;
-}
-
-export function drawWeatherIcon(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  weather: WeatherKind,
-): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.strokeStyle = COLORS.hudAccent;
-  ctx.fillStyle = COLORS.hudAccent;
-  ctx.lineWidth = 1.5;
-
-  if (weather === "clear") {
-    ctx.beginPath();
-    ctx.arc(0, 0, 4, 0, Math.PI * 2);
-    ctx.fill();
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * 6, Math.sin(a) * 6);
-      ctx.lineTo(Math.cos(a) * 8.5, Math.sin(a) * 8.5);
-      ctx.stroke();
-    }
-  } else if (weather === "wind") {
-    for (const oy of [-4, 0, 4]) {
-      ctx.beginPath();
-      ctx.moveTo(-8, oy);
-      ctx.quadraticCurveTo(0, oy - 3, 8, oy);
-      ctx.stroke();
-    }
-  } else if (weather === "storm") {
-    ctx.beginPath();
-    ctx.arc(-3, -2, 4, 0, Math.PI * 2);
-    ctx.arc(3, -2, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(-4, 4);
-    ctx.lineTo(-6, 9);
-    ctx.moveTo(1, 4);
-    ctx.lineTo(-1, 9);
-    ctx.moveTo(6, 4);
-    ctx.lineTo(4, 9);
-    ctx.stroke();
-  } else {
-    // snow
-    for (let i = 0; i < 3; i++) {
-      const a = (i / 3) * Math.PI;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * -7, Math.sin(a) * -7);
-      ctx.lineTo(Math.cos(a) * 7, Math.sin(a) * 7);
-      ctx.stroke();
-    }
-  }
-  ctx.restore();
 }
 
 export function drawMinimap(
@@ -2000,8 +1784,6 @@ export function drawMenuSettings(
 export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   drawMenuTitle(ctx, "УДИРДЛАГА");
 
-  const u1 = FENCE_UPGRADE_COST[1];
-  const u2 = FENCE_UPGRADE_COST[2];
   const lines: Array<[string, string]> = [
     ["WASD", "Алхах"],
     ["J", "Цохих / сэлмээр цавчих (тамир)"],
@@ -2146,21 +1928,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
-  // Статус дүрсүүд (buff мөр)
+  // Статус дүрсүүд (buff мөр) — нохой гэх мэт
   const iconY = pad + 90;
   const iconS = 18;
   let ix = barX;
 
-  if (player.gear.horse) {
-    drawGameIcon(
-      ctx,
-      player.riding ? "horseRide" : "horse",
-      ix + iconS / 2,
-      iconY + iconS / 2 - 2,
-      iconS + 2,
-    );
-    ix += iconS + 6;
-  }
   if (player.gear.dog) {
     drawGameIcon(ctx, "dog", ix + iconS / 2, iconY + iconS / 2 - 2, iconS + 2);
     ix += iconS + 6;
@@ -2287,10 +2059,20 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     drawHotSlot(ctx, sx, qY + 4, qSize, it.val, it.icon, false);
   });
 
-  // Малын төрөл — дүрс + тоо (нэг мөр дээш)
+  // Малын төрөл — дүрс + тоо; унах морь мөн энэ мөрт
   let lx = barX;
-  const hasBuff = player.gear.horse || player.gear.dog;
+  const hasBuff = player.gear.dog;
   const ly = hasBuff ? iconY + iconS + 2 : iconY + 12;
+  if (player.gear.horse) {
+    drawGameIcon(
+      ctx,
+      player.riding ? "horseRide" : "horse",
+      lx + 7,
+      ly - 4,
+      14,
+    );
+    lx += 26;
+  }
   for (const k of LIVESTOCK_KINDS) {
     const n = world.flock.counts[k];
     if (n <= 0) continue;
@@ -2305,7 +2087,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 11px 'Courier New', monospace";
-  ctx.fillText(`Өдөр ${world.dayNumber} · ${state.score}`, barX, ly + 14);
+  ctx.fillText(
+    `Өдөр ${world.dayNumber} · ${state.unlimitedCoins ? "∞" : state.score}`,
+    barX,
+    ly + 14,
+  );
 
   ctx.fillStyle = "#d8c898";
   ctx.font = "10px 'Courier New', monospace";
@@ -2459,7 +2245,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(
-      `Зоос ${state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
+      `Зоос ${state.unlimitedCoins ? "∞" : state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );
@@ -2543,13 +2329,6 @@ export function drawChest(
   ctx.textAlign = "left";
 
   drawUiButton(ctx, close, false);
-}
-
-export function drawShop(
-  ctx: CanvasRenderingContext2D,
-  state: GameState,
-): void {
-  drawChest(ctx, state);
 }
 
 export function drawCraft(

@@ -46,15 +46,15 @@ function clampByte(value: number): number {
 }
 
 /**
- * 24px-resolution biome map үүсгээд canvas дээр smooth scale хийнэ.
- * Ингэснээр ой/цөл шулуун хилгүй, зөөлөн natural хэлбэртэй харагдана.
+ * 28px-resolution biome map үүсгээд canvas дээр smooth scale + бага blur хийнэ.
+ * Ингэснээр ой/цөл шулуун хилгүй, өнгө нийлэх хэсэг зөөлөн харагдана.
  */
 function drawBiomeBase(
   ctx: CanvasRenderingContext2D,
   winter: boolean,
   seed: number,
 ): void {
-  const cell = 24;
+  const cell = 28;
   const lowW = Math.ceil(WORLD_W / cell);
   const lowH = Math.ceil(WORLD_H / cell);
   const low = document.createElement("canvas");
@@ -66,32 +66,62 @@ function drawBiomeBase(
   const image = lowCtx.createImageData(lowW, lowH);
   const palette = winter ? WINTER_PALETTE : SUMMER_PALETTE;
 
-  for (let gy = 0; gy < lowH; gy++) {
-    for (let gx = 0; gx < lowW; gx++) {
-      const x = Math.min(WORLD_W - 1, gx * cell + cell / 2);
-      const y = Math.min(WORLD_H - 1, gy * cell + cell / 2);
-      const biome = biomeAt(x, y, seed);
-      const terrain = sampleTerrain(x, y, seed);
-      const base = palette[biome];
-      const micro = (terrainHash(gx, gy, seed + 901) - 0.5) * 10;
-      const elevationShade = (terrain.elevation - 0.5) * 30;
-      const moistureGreen = (terrain.moisture - 0.5) * (winter ? 7 : 18);
-      const roughGray = terrain.roughness * (biome === "rocky" ? 12 : 4);
-      const index = (gy * lowW + gx) * 4;
-
-      image.data[index] = clampByte(
-        base.r + elevationShade + roughGray + micro,
-      );
-      image.data[index + 1] = clampByte(
+  const sampleColor = (gx: number, gy: number): RgbColor => {
+    const x = Math.min(WORLD_W - 1, gx * cell + cell / 2);
+    const y = Math.min(WORLD_H - 1, gy * cell + cell / 2);
+    const biome = biomeAt(x, y, seed);
+    const terrain = sampleTerrain(x, y, seed);
+    const base = palette[biome];
+    const micro = (terrainHash(gx, gy, seed + 901) - 0.5) * 8;
+    const elevationShade = (terrain.elevation - 0.5) * 28;
+    const moistureGreen = (terrain.moisture - 0.5) * (winter ? 7 : 16);
+    const roughGray = terrain.roughness * (biome === "rocky" ? 11 : 3.5);
+    return {
+      r: clampByte(base.r + elevationShade + roughGray + micro),
+      g: clampByte(
         base.g + elevationShade * 0.58 + moistureGreen + roughGray + micro,
-      );
-      image.data[index + 2] = clampByte(
+      ),
+      b: clampByte(
         base.b +
           elevationShade * 0.34 +
           terrain.moisture * 5 +
           roughGray +
           micro,
-      );
+      ),
+    };
+  };
+
+  // Хөрш нүднүүдээр бага зэрэг дундажлаж өнгөний хилийг зөөлрүүлнэ
+  const raw: RgbColor[] = new Array(lowW * lowH);
+  for (let gy = 0; gy < lowH; gy++) {
+    for (let gx = 0; gx < lowW; gx++) {
+      raw[gy * lowW + gx] = sampleColor(gx, gy);
+    }
+  }
+
+  for (let gy = 0; gy < lowH; gy++) {
+    for (let gx = 0; gx < lowW; gx++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let w = 0;
+      for (let oy = -1; oy <= 1; oy++) {
+        for (let ox = -1; ox <= 1; ox++) {
+          const nx = gx + ox;
+          const ny = gy + oy;
+          if (nx < 0 || ny < 0 || nx >= lowW || ny >= lowH) continue;
+          const weight = ox === 0 && oy === 0 ? 3.2 : 1;
+          const c = raw[ny * lowW + nx];
+          r += c.r * weight;
+          g += c.g * weight;
+          b += c.b * weight;
+          w += weight;
+        }
+      }
+      const index = (gy * lowW + gx) * 4;
+      image.data[index] = clampByte(r / w);
+      image.data[index + 1] = clampByte(g / w);
+      image.data[index + 2] = clampByte(b / w);
       image.data[index + 3] = 255;
     }
   }
@@ -99,7 +129,11 @@ function drawBiomeBase(
   lowCtx.putImageData(image, 0, 0);
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(low, 0, 0, WORLD_W, WORLD_H);
+  ctx.imageSmoothingQuality = "high";
+  // Бага blur — өнгө нийлэх хэсгийг бүрсийлгэж зөөлрүүлнэ
+  ctx.filter = "blur(1.6px)";
+  ctx.drawImage(low, -2, -2, WORLD_W + 4, WORLD_H + 4);
+  ctx.filter = "none";
   ctx.restore();
 }
 

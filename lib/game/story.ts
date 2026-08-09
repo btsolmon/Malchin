@@ -17,11 +17,12 @@ import {
 import { sfx } from "./audio";
 import { beginFamilyReunionDialogue } from "./elder";
 import { spawnParticles } from "./effects";
-import { isInRiver, riverCenterX, riverHalfWidth } from "./biomes";
+import { isInRiver } from "./biomes";
 import { animalInPen, getDayPhase, TIME_RATE } from "./daycycle";
 import { spawnWolf } from "./enemies";
 import {
   ensureShulmasHelpers,
+  placePlayerNearHelpers,
   tryInteractFirstRoute,
 } from "./firstRoute";
 import { ensureParents } from "./parents";
@@ -1269,9 +1270,6 @@ function openingLivestockSpotIsClear(
   for (const bush of world.bushes) {
     if (dist(pos, bush.pos) < bush.radius + 20) return false;
   }
-  for (const rock of world.rocks) {
-    if (dist(pos, rock.pos) < rock.radius + 20) return false;
-  }
   return true;
 }
 
@@ -1313,50 +1311,6 @@ function resolveOpeningLivestockSpot(
     }
   }
   return { x: preferred.x, y: preferred.y };
-}
-
-function findOpeningVegetationSpot(
-  state: GameState,
-  placed: OpeningLivestockAnchor[],
-): Vector2 | null {
-  const world = state.world;
-  const desired = { x: world.campPos.x + 330, y: world.campPos.y - 170 };
-  let best: Vector2 | null = null;
-  let bestScore = Infinity;
-
-  const consider = (
-    landmark: Vector2,
-    radius: number,
-    riddleHost: boolean,
-  ): void => {
-    if (riddleHost) return;
-    const campDistance = dist(landmark, world.campPos);
-    if (campDistance < 210 || campDistance > 620 || isInRiver(landmark, 46)) {
-      return;
-    }
-    const dx = world.campPos.x - landmark.x;
-    const dy = world.campPos.y - landmark.y;
-    const length = Math.hypot(dx, dy) || 1;
-    const offset = radius + 30;
-    const candidate = {
-      x: landmark.x + (dx / length) * offset,
-      y: landmark.y + (dy / length) * offset,
-    };
-    if (!openingLivestockSpotIsClear(state, candidate, placed)) return;
-    const score = dist(candidate, desired);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
-  };
-
-  for (const tree of world.trees) {
-    if (tree.hp > 0) consider(tree.pos, tree.radius, tree.riddleHost);
-  }
-  for (const bush of world.bushes) {
-    consider(bush.pos, bush.radius, bush.riddleHost);
-  }
-  return best;
 }
 
 /** Шинэ тоглоомд эхний сүргийг нэг удаа тарааж, тогтвортой id/буурийг нь хадгална. */
@@ -1774,9 +1728,6 @@ function storyWolfSpawnIsClear(state: GameState, pos: Vector2): boolean {
   }
   for (const bush of world.bushes) {
     if (dist(pos, bush.pos) < bush.radius + 24) return false;
-  }
-  for (const rock of world.rocks) {
-    if (dist(pos, rock.pos) < rock.radius + 24) return false;
   }
   return true;
 }
@@ -2293,40 +2244,7 @@ function ensureStormTracePosition(state: GameState): Vector2 {
     x: clamp(elderCamp.x + 300, 54, state.world.width - 54),
     y: clamp(elderCamp.y - 210, 54, state.world.height - 54),
   };
-  let best: Vector2 | null = null;
-  let bestScore = Number.POSITIVE_INFINITY;
-
-  for (const rock of state.world.rocks) {
-    if (rock.pos.x <= elderCamp.x + 70 || rock.pos.y >= elderCamp.y - 30) {
-      continue;
-    }
-    const campDistance = dist(rock.pos, elderCamp);
-    if (campDistance < 150 || campDistance > 620) continue;
-    const outward = normalize({
-      x: rock.pos.x - elderCamp.x,
-      y: rock.pos.y - elderCamp.y,
-    });
-    const candidate = {
-      x: clamp(
-        rock.pos.x + outward.x * (rock.radius + 30),
-        54,
-        state.world.width - 54,
-      ),
-      y: clamp(
-        rock.pos.y + outward.y * (rock.radius + 30),
-        54,
-        state.world.height - 54,
-      ),
-    };
-    if (isInRiver(candidate, 28)) continue;
-    const score = dist(candidate, desired);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
-  }
-
-  state.story.stormTracePos = best ?? desired;
+  state.story.stormTracePos = desired;
   return state.story.stormTracePos;
 }
 
@@ -2838,6 +2756,146 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
   }
 
   setMessage(state, "Энэ төлөвт алгасах story үе алга.", 2.5);
+}
+
+/**
+ * Cheat (`;`): Сүнсний ертөнцөд дөнгөж орсон үе рүү шилжинэ —
+ * туслахууд босоод, замын эхэнд зогсоно.
+ */
+export function debugJumpToSpiritWorld(state: GameState): void {
+  ensureStoryState(state);
+  const story = state.story;
+
+  if (state.phase === "menu") {
+    beginOpeningSequence(state);
+  }
+  if (state.phase === "intro" || !story.introCompleted) {
+    finishOpeningSequence(state);
+  }
+
+  // Эртний quest / шөнө / өвгөн — сүнс нээгдэх хүртэл дуусгана
+  story.introCompleted = true;
+  story.hearthQuestStarted = true;
+  story.hearthWoodCollected = CAMPFIRE_WOOD_COST;
+  story.campfireRelit = true;
+  story.hearthQuestCompleted = true;
+  story.hearthCompletionEffectShown = true;
+  story.hearthCompletionEffectRemaining = 0;
+  state.gerStoveLit = true;
+  state.gerStoveFuel = Math.max(state.gerStoveFuel, 40);
+
+  ensureOpeningLivestockRoster(state);
+  const livestockIds = [...story.openingLivestockIds];
+  story.livestockQuestStarted = true;
+  story.livestockNarrationShown = true;
+  story.livestockFoundIds = [...livestockIds];
+  story.livestockReturnedIds = [...livestockIds];
+  story.livestockQuestCompleted = true;
+  story.livestockCompletionEffectShown = true;
+  story.livestockCompletionEffectRemaining = 0;
+  story.firstDayTimeAccelerationStarted = true;
+  story.firstDayEveningHoldActive = false;
+  story.firstNightSunsetStarted = true;
+  story.firstNightNormalTimeRestored = true;
+  story.firstNightNarrationShown = true;
+  story.firstNightWolfWarningShown = true;
+  story.wolfThreatQuestStarted = true;
+  story.firstNightStage = "completed";
+  story.firstNightStageRemaining = 0;
+  story.temporaryPlayerProtectionActive = false;
+  story.temporaryLivestockProtectionActive = false;
+  story.oldManArrivalStarted = true;
+  story.oldManArrived = true;
+  story.shortDialogueStarted = true;
+  story.shortDialogueCompleted = true;
+  story.milestone3Completed = true;
+  story.milestone4Started = true;
+  story.milestone4Completed = true;
+  story.storyWolfDefeated = true;
+  story.storyWolfParryCompleted = true;
+  story.storyWolfCounterCompleted = true;
+  story.storyWolfOpeningActive = false;
+  story.nightCompletionEffectShown = true;
+  story.nightCompletionEffectRemaining = 0;
+  story.milestone5Started = true;
+  story.milestone5DialogueCompleted = true;
+  story.milestone6Started = true;
+  story.milestone6DialogueCompleted = true;
+  story.milestone7Started = true;
+  story.stormTraceInspected = true;
+  story.stormTraceDialogueCompleted = true;
+  story.stormTraceEffectRemaining = 0;
+  story.spiritPathOpened = true;
+  story.milestone7Completed = false;
+  story.milestone8Started = false;
+  story.familyReunionEffectShown = false;
+  story.familyReunionEffectRemaining = 0;
+  story.familyReunionDialogueStarted = false;
+  story.familyReunionDialogueCompleted = false;
+  story.milestone8Completed = false;
+  story.activeMainObjective = "defeatSpiritGuards";
+
+  // Төмөр шулмас / эхний зам — дахин эхлүүлнэ
+  const tumur = state.world.tumurShulmas;
+  tumur.unlocked = false;
+  tumur.hp = tumur.maxHp;
+  tumur.defeated = false;
+  tumur.active = false;
+  tumur.phase = "sealed";
+  tumur.phaseTimer = 0;
+  tumur.needles = [];
+  tumur.flash = 0;
+
+  const route = state.world.firstRoute;
+  route.bossStarted = false;
+  route.bossDefeated = false;
+  route.swordDrop.visible = false;
+  route.swordDrop.collected = false;
+  route.complete = false;
+  route.bolts = [];
+
+  state.player.hasSkySword = false;
+  state.player.weapon = "staff";
+  state.player.vitals.health = state.player.vitals.maxHealth;
+  state.player.vitals.hunger = Math.max(state.player.vitals.hunger, 70);
+  state.player.vitals.warmth = Math.max(state.player.vitals.warmth, 70);
+
+  state.shopOpen = false;
+  state.craftOpen = false;
+  state.gerArtZoom = null;
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.parents = null;
+  state.parentsReturned = false;
+
+  // Сүнс рүү — туслахуудыг шинээр босгоод ойрлуулна
+  if (state.phase === "spirit") {
+    // Дахин орох: буцааж stash хийхгүйгээр туслахуудыг сэргээнэ
+    ensureShulmasHelpers(state);
+    state.spiritCleared = false;
+    state.spiritTransition = 0.6;
+    placePlayerNearHelpers(state);
+  } else {
+    state.phase = "playing";
+    ensureShulmasHelpers(state);
+    enterSpiritWorld(state);
+    placePlayerNearHelpers(state);
+  }
+
+  state.fx.shake = Math.max(state.fx.shake, 2);
+  spawnParticles(state, state.player.pos, 22, "#7ec8ff", {
+    speed: 70,
+    life: 1.2,
+    size: 2.4,
+    gravity: -12,
+  });
+  sfx("howl");
+  setMessage(
+    state,
+    "CHEAT: Сүнсний ертөнц — дөнгөж орсон. Туслахуудыг дар.",
+    3.5,
+  );
 }
 
 /**

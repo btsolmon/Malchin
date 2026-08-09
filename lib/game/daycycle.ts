@@ -73,19 +73,6 @@ export function getDayPhase(
   return "night";
 }
 
-export function dayPhaseLabel(phase: DayPhase): string {
-  switch (phase) {
-    case "dawn":
-      return "Үүр";
-    case "day":
-      return "Өдөр";
-    case "evening":
-      return "Орой";
-    case "night":
-      return "Шөнө";
-  }
-}
-
 /** Унтаад босоход — дараагийн өглөөний үүр рүү шилжүүлнэ */
 export function advanceToMorning(state: GameState): void {
   const world = state.world;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DialogueBeat, ElderChoiceId } from "@/lib/game/elder";
 import { speakerLabel } from "@/lib/game/elder";
 import DialoguePortrait from "@/components/DialoguePortrait";
@@ -16,41 +16,39 @@ interface ElderDialogueModalProps {
   onClose: () => void;
 }
 
-function SpiritGateCta({ onEnter }: { onEnter: () => void }) {
+const TYPE_SPEED_MS = 24;
+
+function SpiritGateChoices({ onChoose }: { onChoose: (id: ElderChoiceId) => void }) {
   return (
-    <button
-      type="button"
-      onClick={onEnter}
-      className="spirit-gate-cta group relative mx-auto flex w-full max-w-md flex-col items-center overflow-hidden rounded-xl border-2 border-[#7ec8ff]/70 bg-linear-to-b from-[#16304a] via-[#1c3a58] to-[#0e1c2e] px-6 py-5 text-center transition-transform hover:scale-[1.02] active:scale-[0.99]"
-    >
-      <span
-        aria-hidden
-        className="mb-2 flex h-12 w-12 items-center justify-center rounded-full border border-[#9ad4ff]/50 bg-[#7ec8ff]/15 text-[#b8e4ff]"
+    <div className="grid w-full gap-2 sm:grid-cols-2">
+      <button
+        type="button"
+        onClick={() => onChoose("enter_spirit")}
+        className="group rounded-lg border border-sky-300/50 bg-sky-950/75 px-4 py-3 text-left shadow-lg backdrop-blur transition hover:border-sky-200 hover:bg-sky-900/80"
       >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 2.5c-2.8 4-6.5 6-6.5 10.2a6.5 6.5 0 0013 0C18.5 8.5 14.8 6.5 12 2.5z"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinejoin="round"
-          />
-          <circle cx="12" cy="13.2" r="2.2" fill="currentColor" />
-        </svg>
-      </span>
-      <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#7ec8ff]">
-        Гол шийдвэр
-      </span>
-      <span className="mt-1.5 text-lg font-bold leading-tight text-white md:text-xl">
-        Сүнсний ертөнц рүү орох
-      </span>
-      <span className="mt-2 max-w-sm text-xs leading-relaxed text-[#a8c8e0] md:text-sm">
-        Өвгөн хаалгыг нээнэ. Аав ээжийгээ хайх аян эндээс эхэлнэ.
-      </span>
-      <span className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#7ec8ff]/20 px-4 py-1.5 text-sm font-semibold text-[#e8f6ff] ring-1 ring-[#7ec8ff]/40 transition-colors group-hover:bg-[#7ec8ff]/30">
-        Хаалга нээх
-        <span aria-hidden>→</span>
-      </span>
-    </button>
+        <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300">
+          Гол шийдвэр
+        </span>
+        <span className="mt-1 block font-semibold text-white">Сүнсний ертөнц рүү одох</span>
+        <span className="mt-1 block text-xs leading-relaxed text-sky-100/70">
+          Өвгөн хаалгыг нээнэ. Аав ээжийгээ хайх зам үргэлжилнэ.
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => onChoose("prepare")}
+        className="rounded-lg border border-stone-500/60 bg-black/55 px-4 py-3 text-left shadow-lg backdrop-blur transition hover:border-stone-300 hover:bg-black/70"
+      >
+        <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-stone-400">
+          Буцах
+        </span>
+        <span className="mt-1 block font-semibold text-stone-100">Бэлтгэл хангах</span>
+        <span className="mt-1 block text-xs leading-relaxed text-stone-400">
+          Одоохондоо замд гарахгүй, хэрэгтэй зүйлсээ бэлдэнэ.
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -64,135 +62,178 @@ export default function ElderDialogueModal({
   onChoose,
   onClose,
 }: ElderDialogueModalProps) {
-  const isBoySpeaking = beat.speaker === "boy";
   const speakerName = speakerLabel(beat.speaker);
+  const isBoySpeaking = beat.speaker === "boy";
   const otherPortraitKind =
     beat.listener ??
-    (beat.speaker === "father" || beat.speaker === "mother"
-      ? beat.speaker
-      : "elder");
+    (beat.speaker === "father" || beat.speaker === "mother" ? beat.speaker : "elder");
+  const fullText = beat.text ?? "";
+  const [visibleChars, setVisibleChars] = useState(0);
   const canRetreat = showingChoices || beatIndex > 0;
+  const textFinished = visibleChars >= fullText.length;
+  const visibleText = useMemo(() => fullText.slice(0, visibleChars), [fullText, visibleChars]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.code === "Escape" || e.code === "KeyP") {
+    setVisibleChars(0);
+  }, [beatIndex, fullText]);
+
+  useEffect(() => {
+    if (showingChoices || textFinished || fullText.length === 0) return;
+    const timer = window.setInterval(() => {
+      setVisibleChars((count) => Math.min(fullText.length, count + 1));
+    }, TYPE_SPEED_MS);
+    return () => window.clearInterval(timer);
+  }, [fullText, showingChoices, textFinished]);
+
+  const advanceOrReveal = useCallback(() => {
+    if (showingChoices) return;
+    if (!textFinished) {
+      setVisibleChars(fullText.length);
+      return;
+    }
+    onAdvance();
+  }, [fullText.length, onAdvance, showingChoices, textFinished]);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.code === "Escape" || event.code === "KeyP") {
         if (showingChoices) return;
-        e.preventDefault();
+        event.preventDefault();
         onClose();
         return;
       }
-      if (
-        canRetreat &&
-        (e.code === "ArrowLeft" || e.code === "Backspace")
-      ) {
-        e.preventDefault();
+
+      if (canRetreat && (event.code === "ArrowLeft" || event.code === "Backspace")) {
+        event.preventDefault();
         onRetreat();
         return;
       }
+
       if (
         !showingChoices &&
-        (e.code === "Enter" || e.code === "Space" || e.code === "ArrowRight")
+        (event.code === "Enter" ||
+          event.code === "Space" ||
+          event.code === "ArrowRight" ||
+          event.code === "KeyE" ||
+          event.code === "KeyJ")
       ) {
-        e.preventDefault();
-        onAdvance();
+        event.preventDefault();
+        advanceOrReveal();
       }
     };
+
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showingChoices, canRetreat, onAdvance, onRetreat, onClose]);
+  }, [advanceOrReveal, canRetreat, onClose, onRetreat, showingChoices]);
 
   return (
     <div
-      className="absolute inset-0 z-50 select-none bg-black/40 backdrop-blur-sm"
+      className="absolute inset-0 z-50 select-none overflow-hidden bg-black/35"
       role="dialog"
       aria-modal="true"
       aria-label={`${speakerName} — яриа`}
     >
-      {/* Portraits — бүтэн бие (гутал / хивс) харагдах өндөр·өргөн */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-[38%] flex items-end justify-between px-3 pb-1 md:px-6">
+      <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/5 via-transparent to-black/80" />
+
+      <div className="pointer-events-none absolute inset-x-0 top-0 bottom-[31%] flex items-end px-3 md:px-7">
         <div className="mx-auto flex w-full max-w-6xl items-end justify-between gap-4">
           <div
-            className={`transform transition-all duration-300 ${
-              isBoySpeaking
-                ? "z-10 scale-105 opacity-100"
-                : "opacity-60 grayscale-30"
+            className={`origin-bottom transition-all duration-300 ${
+              isBoySpeaking ? "z-10 scale-105 opacity-100" : "scale-95 opacity-45 grayscale"
             }`}
           >
-            <div className="relative h-56 w-40 sm:h-64 sm:w-48 md:h-80 md:w-56">
+            <div className="relative h-52 w-36 sm:h-64 sm:w-44 md:h-80 md:w-56">
               <DialoguePortrait kind="boy" />
             </div>
           </div>
 
           <div
-            className={`transform transition-all duration-300 ${
-              !isBoySpeaking
-                ? "z-10 scale-105 opacity-100"
-                : "opacity-60 grayscale-30"
+            className={`origin-bottom transition-all duration-300 ${
+              !isBoySpeaking ? "z-10 scale-105 opacity-100" : "scale-95 opacity-45 grayscale"
             }`}
           >
-            <div className="relative h-56 w-44 sm:h-64 sm:w-52 md:h-80 md:w-64">
+            <div className="relative h-52 w-40 sm:h-64 sm:w-48 md:h-80 md:w-64">
               <DialoguePortrait kind={otherPortraitKind} eyeMode="idle" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Сүнсний хаалга — дэлгэцийн төвд тод focus */}
-      {showingChoices ? (
-        <div className="absolute inset-x-0 bottom-[38%] z-30 flex justify-center px-4">
-          <SpiritGateCta onEnter={() => onChoose("enter_spirit")} />
-        </div>
-      ) : null}
-
-      {/* Dialogue panel — fixed height band */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex h-[38%] flex-col justify-end p-3 md:p-5">
-        <div className="relative mx-auto w-full max-w-3xl">
-          <div className="absolute -top-7 left-4 rounded-t-md bg-[#3f3a36] px-4 py-1 text-sm font-semibold tracking-wide text-white shadow-md">
-            {speakerName}
+      <div className="absolute inset-x-0 bottom-0 z-20 px-3 pb-3 md:px-6 md:pb-6">
+        <div className="mx-auto w-full max-w-4xl">
+          <div className="mb-2 flex items-end justify-between gap-3 px-1">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-amber-300/80">
+                {beatIndex + 1} / {beatCount}
+              </div>
+              <div className="mt-0.5 text-lg font-semibold tracking-wide text-white drop-shadow md:text-xl">
+                {speakerName}
+              </div>
+            </div>
+            {!showingChoices ? (
+              <div className="hidden text-[11px] text-white/45 sm:block">E / Space / J — үргэлжлүүлэх</div>
+            ) : null}
           </div>
 
-          <div className="relative flex h-[min(200px,100%)] min-h-40 flex-col rounded-b-lg rounded-tr-lg border border-stone-300 bg-[#f5f2eb] p-4 text-stone-800 shadow-2xl md:h-48 md:p-6">
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div
+            className="relative overflow-hidden rounded-xl border border-white/15 bg-[#0b0b0b]/88 shadow-2xl backdrop-blur-md"
+            onClick={showingChoices ? undefined : advanceOrReveal}
+          >
+            <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-amber-300/60 to-transparent" />
+            <div className="p-4 md:p-6">
               {beat.stage ? (
-                <p className="mb-2 text-xs italic text-stone-500 md:text-sm">
-                  ({beat.stage})
-                </p>
+                <p className="mb-2 text-xs italic leading-relaxed text-stone-400 md:text-sm">({beat.stage})</p>
               ) : null}
-              <p className="text-base leading-relaxed md:text-lg">{beat.text}</p>
-            </div>
-
-            <div className="mt-3 flex shrink-0 items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={onRetreat}
-                disabled={!canRetreat}
-                aria-label="Өмнөх яриа"
-                className="flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-200/80 hover:text-stone-900 disabled:cursor-default disabled:opacity-30"
-              >
-                <span aria-hidden>←</span>
-                Буцах
-              </button>
 
               {showingChoices ? (
-                <button
-                  type="button"
-                  onClick={() => onChoose("prepare")}
-                  className="rounded border border-stone-400/60 bg-[#ebe6da] px-3 py-1.5 text-sm text-stone-700 transition-colors hover:border-stone-500 hover:bg-[#e0dbcf]"
-                >
-                  Бэлтгэл хангах
-                </button>
+                <SpiritGateChoices onChoose={onChoose} />
               ) : (
+                <div className="min-h-24 md:min-h-28">
+                  <p className="whitespace-pre-wrap text-base leading-7 text-stone-100 md:text-lg md:leading-8">
+                    {visibleText}
+                    {!textFinished ? <span className="ml-0.5 animate-pulse text-amber-300">▌</span> : null}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-3 flex min-h-8 items-center justify-between border-t border-white/10 pt-3">
                 <button
                   type="button"
-                  onClick={onAdvance}
-                  aria-label={
-                    beatIndex < beatCount - 1 ? "Үргэлжлүүлэх" : "Сонголт"
-                  }
-                  className="flex cursor-pointer items-center justify-center bg-[#e05638] p-2 text-lg font-bold text-white shadow transition-colors hover:bg-[#c8462b] active:scale-95"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRetreat();
+                  }}
+                  disabled={!canRetreat}
+                  className="rounded px-2 py-1 text-xs font-medium text-white/45 transition hover:bg-white/5 hover:text-white disabled:cursor-default disabled:opacity-0"
                 >
-                  •••
+                  ← Өмнөх
                 </button>
-              )}
+
+                {!showingChoices && textFinished ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onAdvance();
+                    }}
+                    className="flex items-center gap-2 rounded px-2 py-1 text-sm font-semibold text-amber-200 transition hover:bg-white/5"
+                  >
+                    {beatIndex < beatCount - 1 ? "Үргэлжлүүлэх" : "Дуусгах"}
+                    <span className="animate-bounce text-xs" aria-hidden>▼</span>
+                  </button>
+                ) : !showingChoices ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setVisibleChars(fullText.length);
+                    }}
+                    className="rounded px-2 py-1 text-xs text-white/45 transition hover:bg-white/5 hover:text-white"
+                  >
+                    Текстийг бүтнээр харуулах
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

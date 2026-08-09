@@ -40,10 +40,7 @@ export function drawLighting(
   if (a <= 0.02) return;
 
   const fire = state.world.campfire;
-  const outdoorFire =
-    fire.placed &&
-    !state.parentsReturned &&
-    (fire.lit || fire.igniting > 0);
+  const outdoorFire = fire.placed && (fire.lit || fire.igniting > 0);
 
   if (a < 0.3 || !outdoorFire) {
     // Энгийн тинт (гэрлийн нүх шаардлагагүй үед мөн адил, гэхдээ галтай бол нүхлэх)
@@ -233,6 +230,153 @@ export function drawWeatherFx(
     drawRainFx(ctx, time);
   }
 }
+
+/**
+ * Дулаан багасахад дэлгэцийн хүрээ цэнхэрлэж мөстөнө.
+ * warmth ≤ 45% үед эхэлж, 0-д бүрэн харагдана.
+ */
+export function drawColdFrostFrame(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  time: number,
+): void {
+  if (
+    state.phase === "menu" ||
+    state.phase === "intro" ||
+    state.phase === "spirit"
+  ) {
+    return;
+  }
+
+  const { warmth, maxWarmth } = state.player.vitals;
+  const ratio = maxWarmth > 0 ? warmth / maxWarmth : 1;
+  if (ratio >= 0.45) return;
+
+  const intensity = Math.min(1, (0.45 - ratio) / 0.45);
+  const edge = 0.22 + intensity * 0.38;
+  const alpha = 0.28 + intensity * 0.52;
+
+  ctx.save();
+
+  // Цэнхэр мөстөн vignette — зөвхөн хүрээ
+  const frost = ctx.createRadialGradient(
+    VIEW_W / 2,
+    VIEW_H / 2,
+    Math.min(VIEW_W, VIEW_H) * (0.42 - intensity * 0.08),
+    VIEW_W / 2,
+    VIEW_H / 2,
+    Math.min(VIEW_W, VIEW_H) * 0.72,
+  );
+  frost.addColorStop(0, "rgba(120,190,255,0)");
+  frost.addColorStop(0.55, `rgba(70,150,220,${alpha * 0.15})`);
+  frost.addColorStop(0.82, `rgba(40,110,190,${alpha * 0.55})`);
+  frost.addColorStop(1, `rgba(18,55,120,${alpha})`);
+  ctx.fillStyle = frost;
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  // Мөсний ирмэг — дөрвөн талд мөстөн ширхэг
+  const shimmer = 0.85 + Math.sin(time * 2.4) * 0.15;
+  ctx.globalAlpha = (0.35 + intensity * 0.55) * shimmer;
+  ctx.strokeStyle = "rgba(210,235,255,0.85)";
+  ctx.lineWidth = 1.2;
+  ctx.fillStyle = "rgba(190,225,255,0.55)";
+
+  const drawEdgeFrost = (
+    count: number,
+    along: "top" | "bottom" | "left" | "right",
+  ): void => {
+    for (let i = 0; i < count; i++) {
+      const t = (i + 0.5) / count;
+      const wobble = Math.sin(time * 1.7 + i * 1.9 + along.length) * 2;
+      let x = 0;
+      let y = 0;
+      let dx = 0;
+      let dy = 0;
+      if (along === "top") {
+        x = t * VIEW_W;
+        y = 4 + (i % 3) * 3 + wobble * 0.3;
+        dx = 0;
+        dy = 1;
+      } else if (along === "bottom") {
+        x = t * VIEW_W;
+        y = VIEW_H - 4 - (i % 3) * 3 - wobble * 0.3;
+        dx = 0;
+        dy = -1;
+      } else if (along === "left") {
+        x = 4 + (i % 3) * 3 + wobble * 0.3;
+        y = t * VIEW_H;
+        dx = 1;
+        dy = 0;
+      } else {
+        x = VIEW_W - 4 - (i % 3) * 3 - wobble * 0.3;
+        y = t * VIEW_H;
+        dx = -1;
+        dy = 0;
+      }
+
+      const len = (10 + (i % 5) * 4 + intensity * 10) * edge;
+      const spread = 3 + (i % 4);
+
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dx * len, y + dy * len);
+      ctx.moveTo(x + dx * len * 0.45, y + dy * len * 0.45);
+      ctx.lineTo(
+        x + dx * len * 0.45 + dy * spread,
+        y + dy * len * 0.45 - dx * spread,
+      );
+      ctx.moveTo(x + dx * len * 0.45, y + dy * len * 0.45);
+      ctx.lineTo(
+        x + dx * len * 0.45 - dy * spread,
+        y + dy * len * 0.45 + dx * spread,
+      );
+      ctx.stroke();
+
+      if (i % 3 === 0) {
+        ctx.beginPath();
+        ctx.arc(
+          x + dx * 3,
+          y + dy * 3,
+          1.2 + intensity * 1.4,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+    }
+  };
+
+  const density = 8 + Math.floor(intensity * 10);
+  drawEdgeFrost(density + 4, "top");
+  drawEdgeFrost(density + 4, "bottom");
+  drawEdgeFrost(density, "left");
+  drawEdgeFrost(density, "right");
+
+  // Булангийн мөсөн зураас
+  ctx.globalAlpha = (0.4 + intensity * 0.5) * shimmer;
+  ctx.strokeStyle = "rgba(230,245,255,0.9)";
+  ctx.lineWidth = 1.4;
+  const cornerLen = 28 + intensity * 36;
+  const corners: Array<[number, number, number, number]> = [
+    [0, 0, 1, 1],
+    [VIEW_W, 0, -1, 1],
+    [0, VIEW_H, 1, -1],
+    [VIEW_W, VIEW_H, -1, -1],
+  ];
+  for (const [cx, cy, sx, sy] of corners) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + sx * cornerLen, cy);
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx, cy + sy * cornerLen);
+    ctx.moveTo(cx + sx * 8, cy + sy * 8);
+    ctx.lineTo(cx + sx * cornerLen * 0.55, cy + sy * cornerLen * 0.55);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 export interface RenderContext {
   ctx: CanvasRenderingContext2D;
   terrain: HTMLCanvasElement;

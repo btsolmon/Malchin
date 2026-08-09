@@ -15,8 +15,6 @@ import {
   HAY_HARVEST_RADIUS,
   HAY_PER_SHEEP_PER_DAY,
   MAX_HAY,
-  MAX_PASTURE_GRASS,
-  PASTURE_RADIUS,
   SEASON_DAYS,
   type BerryBush,
   type Fence,
@@ -51,7 +49,6 @@ import {
   pastureRefillForSeason,
   pushOutOfGer,
   pushOutOfUrtz,
-  randRange,
   seasonForDay,
   setMessage,
   wouldCloseFenceLoop,
@@ -129,11 +126,19 @@ export const SKILL_POOL: Skill[] = [
     },
   },
   {
-    id: "reach",
-    name: "Урт таяг",
-    desc: "Цохилтын хүрээ +20%",
+    id: "stamina",
+    name: "Тэсвэртэй тамир",
+    desc: "Стамина +40% хурдан нөхөгдөнө",
     apply: (s) => {
-      s.player.reachMult *= 1.2;
+      s.player.staminaRegenMult *= 1.4;
+    },
+  },
+  {
+    id: "endurance",
+    name: "Цадсан бие",
+    desc: "Өлсгөлөн 40%-иар удаан унана",
+    apply: (s) => {
+      s.player.hungerDrainMult *= 0.6;
     },
   },
   {
@@ -155,21 +160,36 @@ export function pickSkillChoices(): Skill[] {
   return pool.slice(0, 3);
 }
 
-export function maybeLevelUp(state: GameState): void {
-  if (state.phase !== "playing") return;
-  if (state.xp < state.xpNext) return;
+export function maybeLevelUp(_state: GameState): void {
+  // XP одоо автоматаар level болгохгүй.
+  // Тоглогч XP-гээ цуглуулаад өвгөн дээр очиж түвшин ахина.
+}
+
+export function beginElderLevelUp(state: GameState): boolean {
+  if (state.phase !== "elder") return false;
+  if (state.xp < state.xpNext) {
+    setMessage(
+      state,
+      `Түвшин ахихад ${state.xpNext} XP хэрэгтэй. Одоо ${state.xp} XP байна.`,
+      2.8,
+    );
+    sfx("select");
+    return false;
+  }
+
   state.xp -= state.xpNext;
   state.level += 1;
   state.xpNext = 60 + state.level * 30;
   state.skillChoices = pickSkillChoices();
   state.menuIndex = 0;
   state.phase = "levelup";
+  sfx("levelup");
+  return true;
 }
 
 export function gainXp(state: GameState, n: number, at?: Vector2): void {
   state.xp += n;
   if (at) spawnText(state, at, `+${n} XP`, "#c0a0ff");
-  maybeLevelUp(state);
 }
 
 // ---------------------------------------------------------------------------
@@ -999,7 +1019,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
     setMessage(state, `${nextName} болгоход ${cost.wood} мод хэрэгтэй.`, 2);
     return;
   }
-  if (state.score < cost.score) {
+  if (!state.unlimitedCoins && state.score < cost.score) {
     setMessage(state, `${nextName} — ${cost.score} зоос хэрэгтэй.`, 2);
     return;
   }
@@ -1013,7 +1033,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   }
 
   if (!state.unlimitedWood) player.inventory.wood -= cost.wood;
-  state.score -= cost.score;
+  if (!state.unlimitedCoins) state.score -= cost.score;
   player.inventory.berries -= cost.berries;
   player.chopCooldown = 0.28;
   fence.tier = next;
@@ -1025,7 +1045,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   const spent: string[] = state.unlimitedWood
     ? []
     : [`−${cost.wood} мод`];
-  if (cost.score > 0) spent.push(`−${cost.score} зоос`);
+  if (cost.score > 0 && !state.unlimitedCoins) spent.push(`−${cost.score} зоос`);
   if (cost.berries > 0) spent.push(`−${cost.berries} жимс`);
   if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
   setMessage(state, `${nextName} болголоо!`, 1.6);
@@ -1261,8 +1281,10 @@ export function updateSurvival(state: GameState, dt: number): void {
     }
   }
 
+  const hungerDrain =
+    0.7 * (player.hungerDrainMult ?? 1);
   player.vitals.hunger = clamp(
-    player.vitals.hunger - 0.7 * dt,
+    player.vitals.hunger - hungerDrain * dt,
     0,
     player.vitals.maxHunger,
   );

@@ -10,10 +10,6 @@ import {
 import { drawGameIcon } from "../icons";
 import { roundRectPath } from "../utils";
 import { drawParentNpc, drawPlayer } from "./entities";
-import {
-  drawPlayerWithSprites,
-  type PlayerSpriteSet,
-} from "./playerSprites";
 
 const GER_SLEEP_DURATION = 5;
 
@@ -1321,7 +1317,6 @@ export function drawGerInterior(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   time: number,
-  playerSprites?: PlayerSpriteSet,
 ): void {
   const cx = VIEW_W / 2;
   const wallTop = 150;
@@ -1785,14 +1780,7 @@ export function drawGerInterior(
     ctx.translate(state.gerPlayer.x, state.gerPlayer.y);
     ctx.scale(gerScale, gerScale);
     ctx.translate(-state.gerPlayer.x, -state.gerPlayer.y);
-    drawPlayerWithSprites(
-      ctx,
-      walker,
-      { x: 0, y: 0 },
-      time,
-      playerSprites,
-      0,
-    );
+    drawPlayer(ctx, walker, { x: 0, y: 0 }, time);
     ctx.restore();
   }
 
