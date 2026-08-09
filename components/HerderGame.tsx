@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mountHerderGame, type HerderGameHandle } from "@/lib/game";
+import { tr } from "@/lib/game/i18n";
 import type { ElderChoiceId, ElderUiSnapshot, ElderUiState } from "@/lib/game/elder";
 import ElderDialogueModal from "@/components/ElderDialogueModal";
 import ElderModal from "@/components/ElderModal";
+import TouchControls from "@/components/TouchControls";
 
 export default function HerderGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -71,7 +73,7 @@ export default function HerderGame() {
       <canvas
         ref={canvasRef}
         className="herder-stage"
-        aria-label="Малчин survival тоглоом"
+        aria-label={tr("Малчин survival тоглоом")}
       />
       {elderUi?.activeDialogue ? (
         <ElderDialogueModal
@@ -96,6 +98,7 @@ export default function HerderGame() {
           onClose={onElderClose}
         />
       ) : null}
+      <TouchControls gameRef={handleRef} hidden={!!elderUi} />
     </div>
   );
 }

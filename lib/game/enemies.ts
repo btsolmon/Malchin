@@ -49,6 +49,7 @@ import {
 } from "./livestock";
 import { updateWolves as updateCombatWolves } from "./combat/enemyBehaviors";
 import { handlePlayerDeath } from "./spirit";
+import { trFormat } from "./i18n";
 
 function enemyCombatLocksMovement(
   phase: Wolf["combatPhase"] | Thief["combatPhase"] | undefined,
@@ -254,8 +255,12 @@ export function spawnThief(state: GameState): void {
   sfx("alert");
 
   if (stolen > 0) {
-    spawnText(state, pos, `−${stolen} мал!`, "#ff8080");
-    setMessage(state, `Хулгайч ${stolen} мал авч зугтав! Гүйцэж ав!`, 4);
+    spawnText(state, pos, trFormat("−{n} мал!", { n: stolen }), "#ff8080");
+    setMessage(
+      state,
+      trFormat("Хулгайч {n} мал авч зугтав! Гүйцэж ав!", { n: stolen }),
+      4,
+    );
   } else if (defense.tier3Count < 5) {
     setMessage(state, "Хулгайч ойртлоо — хашаагаа шалга!", 3);
   }
@@ -759,13 +764,15 @@ export function updateThieves(state: GameState, dt: number): void {
         spawnText(
           state,
           thief.pos,
-          recovered > 0 ? `+${recovered} мал · +${xp} XP` : `+${xp} XP`,
+          recovered > 0
+            ? trFormat("+{n} мал · +{xp} XP", { n: recovered, xp })
+            : `+${xp} XP`,
           "#b8e8a0",
         );
         setMessage(
           state,
           recovered > 0
-            ? `Хашаа хулгайчийг зогсоов! +${recovered} мал`
+            ? trFormat("Хашаа хулгайчийг зогсоов! +{n} мал", { n: recovered })
             : "Хашаа хулгайчийг зогсоов!",
           3,
         );
@@ -786,7 +793,7 @@ export function updateThieves(state: GameState, dt: number): void {
       setMessage(
         state,
         lost > 0
-          ? `Хулгайч зугтав… ${lost} мал үгүй болов.`
+          ? trFormat("Хулгайч зугтав… {n} мал үгүй болов.", { n: lost })
           : "Хулгайч зугтав.",
         3,
       );

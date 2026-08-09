@@ -1,6 +1,7 @@
 import {
   Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
+import { tr, trFormat } from "../i18n";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, pastureCenter, randRange } from "../utils";
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldStone } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
@@ -950,7 +951,7 @@ export function render(
       const hayInv = state.player.inventory.hay;
       const tip =
         hayInv > 0
-          ? `E — Тэвшид өвс хийх (${hayInv})`
+          ? trFormat("E — Тэвшид өвс хийх ({n})", { n: hayInv })
           : "E — Өвс хадаад тэвшид хий";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e070";
@@ -1050,7 +1051,7 @@ export function render(
           ctx.font = "600 11px system-ui, sans-serif";
           ctx.strokeStyle = "rgba(0,0,0,0.7)";
           ctx.lineWidth = 3;
-          const tip = `E — Жимс түүх (${bush.berries})`;
+          const tip = trFormat("E — Жимс түүх ({n})", { n: bush.berries });
           ctx.strokeText(tip, tx, ty);
           ctx.fillStyle = "#ff9fbf";
           ctx.fillText(tip, tx, ty);
@@ -1062,7 +1063,7 @@ export function render(
           ctx.font = "600 11px system-ui, sans-serif";
           ctx.strokeStyle = "rgba(0,0,0,0.7)";
           ctx.lineWidth = 3;
-          const tip = `E — Чулуу түүх (${stone.amount})`;
+          const tip = trFormat("E — Чулуу түүх ({n})", { n: stone.amount });
           ctx.strokeText(tip, tx, ty);
           ctx.fillStyle = "#c8c0b0";
           ctx.fillText(tip, tx, ty);
@@ -1150,9 +1151,10 @@ export function render(
     ctx.strokeStyle = "rgba(0,0,0,0.7)";
     ctx.lineWidth = 3;
     ctx.textAlign = "center";
-    ctx.strokeText(t.text, t.pos.x - cam.x, t.pos.y - cam.y - 20);
+    const label = tr(t.text);
+    ctx.strokeText(label, t.pos.x - cam.x, t.pos.y - cam.y - 20);
     ctx.fillStyle = t.color;
-    ctx.fillText(t.text, t.pos.x - cam.x, t.pos.y - cam.y - 20);
+    ctx.fillText(label, t.pos.x - cam.x, t.pos.y - cam.y - 20);
     ctx.textAlign = "left";
   }
   ctx.globalAlpha = 1;

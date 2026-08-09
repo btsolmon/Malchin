@@ -24,6 +24,7 @@ import { clamp, dist, normalize, setMessage } from "./utils";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
 import { tryInteractTumurShulmasGate } from "./tumurShulmas";
 import { drawOngodDemon } from "./render/ongodDemons";
+import { tr, trFormat } from "./i18n";
 
 /** Голын зүүн эрэг — туслахууд энд зогсоно */
 function eastOfRiver(y: number, margin = 70): number {
@@ -440,7 +441,11 @@ function damagePlayerFromRouteEnemy(
 
   if (player.vitals.health <= 0) {
     state.phase = "lost";
-    setMessage(state, `${routeEnemyLabel(enemy.kind)}-д ялагдлаа…`, 99);
+    setMessage(
+      state,
+      trFormat("{name}-д ялагдлаа…", { name: tr(routeEnemyLabel(enemy.kind)) }),
+      99,
+    );
   }
   return true;
 }
@@ -669,7 +674,13 @@ export function damageRouteEnemy(
     state.fx.shake = Math.max(state.fx.shake, 12);
     triggerHitStop(state, 0.12);
   } else if (!routeCompleted) {
-    setMessage(state, `${routeEnemyLabel(enemy.kind)}-ын сүнс одлоо.`, 1.7);
+    setMessage(
+      state,
+      trFormat("{name}-ын сүнс одлоо.", {
+        name: tr(routeEnemyLabel(enemy.kind)),
+      }),
+      1.7,
+    );
   }
 }
 
@@ -1337,7 +1348,9 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       enemy.phase = "chasing";
       setMessage(
         state,
-        `${routeEnemyLabel(enemy.kind)} тулалдаанд орлоо.`,
+        trFormat("{name} тулалдаанд орлоо.", {
+          name: tr(routeEnemyLabel(enemy.kind)),
+        }),
         1.5,
       );
     }
@@ -1470,7 +1483,9 @@ export function tryInteractFirstRoute(state: GameState): boolean {
     ).length;
     setMessage(
       state,
-      `Хараалт хаалга түгжээтэй. Замын ${remaining} дайсан үлдлээ.`,
+      trFormat("Хараалт хаалга түгжээтэй. Замын {n} дайсан үлдлээ.", {
+        n: remaining,
+      }),
       2.5,
     );
     sfx("move");
@@ -1869,13 +1884,19 @@ export function drawMiniBossHud(
   ctx.font = "600 10px system-ui, sans-serif";
   ctx.fillStyle = "#f3d9dc";
   ctx.fillText(
-    `Амьдрал ${Math.ceil(boss.hp)} / ${boss.maxHp}`,
+    trFormat("Амьдрал {hp} / {max}", {
+      hp: Math.ceil(boss.hp),
+      max: boss.maxHp,
+    }),
     x + 5,
     y + 11,
   );
   ctx.fillStyle = "#ffe39a";
   ctx.fillText(
-    `Биеийн тэнцвэр ${Math.ceil(boss.posture)} / ${boss.maxPosture}`,
+    trFormat("Биеийн тэнцвэр {hp} / {max}", {
+      hp: Math.ceil(boss.posture),
+      max: boss.maxPosture,
+    }),
     x + 5,
     y + 27,
   );
@@ -2006,7 +2027,9 @@ export function drawFirstRouteHint(
   const y = route.gatePos.y - cam.y - 104;
   const text = route.complete
     ? "E — Mini-boss-ийн талбайг шалгах"
-    : `E — Хараалт хаалга (${route.enemies.filter((enemy) => enemy.alive).length} үлдсэн)`;
+    : trFormat("E — Хараалт хаалга ({n} үлдсэн)", {
+        n: route.enemies.filter((enemy) => enemy.alive).length,
+      });
   ctx.textAlign = "center";
   ctx.font = "600 12px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.8)";

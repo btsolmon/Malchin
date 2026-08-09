@@ -89,6 +89,7 @@ import {
   tryCallOpeningLivestock,
   tryInspectStormTrace,
 } from "./story";
+import { tr, trFormat } from "./i18n";
 import { handlePlayerDeath } from "./spirit";
 
 export const SKILL_POOL: Skill[] = [
@@ -170,7 +171,10 @@ export function beginElderLevelUp(state: GameState): boolean {
   if (state.xp < state.xpNext) {
     setMessage(
       state,
-      `Түвшин ахихад ${state.xpNext} XP хэрэгтэй. Одоо ${state.xp} XP байна.`,
+      trFormat("Түвшин ахихад {need} XP хэрэгтэй. Одоо {have} XP байна.", {
+        need: state.xpNext,
+        have: state.xp,
+      }),
       2.8,
     );
     sfx("select");
@@ -219,7 +223,12 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
       addSheep(state, growth);
       state.score += growth;
       gainXp(state, 12);
-      spawnText(state, pastureCenter(world), `+${growth} мал`, "#b8e8a0");
+      spawnText(
+        state,
+        pastureCenter(world),
+        trFormat("+{n} мал", { n: growth }),
+        "#b8e8a0",
+      );
     }
     spawnSpringBirths(state);
     if (state.phase === "playing") {
@@ -231,8 +240,15 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
       setMessage(
         state,
         growth > 0
-          ? `Өдөр ${world.dayNumber}: сүрэг +${growth}. ${hint}`
-          : `Өдөр ${world.dayNumber}. ${hint}`,
+          ? trFormat("Өдөр {day}: сүрэг +{n}. {hint}", {
+              day: world.dayNumber,
+              n: growth,
+              hint: tr(hint),
+            })
+          : trFormat("Өдөр {day}. {hint}", {
+              day: world.dayNumber,
+              hint: tr(hint),
+            }),
         3.5,
       );
     }
@@ -257,19 +273,27 @@ export function updateWeatherCycle(state: GameState, dt: number): void {
     } else if (world.season === "spring") {
       setMessage(
         state,
-        `Хавар — бэлчээр ургалаа (${Math.floor(world.pastureGrass)}). Мал өснө · ямааны ноолуур энэ улиралд!`,
+        trFormat(
+          "Хавар — бэлчээр ургалаа ({grass}). Мал өснө · ямааны ноолуур энэ улиралд!",
+          { grass: Math.floor(world.pastureGrass) },
+        ),
         4,
       );
     } else if (world.season === "summer") {
       setMessage(
         state,
-        `Зун — бэлчээр дүүрэн (${Math.floor(world.pastureGrass)}). Хоньны ноос энэ улиралд · мал бэлчээрт идүүлъя!`,
+        trFormat(
+          "Зун — бэлчээр дүүрэн ({grass}). Хоньны ноос энэ улиралд · мал бэлчээрт идүүлъя!",
+          { grass: Math.floor(world.pastureGrass) },
+        ),
         4,
       );
     } else if (world.season === "autumn") {
       setMessage(
         state,
-        `Намар — бэлчээр ${Math.floor(world.pastureGrass)}. Өвс хадгал, гэр нүүхэд бэлд!`,
+        trFormat("Намар — бэлчээр {grass}. Өвс хадгал, гэр нүүхэд бэлд!", {
+          grass: Math.floor(world.pastureGrass),
+        }),
         4,
       );
     }
@@ -796,7 +820,7 @@ export function tryInteract(state: GameState): void {
       return;
     }
     if (player.inventory.hay >= MAX_HAY) {
-      setMessage(state, `Өвс дүүрэн (${MAX_HAY}).`, 1.5);
+      setMessage(state, trFormat("Өвс дүүрэн ({max}).", { max: MAX_HAY }), 1.5);
       state.input.interact = false;
       return;
     }
@@ -852,7 +876,12 @@ export function tryInteract(state: GameState): void {
     gainXp(state, 3);
     tree.respawnIn = 25 + Math.random() * 15;
     spawnParticles(state, tree.pos, 10, "#8a6a3a", { speed: 110 });
-    spawnText(state, tree.pos, `+${gained} түлээ`, "#e8c56a");
+    spawnText(
+      state,
+      tree.pos,
+      trFormat("+{n} түлээ", { n: gained }),
+      "#e8c56a",
+    );
   }
 }
 
@@ -951,7 +980,11 @@ export function tryLightCampfire(state: GameState): void {
   }
 
   if (!state.unlimitedWood && player.inventory.wood < CAMPFIRE_WOOD_COST) {
-    setMessage(state, `Галд ${CAMPFIRE_WOOD_COST} түлээ хэрэгтэй.`, 2);
+    setMessage(
+      state,
+      trFormat("Галд {need} түлээ хэрэгтэй.", { need: CAMPFIRE_WOOD_COST }),
+      2,
+    );
     return;
   }
 
@@ -1010,23 +1043,43 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   if (state.level < cost.minLevel) {
     setMessage(
       state,
-      `${nextName} — түвшин ${cost.minLevel}+ хэрэгтэй.`,
+      trFormat("{name} — түвшин {level}+ хэрэгтэй.", {
+        name: tr(nextName),
+        level: cost.minLevel,
+      }),
       2,
     );
     return;
   }
   if (!state.unlimitedWood && player.inventory.wood < cost.wood) {
-    setMessage(state, `${nextName} болгоход ${cost.wood} мод хэрэгтэй.`, 2);
+    setMessage(
+      state,
+      trFormat("{name} болгоход {need} мод хэрэгтэй.", {
+        name: tr(nextName),
+        need: cost.wood,
+      }),
+      2,
+    );
     return;
   }
   if (!state.unlimitedCoins && state.score < cost.score) {
-    setMessage(state, `${nextName} — ${cost.score} зоос хэрэгтэй.`, 2);
+    setMessage(
+      state,
+      trFormat("{name} — {need} зоос хэрэгтэй.", {
+        name: tr(nextName),
+        need: cost.score,
+      }),
+      2,
+    );
     return;
   }
   if (player.inventory.berries < cost.berries) {
     setMessage(
       state,
-      `${nextName} — ${cost.berries} жимс хэрэгтэй.`,
+      trFormat("{name} — {need} жимс хэрэгтэй.", {
+        name: tr(nextName),
+        need: cost.berries,
+      }),
       2,
     );
     return;
@@ -1044,11 +1097,16 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
   spawnParticles(state, fence.pos, 12, color, { speed: 80, size: 2.5 });
   const spent: string[] = state.unlimitedWood
     ? []
-    : [`−${cost.wood} мод`];
-  if (cost.score > 0 && !state.unlimitedCoins) spent.push(`−${cost.score} зоос`);
-  if (cost.berries > 0) spent.push(`−${cost.berries} жимс`);
+    : [trFormat("−{n} мод", { n: cost.wood })];
+  if (cost.score > 0 && !state.unlimitedCoins)
+    spent.push(trFormat("−{n} зоос", { n: cost.score }));
+  if (cost.berries > 0) spent.push(trFormat("−{n} жимс", { n: cost.berries }));
   if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
-  setMessage(state, `${nextName} болголоо!`, 1.6);
+  setMessage(
+    state,
+    trFormat("{name} болголоо!", { name: tr(nextName) }),
+    1.6,
+  );
   state.fencePreview = false;
 }
 
@@ -1071,7 +1129,7 @@ export function tryDemolishFence(state: GameState): boolean {
   spawnText(
     state,
     fence.pos,
-    state.unlimitedWood ? "Нураав" : `+${refund} мод`,
+    state.unlimitedWood ? "Нураав" : trFormat("+{n} мод", { n: refund }),
     "#e8c56a",
   );
   setMessage(state, wasGate ? "Хаалга нурлаа." : "Хашаа нурлаа.", 1.6);
@@ -1133,7 +1191,11 @@ export function tryBuildFence(state: GameState): void {
   }
 
   if (!state.unlimitedWood && player.inventory.wood < FENCE_COST) {
-    setMessage(state, `Модон хашаанд ${FENCE_COST} мод хэрэгтэй.`, 2);
+    setMessage(
+      state,
+      trFormat("Модон хашаанд {need} мод хэрэгтэй.", { need: FENCE_COST }),
+      2,
+    );
     return;
   }
 
@@ -1183,7 +1245,7 @@ export function tryBuildFence(state: GameState): void {
   sfx("chop");
   spawnParticles(state, pos, 8, "#8a6a3a", { speed: 70, life: 2.5 });
   if (!state.unlimitedWood) {
-    spawnText(state, pos, `−${FENCE_COST} мод`, "#e8c56a");
+    spawnText(state, pos, trFormat("−{n} мод", { n: FENCE_COST }), "#e8c56a");
   }
   if (isGate) {
     setMessage(state, "Хаалга босголоо — түлхэж нээнэ.", 2);
@@ -1486,7 +1548,9 @@ export function tryMigrateGer(state: GameState): void {
       state,
       world.season === "winter"
         ? "Шинэ бууц! Өвөл — тэвш бэлд."
-        : `Шинэ бэлчээр! Өвс ${Math.floor(world.pastureGrass)}. Хашаа бэлэн.`,
+        : trFormat("Шинэ бэлчээр! Өвс {grass}. Хашаа бэлэн.", {
+            grass: Math.floor(world.pastureGrass),
+          }),
       4.5,
     );
     return;

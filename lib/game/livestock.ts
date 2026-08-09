@@ -31,6 +31,7 @@ import {
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
+import { trFormat } from "./i18n";
 
 export function emptyCounts(): Record<LivestockKind, number> {
   return { sheep: 0, goat: 0, cattle: 0, horse: 0, camel: 0 };
@@ -377,10 +378,14 @@ export function depositHayToFeeder(state: GameState, amount = 5): boolean {
   inv.hay -= move;
   feeder.hay += move;
   sfx("chop");
-  spawnText(state, feeder.pos, `+${move} өвс → тэвш`, "#b8d060");
+  spawnText(state, feeder.pos, trFormat("+{n} өвс → тэвш", { n: move }), "#b8d060");
   setMessage(
     state,
-    `Тэвшид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})`,
+    trFormat("Тэвшид {n} өвс хийлээ ({have}/{max})", {
+      n: move,
+      have: Math.floor(feeder.hay),
+      max: feeder.maxHay,
+    }),
     2,
   );
   return true;

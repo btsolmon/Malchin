@@ -25,6 +25,9 @@ import {
 import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
 import { advanceToMorning } from "../game/daycycle";
+import { getLang, langLabel, setLang, t, tr, trFormat } from "./i18n";
+import { hasAnyRecord, loadRecords } from "./records";
+import { clearSave, hasSave } from "./save";
 import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
 import { drawPlayer } from "./render/entities";
@@ -57,25 +60,50 @@ export function overButton(b: UiButton, input: InputState): boolean {
   );
 }
 
-export const MAIN_MENU_LABELS = [
-  "Тоглох",
-  "Тохиргоо",
-  "Удирдлага",
-  "Багийнхан",
-];
+export type MainMenuAction =
+  | "continue"
+  | "play"
+  | "settings"
+  | "controls"
+  | "credits";
+
+/**
+ * Үндсэн цэсний мөрүүд. Хадгалсан тоглоом байвал "Үргэлжлүүлэх" нэмэгдэж
+ * мөрийн тоо өөрчлөгдөнө — тиймээс индексээр биш action-аар шийднэ.
+ */
+export function mainMenuEntries(): Array<{
+  action: MainMenuAction;
+  label: string;
+}> {
+  const entries: Array<{ action: MainMenuAction; label: string }> = [];
+  if (hasSave()) {
+    entries.push({ action: "continue", label: t("menu.continue") });
+    entries.push({ action: "play", label: t("menu.newGame") });
+  } else {
+    entries.push({ action: "play", label: t("menu.play") });
+  }
+  entries.push({ action: "settings", label: t("menu.settings") });
+  entries.push({ action: "controls", label: t("menu.controls") });
+  entries.push({ action: "credits", label: t("menu.credits") });
+  return entries;
+}
 
 export function mainMenuButtons(): UiButton[] {
   const w = 230;
   const h = 46;
   const gap = 13;
   const x = (VIEW_W - w) / 2;
-  const y0 = 244;
-  return MAIN_MENU_LABELS.map((label, i) => ({
+  const entries = mainMenuEntries();
+  const blockH = entries.length * h + (entries.length - 1) * gap;
+  // Мөр нэмэгдэхэд доод захаас багцлан дээшилнэ, гэхдээ
+  // дэд гарчиг (y≈200) дээр гарахгүй.
+  const y0 = Math.max(224, Math.min(244, 512 - blockH));
+  return entries.map((entry, i) => ({
     x,
     y: y0 + i * (h + gap),
     w,
     h,
-    label,
+    label: entry.label,
   }));
 }
 
@@ -85,19 +113,23 @@ export function pauseMenuButtons(): UiButton[] {
   const gap = 12;
   const x = (VIEW_W - w) / 2;
   const y0 = VIEW_H / 2 - 70;
-  return ["Үргэлжлүүлэх", "Тохиргоо", "Удирдлага", "Үндсэн цэс"].map(
-    (label, i) => ({
-      x,
-      y: y0 + i * (h + gap),
-      w,
-      h,
-      label,
-    }),
-  );
+  return [
+    t("pause.resume"),
+    t("menu.settings"),
+    t("menu.controls"),
+    t("pause.mainMenu"),
+  ].map((label, i) => ({
+    x,
+    y: y0 + i * (h + gap),
+    w,
+    h,
+    label,
+  }));
 }
 
 export function settingsLayout(): {
   rows: Array<{ label: string; bar: UiButton }>;
+  language: { label: string; bar: UiButton };
   back: UiButton;
 } {
   const barW = 250;
@@ -105,22 +137,36 @@ export function settingsLayout(): {
   return {
     rows: [
       {
-        label: "Ая",
-        bar: { x: barX, y: 226, w: barW, h: 20, label: "" },
+        label: t("settings.music"),
+        bar: { x: barX, y: 212, w: barW, h: 20, label: "" },
       },
       {
-        label: "Дууны эффект",
-        bar: { x: barX, y: 288, w: barW, h: 20, label: "" },
+        label: t("settings.sfx"),
+        bar: { x: barX, y: 266, w: barW, h: 20, label: "" },
       },
     ],
-    back: { x: (VIEW_W - 170) / 2, y: 362, w: 170, h: 44, label: "Буцах" },
+    language: {
+      label: t("settings.language"),
+      bar: { x: barX, y: 320, w: barW, h: 28, label: langLabel() },
+    },
+    back: {
+      x: (VIEW_W - 170) / 2,
+      y: 388,
+      w: 170,
+      h: 44,
+      label: t("settings.back"),
+    },
   };
 }
+
+/** Тохиргооны мөрийн индексүүд — ая, эффект, хэл, буцах */
+const SETTINGS_LANG_ROW = 2;
+const SETTINGS_BACK_ROW = 3;
 
 export function updateSettingsMenu(state: GameState): void {
   const input = state.input;
   const lay = settingsLayout();
-  const rowCount = 3; // ая, эффект, буцах
+  const rowCount = 4; // ая, эффект, хэл, буцах
 
   if (input.menuUp) {
     state.menuIndex = (state.menuIndex + rowCount - 1) % rowCount;
@@ -144,11 +190,23 @@ export function updateSettingsMenu(state: GameState): void {
     }
   }
 
+  // Хэл — ← → эсвэл Enter аль нь ч сольж болно (хоёр л хэл байгаа)
+  if (state.menuIndex === SETTINGS_LANG_ROW) {
+    if (input.menuLeft || input.menuRight || input.confirm) {
+      setLang(getLang() === "mn" ? "en" : "mn");
+      sfx("select");
+      return;
+    }
+  }
+
   if (input.mouseMoved) {
     lay.rows.forEach((row, i) => {
       if (overButton(row.bar, input)) state.menuIndex = i;
     });
-    if (overButton(lay.back, input)) state.menuIndex = 2;
+    if (overButton(lay.language.bar, input)) {
+      state.menuIndex = SETTINGS_LANG_ROW;
+    }
+    if (overButton(lay.back, input)) state.menuIndex = SETTINGS_BACK_ROW;
   }
   if (input.mouseClicked) {
     lay.rows.forEach((row, i) => {
@@ -158,35 +216,47 @@ export function updateSettingsMenu(state: GameState): void {
         sfx("move");
       }
     });
+    if (overButton(lay.language.bar, input)) {
+      setLang(getLang() === "mn" ? "en" : "mn");
+      sfx("select");
+      return;
+    }
     if (overButton(lay.back, input)) {
       if (state.phase === "paused") {
         state.menuScreen = "main";
         state.pauseIndex = 1;
       } else {
         state.menuScreen = "main";
-        state.menuIndex = 1;
+        state.menuIndex = mainMenuIndexOf("settings");
       }
       sfx("select");
       return;
     }
   }
 
-  if (input.pause || (input.confirm && state.menuIndex === 2)) {
+  if (input.pause || (input.confirm && state.menuIndex === SETTINGS_BACK_ROW)) {
     if (state.phase === "paused") {
       state.menuScreen = "main";
       state.pauseIndex = 1;
     } else {
       state.menuScreen = "main";
-      state.menuIndex = 1;
+      state.menuIndex = mainMenuIndexOf("settings");
     }
     sfx("select");
   }
+}
+
+/** Үндсэн цэс дэх тухайн үйлдлийн мөрийн индекс (мөрийн тоо хувирдаг) */
+export function mainMenuIndexOf(action: MainMenuAction): number {
+  const i = mainMenuEntries().findIndex((e) => e.action === action);
+  return i < 0 ? 0 : i;
 }
 
 export function updateMenu(state: GameState): void {
   const input = state.input;
 
   if (state.menuScreen === "main") {
+    const entries = mainMenuEntries();
     const btns = mainMenuButtons();
     if (input.menuUp) {
       state.menuIndex = (state.menuIndex + btns.length - 1) % btns.length;
@@ -208,18 +278,26 @@ export function updateMenu(state: GameState): void {
       const i = btns.findIndex((b) => overButton(b, input));
       if (i >= 0) activate = i;
     }
+    if (activate < 0 || activate >= entries.length) return;
 
-    if (activate === 0) {
+    const action = entries[activate].action;
+    if (action === "continue") {
+      // Төлөвийг engine солино — requestRestart-тай ижил хэв маяг
+      state.requestLoad = true;
+      sfx("select");
+    } else if (action === "play") {
+      // Шинээр эхэлбэл хуучин хадгалалт хөндөлдөхгүй байхаар устгана
+      clearSave();
       beginOpeningSequence(state);
       sfx("select");
-    } else if (activate === 1) {
+    } else if (action === "settings") {
       state.menuScreen = "settings";
       state.menuIndex = 0;
       sfx("select");
-    } else if (activate === 2) {
+    } else if (action === "controls") {
       state.menuScreen = "controls";
       sfx("select");
-    } else if (activate === 3) {
+    } else if (action === "credits") {
       state.menuScreen = "credits";
       sfx("select");
     }
@@ -233,7 +311,9 @@ export function updateMenu(state: GameState): void {
 
   // Удирдлага / Багийнхан — дурын товч буцаана
   if (input.confirm || input.pause || input.mouseClicked) {
-    state.menuIndex = state.menuScreen === "controls" ? 2 : 3;
+    state.menuIndex = mainMenuIndexOf(
+      state.menuScreen === "controls" ? "controls" : "credits",
+    );
     state.menuScreen = "main";
     sfx("select");
   }
@@ -243,42 +323,47 @@ export function updateMenu(state: GameState): void {
 // Гэр ба дэлгүүр
 // ---------------------------------------------------------------------------
 
-export const CRAFT_RECIPES: Array<{
+export interface CraftRecipe {
   id: string;
   name: string;
   desc: string;
   need: Partial<Record<"wool" | "cashmere" | "milk" | "wood" | "stone", number>>;
   give: Partial<Record<"felt" | "aaruul" | "arrows", number>>;
-}> = [
-  {
-    id: "arrows",
-    name: "Сум",
-    desc: "1 мод + 1 чулуу → 2 сум",
-    need: { wood: 1, stone: 1 },
-    give: { arrows: 2 },
-  },
-  {
-    id: "felt",
-    name: "Эсгий",
-    desc: "3 ноос → 1 эсгий",
-    need: { wool: 3 },
-    give: { felt: 1 },
-  },
-  {
-    id: "aaruul",
-    name: "Ааруул",
-    desc: "2 сүү → 1 ааруул",
-    need: { milk: 2 },
-    give: { aaruul: 1 },
-  },
-  {
-    id: "cashmere_felt",
-    name: "Ноолууран эсгий",
-    desc: "2 ноолуур → 2 эсгий",
-    need: { cashmere: 2 },
-    give: { felt: 2 },
-  },
-];
+}
+
+/** Жорын нэр/тайлбар хэлээс хамаарна — тиймээс дуудах үед бүрдүүлнэ */
+export function craftRecipes(): CraftRecipe[] {
+  return [
+    {
+      id: "arrows",
+      name: t("craft.arrows.name"),
+      desc: t("craft.arrows.desc"),
+      need: { wood: 1, stone: 1 },
+      give: { arrows: 2 },
+    },
+    {
+      id: "felt",
+      name: t("craft.felt.name"),
+      desc: t("craft.felt.desc"),
+      need: { wool: 3 },
+      give: { felt: 1 },
+    },
+    {
+      id: "aaruul",
+      name: t("craft.aaruul.name"),
+      desc: t("craft.aaruul.desc"),
+      need: { milk: 2 },
+      give: { aaruul: 1 },
+    },
+    {
+      id: "cashmere_felt",
+      name: t("craft.cashmereFelt.name"),
+      desc: t("craft.cashmereFelt.desc"),
+      need: { cashmere: 2 },
+      give: { felt: 2 },
+    },
+  ];
+}
 
 export function gerLayout(): {
   chestL: UiButton;
@@ -363,23 +448,48 @@ export function gerProximity(state: GameState): {
   };
 }
 
-const CHEST_ITEMS: Array<{
+interface ChestItem {
   key: "milk" | "aaruul" | "felt" | "wool" | "cashmere";
   icon: GameIconId;
   name: string;
   desc: string;
-}> = [
-  { key: "milk", icon: "milk", name: "Сүү", desc: "Цагаан идээ · хадгалсан" },
-  { key: "aaruul", icon: "aaruul", name: "Ааруул", desc: "Боловсруулсан сүү" },
-  { key: "felt", icon: "felt", name: "Эсгий", desc: "Ноосоор урласан" },
-  { key: "wool", icon: "wool", name: "Ноос", desc: "Хонь / тэмээний ноос" },
-  {
-    key: "cashmere",
-    icon: "cashmere",
-    name: "Ноолуур",
-    desc: "Ямааны ноолуур",
-  },
-];
+}
+
+/** Нэр/тайлбар хэлээс хамаарна — тиймээс дуудах үед бүрдүүлнэ */
+function chestItems(): ChestItem[] {
+  return [
+    {
+      key: "milk",
+      icon: "milk",
+      name: t("item.milk.name"),
+      desc: t("item.milk.desc"),
+    },
+    {
+      key: "aaruul",
+      icon: "aaruul",
+      name: t("item.aaruul.name"),
+      desc: t("item.aaruul.desc"),
+    },
+    {
+      key: "felt",
+      icon: "felt",
+      name: t("item.felt.name"),
+      desc: t("item.felt.desc"),
+    },
+    {
+      key: "wool",
+      icon: "wool",
+      name: t("item.wool.name"),
+      desc: t("item.wool.desc"),
+    },
+    {
+      key: "cashmere",
+      icon: "cashmere",
+      name: t("item.cashmere.name"),
+      desc: t("item.cashmere.desc"),
+    },
+  ];
+}
 
 export function chestLayout(): {
   panel: UiButton;
@@ -387,10 +497,10 @@ export function chestLayout(): {
   close: UiButton;
 } {
   const w = 520;
-  const h = 76 + CHEST_ITEMS.length * 54 + 70;
+  const h = 76 + chestItems().length * 54 + 70;
   const x = (VIEW_W - w) / 2;
   const y = (VIEW_H - h) / 2;
-  const rows: UiButton[] = CHEST_ITEMS.map((_, i) => ({
+  const rows: UiButton[] = chestItems().map((_, i) => ({
     x: x + 24,
     y: y + 76 + i * 54,
     w: w - 48,
@@ -416,10 +526,10 @@ export function craftLayout(): {
   close: UiButton;
 } {
   const w = 520;
-  const h = 76 + CRAFT_RECIPES.length * 58 + 70;
+  const h = 76 + craftRecipes().length * 58 + 70;
   const x = (VIEW_W - w) / 2;
   const y = (VIEW_H - h) / 2;
-  const rows: UiButton[] = CRAFT_RECIPES.map((it, i) => ({
+  const rows: UiButton[] = craftRecipes().map((it, i) => ({
     x: x + 24,
     y: y + 76 + i * 58,
     w: w - 48,
@@ -440,7 +550,7 @@ export function craftLayout(): {
 }
 
 export function craftItem(state: GameState, idx: number): void {
-  const recipe = CRAFT_RECIPES[idx];
+  const recipe = craftRecipes()[idx];
   if (!recipe) return;
   const inv = state.player.inventory;
   type NeedKey = "wool" | "cashmere" | "milk" | "wood" | "stone";
@@ -448,7 +558,11 @@ export function craftItem(state: GameState, idx: number): void {
   for (const [k, need] of Object.entries(recipe.need)) {
     const key = k as NeedKey;
     if ((inv[key] ?? 0) < (need ?? 0)) {
-      setMessage(state, `Хүрэлцэхгүй — ${recipe.desc}`, 2);
+      setMessage(
+        state,
+        trFormat("Хүрэлцэхгүй — {desc}", { desc: tr(recipe.desc) }),
+        2,
+      );
       sfx("move");
       return;
     }
@@ -462,14 +576,22 @@ export function craftItem(state: GameState, idx: number): void {
     inv[key] += give ?? 0;
   }
   sfx("buy");
-  setMessage(state, `${recipe.name} хийлээ!`, 2.5);
+  setMessage(
+    state,
+    trFormat("{name} хийлээ!", { name: tr(recipe.name) }),
+    2.5,
+  );
 }
 
 function tryLightGerStove(state: GameState): void {
   const cost = 3;
   const player = state.player;
   if (!state.unlimitedWood && player.inventory.wood < cost) {
-    setMessage(state, `Зууханд ${cost} түлээ хэрэгтэй.`, 2);
+    setMessage(
+      state,
+      trFormat("Зууханд {need} түлээ хэрэгтэй.", { need: cost }),
+      2,
+    );
     sfx("move");
     return;
   }
@@ -531,7 +653,7 @@ export function updateGer(state: GameState, dt: number): void {
       sfx("levelup");
       setMessage(
         state,
-        `Сайхан унтаж амарлаа. Өглөө болов · +50 амь`,
+        tr("Сайхан унтаж амарлаа. Өглөө болов · +50 амь"),
         3.5,
       );
     }
@@ -545,11 +667,11 @@ export function updateGer(state: GameState, dt: number): void {
     const lay = craftLayout();
     if (input.menuUp) {
       state.menuIndex =
-        (state.menuIndex + CRAFT_RECIPES.length - 1) % CRAFT_RECIPES.length;
+        (state.menuIndex + craftRecipes().length - 1) % craftRecipes().length;
       sfx("move");
     }
     if (input.menuDown) {
-      state.menuIndex = (state.menuIndex + 1) % CRAFT_RECIPES.length;
+      state.menuIndex = (state.menuIndex + 1) % craftRecipes().length;
       sfx("move");
     }
     if (input.mouseMoved) {
@@ -577,11 +699,11 @@ export function updateGer(state: GameState, dt: number): void {
     const lay = chestLayout();
     if (input.menuUp) {
       state.menuIndex =
-        (state.menuIndex + CHEST_ITEMS.length - 1) % CHEST_ITEMS.length;
+        (state.menuIndex + chestItems().length - 1) % chestItems().length;
       sfx("move");
     }
     if (input.menuDown) {
-      state.menuIndex = (state.menuIndex + 1) % CHEST_ITEMS.length;
+      state.menuIndex = (state.menuIndex + 1) % chestItems().length;
       sfx("move");
     }
     if (input.mouseMoved) {
@@ -833,7 +955,11 @@ export function updateLevelUp(state: GameState): void {
     skill.apply(state);
     state.skillChoices = [];
     state.phase = "playing";
-    setMessage(state, `Ур чадвар: ${skill.name}!`, 3);
+    setMessage(
+      state,
+      trFormat("Ур чадвар: {name}!", { name: tr(skill.name) }),
+      3,
+    );
     sfx("select");
     maybeLevelUp(state);
   }
@@ -1663,36 +1789,71 @@ export function drawBackHint(ctx: CanvasRenderingContext2D, y: number): void {
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
   ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText("P / Enter — буцах", VIEW_W / 2, y);
+  ctx.fillText(t("common.backHint"), VIEW_W / 2, y);
   ctx.textAlign = "left";
 }
 
 export function drawMenuMain(
   ctx: CanvasRenderingContext2D,
   state: GameState,
-  t: number,
 ): void {
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
   ctx.font = "600 13px system-ui, sans-serif";
-  ctx.fillText("АМЬД ҮЛД", VIEW_W / 2, 106);
+  ctx.fillText(t("menu.eyebrow"), VIEW_W / 2, 106);
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 58px system-ui, sans-serif";
-  ctx.fillText("НҮҮДЭЛЧИН", VIEW_W / 2, 166);
+  ctx.fillText(t("menu.title"), VIEW_W / 2, 166);
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText("Хязгаар үгүй тал", VIEW_W / 2, 200);
+  ctx.fillText(t("menu.subtitle"), VIEW_W / 2, 200);
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();
   btns.forEach((b, i) => drawUiButton(ctx, b, i === state.menuIndex));
 
-  ctx.textAlign = "center";
-  ctx.globalAlpha = 0.7 + 0.3 * Math.sin(t * 3);
-  ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText("", VIEW_W / 2, 516);
-  ctx.globalAlpha = 1;
+  drawRecordsPanel(ctx);
+}
+
+/** Өөрийн дээд амжилтууд — үндсэн цэсний баруун доод хэсэгт */
+function drawRecordsPanel(ctx: CanvasRenderingContext2D): void {
+  if (!hasAnyRecord()) return;
+
+  const r = loadRecords();
+  const rows: Array<[string, number]> = [
+    [t("records.days"), r.bestDays],
+    [t("records.livestock"), r.bestLivestock],
+    [t("records.coins"), r.bestCoins],
+  ];
+  const w = 210;
+  const h = 26 + rows.length * 20 + 12;
+  const x = VIEW_W - w - 20;
+  const y = VIEW_H - h - 20;
+
+  ctx.fillStyle = "rgba(12,10,8,0.7)";
+  roundRectPath(ctx, x, y, w, h, 10);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(232,197,106,0.25)";
+  ctx.lineWidth = 1;
+  roundRectPath(ctx, x, y, w, h, 10);
+  ctx.stroke();
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = COLORS.hudAccent;
+  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.fillText(t("records.title"), x + 14, y + 22);
+
+  rows.forEach(([label, value], i) => {
+    const ly = y + 44 + i * 20;
+    ctx.textAlign = "left";
+    ctx.fillStyle = COLORS.hudMuted;
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(label, x + 14, ly);
+    ctx.textAlign = "right";
+    ctx.fillStyle = COLORS.hudText;
+    ctx.font = "600 12px system-ui, sans-serif";
+    ctx.fillText(String(value), x + w - 14, ly);
+  });
   ctx.textAlign = "left";
 }
 
@@ -1700,7 +1861,7 @@ export function drawMenuSettings(
   ctx: CanvasRenderingContext2D,
   state: GameState,
 ): void {
-  drawMenuTitle(ctx, "ТОХИРГОО");
+  drawMenuTitle(ctx, t("settings.title"));
 
   const lay = settingsLayout();
   const vols = [audio.musicVol, audio.sfxVol];
@@ -1747,37 +1908,58 @@ export function drawMenuSettings(
     );
   });
 
-  drawUiButton(ctx, lay.back, state.menuIndex === 2);
+  // Хэлний мөр — түвшний зурвас биш, сонголтын товч
+  const langSel = state.menuIndex === SETTINGS_LANG_ROW;
+  const lb = lay.language.bar;
+  ctx.textAlign = "right";
+  ctx.fillStyle = langSel ? "#e8c56a" : COLORS.hudText;
+  ctx.font = langSel
+    ? "600 15px system-ui, sans-serif"
+    : "15px system-ui, sans-serif";
+  ctx.fillText(lay.language.label, lb.x - 22, lb.y + lb.h / 2 + 5);
+  ctx.textAlign = "left";
+
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  roundRectPath(ctx, lb.x, lb.y, lb.w, lb.h, 9);
+  ctx.fill();
+  ctx.strokeStyle = langSel ? "#e8c56a" : "rgba(232,197,106,0.3)";
+  ctx.lineWidth = langSel ? 2 : 1;
+  roundRectPath(ctx, lb.x, lb.y, lb.w, lb.h, 9);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = langSel ? "#e8c56a" : COLORS.hudText;
+  ctx.font = "600 14px system-ui, sans-serif";
+  ctx.fillText(`‹ ${lb.label} ›`, lb.x + lb.w / 2, lb.y + lb.h / 2 + 5);
+  ctx.textAlign = "left";
+
+  drawUiButton(ctx, lay.back, state.menuIndex === SETTINGS_BACK_ROW);
 
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
   ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText(
-    "← → — түвшин өөрчлөх · зурвас дээр хулганаар дарж болно",
-    VIEW_W / 2,
-    460,
-  );
+  ctx.fillText(t("settings.hint"), VIEW_W / 2, 470);
   ctx.textAlign = "left";
 }
 
 export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
-  drawMenuTitle(ctx, "УДИРДЛАГА");
+  drawMenuTitle(ctx, t("controls.title"));
 
   const lines: Array<[string, string]> = [
-    ["WASD", "Алхах"],
-    ["J", "Цохих / сэлмээр цавчих (тамир)"],
-    ["K", "Нум харвах (сум хэрэгтэй)"],
-    ["Shift", "Бултах — invuln цонх"],
-    ["L", "Сөрөх (parry) — дайралт няцаах"],
-    ["1 / 2", "Нударга / Хөх тэнгэрийн сэлэм"],
-    ["E", "Мод / чулуу / жимс / өвс / тэвш / мал"],
-    ["Q", "Жимс / загас / ааруул идэх"],
-    ["F", "Хүссэн газартаа гал түлэх (түлээ)"],
-    ["B", "Хашаа барих / шинэчлэх"],
-    ["N", "Мал туух"],
-    ["G", "Гэр моринд ачих / буулгах"],
-    ["H", "Морь унах / буух (гэрийн дэргэд уяна)"],
-    ["P", "Түр зогсоох"],
+    ["WASD", t("controls.walk")],
+    ["J", t("controls.attack")],
+    ["K", t("controls.bow")],
+    ["Shift", t("controls.dodge")],
+    ["L", t("controls.parry")],
+    ["1 / 2", t("controls.weapon")],
+    ["E", t("controls.interact")],
+    ["Q", t("controls.eat")],
+    ["F", t("controls.fire")],
+    ["B", t("controls.fence")],
+    ["N", t("controls.herd")],
+    ["G", t("controls.packGer")],
+    ["H", t("controls.horse")],
+    ["P", t("controls.pause")],
   ];
   const boxW = 520;
   const boxH = lines.length * 22 + 26;
@@ -1809,15 +1991,15 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
 }
 
 export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
-  drawMenuTitle(ctx, "БАГИЙНХАН");
+  drawMenuTitle(ctx, t("credits.title"));
 
   const lines: Array<[string, string]> = [
-    ["Тоглоомын цөм (Core Mechanics)", "Цолмон"],
-    ["Амьд үлдэх систем (Survival Mechanics)", "Мянганнаст"],
-    ["Дайсан ба AI", "Билгүүнтөгс"],
-    ["Тулааны систем (Combat Mechanics)", "Баярцогт"],
-    ["График дизайн ба Визуал стиль", "Номин"],
-    ["UI/UX ба дуу", "Тэмүүлэн"],
+    [t("credits.core"), "Цолмон"],
+    [t("credits.survival"), "Мянганнаст"],
+    [t("credits.enemyAi"), "Билгүүнтөгс"],
+    [t("credits.combat"), "Баярцогт"],
+    [t("credits.art"), "Номин"],
+    [t("credits.uiSound"), "Тэмүүлэн"],
   ];
 
   ctx.textAlign = "center";
@@ -1846,15 +2028,13 @@ export function drawMenu(
   ctx: CanvasRenderingContext2D,
   state: GameState,
 ): void {
-  const t = performance.now() / 1000;
-
   const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
   g.addColorStop(0, "rgba(10,8,6,0.85)");
   g.addColorStop(1, "rgba(10,8,6,0.62)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-  if (state.menuScreen === "main") drawMenuMain(ctx, state, t);
+  if (state.menuScreen === "main") drawMenuMain(ctx, state);
   else if (state.menuScreen === "settings") drawMenuSettings(ctx, state);
   else if (state.menuScreen === "controls") drawMenuControls(ctx);
   else drawMenuCredits(ctx);
@@ -1927,7 +2107,9 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     const routeText = world.tumurShulmas.defeated
       ? "Төмөр шулмас дарагдав"
       : world.tumurShulmas.active
-        ? `Төмөр шулмас · Үе ${world.tumurShulmas.bossPhase}`
+        ? trFormat("Төмөр шулмас · Үе {n}", {
+            n: world.tumurShulmas.bossPhase,
+          })
         : route.bossDefeated
           ? route.swordDrop.collected
             ? "Хар төмөр хаалга нээгдсэн"
@@ -1936,7 +2118,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
             ? "Mini-boss · Шулмасын баатар"
             : route.complete
               ? "Хараалт хаалга нээгдсэн"
-              : `Эхний зам ${route.defeated}/${route.total}`;
+              : trFormat("Эхний зам {have}/{total}", {
+                  have: route.defeated,
+                  total: route.total,
+                });
     ctx.font = "bold 11px 'Courier New', monospace";
     const routeWidth = Math.ceil(ctx.measureText(routeText).width) + 16;
     const routeX = VIEW_W - routeWidth - pad;
@@ -2067,7 +2252,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 11px 'Courier New', monospace";
   ctx.fillText(
-    `Өдөр ${world.dayNumber} · ${state.unlimitedCoins ? "∞" : state.score}`,
+    `${t("hud.day")} ${world.dayNumber} · ${state.unlimitedCoins ? "∞" : state.score}`,
     barX,
     ly + 14,
   );
@@ -2075,12 +2260,12 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ctx.fillStyle = "#d8c898";
   ctx.font = "10px 'Courier New', monospace";
   ctx.fillText(
-    `Ноос${player.inventory.wool} Ноол${player.inventory.cashmere} Сүү${player.inventory.milk}`,
+    `${t("hud.wool")}${player.inventory.wool} ${t("hud.cashmere")}${player.inventory.cashmere} ${t("hud.milk")}${player.inventory.milk}`,
     barX,
     ly + 28,
   );
   ctx.fillStyle = "#a8c8e8";
-  ctx.fillText(`Тэвш ${Math.floor(world.feeder.hay)}`, barX, ly + 42);
+  ctx.fillText(`${t("hud.trough")} ${Math.floor(world.feeder.hay)}`, barX, ly + 42);
 
   const nearFence = nearestFence(player.pos, world.fences, 64);
   if (nearFence) {
@@ -2092,7 +2277,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
     ctx.font = "bold 10px 'Courier New', monospace";
     ctx.fillText(
-      `${nearFence.isGate ? "Хаалга " : ""}${FENCE_TIER_SHORT[tier]} ${hpPct}%`,
+      `${nearFence.isGate ? `${t("hud.gate")} ` : ""}${FENCE_TIER_SHORT[tier]} ${hpPct}%`,
       barX,
       ly + 70,
     );
@@ -2100,10 +2285,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   if (world.wolves.length > 0 || world.thieves.length > 0) {
     const parts: string[] = [];
-    if (world.wolves.length) parts.push(`Чоно ${world.wolves.length}`);
+    if (world.wolves.length)
+      parts.push(trFormat("Чоно {n}", { n: world.wolves.length }));
     if (world.thieves.length) {
       const stolen = world.thieves.reduce((s, t) => s + t.stolen, 0);
-      parts.push(`Хулгайч (−${stolen})`);
+      parts.push(trFormat("Хулгайч (−{n})", { n: stolen }));
     }
     const text = parts.join("  ·  ");
     ctx.font = "bold 13px 'Courier New', monospace";
@@ -2125,7 +2311,9 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ) {
     const alpha = clamp(state.messageTimer / 0.4, 0, 1);
     ctx.font = "13px 'Courier New', monospace";
-    const tw = ctx.measureText(state.message).width;
+    // Төлөвт монголоор хадгалж, зурахдаа орчуулна — хэл солиход шууд өөрчлөгдөнө
+    const message = tr(state.message);
+    const tw = ctx.measureText(message).width;
     const mx = (VIEW_W - tw) / 2 - 12;
     const my = VIEW_H - 108;
     ctx.globalAlpha = alpha;
@@ -2134,7 +2322,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.strokeStyle = "rgba(232,197,106,0.45)";
     ctx.strokeRect(mx + 0.5, my + 0.5, tw + 23, 25);
     ctx.fillStyle = COLORS.hudText;
-    ctx.fillText(state.message, mx + 12, my + 17);
+    ctx.fillText(message, mx + 12, my + 17);
     ctx.globalAlpha = 1;
   }
 
@@ -2150,7 +2338,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       ctx.textAlign = "center";
       ctx.fillStyle = "#e8c56a";
       ctx.font = "bold 40px system-ui, sans-serif";
-      ctx.fillText("ТҮР ЗОГССОН", VIEW_W / 2, VIEW_H / 2 - 110);
+      ctx.fillText(t("pause.title"), VIEW_W / 2, VIEW_H / 2 - 110);
       ctx.textAlign = "left";
 
       const btns = pauseMenuButtons();
@@ -2160,7 +2348,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       ctx.fillStyle = COLORS.hudMuted;
       ctx.font = "13px system-ui, sans-serif";
       ctx.fillText(
-        "↑↓ / Enter · хулгана · P — үргэлжлүүлэх",
+        t("pause.hint"),
         VIEW_W / 2,
         VIEW_H / 2 + 170,
       );
@@ -2175,10 +2363,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.textAlign = "center";
     ctx.fillStyle = "#c0a0ff";
     ctx.font = "bold 32px system-ui, sans-serif";
-    ctx.fillText(`ТҮВШИН ${state.level}!`, VIEW_W / 2, 120);
+    ctx.fillText(`${t("hud.level")} ${state.level}!`, VIEW_W / 2, 120);
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "15px system-ui, sans-serif";
-    ctx.fillText("← → гүйлгээд Enter · эсвэл хулганаар сонго", VIEW_W / 2, 152);
+    ctx.fillText(t("hud.levelHint"), VIEW_W / 2, 152);
 
     const cards = skillCardLayout(state.skillChoices.length);
     state.skillChoices.forEach((skill, i) => {
@@ -2217,18 +2405,26 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.textAlign = "center";
     ctx.fillStyle = won ? "#e8c56a" : "#ff8080";
     ctx.font = "bold 48px system-ui, sans-serif";
-    ctx.fillText(won ? "ЯЛАЛТ!" : "ЯЛАГДЛАА", VIEW_W / 2, VIEW_H / 2 - 30);
+    ctx.fillText(
+      won ? t("end.win") : t("end.lose"),
+      VIEW_W / 2,
+      VIEW_H / 2 - 30,
+    );
     ctx.fillStyle = COLORS.hudText;
     ctx.font = "16px system-ui, sans-serif";
-    ctx.fillText(state.message, VIEW_W / 2, VIEW_H / 2 + 8);
+    ctx.fillText(
+      won ? t("end.winSubtitle") : tr(state.message),
+      VIEW_W / 2,
+      VIEW_H / 2 + 8,
+    );
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "13px system-ui, sans-serif";
     ctx.fillText(
-      `Зоос ${state.unlimitedCoins ? "∞" : state.score} · Мал ${world.flock.total} · Өдөр ${world.dayNumber}`,
+      `${t("hud.coins")} ${state.unlimitedCoins ? "∞" : state.score} · ${t("hud.livestock")} ${world.flock.total} · ${t("hud.day")} ${world.dayNumber}`,
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );
-    ctx.fillText("Enter / P — үндсэн цэс", VIEW_W / 2, VIEW_H / 2 + 70);
+    ctx.fillText(t("end.hint"), VIEW_W / 2, VIEW_H / 2 + 70);
     ctx.textAlign = "left";
   }
 
@@ -2260,11 +2456,11 @@ export function drawChest(
   ctx.textAlign = "center";
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 24px system-ui, sans-serif";
-  ctx.fillText("АВДАР", VIEW_W / 2, panel.y + 40);
+  ctx.fillText(t("chest.title"), VIEW_W / 2, panel.y + 40);
   ctx.textAlign = "left";
 
   rows.forEach((r, i) => {
-    const item = CHEST_ITEMS[i];
+    const item = chestItems()[i];
     if (!item) return;
     const have = inv[item.key];
     const selected = state.menuIndex === i;
@@ -2293,7 +2489,11 @@ export function drawChest(
     ctx.textAlign = "right";
     ctx.fillStyle = have > 0 ? "#ffd060" : "#a89880";
     ctx.font = "600 13px system-ui, sans-serif";
-    ctx.fillText(have > 0 ? `×${have}` : "Алга", r.x + r.w - 14, r.y + 30);
+    ctx.fillText(
+      have > 0 ? `×${have}` : t("chest.empty"),
+      r.x + r.w - 14,
+      r.y + 30,
+    );
     ctx.textAlign = "left";
   });
 
@@ -2331,12 +2531,12 @@ export function drawCraft(
   ctx.textAlign = "center";
   ctx.fillStyle = "#e8c56a";
   ctx.font = "bold 22px system-ui, sans-serif";
-  ctx.fillText("УРЛАЛ", VIEW_W / 2, panel.y + 40);
+  ctx.fillText(t("craft.title"), VIEW_W / 2, panel.y + 40);
   ctx.textAlign = "left";
 
   const inv = state.player.inventory;
   rows.forEach((r, i) => {
-    const recipe = CRAFT_RECIPES[i];
+    const recipe = craftRecipes()[i];
     const selected = state.menuIndex === i;
     let can = true;
     for (const [k, need] of Object.entries(recipe.need)) {
@@ -2365,7 +2565,11 @@ export function drawCraft(
     ctx.textAlign = "right";
     ctx.fillStyle = can ? "#a0d890" : "#e07070";
     ctx.font = "600 13px system-ui, sans-serif";
-    ctx.fillText(can ? "Хийх" : "Хүрэлцэхгүй", r.x + r.w - 14, r.y + 30);
+    ctx.fillText(
+      can ? t("craft.make") : t("craft.short"),
+      r.x + r.w - 14,
+      r.y + 30,
+    );
     ctx.textAlign = "left";
   });
 

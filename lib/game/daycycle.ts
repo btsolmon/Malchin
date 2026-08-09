@@ -23,6 +23,7 @@ import {
 import { addLivestock, killHerdVisual } from "./livestock";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
+import { trFormat } from "./i18n";
 
 /** Бодит секундэд нэг өдөр — timeOfDay += dt * TIME_RATE */
 export const TIME_RATE = 24 / DAY_LENGTH_SEC;
@@ -243,13 +244,16 @@ export function spawnSpringBirths(state: GameState): void {
   if (born > 0) {
     setMessage(
       state,
-      `Хавар төллөлт! +${born} залуу мал — шөнө дулаан байлга (гал/хашаа).`,
+      trFormat(
+        "Хавар төллөлт! +{n} залуу мал — шөнө дулаан байлга (гал/хашаа).",
+        { n: born },
+      ),
       4.5,
     );
     spawnText(
       state,
       pastureCenter(state.world),
-      `+${born} төллөлт`,
+      trFormat("+{n} төллөлт", { n: born }),
       "#ffe9a0",
     );
   }

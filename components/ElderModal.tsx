@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ElderUiState } from "@/lib/game/elder";
+import { tr, trFormat } from "@/lib/game/i18n";
 import GameIcon from "@/components/GameIcon";
 
 interface ElderModalProps {
@@ -51,17 +52,22 @@ export default function ElderModal({
       const t = ui.trades[index];
       if (!t) return;
       if (t.owned) {
-        setFeedback(`${t.nameMn} аль хэдийн бий.`);
+        setFeedback(trFormat("{name} аль хэдийн бий.", { name: t.itemName }));
         return;
       }
       if (!t.canTrade) {
         if (t.action === "sell") {
           setFeedback(
-            `${t.nameMn.replace(" зарах", "")} алга — олж ирээд зараарай.`,
+            trFormat("{name} алга — олж ирээд зараарай.", {
+              name: t.itemName,
+            }),
           );
         } else {
           setFeedback(
-            `Зоос хүрэхгүй — ${t.price} зоос хэрэгтэй. (Одоо: ${ui.score})`,
+            trFormat("Зоос хүрэхгүй — {price} зоос хэрэгтэй. (Одоо: {have})", {
+              price: t.price,
+              have: ui.score,
+            }),
           );
         }
         return;
@@ -69,8 +75,14 @@ export default function ElderModal({
       onTrade(t.id);
       setFeedback(
         t.action === "sell"
-          ? `${t.nameMn}: +${t.price} зоос`
-          : `${t.nameMn} авлаа! (−${t.price})`,
+          ? trFormat("{name}: +{price} зоос", {
+              name: t.itemName,
+              price: t.price,
+            })
+          : trFormat("{name} авлаа! (−{price})", {
+              name: t.itemName,
+              price: t.price,
+            }),
       );
     },
     [onTrade, ui.score, ui.trades],
@@ -168,7 +180,13 @@ export default function ElderModal({
         if (e.code === "Enter" || e.code === "Space" || e.code === "KeyE") {
           e.preventDefault();
           if (ui.canLevelUp) onLevelUp();
-          else setFeedback(`Түвшин ахихад ${ui.xpNext} XP хэрэгтэй. Одоо ${ui.xp} XP байна.`);
+          else
+            setFeedback(
+              trFormat(
+                "Түвшин ахихад {need} XP хэрэгтэй. Одоо {have} XP байна.",
+                { need: ui.xpNext, have: ui.xp },
+              ),
+            );
         }
         return;
       }
@@ -339,19 +357,29 @@ export default function ElderModal({
               <div style={{ display: "grid", gap: 0, padding: "8px 0" }}>
                 {[
                   {
-                    title: "ТҮВШИН АХИХ",
-                    desc: `Түвшин ${ui.level} · XP ${ui.xp}/${ui.xpNext}`,
-                    detail: ui.canLevelUp ? "Ахих боломжтой" : `${Math.max(0, ui.xpNext - ui.xp)} XP дутуу`,
+                    title: tr("ТҮВШИН АХИХ"),
+                    desc: trFormat("Түвшин {level} · XP {xp}/{next}", {
+                      level: ui.level,
+                      xp: ui.xp,
+                      next: ui.xpNext,
+                    }),
+                    detail: ui.canLevelUp
+                      ? tr("Ахих боломжтой")
+                      : trFormat("{n} XP дутуу", {
+                          n: Math.max(0, ui.xpNext - ui.xp),
+                        }),
                   },
                   {
-                    title: "ХУДАЛДАА",
-                    desc: "Хэрэгсэл авах, олзоо зарах",
-                    detail: `${ui.score} зоос`,
+                    title: tr("ХУДАЛДАА"),
+                    desc: tr("Хэрэгсэл авах, олзоо зарах"),
+                    detail: trFormat("{n} зоос", { n: ui.score }),
                   },
                   {
-                    title: ui.talkIsQuiz ? "АСУУЛТ" : "АСУУЛТ · ЯРИА",
-                    desc: ui.talkIsQuiz ? "Өв соёлын асуултад хариулах" : "Өвгөнөөс зам мөр, учир явдлыг асуух",
-                    detail: ui.talkIsQuiz ? "Өв соёл" : "Ярилцах",
+                    title: ui.talkIsQuiz ? tr("АСУУЛТ") : tr("АСУУЛТ · ЯРИА"),
+                    desc: ui.talkIsQuiz
+                      ? tr("Өв соёлын асуултад хариулах")
+                      : tr("Өвгөнөөс зам мөр, учир явдлыг асуух"),
+                    detail: ui.talkIsQuiz ? tr("Өв соёл") : tr("Ярилцах"),
                   },
                 ].map((item, i) => {
                   const active = homeSelected === i;
@@ -426,15 +454,15 @@ export default function ElderModal({
                   background: "linear-gradient(90deg, rgba(57,50,38,0.42), transparent)",
                 }}
               >
-                <div style={{ fontSize: 13, letterSpacing: "0.08em", color: "#d6c299", fontWeight: 700 }}>ТҮВШИН АХИХ</div>
+                <div style={{ fontSize: 13, letterSpacing: "0.08em", color: "#d6c299", fontWeight: 700 }}>{tr("ТҮВШИН АХИХ")}</div>
               </div>
 
               <div style={{ margin: "10px 14px 8px", border: "1px solid rgba(196,167,104,0.20)", borderRadius: 0, padding: 0, background: "rgba(0,0,0,0.18)" }}>
                 {[
-                  ["Түвшин", ui.level],
-                  ["Одоогийн XP", ui.xp],
-                  ["Шаардлагатай XP", ui.xpNext],
-                  ["Дутуу XP", Math.max(0, ui.xpNext - ui.xp)],
+                  [tr("Түвшин"), ui.level],
+                  [tr("Одоогийн XP"), ui.xp],
+                  [tr("Шаардлагатай XP"), ui.xpNext],
+                  [tr("Дутуу XP"), Math.max(0, ui.xpNext - ui.xp)],
                 ].map(([label, value], i) => (
                   <div
                     key={String(label)}
@@ -459,7 +487,13 @@ export default function ElderModal({
                 type="button"
                 onClick={() => {
                   if (ui.canLevelUp) onLevelUp();
-                  else setFeedback(`Түвшин ахихад ${ui.xpNext} XP хэрэгтэй. Одоо ${ui.xp} XP байна.`);
+                  else
+                    setFeedback(
+                      trFormat(
+                        "Түвшин ахихад {need} XP хэрэгтэй. Одоо {have} XP байна.",
+                        { need: ui.xpNext, have: ui.xp },
+                      ),
+                    );
                 }}
                 style={{
                   width: "calc(100% - 28px)",
@@ -476,7 +510,11 @@ export default function ElderModal({
                   cursor: "pointer",
                 }}
               >
-                {ui.canLevelUp ? "ТҮВШИН АХИХ" : `${Math.max(0, ui.xpNext - ui.xp)} XP ДУТУУ`}
+                {ui.canLevelUp
+                  ? tr("ТҮВШИН АХИХ")
+                  : trFormat("{n} XP ДУТУУ", {
+                      n: Math.max(0, ui.xpNext - ui.xp),
+                    })}
               </button>
 
               <p style={{ margin: "9px 14px 0", textAlign: "left", color: "#81796d", fontSize: 10 }}>
@@ -656,7 +694,7 @@ export default function ElderModal({
                 >
                   ↑↓ гүйлгэх · Enter авах/зарах · {ui.trades.length} бараа
                   {ui.score <= 0
-                    ? " · Эхлээд ноос г.м зарж зоос цуглуул"
+                    ? tr(" · Эхлээд ноос г.м зарж зоос цуглуул")
                     : ""}
                 </p>
               )}
@@ -819,7 +857,7 @@ export default function ElderModal({
                             color: "#e8c56a",
                           }}
                         >
-                          {QUIZ_LETTERS[i] ?? i + 1}
+                          {QUIZ_LETTERS[i] ? tr(QUIZ_LETTERS[i]) : i + 1}
                         </span>
                         <span
                           style={{
@@ -851,8 +889,8 @@ export default function ElderModal({
             <>
               <div className="elder-header">
                 <div>
-                  <p className="elder-eyebrow">Задарсан гэрийн дэргэд</p>
-                  <h2 className="elder-title">Өвгөн</h2>
+                  <p className="elder-eyebrow">{tr("Задарсан гэрийн дэргэд")}</p>
+                  <h2 className="elder-title">{tr("Өвгөн")}</h2>
                 </div>
                 <div className="elder-stats">
                   <span>Зоос {ui.score}</span>
@@ -888,7 +926,7 @@ export default function ElderModal({
               opacity: 0.78,
             }}
           >
-            {screen === "home" ? "Явах (P)" : "← Үндсэн цэс"}
+            {screen === "home" ? tr("Явах (P)") : tr("← Үндсэн цэс")}
           </button>
         </div>
       </div>

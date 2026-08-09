@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DialogueBeat, ElderChoiceId } from "@/lib/game/elder";
 import { speakerLabel } from "@/lib/game/elder";
+import { tr, trFormat } from "@/lib/game/i18n";
 import DialoguePortrait from "@/components/DialoguePortrait";
 
 interface ElderDialogueModalProps {
@@ -29,7 +30,7 @@ function SpiritGateChoices({ onChoose }: { onChoose: (id: ElderChoiceId) => void
         <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300">
           Гол шийдвэр
         </span>
-        <span className="mt-1 block font-semibold text-white">Сүнсний ертөнц рүү одох</span>
+        <span className="mt-1 block font-semibold text-white">{tr("Сүнсний ертөнц рүү одох")}</span>
         <span className="mt-1 block text-xs leading-relaxed text-sky-100/70">
           Өвгөн хаалгыг нээнэ. Аав ээжийгээ хайх зам үргэлжилнэ.
         </span>
@@ -43,7 +44,7 @@ function SpiritGateChoices({ onChoose }: { onChoose: (id: ElderChoiceId) => void
         <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-stone-400">
           Буцах
         </span>
-        <span className="mt-1 block font-semibold text-stone-100">Бэлтгэл хангах</span>
+        <span className="mt-1 block font-semibold text-stone-100">{tr("Бэлтгэл хангах")}</span>
         <span className="mt-1 block text-xs leading-relaxed text-stone-400">
           Одоохондоо замд гарахгүй, хэрэгтэй зүйлсээ бэлдэнэ.
         </span>
@@ -63,6 +64,7 @@ export default function ElderDialogueModal({
   onClose,
 }: ElderDialogueModalProps) {
   const speakerName = speakerLabel(beat.speaker);
+  const dialogueLabel = trFormat("{name} — яриа", { name: tr(speakerName) });
   const isBoySpeaking = beat.speaker === "boy";
   const otherPortraitKind =
     beat.listener ??
@@ -131,7 +133,7 @@ export default function ElderDialogueModal({
       className="absolute inset-0 z-50 select-none overflow-hidden bg-black/35"
       role="dialog"
       aria-modal="true"
-      aria-label={`${speakerName} — яриа`}
+      aria-label={dialogueLabel}
     >
       <div className="pointer-events-none absolute inset-0 bg-linear-to-b from-black/5 via-transparent to-black/80" />
 
@@ -171,7 +173,7 @@ export default function ElderDialogueModal({
               </div>
             </div>
             {!showingChoices ? (
-              <div className="hidden text-[11px] text-white/45 sm:block">E / Space / J — үргэлжлүүлэх</div>
+              <div className="hidden text-[11px] text-white/45 sm:block">{tr("E / Space / J — үргэлжлүүлэх")}</div>
             ) : null}
           </div>
 
@@ -218,7 +220,7 @@ export default function ElderDialogueModal({
                     }}
                     className="flex items-center gap-2 rounded px-2 py-1 text-sm font-semibold text-amber-200 transition hover:bg-white/5"
                   >
-                    {beatIndex < beatCount - 1 ? "Үргэлжлүүлэх" : "Дуусгах"}
+                    {beatIndex < beatCount - 1 ? tr("Үргэлжлүүлэх") : tr("Дуусгах")}
                     <span className="animate-bounce text-xs" aria-hidden>▼</span>
                   </button>
                 ) : !showingChoices ? (

@@ -1,0 +1,92 @@
+${Math.max(0, ui.xpNext - ui.xp)} XP ДУТУУ
+${Math.max(0, ui.xpNext - ui.xp)} XP дутуу
+${item.name.replace(" зарах", "")} алга.
+${item.name} аль хэдийн бий.
+${item.name} худалдаж авлаа!
+${item.name} худалдаж авлаа! (+1 ${LIVESTOCK_MN[item.kind]})
+${item.name}: +${item.price} зоос
+${label} ${LIVESTOCK_MN[prey.kind]} барив!
+${nextName} болголоо!
+${nextName} болгоход ${cost.wood} мод хэрэгтэй.
+${nextName} — ${cost.berries} жимс хэрэгтэй.
+${nextName} — ${cost.score} зоос хэрэгтэй.
+${nextName} — түвшин ${cost.minLevel}+ хэрэгтэй.
+${recipe.name} хийлээ!
+${routeEnemyLabel(enemy.kind)} тулалдаанд орлоо.
+${routeEnemyLabel(enemy.kind)}-д ялагдлаа…
+${routeEnemyLabel(enemy.kind)}-ын сүнс одлоо.
+${speakerName} — яриа
+${t.nameMn.replace(" зарах", "")} алга — олж ирээд зараарай.
+${t.nameMn} авлаа! (−${t.price})
+${t.nameMn} аль хэдийн бий.
+${t.nameMn}: +${t.price} зоос
+${t.price} зоос
+${ui.score} зоос
++${born} төллөлт
++${gained} түлээ
++${growth} мал
++${move} өвс → тэвш
++${q.rewardScore} зоос
++${recovered} мал · +${xp} XP
++${recovered} хонь · +${xp} XP
++${refund} мод
+E — Жимс түүх (${bush.berries})
+E — Тэвшид өвс хийх (${hayInv})
+E — Хараалт хаалга (${route.enemies.filter((enemy) => enemy.alive).length} үлдсэн)
+E — Чулуу түүх (${stone.amount})
+Аав +${gained} түлээ
+Амьдрал ${Math.ceil(boss.hp)} / ${boss.maxHp}
+Баавгайн posture: ${Math.ceil(bear.posture)}/${bear.maxPosture}
+Биеийн тэнцвэр ${Math.ceil(boss.posture)} / ${boss.maxPosture}
+Галд ${CAMPFIRE_WOOD_COST} түлээ хэрэгтэй.
+Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.
+Зоос хүрэхгүй — ${t.price} зоос хэрэгтэй. (Одоо: ${ui.score})
+Зоос: ${state.score}
+Зун — бэлчээр дүүрэн (${Math.floor(world.pastureGrass)}). Хоньны ноос энэ улиралд · мал бэлчээрт идүүлъя!
+Зууханд ${cost} түлээ хэрэгтэй.
+Зууханд гал: ${fireDone ? 1 : 0} / 1
+Ирсэн их аюулыг эгц өөд нь буцаав! −${counterDamage}
+Мал буцааж авлаа! +${recovered} хонь
+Модон хашаанд ${FENCE_COST} мод хэрэгтэй.
+Намар — бэлчээр ${Math.floor(world.pastureGrass)}. Өвс хадгал, гэр нүүхэд бэлд!
+Олсон мал: ${found} / ${total}
+Сайхан унтаж амарлаа. Өглөө болов · +50 амь
+Сахиул: ${Math.min(route.defeated, route.total)} / ${route.total}
+Сүрэг: ${current} / 1000
+СӨРӨГ ЦОХИЛТ! −${Math.round(counterDamage)}
+СӨРӨГ ЦОХИЛТ! −${counterDamage}
+Тэвшид ${move} өвс хийлээ (${Math.floor(feeder.hay)}/${feeder.maxHay})
+Түвшин ${ui.level} · XP ${ui.xp}/${ui.xpNext}
+Түвшин ахихад ${state.xpNext} XP хэрэгтэй. Одоо ${state.xp} XP байна.
+Түвшин ахихад ${ui.xpNext} XP хэрэгтэй. Одоо ${ui.xp} XP байна.
+Түлээ: ${wood} / ${CAMPFIRE_WOOD_COST}
+Төмөр хаалт: ${encounter.ward}
+Төмөр шулмас · Үе ${world.tumurShulmas.bossPhase}
+Ур чадвар: ${skill.name}!
+ХАЛХАВЧЛАХ ТӨМӨР ${encounter.ward}/${encounter.maxWard}
+Хавар төллөлт! +${born} залуу мал — шөнө дулаан байлга (гал/хашаа).
+Хавар — бэлчээр ургалаа (${Math.floor(world.pastureGrass)}). Мал өснө · ямааны ноолуур энэ улиралд!
+Хараалт хаалга түгжээтэй. Замын ${remaining} дайсан үлдлээ.
+Хашаа хулгайчийг зогсоов! +${recovered} мал
+Хотонд орсон мал: ${returned} / ${total}
+Хулгайч ${stolen} мал авч зугтав! Гүйцэж ав!
+Хулгайч ${stolen} хонь авч зугтав! Гүйцэж ав!
+Хулгайч (−${stolen})
+Хулгайч зугтав… ${lost} мал үгүй болов.
+Хулгайч зугтав… ${lost} хонь үгүй болов.
+Хүрэлцэхгүй — ${recipe.desc}
+Хүү: «${choice.boyLine}»
+Чоно ${world.wolves.length}
+Шинэ бэлчээр! Өвс ${Math.floor(world.pastureGrass)}. Хашаа бэлэн.
+Эхний зам ${route.defeated}/${route.total}
+Үе ${encounter.bossPhase}
+Өвгөн: «Зөв! +${q.rewardScore} зоос.»
+Өвс дүүрэн (${MAX_HAY}).
+Өдөр ${world.dayNumber}. ${hint}
+Өдөр ${world.dayNumber}: сүрэг +${growth}. ${hint}
+−${FENCE_COST} мод
+−${cost.berries} жимс
+−${cost.score} зоос
+−${cost.wood} мод
+−${stolen} мал!
+−${stolen} хонь!

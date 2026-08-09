@@ -23,6 +23,7 @@ import {
 import { clamp, dist, normalize, setMessage } from "./utils";
 import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
+import { trFormat } from "./i18n";
 
 function eastArenaX(y: number, margin = 170): number {
   return Math.min(
@@ -670,7 +671,9 @@ export function damageTumurShulmasFromPlayer(
     spawnText(
       state,
       encounter.pos,
-      `Ирсэн их аюулыг эгц өөд нь буцаав! −${counterDamage}`,
+      trFormat("Ирсэн их аюулыг эгц өөд нь буцаав! −{dmg}", {
+        dmg: counterDamage,
+      }),
       "#d8f5ff",
     );
     state.fx.shake = Math.max(state.fx.shake, 13);
@@ -697,7 +700,10 @@ export function damageTumurShulmasFromPlayer(
     spawnText(
       state,
       encounter.pos,
-      `ХАЛХАВЧЛАХ ТӨМӨР ${encounter.ward}/${encounter.maxWard}`,
+      trFormat("ХАЛХАВЧЛАХ ТӨМӨР {have}/{max}", {
+        have: encounter.ward,
+        max: encounter.maxWard,
+      }),
       "#bdefff",
     );
     state.fx.shake = Math.max(state.fx.shake, 9);
@@ -1435,10 +1441,18 @@ export function drawTumurShulmasHud(
   ctx.textAlign = "left";
   ctx.font = "700 11px system-ui, sans-serif";
   ctx.fillStyle = "#cceeff";
-  ctx.fillText(`Төмөр хаалт: ${encounter.ward}`, x, y - 12);
+  ctx.fillText(
+    trFormat("Төмөр хаалт: {n}", { n: encounter.ward }),
+    x,
+    y - 12,
+  );
   ctx.textAlign = "right";
   ctx.fillStyle = "#ffd6d1";
-  ctx.fillText(`Үе ${encounter.bossPhase}`, x + width, y - 12);
+  ctx.fillText(
+    trFormat("Үе {n}", { n: encounter.bossPhase }),
+    x + width,
+    y - 12,
+  );
   ctx.restore();
 }
 

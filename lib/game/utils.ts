@@ -14,10 +14,51 @@ import {
   type Fence,
   type FenceTier,
   type GameState,
+  type InputState,
   type Season,
   type Vector2,
   type World,
 } from "../game/types";
+
+/** Бүх товчлуур дараагүй, хулгана хөдлөөгүй эхний оролт */
+export function neutralInput(): InputState {
+  return {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    interact: false,
+    attack: false,
+    attackPressed: false,
+    dodge: false,
+    dodgePressed: false,
+    parry: false,
+    parryPressed: false,
+    shoot: false,
+    lightFire: false,
+    buildFence: false,
+    eat: false,
+    debugCheats: false,
+    debugBoss: false,
+    herd: false,
+    migrate: false,
+    horseMount: false,
+    skill1: false,
+    skill2: false,
+    skill3: false,
+    skill4: false,
+    confirm: false,
+    pause: false,
+    menuUp: false,
+    menuDown: false,
+    menuLeft: false,
+    menuRight: false,
+    mouseX: 0,
+    mouseY: 0,
+    mouseMoved: false,
+    mouseClicked: false,
+  };
+}
 
 export function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));

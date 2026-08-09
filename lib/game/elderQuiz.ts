@@ -8,6 +8,7 @@ import {
   type ElderCultureQuestion,
 } from "./elderQuizData";
 import { setMessage } from "./utils";
+import { tr, trFormat } from "./i18n";
 import type { GameState } from "./types";
 
 export type ElderQuizFeedback = "idle" | "correct" | "wrong";
@@ -119,13 +120,17 @@ export function submitElderCultureAnswer(
 
   state.score += q.rewardScore;
   state.elderQuizFeedback = "correct";
-  state.elderQuizRewardLabel = `+${q.rewardScore} зоос`;
+  state.elderQuizRewardLabel = trFormat("+{n} зоос", { n: q.rewardScore });
   if (!state.elderQuizAskedIds.includes(q.id)) {
     state.elderQuizAskedIds = [...state.elderQuizAskedIds, q.id];
   }
   spawnText(state, state.player.pos, `+${q.rewardScore}`, "#ffd060");
   sfx("select");
-  setMessage(state, `Өвгөн: «Зөв! +${q.rewardScore} зоос.»`, 2.8);
+  setMessage(
+    state,
+    trFormat("Өвгөн: «Зөв! +{n} зоос.»", { n: q.rewardScore }),
+    2.8,
+  );
 }
 
 export function getElderQuizUi(state: GameState): ElderQuizUiState | null {
@@ -134,13 +139,17 @@ export function getElderQuizUi(state: GameState): ElderQuizUiState | null {
   if (!q) return null;
   return {
     questionId: q.id,
-    question: q.question,
-    options: state.elderQuizOptions,
+    // Төлөвт монголоор хадгалж, гаргахдаа орчуулна — хэл солиход шууд дагана
+    question: tr(q.question),
+    options: state.elderQuizOptions.map(tr),
     correctIndex: state.elderQuizCorrectIndex,
     feedback: state.elderQuizFeedback,
     selectedIndex: state.elderQuizSelectedIndex,
     rewardScore: q.rewardScore,
-    rewardLabel: state.elderQuizRewardLabel,
+    // Тэмдэг нь төлөвт, харагдах хэлбэрийг одоогийн хэлээр бүрдүүлнэ
+    rewardLabel: state.elderQuizRewardLabel
+      ? `+${q.rewardScore} ${tr("зоос")}`
+      : "",
     askedCount: state.elderQuizAskedIds.length,
     totalCount: ELDER_CULTURE_QUESTIONS.length,
   };

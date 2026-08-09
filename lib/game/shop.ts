@@ -10,6 +10,7 @@ import {
   type LivestockKind,
 } from "./types";
 import { pastureCenter, setMessage } from "./utils";
+import { tr, trFormat } from "./i18n";
 
 export type ShopItem =
   | {
@@ -183,20 +184,39 @@ export function buyItem(state: GameState, idx: number): void {
   if (item.type === "sell") {
     const inv = state.player.inventory;
     if (inv[item.key] <= 0) {
-      setMessage(state, `${item.name.replace(" зарах", "")} алга.`, 2);
+      setMessage(
+        state,
+        trFormat("{name} алга.", {
+          name: tr(item.name.replace(" зарах", "")),
+        }),
+        2,
+      );
       sfx("move");
       return;
     }
     inv[item.key] -= 1;
     state.score += item.price;
     sfx("buy");
-    setMessage(state, `${item.name}: +${item.price} зоос`, 2);
+    setMessage(
+      state,
+      trFormat("{name}: +{price} зоос", {
+        name: tr(item.name),
+        price: item.price,
+      }),
+      2,
+    );
     return;
   }
 
   if (item.type === "livestock") {
     if (!state.unlimitedCoins && state.score < item.price) {
-      setMessage(state, `Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.`, 2);
+      setMessage(
+        state,
+        trFormat("Зоос хүрэхгүй — {price} зоос хэрэгтэй.", {
+          price: item.price,
+        }),
+        2,
+      );
       sfx("move");
       return;
     }
@@ -205,19 +225,32 @@ export function buyItem(state: GameState, idx: number): void {
     sfx("buy");
     setMessage(
       state,
-      `${item.name} худалдаж авлаа! (+1 ${LIVESTOCK_MN[item.kind]})`,
+      trFormat("{name} худалдаж авлаа! (+1 {kind})", {
+        name: tr(item.name),
+        kind: tr(LIVESTOCK_MN[item.kind]),
+      }),
       3,
     );
     return;
   }
 
   if (state.player.gear[item.id]) {
-    setMessage(state, `${item.name} аль хэдийн бий.`, 2);
+    setMessage(
+      state,
+      trFormat("{name} аль хэдийн бий.", { name: tr(item.name) }),
+      2,
+    );
     sfx("move");
     return;
   }
   if (!state.unlimitedCoins && state.score < item.price) {
-    setMessage(state, `Зоос хүрэхгүй — ${item.price} зоос хэрэгтэй.`, 2);
+    setMessage(
+      state,
+      trFormat("Зоос хүрэхгүй — {price} зоос хэрэгтэй.", {
+        price: item.price,
+      }),
+      2,
+    );
     sfx("move");
     return;
   }
@@ -253,5 +286,9 @@ export function buyItem(state: GameState, idx: number): void {
     );
     return;
   }
-  setMessage(state, `${item.name} худалдаж авлаа!`, 3);
+  setMessage(
+    state,
+    trFormat("{name} худалдаж авлаа!", { name: tr(item.name) }),
+    3,
+  );
 }

@@ -39,6 +39,7 @@ import {
   damageTumurShulmasFromPlayer,
   isTumurShulmasParryThreat,
 } from "../tumurShulmas";
+import { trFormat } from "../i18n";
 
 type EnemyCombatPhase =
   | "chasing"
@@ -706,7 +707,7 @@ function resolveMeleeHit(state: GameState): void {
       spawnText(
         state,
         nearestRouteEnemy.pos,
-        `СӨРӨГ ЦОХИЛТ! −${counterDamage}`,
+        trFormat("СӨРӨГ ЦОХИЛТ! −{dmg}", { dmg: counterDamage }),
         "#fff0a8",
       );
       damageRouteEnemy(state, nearestRouteEnemy, counterDamage);
@@ -776,7 +777,7 @@ function resolveMeleeHit(state: GameState): void {
       spawnText(
         state,
         nearestWolf.pos,
-        `СӨРӨГ ЦОХИЛТ! −${Math.round(counterDamage)}`,
+        trFormat("СӨРӨГ ЦОХИЛТ! −{dmg}", { dmg: Math.round(counterDamage) }),
         "#ffe08a",
       );
 
@@ -1191,9 +1192,18 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
     thief.stolen = 0;
     addSheep(state, recovered);
     state.score += recovered * 15;
-    spawnText(state, thief.pos, `+${recovered} хонь · +${xp} XP`, "#b8e8a0");
+    spawnText(
+      state,
+      thief.pos,
+      trFormat("+{n} хонь · +{xp} XP", { n: recovered, xp }),
+      "#b8e8a0",
+    );
     gainXp(state, xp);
-    setMessage(state, `Мал буцааж авлаа! +${recovered} хонь`, 3);
+    setMessage(
+      state,
+      trFormat("Мал буцааж авлаа! +{n} хонь", { n: recovered }),
+      3,
+    );
   }
 }
 

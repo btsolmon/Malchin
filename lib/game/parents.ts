@@ -29,6 +29,7 @@ import {
   pushOutOfGer,
   pushOutOfUrtz,
 } from "./utils";
+import { trFormat } from "./i18n";
 
 const PARENT_SPEED = 62;
 const PARENT_RADIUS = 12;
@@ -555,7 +556,12 @@ function updateFather(state: GameState, dt: number): void {
       const gained = 1 + Math.floor(Math.random() * 2);
       inv.wood += gained;
       tree.respawnIn = 25 + Math.random() * 15;
-      spawnText(state, tree.pos, `Аав +${gained} түлээ`, "#e8c56a");
+      spawnText(
+        state,
+        tree.pos,
+        trFormat("Аав +{n} түлээ", { n: gained }),
+        "#e8c56a",
+      );
       beginIdle(father, 2);
     }
     return;

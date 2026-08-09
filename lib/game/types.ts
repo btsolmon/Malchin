@@ -896,6 +896,8 @@ export interface GameState {
   gerStoveFuel: number;
   /** Пауз менюгээс үндсэн цэс рүү буцах */
   requestRestart: boolean;
+  /** Менюгээс хадгалсан тоглоомыг унших — engine төлөвийг солино */
+  requestLoad: boolean;
   /** B эхний даралт — хашааны цагаан preview идэвхтэй */
   fencePreview: boolean;
   /** Preview үеийн хашааны өнцөг — тоглогчийн харсан зүгээс (0 эсвэл π/2) */
@@ -943,6 +945,11 @@ export interface GameState {
   spiritSavedThieves: Thief[] | null;
   /** Төмөр шулмасыг ялсны дараа аав ээж буцаж ирсэн */
   parentsReturned: boolean;
+  /**
+   * Ялалтын дэлгэц нэг удаа гарсан. Дараа "Үргэлжлүүлэх"-ээр эргэж орход
+   * түүх дууссан төлөв дахин ялалт зарлахгүй.
+   */
+  victoryShown: boolean;
   /** Аав ээж — буцаж ирсний дараа мал маллана */
   parents: { father: ParentNpc; mother: ParentNpc } | null;
 }

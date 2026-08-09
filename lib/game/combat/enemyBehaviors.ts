@@ -59,6 +59,7 @@ import {
   checkFlockDefeat,
 } from "../livestock";
 import { handlePlayerDeath } from "../spirit";
+import { tr, trFormat } from "../i18n";
 
 export function syncVisualFlock(state: GameState): void {
   syncLivestockVisuals(state);
@@ -240,8 +241,12 @@ export function spawnThief(state: GameState): void {
   });
   sfx("alert");
 
-  spawnText(state, pos, `−${stolen} хонь!`, "#ff8080");
-  setMessage(state, `Хулгайч ${stolen} хонь авч зугтав! Гүйцэж ав!`, 4);
+  spawnText(state, pos, trFormat("−{n} хонь!", { n: stolen }), "#ff8080");
+  setMessage(
+    state,
+    trFormat("Хулгайч {n} хонь авч зугтав! Гүйцэж ав!", { n: stolen }),
+    4,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -839,7 +844,10 @@ function stunBearFromParry(
   } else {
     setMessage(
       state,
-      `Баавгайн posture: ${Math.ceil(bear.posture)}/${bear.maxPosture}`,
+      trFormat("Баавгайн posture: {have}/{max}", {
+        have: Math.ceil(bear.posture),
+        max: bear.maxPosture,
+      }),
       1.25,
     );
   }
@@ -1178,12 +1186,19 @@ function attackLivestock(
       spawnText(
         state,
         prey.pos,
-        `−1 ${LIVESTOCK_MN[prey.kind]}`,
+        `−1 ${tr(LIVESTOCK_MN[prey.kind])}`,
         "#ff8080",
       );
       killSheepVisual(state, prey);
       const label = predator.kind === "bear" ? "Баавгай" : "Чоно";
-      setMessage(state, `${label} ${LIVESTOCK_MN[prey.kind]} барив!`, 2);
+      setMessage(
+        state,
+        trFormat("{who} {name} барив!", {
+          who: tr(label),
+          name: tr(LIVESTOCK_MN[prey.kind]),
+        }),
+        2,
+      );
     }
   }
 
@@ -1713,7 +1728,7 @@ export function updateThieves(state: GameState, dt: number): void {
       setMessage(
         state,
         lost > 0
-          ? `Хулгайч зугтав… ${lost} хонь үгүй болов.`
+          ? trFormat("Хулгайч зугтав… {n} хонь үгүй болов.", { n: lost })
           : "Хулгайч зугтав.",
         3,
       );

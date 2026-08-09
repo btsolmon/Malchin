@@ -15,7 +15,7 @@ import {
   type Vector2,
   type WorldStone,
 } from "./types";
-import { dist, setMessage, updateGates, allocId, createStarterPen } from "./utils";
+import { dist, setMessage, updateGates, allocId, createStarterPen, neutralInput } from "./utils";
 import { isInRiver, sampleBushPos, sampleStonePos, sampleTreePos } from "./biomes";
 import {
   DEFAULT_TERRAIN_SEED,
@@ -80,6 +80,13 @@ import {
   tryInteractFirstRoute,
   updateFirstRoute,
 } from "./firstRoute";
+import { clearSave, loadGame, saveGame } from "./save";
+import { captureRecords } from "./records";
+import { loadLangSetting } from "./i18n";
+import { localizeCanvasText } from "./locale/canvasText";
+
+/** Автомат хадгалалтын давтамж (сек) */
+const AUTOSAVE_INTERVAL = 8;
 import {
   advanceElderDialogue,
   chooseElderOption,
@@ -342,42 +349,7 @@ export function createInitialState(): GameState {
     godMode: false,
     combatMovementLocked: false,
     combatDodgeActive: false,
-    input: {
-      up: false,
-      down: false,
-      left: false,
-      right: false,
-      interact: false,
-      attack: false,
-      attackPressed: false,
-      dodge: false,
-      dodgePressed: false,
-      parry: false,
-      parryPressed: false,
-      shoot: false,
-      lightFire: false,
-      buildFence: false,
-      eat: false,
-      debugCheats: false,
-      debugBoss: false,
-      herd: false,
-      migrate: false,
-      horseMount: false,
-      skill1: false,
-      skill2: false,
-      skill3: false,
-      skill4: false,
-      confirm: false,
-      pause: false,
-      menuUp: false,
-      menuDown: false,
-      menuLeft: false,
-      menuRight: false,
-      mouseX: 0,
-      mouseY: 0,
-      mouseMoved: false,
-      mouseClicked: false,
-    },
+    input: neutralInput(),
     fx: {
       particles: [],
       texts: [],
@@ -416,6 +388,7 @@ export function createInitialState(): GameState {
     gerStoveLit: false,
     gerStoveFuel: 0,
     requestRestart: false,
+    requestLoad: false,
     nextEntityId: 100,
     spiritPoints: 0,
     elderTab: "trade",
@@ -437,6 +410,7 @@ export function createInitialState(): GameState {
     spiritSavedWolves: null,
     spiritSavedThieves: null,
     parentsReturned: false,
+    victoryShown: false,
     parents: null,
   };
 
@@ -878,8 +852,29 @@ export function update(state: GameState, dt: number): void {
 // Terrain prerender
 // ---------------------------------------------------------------------------
 
+/** Утасны браузерын виртуал удирдлага — барих товчнууд */
+export type TouchHoldAction = "attack" | "shoot" | "herd";
+
+/** Утасны браузерын виртуал удирдлага — нэг удаагийн товчнууд */
+export type TouchPulseAction =
+  | "interact"
+  | "dodge"
+  | "parry"
+  | "eat"
+  | "lightFire"
+  | "buildFence"
+  | "migrate"
+  | "horseMount"
+  | "pause"
+  | "confirm";
+
 export interface HerderGameHandle {
   destroy: () => void;
+  getPhase: () => GameState["phase"];
+  /** Joystick: x/y ∈ [-1, 1], 0 = сулласан */
+  setTouchMove: (x: number, y: number) => void;
+  setTouchHold: (action: TouchHoldAction, pressed: boolean) => void;
+  pulseTouch: (action: TouchPulseAction) => void;
   setElderTab: (tab: ElderTab) => void;
   levelUpWithElder: () => void;
   tradeWithElder: (itemId: string) => void;
@@ -905,6 +900,9 @@ export function mountHerderGame(
 ): HerderGameHandle {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context дэмжигдэхгүй");
+
+  // Canvas дээрх бүх бичвэр эндээс орчуулагдана — дэлгэрэнгүйг locale/canvasText
+  localizeCanvasText(ctx);
 
   // Логик 960×540 тогтмол — CSS viewport-ыг дүүргэж томруулна (харьцаа хадгална)
   const applyCanvasBuffer = (): void => {
@@ -1030,6 +1028,7 @@ export function mountHerderGame(
 
   // Аудио — browser autoplay бодлогын дагуу эхний үйлдлээр асна
   loadAudioSettings();
+  loadLangSetting();
   const unlockAudio = (): void => {
     ensureAudio();
     startMusic();
@@ -1043,6 +1042,20 @@ export function mountHerderGame(
   let raf = 0;
   let alive = true;
 
+  /** Автомат хадгалалтын үлдсэн хугацаа (сек) */
+  let autosaveIn = AUTOSAVE_INTERVAL;
+
+  // Таб хаах / нуух үед сүүлчийн байдлаа гээхгүйн тулд шууд хадгална
+  const persistNow = (): void => {
+    captureRecords(state);
+    saveGame(state);
+  };
+  const onVisibilityChange = (): void => {
+    if (document.visibilityState === "hidden") persistNow();
+  };
+  window.addEventListener("beforeunload", persistNow);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
   const frame = (now: number): void => {
     if (!alive) return;
     const dt = Math.min(0.05, (now - last) / 1000);
@@ -1051,7 +1064,22 @@ export function mountHerderGame(
     if (state.requestRestart) {
       state = createInitialState();
       lastElderKey = "";
+      autosaveIn = AUTOSAVE_INTERVAL;
       options.onElderUi?.({ open: false });
+    }
+
+    if (state.requestLoad) {
+      const loaded = loadGame();
+      if (loaded) {
+        state = loaded;
+        lastElderKey = "";
+        options.onElderUi?.({ open: false });
+      } else {
+        // Хадгалалт эвдэрсэн — цэс дээр "Үргэлжлүүлэх" харагдахаа болино
+        clearSave();
+        state.requestLoad = false;
+      }
+      autosaveIn = AUTOSAVE_INTERVAL;
     }
 
     const phaseBefore = state.phase;
@@ -1063,6 +1091,25 @@ export function mountHerderGame(
     ) {
       enterBrowserFullscreen();
     }
+
+    // Тоглолт дуусмагц амжилтыг бүртгэнэ. Ялагдвал хадгалалт цэвэрлэгдэнэ;
+    // ялвал үлдэнэ — тоглогч "Үргэлжлүүлэх"-ээр сүргээ өсгөсөөр байж болно.
+    if (
+      (state.phase === "won" || state.phase === "lost") &&
+      phaseBefore !== state.phase
+    ) {
+      captureRecords(state);
+      if (state.phase === "lost") clearSave();
+      else saveGame(state);
+    }
+
+    autosaveIn -= dt;
+    if (autosaveIn <= 0) {
+      autosaveIn = AUTOSAVE_INTERVAL;
+      captureRecords(state);
+      saveGame(state);
+    }
+
     notifyElderUi();
     render(rc, state, now / 1000);
     raf = requestAnimationFrame(frame);
@@ -1082,8 +1129,55 @@ export function mountHerderGame(
       canvas.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", unlockAudio);
       window.removeEventListener("pointerdown", unlockAudio);
+      window.removeEventListener("beforeunload", persistNow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      persistNow();
       shutdownAudio();
       options.onElderUi?.({ open: false });
+    },
+    getPhase: () => state.phase,
+    setTouchMove: (x: number, y: number) => {
+      const dead = 0.28;
+      state.input.left = x < -dead;
+      state.input.right = x > dead;
+      state.input.up = y < -dead;
+      state.input.down = y > dead;
+    },
+    setTouchHold: (action: TouchHoldAction, pressed: boolean) => {
+      if (action === "attack") {
+        state.input.attack = pressed;
+        if (pressed) state.input.attackPressed = true;
+      } else if (action === "shoot") {
+        state.input.shoot = pressed;
+      } else if (action === "herd") {
+        state.input.herd = pressed;
+      }
+    },
+    pulseTouch: (action: TouchPulseAction) => {
+      if (action === "interact") {
+        state.input.interact = true;
+        state.input.confirm = true;
+      } else if (action === "dodge") {
+        state.input.dodge = true;
+        state.input.dodgePressed = true;
+      } else if (action === "parry") {
+        state.input.parry = true;
+        state.input.parryPressed = true;
+      } else if (action === "eat") {
+        state.input.eat = true;
+      } else if (action === "lightFire") {
+        state.input.lightFire = true;
+      } else if (action === "buildFence") {
+        state.input.buildFence = true;
+      } else if (action === "migrate") {
+        state.input.migrate = true;
+      } else if (action === "horseMount") {
+        state.input.horseMount = true;
+      } else if (action === "pause") {
+        state.input.pause = true;
+      } else if (action === "confirm") {
+        state.input.confirm = true;
+      }
     },
     setElderTab: (tab: ElderTab) => {
       setElderTab(state, tab);

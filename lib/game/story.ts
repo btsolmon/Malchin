@@ -27,6 +27,7 @@ import {
 } from "./firstRoute";
 import { ensureParents } from "./parents";
 import { enterSpiritWorld, exitSpiritWorld } from "./spirit";
+import { tr, trFormat } from "./i18n";
 import {
   clamp,
   dist,
@@ -2392,6 +2393,12 @@ export function updateMilestone8(state: GameState, dt: number): void {
   if (story.familyReunionDialogueCompleted) {
     story.milestone8Completed = true;
     story.activeMainObjective = "growFlock";
+    // Түүх бүтнээр өрнөсөн цэг — шулмас дарагдаж, гэр бүл эргэн нэгдэв.
+    // Ялалтыг нэг удаа зарлаад, дараа нь сүрэг өсгөх тоглоом үргэлжилнэ.
+    if (!state.victoryShown) {
+      state.victoryShown = true;
+      state.phase = "won";
+    }
   }
 }
 
@@ -3230,7 +3237,10 @@ function wrapText(
   text: string,
   maxWidth: number,
 ): string[] {
-  const words = text.split(/\s+/);
+  // Эхлээд бүтэн мөрийг орчуулна — үг үгээр таслаад хайвал толиноос
+  // олдохгүй, монголоор үлдэнэ. Дараа нь орчуулсан текстийг боож мөрлөнө.
+  const translated = tr(text);
+  const words = translated.split(/\s+/);
   const lines: string[] = [];
   let line = "";
 
@@ -3520,11 +3530,13 @@ export function drawMainObjectivePanel(
 
     ctx.fillStyle = "#d8c898";
     ctx.font = "12px system-ui, sans-serif";
-    const sentenceBreak = quest.description.indexOf(". ") + 1;
-    const lines = [
-      quest.description.slice(0, sentenceBreak),
-      quest.description.slice(sentenceBreak + 1),
-    ];
+    // Бүтнээр орчуулаад дараа нь мөрлөнө — таслаад хайвал орчуулга олдохгүй
+    const desc = tr(quest.description);
+    const sentenceBreak = desc.indexOf(". ");
+    const lines =
+      sentenceBreak >= 0
+        ? [desc.slice(0, sentenceBreak + 1), desc.slice(sentenceBreak + 2)]
+        : [desc];
     lines.forEach((line, index) => {
       ctx.fillText(line, x + 14, y + 76 + index * 16);
     });
@@ -3532,13 +3544,16 @@ export function drawMainObjectivePanel(
     ctx.font = "13px 'Courier New', monospace";
     ctx.fillStyle = woodDone ? "#8fd48f" : COLORS.hudText;
     ctx.fillText(
-      `Түлээ: ${wood} / ${CAMPFIRE_WOOD_COST}`,
+      trFormat("Түлээ: {have} / {need}", {
+        have: wood,
+        need: CAMPFIRE_WOOD_COST,
+      }),
       x + 16,
       y + 119,
     );
     ctx.fillStyle = fireDone ? "#8fd48f" : COLORS.hudText;
     ctx.fillText(
-      `Зууханд гал: ${fireDone ? 1 : 0} / 1`,
+      trFormat("Зууханд гал: {have} / 1", { have: fireDone ? 1 : 0 }),
       x + 16,
       y + 141,
     );
@@ -3557,9 +3572,17 @@ export function drawMainObjectivePanel(
 
     ctx.font = "13px 'Courier New', monospace";
     ctx.fillStyle = foundDone ? "#8fd48f" : COLORS.hudText;
-    ctx.fillText(`Олсон мал: ${found} / ${total}`, x + 16, y + 119);
+    ctx.fillText(
+      trFormat("Олсон мал: {have} / {total}", { have: found, total }),
+      x + 16,
+      y + 119,
+    );
     ctx.fillStyle = returnedDone ? "#8fd48f" : COLORS.hudText;
-    ctx.fillText(`Хотонд орсон мал: ${returned} / ${total}`, x + 16, y + 141);
+    ctx.fillText(
+      trFormat("Хотонд орсон мал: {have} / {total}", { have: returned, total }),
+      x + 16,
+      y + 141,
+    );
   } else {
     ctx.fillStyle = "#d8c898";
     ctx.font = "12px system-ui, sans-serif";
@@ -3604,7 +3627,10 @@ export function drawMainObjectivePanel(
       ctx.font = "13px 'Courier New', monospace";
       ctx.fillStyle = route.defeated >= route.total ? "#8fd48f" : COLORS.hudText;
       ctx.fillText(
-        `Сахиул: ${Math.min(route.defeated, route.total)} / ${route.total}`,
+        trFormat("Сахиул: {have} / {total}", {
+          have: Math.min(route.defeated, route.total),
+          total: route.total,
+        }),
         x + 16,
         y + 119,
       );
@@ -3613,7 +3639,11 @@ export function drawMainObjectivePanel(
       const current = Math.min(1000, state.world.flock.total);
       ctx.font = "13px 'Courier New', monospace";
       ctx.fillStyle = current >= 1000 ? "#8fd48f" : COLORS.hudText;
-      ctx.fillText(`Сүрэг: ${current} / 1000`, x + 16, y + 119);
+      ctx.fillText(
+        trFormat("Сүрэг: {have} / 1000", { have: current }),
+        x + 16,
+        y + 119,
+      );
     }
   }
   ctx.restore();

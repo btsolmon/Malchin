@@ -2,6 +2,7 @@
 
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
+import { tr, trFormat } from "./i18n";
 import { ensureShulmasHelpers } from "./firstRoute";
 import {
   clearElderQuiz,
@@ -302,7 +303,13 @@ export type ElderTab = "trade" | "talk";
 export interface ElderUiTradeRow {
   id: string;
   icon: GameIconId;
+  /** Мөрд харагдах бүтэн нэр — «Ноос зарах» гэх мэт үйлдэл оролцоно */
   nameMn: string;
+  /**
+   * Барааны цэвэр нэр («Ноос»). Зурвас бүтээхэд хэрэгтэй: аль хэдийн
+   * орчуулагдсан nameMn-ээс үйлдлийн үгийг тайрч авах боломжгүй.
+   */
+  itemName: string;
   desc: string;
   action: "buy" | "sell";
   price: number;
@@ -706,7 +713,11 @@ export function chooseElderOption(
   state.world.elder.eyeMode = "idle";
 
   if (choiceId === "enter_spirit") {
-    setMessage(state, `Хүү: «${choice.boyLine}»`, 2);
+    setMessage(
+      state,
+      trFormat("Хүү: «{line}»", { line: tr(choice.boyLine) }),
+      2,
+    );
     // Фазыг elder-ээс гаргаад сүнс рүү — туслахуудыг шууд босгоно
     state.phase = "playing";
     ensureShulmasHelpers(state);
@@ -716,7 +727,11 @@ export function chooseElderOption(
 
   // Бэлтгэл
   closeElder(state);
-  setMessage(state, `Хүү: «${choice.boyLine}»`, 3.5);
+  setMessage(
+    state,
+    trFormat("Хүү: «{line}»", { line: tr(choice.boyLine) }),
+    3.5,
+  );
   sfx("select");
 }
 
@@ -779,14 +794,15 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
       return {
         id,
         icon: t.icon,
-        nameMn: t.name,
-        desc: t.desc,
+        nameMn: tr(t.name),
+        itemName: tr(t.name.replace(" зарах", "")),
+        desc: tr(t.desc),
         action: "sell" as const,
         price: t.price,
         have,
         owned: false,
         canTrade: have > 0,
-        detail: have > 0 ? `×${have} · +${t.price}` : "Алга",
+        detail: have > 0 ? `×${have} · +${t.price}` : tr("Алга"),
         rare: t.key === "cashmere",
       };
     }
@@ -795,14 +811,15 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
       return {
         id,
         icon: t.icon,
-        nameMn: t.name,
-        desc: t.desc,
+        nameMn: tr(t.name),
+        itemName: tr(t.name),
+        desc: tr(t.desc),
         action: "buy" as const,
         price: t.price,
         have: 0,
         owned: false,
         canTrade: afford,
-        detail: `${t.price} зоос`,
+        detail: `${t.price} ${tr("зоос")}`,
         rare: false,
       };
     }
@@ -811,14 +828,15 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
     return {
       id,
       icon: t.icon,
-      nameMn: t.name,
-      desc: t.desc,
+      nameMn: tr(t.name),
+      itemName: tr(t.name),
+      desc: tr(t.desc),
       action: "buy" as const,
       price: t.price,
       have: 0,
       owned,
       canTrade: !owned && afford,
-      detail: owned ? "Эзэмшсэн ✓" : `${t.price} зоос`,
+      detail: owned ? tr("Эзэмшсэн ✓") : `${t.price} ${tr("зоос")}`,
       rare: false,
     };
   });
@@ -827,10 +845,11 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
   if (state.elderDialogueId) {
     const d = ELDER_DIALOGUES.find((x) => x.id === state.elderDialogueId);
     if (d) {
-      const beat = d.beats[state.elderDialogueLine] ?? d.beats[0]!;
+      const raw = d.beats[state.elderDialogueLine] ?? d.beats[0]!;
+      const beat = { ...raw, text: tr(raw.text) };
       activeDialogue = {
         id: d.id,
-        title: d.title,
+        title: tr(d.title),
         beat,
         beatIndex: state.elderDialogueLine,
         beatCount: d.beats.length,
@@ -855,7 +874,7 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
       ? []
       : ELDER_DIALOGUES.filter((d) => !d.storyOnly).map((d) => ({
           id: d.id,
-          title: d.title,
+          title: tr(d.title),
           heard: state.elderHeardDialogues.includes(d.id),
         })),
     talkIsQuiz,

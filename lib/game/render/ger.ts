@@ -10,6 +10,7 @@ import {
 import { drawGameIcon } from "../icons";
 import { roundRectPath } from "../utils";
 import { drawParentNpc, drawPlayer } from "./entities";
+import { trFormat } from "../i18n";
 
 const GER_SLEEP_DURATION = 5;
 
@@ -1927,7 +1928,7 @@ export function drawGerInterior(
     ctx.fill();
     ctx.fillStyle = COLORS.hudAccent;
     ctx.font = "600 14px system-ui, sans-serif";
-    ctx.fillText(`Зоос: ${state.score}`, 28, 37);
+    ctx.fillText(trFormat("Зоос: {n}", { n: state.score }), 28, 37);
     const owned = SHOP_ITEMS.filter(
       (it): it is Extract<typeof it, { type: "gear" }> =>
         it.type === "gear" && state.player.gear[it.id],
