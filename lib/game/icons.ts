@@ -30,6 +30,7 @@ export type GameIconId =
   | "hand"
   | "fire"
   | "log"
+  | "fence"
   | "empty";
 
 const GOLD = "#e8c56a";
@@ -406,6 +407,26 @@ export function drawGameIcon(
         },
         "#4a3020",
         1,
+      );
+      break;
+    }
+    case "fence": {
+      strokeRound(
+        ctx,
+        () => {
+          ctx.moveTo(-9, -8);
+          ctx.lineTo(-9, 8);
+          ctx.moveTo(-1, -8);
+          ctx.lineTo(-1, 8);
+          ctx.moveTo(7, -8);
+          ctx.lineTo(7, 8);
+          ctx.moveTo(-10, -3);
+          ctx.lineTo(9, -3);
+          ctx.moveTo(-10, 3);
+          ctx.lineTo(9, 3);
+        },
+        GOLD,
+        1.8,
       );
       break;
     }

@@ -142,7 +142,7 @@ export function spawnWolf(
   const lvl = state.level - 1;
   const bear = kind === "bear";
   // Баавгай: чононоос 2 дахин их амь, 2 дахин их хүчтэй, том биетэй, удаан
-  const baseHp = Math.round((night ? 45 : 30) * (1 + 0.12 * lvl));
+  const baseHp = Math.round((night ? 38 : 30) * (1 + 0.12 * lvl));
   const hp = bear ? baseHp * 2 : baseHp;
   const wolf: Wolf = {
     id: options.id ?? allocId(state),

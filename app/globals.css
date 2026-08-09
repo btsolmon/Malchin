@@ -136,9 +136,10 @@ body {
   pointer-events: none;
   position: absolute;
   right: max(12px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
-  width: min(52vw, 240px);
-  height: min(58vw, 250px);
+  /* Hotbar / toast-оос дээш өргөх */
+  bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px));
+  width: min(52vw, 250px);
+  height: min(58vw, 260px);
 }
 
 .touch-btn {
@@ -157,8 +158,8 @@ body {
   justify-content: center;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
-  min-width: 52px;
-  min-height: 52px;
+  min-width: 56px;
+  min-height: 56px;
 }
 
 .touch-btn:active {
@@ -169,56 +170,56 @@ body {
 .touch-btn-attack {
   right: 6px;
   bottom: 56px;
-  width: 84px;
-  height: 84px;
+  width: 88px;
+  height: 88px;
   font-size: 16px;
   background: rgba(120, 40, 28, 0.7);
   border-color: rgba(255, 160, 120, 0.6);
 }
 
 .touch-btn-dodge {
-  right: 100px;
+  right: 104px;
   bottom: 16px;
-  width: 66px;
-  height: 66px;
+  width: 68px;
+  height: 68px;
 }
 
 .touch-btn-parry {
-  right: 98px;
-  bottom: 92px;
-  width: 66px;
-  height: 66px;
+  right: 102px;
+  bottom: 96px;
+  width: 68px;
+  height: 68px;
 }
 
 .touch-btn-use {
   right: 12px;
-  bottom: 150px;
-  width: 62px;
-  height: 62px;
+  bottom: 156px;
+  width: 64px;
+  height: 64px;
   background: rgba(40, 70, 40, 0.7);
 }
 
 .touch-btn-bow {
-  right: 172px;
-  bottom: 78px;
-  width: 52px;
-  height: 52px;
+  right: 178px;
+  bottom: 82px;
+  width: 56px;
+  height: 56px;
   font-size: 12px;
 }
 
 .touch-btn-eat {
-  right: 174px;
+  right: 180px;
   bottom: 18px;
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   font-size: 12px;
 }
 
 .touch-btn-fire {
-  right: 172px;
-  bottom: 140px;
-  width: 50px;
-  height: 50px;
+  right: 178px;
+  bottom: 146px;
+  width: 56px;
+  height: 56px;
   font-size: 12px;
 }
 
@@ -226,8 +227,8 @@ body {
   position: absolute;
   right: max(12px, env(safe-area-inset-right));
   top: max(12px, env(safe-area-inset-top));
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   font-size: 14px;
   letter-spacing: 0.12em;
 }

@@ -53,7 +53,11 @@ export const EN_GAME: Record<string, string> = {
     "CHEAT: Skipped meeting the elder.",
   "Cheat унтарлаа.": "Cheats off.",
   "E / Enter / Space — алгасах": "E / Enter / Space — skip",
+  "E / Enter / Space — оршилыг бүтнээр алгасах":
+    "E / Enter / Space — skip entire intro",
   "E / F — Гал асаах (3 түлээ)": "E / F — Light fire (3 firewood)",
+  "E / F — Зууханд түлээ хийж гал асаах (3)":
+    "E / F — Add firewood and light the stove (3)",
   "E дарж гэрийн зүг буц.": "Press E to head home.",
   "E — Mini-boss-ийн талбайг шалгах": "E — Scout the mini-boss ground",
   "E — Авдар": "E — Chest",
@@ -70,6 +74,7 @@ export const EN_GAME: Record<string, string> = {
   "E — Түгжээтэй · эхлээд Шулмасын баатрыг ял":
     "E — Locked · beat the Shulmas Warrior first",
   "E — Түлээ нэмэх": "E — Add firewood",
+  "E — Зууханд түлээ нэмэх": "E — Add firewood to the stove",
   "E — Төмөр шулмасын ордонд орох": "E — Enter Tömör Shulmas's palace",
   "E — Унтах": "E — Sleep",
   "E — Урлал": "E — Craft",
@@ -194,6 +199,7 @@ export const EN_GAME: Record<string, string> = {
   "Залуу мал хүйтэнд үхлээ! Гал түлж хашаанд байлга.":
     "Young stock died of cold! Keep a fire and pen them.",
   "Зугтлаа!": "Bolted!",
+  зуух: "stove",
   "Зууханд гал асаалаа!": "The stove is lit!",
   "Зууханд гал асаалаа! Голомт сэргэж байна…":
     "The stove is lit! The hearth is waking…",

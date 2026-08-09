@@ -3415,7 +3415,11 @@ export function drawOpeningSequence(
 
   ctx.fillStyle = "rgba(216,200,160,0.72)";
   ctx.font = "12px 'Courier New', monospace";
-  ctx.fillText("E / Enter / Space — алгасах", VIEW_W / 2, VIEW_H - 42);
+  ctx.fillText(
+    "E / Enter / Space — оршилыг бүтнээр алгасах",
+    VIEW_W / 2,
+    VIEW_H - 42,
+  );
 
   const markerWidth = 28;
   const markerGap = 8;

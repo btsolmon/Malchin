@@ -80,7 +80,7 @@ const PARRY_STARTUP_SECONDS = 0.02;
 const PARRY_ACTIVE_SECONDS = 0.5;
 const PARRY_RECOVERY_SECONDS = 0.18;
 
-const DODGE_STAMINA_COST = 25;
+const DODGE_STAMINA_COST = 22;
 const DODGE_DURATION_SECONDS = 0.28;
 const DODGE_RECOVERY_SECONDS = 0.12;
 const DODGE_SPEED = 430;
@@ -138,7 +138,7 @@ function meleeBaseDamage(state: GameState): number {
 }
 
 function meleeWolfDamage(state: GameState): number {
-  return isSkySwordEquipped(state) ? 29 : 18;
+  return isSkySwordEquipped(state) ? 29 : 20;
 }
 
 function meleeReach(state: GameState, heavy: boolean): number {

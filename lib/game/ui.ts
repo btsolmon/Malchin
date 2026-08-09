@@ -620,7 +620,7 @@ function tryLightGerStove(state: GameState): void {
   if (state.gerStoveLit) {
     state.gerStoveFuel += 24;
     sfx("fire");
-    setMessage(state, "Түлээ дөрвөлжид хийлээ.", 2);
+    setMessage(state, "Зууханд түлээ нэмлээ.", 3.5);
     return;
   }
 
@@ -631,9 +631,9 @@ function tryLightGerStove(state: GameState): void {
     state.story.activeMainObjective === "restoreHearth" &&
     !state.story.campfireRelit
   ) {
-    setMessage(state, "Дөрвөлжид түлээ хийж гал асаалаа! Голомт сэргэж байна…", 3);
+    setMessage(state, "Зууханд гал асаалаа! Голомт сэргэж байна…", 5);
   } else {
-    setMessage(state, "Дөрвөлжид түлээ хийж гал асаалаа!", 2.5);
+    setMessage(state, "Зууханд гал асаалаа!", 3.5);
   }
 }
 
@@ -2198,7 +2198,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       icon: "fire",
       active: world.campfire.lit || world.campfire.igniting > 0,
     },
-    { key: "B", icon: "log", active: state.fencePreview },
+    { key: "B", icon: "fence", active: state.fencePreview },
   ];
   const slotSize = 34;
   const slotGap = 4;
@@ -2298,7 +2298,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillStyle = tier === 3 ? "#7ec8ff" : tier === 2 ? "#c0c0c0" : "#c49a6c";
     ctx.font = "bold 10px 'Courier New', monospace";
     ctx.fillText(
-      `${nearFence.isGate ? `${t("hud.gate")} ` : ""}${FENCE_TIER_SHORT[tier]} ${hpPct}%`,
+      `${nearFence.isGate ? `${t("hud.gate")} ` : ""}${tr(FENCE_TIER_SHORT[tier])} ${hpPct}%`,
       barX,
       ly + 70,
     );
@@ -2334,16 +2334,45 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.font = "13px 'Courier New', monospace";
     // Төлөвт монголоор хадгалж, зурахдаа орчуулна — хэл солиход шууд өөрчлөгдөнө
     const message = tr(state.message);
-    const tw = ctx.measureText(message).width;
-    const mx = (VIEW_W - tw) / 2 - 12;
-    const my = VIEW_H - 108;
+    const maxToastW = Math.min(VIEW_W - 48, 520);
+    const words = message.split(/\s+/);
+    const lines: string[] = [];
+    let line = "";
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(next).width > maxToastW) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = next;
+      }
+    }
+    if (line) lines.push(line);
+    const clamped = lines.slice(0, 3);
+    if (lines.length > 3) {
+      const last = clamped[2] ?? "";
+      clamped[2] =
+        last.length > 2 ? `${last.slice(0, Math.max(1, last.length - 1))}…` : "…";
+    }
+    const lineH = 16;
+    const padX = 12;
+    const padY = 8;
+    const boxW =
+      Math.max(...clamped.map((l) => ctx.measureText(l).width), 40) + padX * 2;
+    const boxH = padY * 2 + clamped.length * lineH - 2;
+    const mx = (VIEW_W - boxW) / 2;
+    const my = VIEW_H - 108 - Math.max(0, (clamped.length - 1) * lineH);
     ctx.globalAlpha = alpha;
     ctx.fillStyle = "rgba(12,10,8,0.82)";
-    ctx.fillRect(mx, my, tw + 24, 26);
+    ctx.fillRect(mx, my, boxW, boxH);
     ctx.strokeStyle = "rgba(232,197,106,0.45)";
-    ctx.strokeRect(mx + 0.5, my + 0.5, tw + 23, 25);
+    ctx.strokeRect(mx + 0.5, my + 0.5, boxW - 1, boxH - 1);
     ctx.fillStyle = COLORS.hudText;
-    ctx.fillText(message, mx + 12, my + 17);
+    ctx.textAlign = "center";
+    clamped.forEach((l, i) => {
+      ctx.fillText(l, VIEW_W / 2, my + padY + 11 + i * lineH);
+    });
+    ctx.textAlign = "left";
     ctx.globalAlpha = 1;
   }
 

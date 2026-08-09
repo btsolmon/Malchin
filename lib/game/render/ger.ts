@@ -937,7 +937,7 @@ function drawStoveWoodBox(
     ctx.fillStyle = "rgba(200,180,150,0.4)";
     ctx.font = "600 9px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("дөрвөлж", x + w / 2, y + h * 0.62);
+    ctx.fillText("зуух", x + w / 2, y + h * 0.62);
     ctx.textAlign = "left";
   }
 }
@@ -1793,8 +1793,8 @@ export function drawGerInterior(
     else if (prox.nearChestC || prox.nearChestR) hint = "E — Авдар";
     else if (prox.nearStove)
       hint = state.gerStoveLit
-        ? "E — Түлээ дөрвөлжид хийх"
-        : "E / F — Дөрвөлжид түлээ хийж гал асаах (3)";
+        ? "E — Зууханд түлээ нэмэх"
+        : "E / F — Зууханд түлээ хийж гал асаах (3)";
     else if (prox.nearBed)
       hint = state.player.sleepCooldown > 0 ? "Сая унтсан…" : "E — Унтах";
     if (hint) {

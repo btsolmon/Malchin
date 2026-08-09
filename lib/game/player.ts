@@ -1344,7 +1344,7 @@ export function updateSurvival(state: GameState, dt: number): void {
   }
 
   const hungerDrain =
-    0.7 * (player.hungerDrainMult ?? 1);
+    0.48 * (player.hungerDrainMult ?? 1);
   player.vitals.hunger = clamp(
     player.vitals.hunger - hungerDrain * dt,
     0,

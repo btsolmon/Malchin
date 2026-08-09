@@ -373,7 +373,7 @@ export function roundRectPath(
 export function setMessage(
   state: GameState,
   text: string,
-  seconds = 2.5,
+  seconds = 3.5,
 ): void {
   state.message = text;
   state.messageTimer = seconds;

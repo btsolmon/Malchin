@@ -102,7 +102,7 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
     xp: 42,
   },
   shulmasynBaatar: {
-    hp: 420,
+    hp: 360,
     posture: 180,
     radius: 34,
     speed: 84,
