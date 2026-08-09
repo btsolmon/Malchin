@@ -1,6 +1,7 @@
 // Хүн 6 — Web Audio: дууны эффект, морин хуурын хөгжим, тохиргоо
 
 import { clamp, randRange } from "../game/utils";
+import { VIEW_W } from "../game/types";
 
 export const AUDIO_SETTINGS_KEY = "malchin-audio";
 
@@ -10,12 +11,38 @@ export const audio = {
   sfxGain: null as GainNode | null,
   musicVol: 0.5,
   sfxVol: 0.7,
+  /** Ambient/нээлт үед хөгжим багасах (0–1) */
+  musicDuck: 1,
   musicTimer: 0,
   nextNote: 0,
   started: false,
   /** Аялгууны явц — одоогийн нотын индекс ба өмнөх давтамж */
   melodyIdx: 7,
   lastFreq: 392,
+  visibilityHandler: null as (() => void) | null,
+  /** Нээлтийн ambient давхаргууд */
+  openingThunder: null as HTMLAudioElement | null,
+  openingWind: null as HTMLAudioElement | null,
+  openingCrow: null as HTMLAudioElement | null,
+  openingCrowCalls: [] as HTMLAudioElement[],
+  openingCrowPrevX: [] as number[],
+  openingThunderVol: 0,
+  openingWindVol: 0,
+  openingCrowVol: 0,
+  openingCrowRate: 0,
+  openingCrowCooldown: 0,
+  openingAmbientOn: false,
+  /** Унтах үеийн хурхирах */
+  sleepSnore: null as HTMLAudioElement | null,
+  /** Гал / зуух шатах loop */
+  fireBed: null as HTMLAudioElement | null,
+  /** Дэлхийн ambient */
+  riverBed: null as HTMLAudioElement | null,
+  riverLevel: 0,
+  gallopBed: null as HTMLAudioElement | null,
+  footBed: null as HTMLAudioElement | null,
+  hoofTimer: 0,
+  livestockSfxTimer: 0,
 };
 
 export let noiseBuf: AudioBuffer | null = null;
@@ -46,7 +73,13 @@ export function saveAudioSettings(): void {
 /** Browser-ийн autoplay бодлогын улмаас эхний хэрэглэгчийн үйлдлээр дуудна */
 export function ensureAudio(): void {
   if (audio.ctx) {
-    if (audio.ctx.state === "suspended") void audio.ctx.resume();
+    if (audio.ctx.state === "suspended") {
+      void audio.ctx.resume().then(() => {
+        refreshMasterGains();
+        // Tab-аас буцахад хоцорсон нотууд чимээгүй тоглохгүй
+        if (audio.ctx) audio.nextNote = audio.ctx.currentTime + 0.05;
+      });
+    }
     return;
   }
   if (typeof window === "undefined" || !window.AudioContext) return;
@@ -68,6 +101,10 @@ export function setMusicVol(v: number): void {
 export function setSfxVol(v: number): void {
   audio.sfxVol = Math.round(clamp(v, 0, 1) * 100) / 100;
   applySfxGain();
+  refreshOpeningAmbientVolumes();
+  if (audio.fireBed && !audio.fireBed.paused) {
+    audio.fireBed.volume = clamp(audio.sfxVol * CAMPFIRE_LOOP_VOL, 0, 1);
+  }
   saveAudioSettings();
 }
 
@@ -78,7 +115,14 @@ function applyMusicGain(): void {
   const t = audio.ctx.currentTime;
   param.cancelScheduledValues(t);
   // 0% = бүрэн чимээгүй (0.5 нь ердийн max түвшин)
-  param.setValueAtTime(audio.musicVol <= 0 ? 0 : audio.musicVol * 0.5, t);
+  const base = audio.musicVol <= 0 ? 0 : audio.musicVol * 0.5;
+  param.setValueAtTime(base * clamp(audio.musicDuck, 0, 1), t);
+}
+
+function setMusicDuck(mult: number): void {
+  audio.musicDuck = clamp(mult, 0, 1);
+  applyMusicGain();
+  refreshOpeningAmbientVolumes();
 }
 
 function applySfxGain(): void {
@@ -87,6 +131,12 @@ function applySfxGain(): void {
   const t = audio.ctx.currentTime;
   param.cancelScheduledValues(t);
   param.setValueAtTime(audio.sfxVol <= 0 ? 0 : audio.sfxVol, t);
+}
+
+/** Tab буцаж ирэх / resume үед master gain дахин тогтооно */
+function refreshMasterGains(): void {
+  applyMusicGain();
+  applySfxGain();
 }
 
 export function getNoiseBuf(ctx: AudioContext): AudioBuffer {
@@ -159,12 +209,21 @@ export type SfxName =
   | "parry"
   | "dodge"
   | "chop"
+  | "woodChop"
   | "berry"
   | "eat"
   | "fire"
   | "hurt"
   | "baa"
+  | "moo"
   | "howl"
+  | "witchLaugh"
+  | "stone"
+  | "snore"
+  | "door"
+  | "gate"
+  | "hoof"
+  | "neigh"
   | "levelup"
   | "select"
   | "move"
@@ -176,8 +235,69 @@ export type SfxName =
   | "bark"
   | "buy";
 
+/** Бодит SFX файл — байхгүй бол synth fallback */
+const SAMPLE_SFX: Partial<Record<SfxName, string>> = {
+  woodChop: "/assets/sfx/wood-chop.m4a",
+  door: "/assets/sfx/door.mp3",
+  gate: "/assets/sfx/door.mp3",
+  howl: "/assets/sfx/wolf-howl.m4a",
+  witchLaugh: "/assets/sfx/witch-laugh.m4a",
+  stone: "/assets/sfx/stone-gather.wav",
+  snore: "/assets/sfx/sleep-snore.wav",
+  baa: "/assets/sfx/sheep-baa.m4a",
+  moo: "/assets/sfx/cow-moo.m4a",
+  neigh: "/assets/sfx/horse-neigh.mp3",
+};
+
+const SAMPLE_VOL: Partial<Record<SfxName, number>> = {
+  woodChop: 0.9,
+  door: 0.72,
+  gate: 0.55,
+  howl: 0.78,
+  witchLaugh: 0.82,
+  stone: 0.88,
+  snore: 0.55,
+  baa: 0.75,
+  moo: 0.78,
+  neigh: 0.82,
+};
+
+const activeSamplePool: HTMLAudioElement[] = [];
+
+function playSample(src: string, volMult: number): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.sfxVol <= 0) return;
+  while (activeSamplePool.length > 6) {
+    const old = activeSamplePool.shift();
+    if (old) {
+      old.pause();
+      old.removeAttribute("src");
+    }
+  }
+  const a = new Audio(src);
+  a.preload = "auto";
+  a.volume = clamp(audio.sfxVol * volMult, 0, 1);
+  activeSamplePool.push(a);
+  const cleanup = (): void => {
+    const i = activeSamplePool.indexOf(a);
+    if (i >= 0) activeSamplePool.splice(i, 1);
+  };
+  a.addEventListener("ended", cleanup, { once: true });
+  a.addEventListener("error", cleanup, { once: true });
+  void a.play().catch(cleanup);
+}
+
 export function sfx(name: SfxName): void {
-  if (!audio.ctx || audio.sfxVol <= 0) return;
+  if (audio.sfxVol <= 0) return;
+  ensureAudio();
+
+  const sampleSrc = SAMPLE_SFX[name];
+  if (sampleSrc) {
+    playSample(sampleSrc, SAMPLE_VOL[name] ?? 0.7);
+    return;
+  }
+
+  if (!audio.ctx) return;
   switch (name) {
     case "swing":
       noiseBurst(0.09, 1600, 0.22);
@@ -207,6 +327,11 @@ export function sfx(name: SfxName): void {
       noiseBurst(0.07, 650, 0.38);
       tone(95, 0.06, "square", 0.22);
       break;
+    case "woodChop":
+      noiseBurst(0.08, 900, 0.42);
+      tone(110, 0.07, "square", 0.26, 55);
+      noiseBurst(0.05, 400, 0.2, 0.04);
+      break;
     case "berry":
       tone(660, 0.07, "sine", 0.2, 880);
       break;
@@ -222,12 +347,51 @@ export function sfx(name: SfxName): void {
       tone(230, 0.2, "sawtooth", 0.28, 70);
       break;
     case "baa":
-      tone(470, 0.16, "triangle", 0.18, 350);
-      tone(470, 0.12, "triangle", 0.12, 390, 0.18);
+      tone(520, 0.14, "sawtooth", 0.14, 380);
+      tone(480, 0.18, "triangle", 0.16, 320, 0.08);
+      tone(400, 0.12, "triangle", 0.1, 280, 0.2);
+      break;
+    case "moo":
+      tone(180, 0.35, "sawtooth", 0.12, 140);
+      tone(160, 0.4, "triangle", 0.14, 110, 0.12);
       break;
     case "howl":
-      tone(320, 0.5, "sine", 0.11, 640);
-      tone(640, 0.5, "sine", 0.09, 240, 0.5);
+      tone(280, 0.7, "sine", 0.1, 520);
+      tone(420, 0.85, "sine", 0.09, 680, 0.15);
+      tone(620, 0.55, "sine", 0.07, 300, 0.55);
+      noiseBurst(0.35, 500, 0.06, 0.2);
+      break;
+    case "witchLaugh":
+      tone(380, 0.15, "sawtooth", 0.1, 520);
+      tone(520, 0.2, "triangle", 0.08, 300, 0.12);
+      tone(280, 0.25, "sine", 0.07, 420, 0.28);
+      break;
+    case "stone":
+      noiseBurst(0.06, 900, 0.32);
+      tone(220, 0.05, "square", 0.14, 90);
+      noiseBurst(0.04, 1400, 0.18, 0.03);
+      break;
+    case "snore":
+      noiseBurst(0.35, 280, 0.12);
+      tone(95, 0.4, "sine", 0.08, 70);
+      break;
+    case "door":
+      noiseBurst(0.12, 1200, 0.28);
+      tone(140, 0.1, "square", 0.16, 70);
+      noiseBurst(0.08, 600, 0.14, 0.08);
+      break;
+    case "gate":
+      noiseBurst(0.1, 1800, 0.22);
+      tone(220, 0.08, "square", 0.14, 90);
+      tone(160, 0.12, "triangle", 0.1, 80, 0.06);
+      break;
+    case "hoof":
+      noiseBurst(0.045, 700, 0.28);
+      tone(90, 0.04, "sine", 0.12);
+      break;
+    case "neigh":
+      tone(320, 0.2, "sawtooth", 0.12, 260);
+      tone(280, 0.25, "triangle", 0.1, 200, 0.1);
       break;
     case "levelup":
       tone(523, 0.14, "sine", 0.24);
@@ -387,15 +551,26 @@ export function startMusic(): void {
   audio.lastFreq = MORIN_SCALE[audio.melodyIdx];
   audio.nextNote = audio.ctx.currentTime + 0.8;
 
-  audio.musicTimer = window.setInterval(() => {
+  const scheduleMelody = (): void => {
     const ctx = audio.ctx;
     if (!ctx || !audio.musicGain) return;
+    // Tab нуугдсан үед нот бүү овоол — буцахад чимээгүй flood болно
+    if (typeof document !== "undefined" && document.hidden) {
+      audio.nextNote = Math.max(audio.nextNote, ctx.currentTime + 0.4);
+      return;
+    }
+    if (ctx.state === "suspended") return;
     // Ая унтарсан бол шинэ нот гаргахгүй (аль хэдийн эхэлсэн нот master gain-ээр чимээгүй)
     if (audio.musicVol <= 0) {
       audio.nextNote = Math.max(audio.nextNote, ctx.currentTime + 0.8);
       return;
     }
-    while (audio.nextNote < ctx.currentTime + 1.6) {
+    // Хоцорсон бол одоогоос дахин эхлүүл (өнгөрсөн envelope = чимээгүй нот)
+    if (audio.nextNote < ctx.currentTime - 0.25) {
+      audio.nextNote = ctx.currentTime + 0.05;
+    }
+    let scheduled = 0;
+    while (audio.nextNote < ctx.currentTime + 1.6 && scheduled < 4) {
       // Ихэвчлэн зэргэлдээ нот руу, хааяа алгасаж хөдөлнө
       const r = Math.random();
       const step =
@@ -430,20 +605,460 @@ export function startMusic(): void {
       );
       audio.lastFreq = freq;
       audio.nextNote +=
-        dur + (phraseEnd ? randRange(0.7, 1.6) : randRange(-0.08, 0.2));
+        dur + (phraseEnd ? randRange(0.7, 1.6) : randRange(0.02, 0.2));
+      scheduled += 1;
     }
-  }, 250);
+  };
+
+  audio.musicTimer = window.setInterval(scheduleMelody, 250);
+
+  // Tab буцаж ирэхэд gain + хэмнэл сэргээнэ
+  if (typeof document !== "undefined") {
+    const onVisibility = (): void => {
+      if (document.hidden || !audio.ctx) return;
+      if (audio.ctx.state === "suspended") {
+        void audio.ctx.resume().then(() => {
+          refreshMasterGains();
+          if (audio.ctx) audio.nextNote = audio.ctx.currentTime + 0.1;
+          scheduleMelody();
+        });
+      } else {
+        refreshMasterGains();
+        audio.nextNote = audio.ctx.currentTime + 0.1;
+        scheduleMelody();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    audio.visibilityHandler = onVisibility;
+  }
 }
 
 export function shutdownAudio(): void {
+  stopOpeningAmbient();
+  stopSleepSnore();
+  stopCampfireLoop();
+  stopRiverAmbience();
   if (audio.musicTimer) window.clearInterval(audio.musicTimer);
   audio.musicTimer = 0;
   audio.started = false;
+  if (audio.visibilityHandler && typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", audio.visibilityHandler);
+    audio.visibilityHandler = null;
+  }
   if (audio.ctx) void audio.ctx.close();
   audio.ctx = null;
   audio.musicGain = null;
   audio.sfxGain = null;
   noiseBuf = null;
+}
+
+// ---------------------------------------------------------------------------
+// Дэлхийн ambient — гол / туурай / алхаа / мал
+// ---------------------------------------------------------------------------
+
+const WORLD_BED_SRC = {
+  river: "/assets/sfx/river.m4a",
+  gallop: "/assets/sfx/horse-gallop.m4a",
+  foot: "/assets/sfx/footsteps.m4a",
+} as const;
+
+function makeWorldBed(src: string): HTMLAudioElement {
+  const a = new Audio(src);
+  a.preload = "auto";
+  a.loop = true;
+  a.volume = 0;
+  return a;
+}
+
+export function stopRiverAmbience(): void {
+  if (audio.riverBed) {
+    audio.riverBed.pause();
+    audio.riverBed.removeAttribute("src");
+    audio.riverBed.load();
+  }
+  audio.riverBed = null;
+  audio.riverLevel = 0;
+  stopMovementBeds();
+  if (audio.gallopBed) {
+    audio.gallopBed.removeAttribute("src");
+    audio.gallopBed.load();
+    audio.gallopBed = null;
+  }
+  if (audio.footBed) {
+    audio.footBed.removeAttribute("src");
+    audio.footBed.load();
+    audio.footBed = null;
+  }
+}
+
+function stopMovementBeds(): void {
+  if (audio.gallopBed) {
+    audio.gallopBed.pause();
+    audio.gallopBed.volume = 0;
+  }
+  if (audio.footBed) {
+    audio.footBed.pause();
+    audio.footBed.volume = 0;
+  }
+}
+
+/**
+ * @param proximity 0–1 (голын эрэг/ус ойртох)
+ */
+export function updateRiverAmbience(proximity: number): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.sfxVol <= 0) {
+    if (audio.riverBed) audio.riverBed.volume = 0;
+    return;
+  }
+  const target = clamp(proximity, 0, 1);
+  audio.riverLevel += (target - audio.riverLevel) * 0.14;
+  if (audio.riverLevel < 0.02 && target < 0.02) {
+    if (audio.riverBed && !audio.riverBed.paused) {
+      audio.riverBed.pause();
+      audio.riverBed.volume = 0;
+    }
+    return;
+  }
+  ensureAudio();
+  if (!audio.riverBed) audio.riverBed = makeWorldBed(WORLD_BED_SRC.river);
+  const vol = audio.sfxVol * audio.riverLevel * 0.55;
+  audio.riverBed.volume = clamp(vol, 0, 1);
+  if (audio.riverBed.paused) void audio.riverBed.play().catch(() => {});
+}
+
+/** Морьний галоп + явганы алхаа */
+export function tickHoofsteps(
+  dt: number,
+  riding: boolean,
+  moving: boolean,
+): void {
+  void dt;
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.sfxVol <= 0) {
+    stopMovementBeds();
+    return;
+  }
+  ensureAudio();
+
+  const wantGallop = riding && moving;
+  const wantFoot = !riding && moving;
+
+  if (wantGallop) {
+    if (!audio.gallopBed) audio.gallopBed = makeWorldBed(WORLD_BED_SRC.gallop);
+    audio.gallopBed.volume = clamp(audio.sfxVol * 0.48, 0, 1);
+    if (audio.gallopBed.paused) void audio.gallopBed.play().catch(() => {});
+  } else if (audio.gallopBed && !audio.gallopBed.paused) {
+    audio.gallopBed.pause();
+    audio.gallopBed.volume = 0;
+  }
+
+  if (wantFoot) {
+    if (!audio.footBed) audio.footBed = makeWorldBed(WORLD_BED_SRC.foot);
+    audio.footBed.volume = clamp(audio.sfxVol * 0.32, 0, 1);
+    if (audio.footBed.paused) void audio.footBed.play().catch(() => {});
+  } else if (audio.footBed && !audio.footBed.paused) {
+    audio.footBed.pause();
+    audio.footBed.volume = 0;
+  }
+}
+
+/** Ойрхон малын майлалт */
+export function tickLivestockVocal(
+  dt: number,
+  nearSheep: boolean,
+  nearCattle: boolean,
+): void {
+  if ((!nearSheep && !nearCattle) || audio.sfxVol <= 0) {
+    audio.livestockSfxTimer = Math.max(audio.livestockSfxTimer, 1.5);
+    return;
+  }
+  audio.livestockSfxTimer -= dt;
+  if (audio.livestockSfxTimer > 0) return;
+  audio.livestockSfxTimer = randRange(4.5, 9.5);
+  if (nearCattle && (!nearSheep || Math.random() < 0.45)) sfx("moo");
+  else sfx("baa");
+}
+
+// ---------------------------------------------------------------------------
+// Гал — шатах pine loop
+// ---------------------------------------------------------------------------
+
+const CAMPFIRE_LOOP_SRC = "/assets/sfx/burning-pine.mp3";
+const CAMPFIRE_LOOP_VOL = 0.42;
+
+export function startCampfireLoop(): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.sfxVol <= 0) return;
+  ensureAudio();
+  if (audio.fireBed && !audio.fireBed.paused) {
+    audio.fireBed.volume = clamp(audio.sfxVol * CAMPFIRE_LOOP_VOL, 0, 1);
+    return;
+  }
+  stopCampfireLoop();
+  const a = new Audio(CAMPFIRE_LOOP_SRC);
+  a.preload = "auto";
+  a.loop = true;
+  a.volume = clamp(audio.sfxVol * CAMPFIRE_LOOP_VOL, 0, 1);
+  audio.fireBed = a;
+  void a.play().catch(() => {
+    if (audio.fireBed === a) audio.fireBed = null;
+  });
+}
+
+export function stopCampfireLoop(): void {
+  if (!audio.fireBed) return;
+  disposeHtmlAudio(audio.fireBed);
+  audio.fireBed = null;
+}
+
+/** Гал/зуух асаж байвал loop, унтарвал зогсооно */
+export function syncCampfireLoop(burning: boolean): void {
+  if (burning) startCampfireLoop();
+  else stopCampfireLoop();
+}
+
+// ---------------------------------------------------------------------------
+// Унтах — хурхирах
+// ---------------------------------------------------------------------------
+
+const SLEEP_SNORE_SRC = "/assets/sfx/sleep-snore.wav";
+
+export function startSleepSnore(): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.sfxVol <= 0) return;
+  ensureAudio();
+  stopSleepSnore();
+  const a = new Audio(SLEEP_SNORE_SRC);
+  a.preload = "auto";
+  a.loop = false;
+  a.volume = clamp(audio.sfxVol * (SAMPLE_VOL.snore ?? 0.55), 0, 1);
+  audio.sleepSnore = a;
+  void a.play().catch(() => {
+    if (audio.sleepSnore === a) audio.sleepSnore = null;
+  });
+}
+
+export function stopSleepSnore(): void {
+  if (!audio.sleepSnore) return;
+  disposeHtmlAudio(audio.sleepSnore);
+  audio.sleepSnore = null;
+}
+
+// ---------------------------------------------------------------------------
+// Нээлтийн ambient — шуурга / салхи / хэрээ
+// ---------------------------------------------------------------------------
+
+const OPENING_AMBIENT_SRC = {
+  thunder: "/assets/ambient/thunder-rain.mp3",
+  wind: "/assets/ambient/wind-storm.m4a",
+  crow: "/assets/ambient/crow.m4a",
+} as const;
+
+export type OpeningAmbientMix = {
+  /** Аянга+бороо (0–1) */
+  thunder: number;
+  /** Шуурганы салхи (0–1) */
+  wind: number;
+  /** Хэрээний дуудлагын чанга (0–1) */
+  crow: number;
+  /** Дундаж хэрээ/сек */
+  crowRate: number;
+};
+
+function disposeHtmlAudio(a: HTMLAudioElement | null): void {
+  if (!a) return;
+  a.onended = null;
+  a.onerror = null;
+  a.pause();
+  a.removeAttribute("src");
+  a.load();
+}
+
+function makeLoopBed(src: string): HTMLAudioElement {
+  const a = new Audio(src);
+  a.preload = "auto";
+  a.loop = true;
+  a.volume = 0;
+  return a;
+}
+
+function bedVolume(layer: number): number {
+  if (audio.sfxVol <= 0 || layer <= 0) return 0;
+  const duck = 0.55 + 0.45 * clamp(audio.musicDuck, 0, 1);
+  return clamp(audio.sfxVol * layer * duck, 0, 1);
+}
+
+function refreshOpeningAmbientVolumes(): void {
+  if (audio.openingThunder) {
+    audio.openingThunder.volume = bedVolume(audio.openingThunderVol);
+  }
+  if (audio.openingWind) {
+    audio.openingWind.volume = bedVolume(audio.openingWindVol);
+  }
+}
+
+function ensureOpeningBeds(): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (!audio.openingThunder) {
+    audio.openingThunder = makeLoopBed(OPENING_AMBIENT_SRC.thunder);
+  }
+  if (!audio.openingWind) {
+    audio.openingWind = makeLoopBed(OPENING_AMBIENT_SRC.wind);
+  }
+}
+
+/** Нээлтийн ambient асаах / түвшин солих */
+export function setOpeningAmbient(mix: OpeningAmbientMix): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  ensureAudio();
+  ensureOpeningBeds();
+  audio.openingAmbientOn = true;
+  audio.openingThunderVol = clamp(mix.thunder, 0, 1);
+  audio.openingWindVol = clamp(mix.wind, 0, 1);
+  audio.openingCrowVol = clamp(mix.crow, 0, 1);
+  audio.openingCrowRate = Math.max(0, mix.crowRate);
+  setMusicDuck(0.48);
+  refreshOpeningAmbientVolumes();
+
+  const playBed = (a: HTMLAudioElement | null): void => {
+    if (!a) return;
+    if (a.paused) void a.play().catch(() => {});
+  };
+  if (audio.openingThunderVol > 0.01) playBed(audio.openingThunder);
+  else if (audio.openingThunder) {
+    audio.openingThunder.pause();
+  }
+  if (audio.openingWindVol > 0.01) playBed(audio.openingWind);
+  else if (audio.openingWind) {
+    audio.openingWind.pause();
+  }
+
+  // Эхний хэрээ — шууд гуаглана
+  if (mix.crow > 0.2) {
+    audio.openingCrowPrevX = [];
+    window.setTimeout(() => playIntroCrowCaw(1), 280);
+  }
+}
+
+/** Хэрээний давтамж / нислэгийн синк — intro loop-оос дуудна */
+export function updateOpeningAmbient(dt: number): void {
+  if (!audio.openingAmbientOn) return;
+  refreshOpeningAmbientVolumes();
+  void dt;
+}
+
+function wrapCrowX(v: number, span: number): number {
+  return ((v % span) + span) % span;
+}
+
+/** Нэг гуаглалт — хэрээ нисэхтэй зэрэг */
+export function playIntroCrowCaw(strength = 0.9): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.sfxVol <= 0 || !audio.openingAmbientOn) return;
+  ensureAudio();
+
+  // Хуучин дуудлага хэт олон бол цэвэрлэ
+  if (audio.openingCrowCalls.length > 3) {
+    const old = audio.openingCrowCalls.shift();
+    if (old) disposeHtmlAudio(old);
+  }
+
+  const crow = new Audio(OPENING_AMBIENT_SRC.crow);
+  crow.preload = "auto";
+  // Шуурганаас гарч сонсогдохоор
+  const duck = 0.75 + 0.25 * clamp(audio.musicDuck, 0, 1);
+  crow.volume = clamp(audio.sfxVol * strength * duck, 0, 1);
+  crow.currentTime = 0;
+  audio.openingCrowCalls.push(crow);
+
+  const cleanup = (): void => {
+    const i = audio.openingCrowCalls.indexOf(crow);
+    if (i >= 0) audio.openingCrowCalls.splice(i, 1);
+    disposeHtmlAudio(crow);
+  };
+  crow.addEventListener("ended", cleanup, { once: true });
+  crow.addEventListener("error", cleanup, { once: true });
+  // Файлын эхэнд гуаглалт байгаа гэж үзээд эхнээс тоглуулна; урт бол таслана
+  void crow.play().catch(() => cleanup());
+  window.setTimeout(() => {
+    if (!crow.paused) {
+      crow.pause();
+      cleanup();
+    }
+  }, 2400);
+}
+
+/**
+ * drawIntroCrows-тай ижил байрлал — дэлгэц рүү орж ирэхэд / өнгөрөхөд гуаглана.
+ * `time` = render-ийн now/1000.
+ */
+export function syncIntroCrowCaws(time: number, count: number): void {
+  if (!audio.openingAmbientOn || audio.sfxVol <= 0) return;
+  if (count <= 0) return;
+
+  if (audio.openingCrowPrevX.length !== count) {
+    audio.openingCrowPrevX = Array.from({ length: count }, () => Number.NaN);
+  }
+
+  for (let i = 0; i < count; i++) {
+    const speed = 55 + (i % 3) * 28;
+    const x = wrapCrowX(time * speed + i * 140, VIEW_W + 80) - 40;
+    const prev = audio.openingCrowPrevX[i]!;
+    if (Number.isFinite(prev)) {
+      // Зүүнээс дэлгэц рүү орж ирэх
+      if (prev < 24 && x >= 24) {
+        playIntroCrowCaw(0.95);
+      } else if (
+        prev < VIEW_W * 0.42 &&
+        x >= VIEW_W * 0.42 &&
+        Math.random() < 0.5
+      ) {
+        playIntroCrowCaw(0.72);
+      }
+    }
+    audio.openingCrowPrevX[i] = x;
+  }
+}
+
+export function stopOpeningAmbient(): void {
+  audio.openingAmbientOn = false;
+  audio.openingThunderVol = 0;
+  audio.openingWindVol = 0;
+  audio.openingCrowVol = 0;
+  audio.openingCrowRate = 0;
+  audio.openingCrowCooldown = 0;
+  audio.openingCrowPrevX = [];
+  disposeHtmlAudio(audio.openingThunder);
+  disposeHtmlAudio(audio.openingWind);
+  disposeHtmlAudio(audio.openingCrow);
+  for (const c of audio.openingCrowCalls) disposeHtmlAudio(c);
+  audio.openingCrowCalls = [];
+  audio.openingThunder = null;
+  audio.openingWind = null;
+  audio.openingCrow = null;
+  setMusicDuck(1);
+}
+
+/** Vignette-ийн default mix */
+export function openingAmbientForVignette(
+  vignette: "stormNight" | "laughingStorm" | "coldDawn",
+  dawnT = 0,
+): OpeningAmbientMix {
+  if (vignette === "stormNight") {
+    return { thunder: 0.42, wind: 0.28, crow: 0.9, crowRate: 0.45 };
+  }
+  if (vignette === "laughingStorm") {
+    return { thunder: 0.62, wind: 0.48, crow: 0.75, crowRate: 0.35 };
+  }
+  // Үүр — аянга намжиж, салхи үлдэнэ (хэрээ нисэхгүй)
+  const t = clamp(dawnT, 0, 1);
+  return {
+    thunder: 0.28 * (1 - t * 0.85),
+    wind: 0.38 + t * 0.22,
+    crow: 0,
+    crowRate: 0,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -42,16 +42,16 @@ export function drawSleepingHerder(
 ): void {
   const left = state.gerSleepBed === "L";
   const bed = left ? gerLayout().bedL : gerLayout().bedR;
+  // Дэр орны хойд (хана) талд — толгой дээд рүү
   const cx = bed.x + bed.w / 2;
-  const cy = bed.y + bed.h * 0.52;
-  // Зүүн ор — толгой зүүн хана руу, баруун — баруун хана руу
-  const headLeft = left;
+  const cy = bed.y + bed.h * 0.48;
   const breath = Math.sin(time * 2.2) * 0.6;
 
   const sleeper: Player = {
     ...state.player,
     pos: { x: 0, y: breath * 0.15 },
-    facing: { x: 1, y: 0 },
+    // Ханан дэр рүү харсан (босоо хэвтэнэ — хөндлөн биш)
+    facing: { x: 0, y: -1 },
     moving: false,
     riding: false,
     invuln: 0,
@@ -61,16 +61,15 @@ export function drawSleepingHerder(
 
   ctx.save();
   ctx.translate(cx, cy + 2);
-  // Орны хэмжээнд тааруулна
-  ctx.scale(scale * 0.55, scale * 0.55);
-  ctx.rotate(headLeft ? -Math.PI / 2 : Math.PI / 2);
+  // Орны гудас дээр босоо чиглэлд (толгой дэр рүү)
+  ctx.scale(scale * 0.52, scale * 0.52);
   drawPlayer(ctx, sleeper, { x: 0, y: 0 }, time, false, 0, true);
   ctx.restore();
 
   for (let i = 0; i < 3; i++) {
     const phase = (time * 0.7 + i * 0.85) % 1;
-    const zx = cx + (headLeft ? -22 : 22) + Math.sin(time + i) * 3;
-    const zy = cy - 12 - phase * 28;
+    const zx = cx + Math.sin(time + i) * 3;
+    const zy = cy - 18 - phase * 28;
     ctx.globalAlpha = (1 - phase) * 0.9;
     ctx.fillStyle = "#d8e8ff";
     ctx.font = `${11 + i * 3}px system-ui, sans-serif`;

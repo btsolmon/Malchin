@@ -80,12 +80,14 @@ import {
 import { nearFishingSpot, tryCatchFish } from "./fish";
 import {
   beginDawnElderDialogue,
+  beginPostSpiritScoutDialogue,
   beginPostWolfElderDialogue,
   beginStormTraceElderDialogue,
   nearElder,
   openElder,
 } from "./elder";
 import {
+  tryBuildOrEnterSpiritOvoo,
   tryCallOpeningLivestock,
   tryInspectStormTrace,
 } from "./story";
@@ -514,11 +516,7 @@ export function dismountHorse(
   const tie = opts?.tie ?? nearGer;
   const hitch = horseHitchPos(state.world);
   // Уясан үед гэр рүү (зүүнээс баруун тийш / гэр рүү) харна
-  const face: 1 | -1 = tie
-    ? -1
-    : player.facing.x < 0
-      ? -1
-      : 1;
+  const face: 1 | -1 = tie ? -1 : player.facing.x < 0 ? -1 : 1;
   const pos = tie
     ? hitch
     : { x: player.pos.x + face * 18, y: player.pos.y + 6 };
@@ -588,7 +586,7 @@ export function tryHorseMount(state: GameState): void {
   player.riding = true;
   player.facing = { x: horse.face, y: 0 };
   state.world.mountHorse = null;
-  sfx("select");
+  sfx("neigh");
   spawnText(state, player.pos, "Уналаа", "#e8c56a");
   setMessage(state, "Морь уналаа. H — буух.", 2.2);
 }
@@ -665,7 +663,7 @@ export function tryInteract(state: GameState): void {
     state.menuIndex = 0;
     state.gerPlayer = { x: 480, y: 455 };
     state.input.interact = false;
-    sfx("select");
+    sfx("door");
     return;
   }
 
@@ -680,12 +678,24 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
+  if (tryBuildOrEnterSpiritOvoo(state)) {
+    player.chopCooldown = 0.45;
+    return;
+  }
+
   // Өвгөн — арилжаа / яриа
+  if (nearElder(state) && state.story.activeMainObjective === "talkToOldMan") {
+    beginPostWolfElderDialogue(state);
+    player.chopCooldown = 0.35;
+    state.input.interact = false;
+    return;
+  }
+
   if (
     nearElder(state) &&
-    state.story.activeMainObjective === "talkToOldMan"
+    state.story.activeMainObjective === "talkAfterSpiritScout"
   ) {
-    beginPostWolfElderDialogue(state);
+    beginPostSpiritScoutDialogue(state);
     player.chopCooldown = 0.35;
     state.input.interact = false;
     return;
@@ -708,7 +718,11 @@ export function tryInteract(state: GameState): void {
     if (world.dayPhase === "dawn" || world.dayPhase === "day") {
       beginDawnElderDialogue(state);
     } else {
-      setMessage(state, "Өвгөн: «Үүрийн гэгээ ортол голомтоо түшиж амар, хүү минь.»", 3);
+      setMessage(
+        state,
+        "Өвгөн: «Үүрийн гэгээ ортол голомтоо түшиж амар, хүү минь.»",
+        3,
+      );
     }
     player.chopCooldown = 0.35;
     state.input.interact = false;
@@ -800,7 +814,7 @@ export function tryInteract(state: GameState): void {
     player.chopCooldown = 0.4;
     state.score += 1;
     gainXp(state, 1);
-    sfx("chop");
+    sfx("stone");
     spawnParticles(state, stone.pos, 6, "#9a9488", { speed: 70, size: 2.8 });
     spawnText(state, stone.pos, "+1 чулуу", "#c8c0b0");
     if (stone.amount <= 0) {
@@ -837,7 +851,8 @@ export function tryInteract(state: GameState): void {
     }
 
     world.pastureGrass -= HAY_GRASS_COST;
-    const gained = world.season === "spring" ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
+    const gained =
+      world.season === "spring" ? 1 : 1 + (Math.random() < 0.35 ? 1 : 0);
     const add = Math.min(gained, MAX_HAY - player.inventory.hay);
     player.inventory.hay += add;
     player.chopCooldown = 0.4;
@@ -867,7 +882,7 @@ export function tryInteract(state: GameState): void {
     size: 3,
   });
   state.fx.shake = Math.max(state.fx.shake, 1.2);
-  sfx("chop");
+  sfx("woodChop");
 
   if (tree.hp <= 0) {
     const gained = 1 + Math.floor(Math.random() * 2);
@@ -1128,11 +1143,14 @@ export function tryDemolishFence(state: GameState): boolean {
   const wasGate = fence.isGate;
   world.fences.splice(idx, 1);
 
-  const refund = Math.max(1, Math.floor(FENCE_COST * (0.5 + fence.tier * 0.25)));
+  const refund = Math.max(
+    1,
+    Math.floor(FENCE_COST * (0.5 + fence.tier * 0.25)),
+  );
   if (!state.unlimitedWood) {
     player.inventory.wood += refund;
   }
-  sfx("chop");
+  sfx("woodChop");
   spawnParticles(state, fence.pos, 10, "#8a6a3a", { speed: 80, size: 2.4 });
   spawnText(
     state,
@@ -1308,9 +1326,7 @@ export function updateSurvival(state: GameState, dt: number): void {
   const nearFire =
     fire.lit && fire.placed && dist(player.pos, fire.pos) < fire.radius;
   const night =
-    world.dayPhase === "night" ||
-    world.timeOfDay < 6 ||
-    world.timeOfDay > 20;
+    world.dayPhase === "night" || world.timeOfDay < 6 || world.timeOfDay > 20;
   const coldWeather =
     world.weather === "snow" ||
     world.weather === "storm" ||
@@ -1428,10 +1444,8 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
   if (flock.total <= 0 || state.phase !== "playing") return;
 
   const feeder = world.feeder;
-  const needPerSec =
-    (flock.total * HAY_PER_SHEEP_PER_DAY) / DAY_LENGTH_SEC;
-  const grazePerSec =
-    (flock.total * GRAZE_PER_ANIMAL_PER_DAY) / DAY_LENGTH_SEC;
+  const needPerSec = (flock.total * HAY_PER_SHEEP_PER_DAY) / DAY_LENGTH_SEC;
+  const grazePerSec = (flock.total * GRAZE_PER_ANIMAL_PER_DAY) / DAY_LENGTH_SEC;
 
   if (world.season === "winter") {
     // Өвөл бэлчээр хөлдөнө — зөвхөн тэвш
@@ -1503,7 +1517,12 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
           flock.starveAcc = 0;
           const lost = loseSheep(state, 1);
           if (lost > 0) {
-            spawnText(state, pastureCenter(world), "−1 мал (өвсгүй)", "#ff9080");
+            spawnText(
+              state,
+              pastureCenter(world),
+              "−1 мал (өвсгүй)",
+              "#ff9080",
+            );
             setMessage(
               state,
               "Өвс дууссан — мал өлсөж байна! G-ээр нүү эсвэл өвс өг.",
@@ -1587,7 +1606,11 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (world.flockOut || world.cattleOut) {
-    setMessage(state, "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.", 3);
+    setMessage(
+      state,
+      "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.",
+      3,
+    );
     return;
   }
   const ger = gerDoorPos(world);

@@ -1,6 +1,9 @@
 import {
   CAMPFIRE_WOOD_COST,
   COLORS,
+  SPIRIT_OVOO_STONE_COST,
+  SNAKE_CRUSH_STONE_COST,
+  SPIRIT_WATER_SIPS,
   VIEW_H,
   VIEW_W,
   WORLD_H,
@@ -14,9 +17,15 @@ import {
   type Vector2,
   type Wolf,
 } from "./types";
-import { sfx } from "./audio";
+import {
+  sfx,
+  setOpeningAmbient,
+  updateOpeningAmbient,
+  stopOpeningAmbient,
+  openingAmbientForVignette,
+} from "./audio";
 import { beginFamilyReunionDialogue } from "./elder";
-import { spawnParticles } from "./effects";
+import { spawnParticles, spawnText } from "./effects";
 import { isInRiver } from "./biomes";
 import { animalInPen, getDayPhase, TIME_RATE } from "./daycycle";
 import { spawnWolf } from "./enemies";
@@ -25,8 +34,16 @@ import {
   placePlayerNearHelpers,
   tryInteractFirstRoute,
 } from "./firstRoute";
-import { ensureParents } from "./parents";
-import { enterSpiritWorld, exitSpiritWorld } from "./spirit";
+import {
+  ensureParents,
+  spawnIntroCinematicParents,
+  clearIntroCinematicParents,
+} from "./parents";
+import {
+  enterSpiritWorld,
+  exitSpiritWorld,
+  stashSpiritVisitSnapshot,
+} from "./spirit";
 import { tr, trFormat } from "./i18n";
 import {
   clamp,
@@ -43,10 +60,50 @@ import {
   setMessage,
 } from "./utils";
 
-export const OPENING_STORY_SECTIONS = [
-  "Шөнө дөлөөр хар үүл хуралдан, хар хэрээ гуагалж, хачин муу ёр тал нутгийг нөмрөв.",
-  "Хавсарга шуурга хуйларч, харанхуй борооны гүнээс хахир хүйтэн инээд хадах мэт сонсогдоно.",
-  "Үүрийн цолмон цайхад голомтын гал бөхөж, гадаах малаас ганц ч дуу үл дуулдана.",
+/** Нээлт — аав ээжийг авч явах үеийн шулмын инээд */
+let introWitchLaughPlayed = false;
+
+export type OpeningVignetteId =
+  | "stormNight"
+  | "laughingStorm"
+  | "coldDawn";
+
+export interface OpeningStorySection {
+  text: string;
+  vignette: OpeningVignetteId;
+  timeOfDay: number;
+  weather: "clear" | "wind" | "storm" | "snow";
+  /** campPos-оос камерын төв рүү offset */
+  camOffset: Vector2;
+  /** Камерын аажим шилжилт (нэгж/сек) */
+  slowPan: Vector2;
+}
+
+export const OPENING_STORY_SECTIONS: readonly OpeningStorySection[] = [
+  {
+    text: "Шөнө дөлөөр хар үүл хуралдан, хар хэрээ гуагалж, хачин муу ёр тал нутгийг нөмрөв.",
+    vignette: "stormNight",
+    timeOfDay: 1.2,
+    weather: "storm",
+    camOffset: { x: -20, y: 55 },
+    slowPan: { x: 6, y: -2 },
+  },
+  {
+    text: "Хавсарга шуурга хуйларч, харанхуй борооны гүнээс хахир хүйтэн инээд хадах мэт сонсогдоно.",
+    vignette: "laughingStorm",
+    timeOfDay: 2.5,
+    weather: "storm",
+    camOffset: { x: -40, y: 30 },
+    slowPan: { x: -14, y: 4 },
+  },
+  {
+    text: "Үүрийн цолмон цайхад голомтын гал бөхөж, гадаах малаас ганц ч дуу үл дуулдана.",
+    vignette: "coldDawn",
+    timeOfDay: 5.75,
+    weather: "wind",
+    camOffset: { x: 0, y: 35 },
+    slowPan: { x: 3, y: 1 },
+  },
 ] as const;
 
 export const HEARTH_QUEST = {
@@ -136,12 +193,37 @@ export const RETURN_TRACE_TO_OLD_MAN_QUEST = {
   ],
 } as const;
 
+export const TALK_AFTER_SPIRIT_SCOUT_QUEST = {
+  title: "Өвгөн дээр очиж ярилц",
+  description: "Өвгөн дээр очиж ярилц.",
+  panelLines: ["Өвгөн дээр очиж ярилц."],
+} as const;
+
+export const BUILD_SPIRIT_OVOO_QUEST = {
+  title: "Сүнсний овоо босго",
+  description: `Хар салхины мөр дээр ${SPIRIT_OVOO_STONE_COST} чулуугаар овоо босго (заавал биш).`,
+  panelLines: [
+    "Хар салхины мөр дээр чулуун овоо босго.",
+    `Чулуу: ${SPIRIT_OVOO_STONE_COST} · заавал биш.`,
+  ],
+} as const;
+
+export const ENTER_SPIRIT_VIA_OVOO_QUEST = {
+  title: "Сүнсний орон руу ор",
+  description: "Сүнсний орон руу ор. Орвол буцах хаалга байхгүй.",
+  panelLines: [
+    "Сүнсний орон руу ор.",
+    "Орвол буцах хаалга байхгүй.",
+  ],
+} as const;
+
 export const DEFEAT_SPIRIT_GUARDS_QUEST = {
   title: "Сүнсний замыг нээ",
-  description: "Хараалд автсан таван сахиулыг дар.",
+  description:
+    "Зургаан нар, Хар могой, үлдсэн гурван сахиулыг дар.",
   panelLines: [
-    "Хараалд автсан таван",
-    "сахиулыг дар.",
+    "Зургаан нар · Хар могой ·",
+    "үлдсэн гурван сахиулыг дар.",
   ],
 } as const;
 
@@ -218,6 +300,7 @@ export const FIRST_NIGHT_WOLF_WARNING =
   "Алсад чонын улиан сонсогдоно.";
 
 const INTRO_SECTION_DURATION = 5.2;
+const INTRO_SECTION_MAX_DURATION = 45;
 const INTRO_FADE_DURATION = 1;
 export const HEARTH_COMPLETION_EFFECT_DURATION = 2.6;
 export const LIVESTOCK_COMPLETION_EFFECT_DURATION = 2.6;
@@ -251,6 +334,12 @@ export function createInitialStoryState(): StoryState {
     introCompleted: false,
     introSection: 0,
     introSectionElapsed: 0,
+    introSectionHold: INTRO_SECTION_DURATION,
+    introCamX: 0,
+    introCamY: 0,
+    introParentFade: 0,
+    introTimeTarget: 6.5,
+    introParentLift: 0,
     hearthQuestStarted: false,
     hearthWoodCollected: 0,
     campfireRelit: false,
@@ -310,6 +399,12 @@ export function createInitialStoryState(): StoryState {
     stormTraceEffectRemaining: 0,
     stormTraceDialogueCompleted: false,
     spiritPathOpened: false,
+    spiritScoutDone: false,
+    spiritAllowReturn: false,
+    spiritOvooBuilt: false,
+    spiritOvooSoulCollected: false,
+    spiritOvooSoulActive: false,
+    postSpiritScoutDialogueCompleted: false,
     milestone7Completed: false,
     milestone8Started: false,
     familyReunionEffectRemaining: 0,
@@ -325,6 +420,12 @@ function createLegacyStoryState(): StoryState {
     introCompleted: true,
     introSection: OPENING_STORY_SECTIONS.length - 1,
     introSectionElapsed: INTRO_SECTION_DURATION,
+    introSectionHold: INTRO_SECTION_DURATION,
+    introCamX: 0,
+    introCamY: 0,
+    introParentFade: 0,
+    introTimeTarget: 6.5,
+    introParentLift: 0,
     hearthQuestStarted: true,
     hearthWoodCollected: CAMPFIRE_WOOD_COST,
     campfireRelit: true,
@@ -384,6 +485,12 @@ function createLegacyStoryState(): StoryState {
     stormTraceEffectRemaining: 0,
     stormTraceDialogueCompleted: false,
     spiritPathOpened: false,
+    spiritScoutDone: false,
+    spiritAllowReturn: false,
+    spiritOvooBuilt: false,
+    spiritOvooSoulCollected: false,
+    spiritOvooSoulActive: false,
+    postSpiritScoutDialogueCompleted: false,
     milestone7Completed: false,
     milestone8Started: false,
     familyReunionEffectRemaining: 0,
@@ -574,6 +681,12 @@ function isCompleteStoryState(
     typeof story.introCompleted === "boolean" &&
     typeof story.introSection === "number" &&
     typeof story.introSectionElapsed === "number" &&
+    typeof story.introSectionHold === "number" &&
+    typeof story.introCamX === "number" &&
+    typeof story.introCamY === "number" &&
+    typeof story.introParentFade === "number" &&
+    typeof story.introTimeTarget === "number" &&
+    typeof story.introParentLift === "number" &&
     typeof story.hearthQuestStarted === "boolean" &&
     (!story.hearthQuestStarted || story.introCompleted) &&
     typeof story.hearthWoodCollected === "number" &&
@@ -592,6 +705,9 @@ function isCompleteStoryState(
       story.activeMainObjective === "visitOldManAtDawn" ||
       story.activeMainObjective === "inspectStormTrace" ||
       story.activeMainObjective === "returnToOldManWithTrace" ||
+      story.activeMainObjective === "talkAfterSpiritScout" ||
+      story.activeMainObjective === "buildSpiritOvoo" ||
+      story.activeMainObjective === "enterSpiritViaOvoo" ||
       story.activeMainObjective === "defeatSpiritGuards" ||
       story.activeMainObjective === "reachCursedGate" ||
       story.activeMainObjective === "defeatShulmasBaatar" ||
@@ -690,6 +806,14 @@ function isCompleteStoryState(
     story.stormTraceEffectRemaining >= 0 &&
     typeof story.stormTraceDialogueCompleted === "boolean" &&
     typeof story.spiritPathOpened === "boolean" &&
+    (story.spiritScoutDone === undefined ||
+      typeof story.spiritScoutDone === "boolean") &&
+    (story.spiritAllowReturn === undefined ||
+      typeof story.spiritAllowReturn === "boolean") &&
+    (story.spiritOvooBuilt === undefined ||
+      typeof story.spiritOvooBuilt === "boolean") &&
+    (story.postSpiritScoutDialogueCompleted === undefined ||
+      typeof story.postSpiritScoutDialogueCompleted === "boolean") &&
     typeof story.milestone7Completed === "boolean" &&
     typeof story.milestone8Started === "boolean" &&
     typeof story.familyReunionEffectRemaining === "number" &&
@@ -747,7 +871,8 @@ function isCompleteStoryState(
         story.livestockQuestCompleted &&
         story.milestone3Completed &&
         ((story.activeMainObjective === null &&
-          story.nightCompletionEffectRemaining > 0) ||
+          (story.nightCompletionEffectRemaining > 0 ||
+            story.postSpiritScoutDialogueCompleted === true)) ||
           story.activeMainObjective === "observeWolfMovement" ||
           story.activeMainObjective === "parryStoryWolf" ||
           story.activeMainObjective === "counterStoryWolf" ||
@@ -756,6 +881,9 @@ function isCompleteStoryState(
               story.activeMainObjective === "visitOldManAtDawn" ||
               story.activeMainObjective === "inspectStormTrace" ||
               story.activeMainObjective === "returnToOldManWithTrace" ||
+              story.activeMainObjective === "talkAfterSpiritScout" ||
+              story.activeMainObjective === "buildSpiritOvoo" ||
+              story.activeMainObjective === "enterSpiritViaOvoo" ||
               story.activeMainObjective === "defeatSpiritGuards" ||
               story.activeMainObjective === "reachCursedGate" ||
               story.activeMainObjective === "defeatShulmasBaatar" ||
@@ -908,6 +1036,11 @@ export function normalizeLoadedStoryState(
     story.stormTraceDialogueCompleted === true;
   const spiritPathOpened =
     story.spiritPathOpened === true || stormTraceDialogueCompleted;
+  const postSpiritScoutDialogueCompleted =
+    story.postSpiritScoutDialogueCompleted === true;
+  const spiritScoutDone =
+    story.spiritScoutDone === true || postSpiritScoutDialogueCompleted;
+  const spiritOvooBuilt = story.spiritOvooBuilt === true;
   const milestone7Completed = story.milestone7Completed === true;
   const milestone7Started =
     story.milestone7Started === true ||
@@ -982,7 +1115,25 @@ export function normalizeLoadedStoryState(
     introSection: Math.floor(
       clamp(rawSection, 0, OPENING_STORY_SECTIONS.length - 1),
     ),
-    introSectionElapsed: clamp(rawElapsed, 0, INTRO_SECTION_DURATION),
+    introSectionElapsed: clamp(rawElapsed, 0, INTRO_SECTION_MAX_DURATION),
+    introSectionHold: clamp(
+      Number.isFinite(story.introSectionHold)
+        ? (story.introSectionHold as number)
+        : INTRO_SECTION_DURATION,
+      INTRO_SECTION_DURATION,
+      INTRO_SECTION_MAX_DURATION,
+    ),
+    introCamX: Number.isFinite(story.introCamX) ? (story.introCamX as number) : 0,
+    introCamY: Number.isFinite(story.introCamY) ? (story.introCamY as number) : 0,
+    introParentFade: Number.isFinite(story.introParentFade)
+      ? clamp(story.introParentFade as number, 0, 1)
+      : 0,
+    introTimeTarget: Number.isFinite(story.introTimeTarget)
+      ? (story.introTimeTarget as number)
+      : 6.5,
+    introParentLift: Number.isFinite(story.introParentLift)
+      ? clamp(story.introParentLift as number, 0, 40)
+      : 0,
     hearthQuestStarted,
     hearthWoodCollected: hearthQuestCompleted
       ? CAMPFIRE_WOOD_COST
@@ -1003,6 +1154,9 @@ export function normalizeLoadedStoryState(
             story.activeMainObjective === "defeatShulmasBaatar" ||
             story.activeMainObjective === "reachCursedGate" ||
             story.activeMainObjective === "defeatSpiritGuards" ||
+            story.activeMainObjective === "enterSpiritViaOvoo" ||
+            story.activeMainObjective === "buildSpiritOvoo" ||
+            story.activeMainObjective === "talkAfterSpiritScout" ||
             story.activeMainObjective === "returnToOldManWithTrace" ||
             story.activeMainObjective === "inspectStormTrace" ||
             story.activeMainObjective === "visitOldManAtDawn" ||
@@ -1010,11 +1164,18 @@ export function normalizeLoadedStoryState(
             story.activeMainObjective === "counterStoryWolf" ||
             story.activeMainObjective === "parryStoryWolf" ||
             story.activeMainObjective === "observeWolfMovement"
-            ? story.activeMainObjective
+            ? story.activeMainObjective === "buildSpiritOvoo" ||
+              story.activeMainObjective === "enterSpiritViaOvoo"
+              ? null
+              : story.activeMainObjective
             : familyReunionDialogueCompleted
               ? "growFlock"
               : spiritPathOpened
-                ? "defeatSpiritGuards"
+                ? spiritScoutDone
+                  ? postSpiritScoutDialogueCompleted
+                    ? null
+                    : "talkAfterSpiritScout"
+                  : "defeatSpiritGuards"
               : stormTraceInspected
                 ? "returnToOldManWithTrace"
                 : milestone6DialogueCompleted
@@ -1133,6 +1294,12 @@ export function normalizeLoadedStoryState(
     ),
     stormTraceDialogueCompleted,
     spiritPathOpened,
+    spiritScoutDone,
+    spiritAllowReturn: story.spiritAllowReturn === true,
+    spiritOvooBuilt,
+    spiritOvooSoulCollected: story.spiritOvooSoulCollected === true,
+    spiritOvooSoulActive: story.spiritOvooSoulActive === true,
+    postSpiritScoutDialogueCompleted,
     milestone7Completed,
     milestone8Started,
     familyReunionEffectRemaining: familyReunionDialogueStarted
@@ -1373,18 +1540,115 @@ export function beginOpeningSequence(state: GameState): void {
     return;
   }
 
+  introWitchLaughPlayed = false;
   state.phase = "intro";
   state.story.introSection = 0;
   state.story.introSectionElapsed = 0;
+  state.story.introSectionHold = INTRO_SECTION_DURATION;
   state.player.moving = false;
   state.message = "";
   state.messageTimer = 0;
+  spawnIntroCinematicParents(state);
+  // Хүүг түр ард байлгана — эхлээд аав ээжийн дүр харагдана
+  state.player.pos.x = state.world.campPos.x + 8;
+  state.player.pos.y = state.world.campPos.y + 110;
+  applyOpeningVignette(state, 0);
+  setOpeningAmbient(openingAmbientForVignette("stormNight"));
+}
+
+function applyOpeningVignette(state: GameState, sectionIndex: number): void {
+  const section =
+    OPENING_STORY_SECTIONS[
+      clamp(sectionIndex, 0, OPENING_STORY_SECTIONS.length - 1)
+    ]!;
+  const camp = state.world.campPos;
+  // Цагийг гэнэт солихгүй — зөөлөн уусгана
+  state.story.introTimeTarget = section.timeOfDay;
+  if (section.vignette !== "coldDawn") {
+    state.world.timeOfDay = section.timeOfDay;
+    state.world.weather = section.weather;
+  } else {
+    // Үүр: шуурганаас үлдээд аажим цайруулна
+    state.world.weather = "storm";
+  }
+  state.world.dayPhase = getDayPhase(state.world.timeOfDay, state.world.season);
+  if (section.weather === "storm" || section.vignette === "coldDawn") {
+    state.world.groundWetness = Math.max(state.world.groundWetness, 0.75);
+  }
+  state.story.introCamX = clamp(
+    camp.x + section.camOffset.x,
+    VIEW_W / 2,
+    WORLD_W - VIEW_W / 2,
+  );
+  state.story.introCamY = clamp(
+    camp.y + section.camOffset.y,
+    VIEW_H / 2,
+    WORLD_H - VIEW_H / 2,
+  );
+
+  if (section.vignette === "stormNight") {
+    state.story.introParentFade = 1;
+    state.story.introParentLift = 0;
+    if (state.parents) {
+      state.parents.father.pos.x = camp.x - 36;
+      state.parents.father.pos.y = camp.y + 48;
+      state.parents.mother.pos.x = camp.x + 40;
+      state.parents.mother.pos.y = camp.y + 52;
+      state.parents.father.moving = false;
+      state.parents.mother.moving = false;
+      state.parents.father.workPulse = 0;
+      state.parents.mother.workPulse = 0;
+      state.parents.father.face = 1;
+      state.parents.mother.face = -1;
+    }
+    state.player.pos.x = camp.x + 8;
+    state.player.pos.y = camp.y + 72;
+    state.player.moving = false;
+    state.player.facing.x = -1;
+  } else if (section.vignette === "laughingStorm") {
+    state.story.introParentFade = 1;
+    state.story.introParentLift = 0;
+    if (state.parents) {
+      state.parents.father.moving = false;
+      state.parents.mother.moving = false;
+      state.parents.father.workPulse = 0;
+      state.parents.mother.workPulse = 0;
+      state.parents.father.face = -1;
+      state.parents.mother.face = -1;
+    }
+    state.player.pos.x = camp.x + 8;
+    state.player.pos.y = camp.y + 72;
+    state.player.facing.x = -1;
+    state.player.moving = true;
+  } else {
+    state.story.introParentFade = 0;
+    state.story.introParentLift = 0;
+    clearIntroCinematicParents(state);
+    state.player.pos.x = camp.x;
+    state.player.pos.y = camp.y + 58;
+    state.player.moving = false;
+  }
+}
+
+function restoreWorldAfterIntro(state: GameState): void {
+  state.world.timeOfDay = 5.9;
+  state.world.weather = "wind";
+  state.world.groundWetness = Math.min(state.world.groundWetness, 0.45);
+  state.world.dayPhase = getDayPhase(5.9, state.world.season);
+  state.story.introTimeTarget = 5.9;
+  state.story.introParentLift = 0;
 }
 
 function finishOpeningSequence(state: GameState): void {
+  stopOpeningAmbient();
+  clearIntroCinematicParents(state);
+  restoreWorldAfterIntro(state);
+  state.player.pos.x = state.world.campPos.x;
+  state.player.pos.y = state.world.campPos.y + 58;
   state.story.introCompleted = true;
   state.story.introSection = OPENING_STORY_SECTIONS.length - 1;
   state.story.introSectionElapsed = INTRO_SECTION_DURATION;
+  state.story.introSectionHold = INTRO_SECTION_DURATION;
   state.input.confirm = false;
   state.input.interact = false;
   state.phase = "playing";
@@ -1400,14 +1664,199 @@ export function updateOpeningSequence(state: GameState, dt: number): void {
     return;
   }
 
+  const section =
+    OPENING_STORY_SECTIONS[
+      clamp(state.story.introSection, 0, OPENING_STORY_SECTIONS.length - 1)
+    ]!;
+  // Ambient: цаг/шуурга амьд харагдана
+  state.world.elapsed += dt;
+
+  // Цагийг зорилт руу зөөлөн уусгана (ялангуяа үүр)
+  const timeBlend =
+    section.vignette === "coldDawn" ? Math.min(1, dt * 0.38) : Math.min(1, dt * 1.8);
+  state.world.timeOfDay +=
+    (state.story.introTimeTarget - state.world.timeOfDay) * timeBlend;
+  state.world.dayPhase = getDayPhase(
+    state.world.timeOfDay,
+    state.world.season,
+  );
+  if (section.vignette === "coldDawn") {
+    const hold = Math.max(state.story.introSectionHold, INTRO_SECTION_DURATION);
+    const dawnT = clamp(state.story.introSectionElapsed / hold, 0, 1);
+    // Шуурга аажим намжина
+    if (dawnT > 0.45) state.world.weather = "wind";
+    state.world.groundWetness = Math.max(0.2, 0.85 - dawnT * 0.55);
+    setOpeningAmbient(openingAmbientForVignette("coldDawn", dawnT));
+  }
+
+  updateOpeningAmbient(dt);
+
+  if (section.vignette === "laughingStorm" && state.parents) {
+    // Камер хүү + аав ээжийг дагана
+    const focusX =
+      (state.parents.father.pos.x +
+        state.parents.mother.pos.x +
+        state.player.pos.x) /
+      3;
+    const focusY =
+      (state.parents.father.pos.y +
+        state.parents.mother.pos.y +
+        state.player.pos.y) /
+      3;
+    state.story.introCamX +=
+      (clamp(focusX, VIEW_W / 2, WORLD_W - VIEW_W / 2) -
+        state.story.introCamX) *
+      Math.min(1, dt * 2.4);
+    state.story.introCamY +=
+      (clamp(focusY, VIEW_H / 2, WORLD_H - VIEW_H / 2) -
+        state.story.introCamY) *
+      Math.min(1, dt * 2.4);
+  } else {
+    state.story.introCamX = clamp(
+      state.story.introCamX + section.slowPan.x * dt,
+      VIEW_W / 2,
+      WORLD_W - VIEW_W / 2,
+    );
+    state.story.introCamY = clamp(
+      state.story.introCamY + section.slowPan.y * dt,
+      VIEW_H / 2,
+      WORLD_H - VIEW_H / 2,
+    );
+  }
+
+  updateIntroParentCinematic(state, dt, section);
+
   state.story.introSectionElapsed += dt;
-  if (state.story.introSectionElapsed < INTRO_SECTION_DURATION) return;
+  const hold = Math.max(state.story.introSectionHold, INTRO_SECTION_DURATION);
+  if (state.story.introSectionElapsed < hold) return;
 
   state.story.introSection += 1;
   state.story.introSectionElapsed = 0;
   if (state.story.introSection >= OPENING_STORY_SECTIONS.length) {
     finishOpeningSequence(state);
+    return;
   }
+  applyOpeningVignette(state, state.story.introSection);
+  {
+    const next = OPENING_STORY_SECTIONS[state.story.introSection]!;
+    setOpeningAmbient(openingAmbientForVignette(next.vignette));
+  }
+}
+
+/** Аав ээж — шуурганд татагдан алга болно; хүү хойноос уйлж гүйнэ */
+function updateIntroParentCinematic(
+  state: GameState,
+  dt: number,
+  section: OpeningStorySection,
+): void {
+  const parents = state.parents;
+  const camp = state.world.campPos;
+  const hold = Math.max(state.story.introSectionHold, INTRO_SECTION_DURATION);
+  const t = clamp(state.story.introSectionElapsed / hold, 0, 1);
+  const player = state.player;
+
+  if (section.vignette === "stormNight") {
+    state.story.introParentFade = 1;
+    if (parents && !state.parentsReturned) {
+      parents.father.walkPhase += dt * 2.2;
+      parents.mother.walkPhase += dt * 2.0;
+      parents.father.moving = false;
+      parents.mother.moving = false;
+    }
+    player.moving = false;
+    player.facing.x = -1;
+    // Сүүлийн мөчид аав ээж рүү эргэж харна
+    if (t > 0.7 && parents) {
+      player.facing.x = parents.father.pos.x < player.pos.x ? -1 : 1;
+    }
+    return;
+  }
+
+  if (section.vignette === "laughingStorm") {
+    // Зөөлөн ease — гэнэт нисэхгүй
+    const flee = clamp((t - 0.05) / 0.88, 0, 1);
+    const ease = flee * flee * (3 - 2 * flee);
+    // Бага зэрэг л өргөнө — газарт чирэгдэж байгаа мэт
+    state.story.introParentLift =
+      ease * 7 + Math.sin(state.world.elapsed * 5.5) * 1.1;
+
+    if (!introWitchLaughPlayed && flee > 0.02) {
+      introWitchLaughPlayed = true;
+      sfx("witchLaugh");
+    }
+
+    const riftX = camp.x - 260;
+    const riftY = camp.y - 130;
+
+    if (parents && !state.parentsReturned) {
+      const f0x = camp.x - 36;
+      const f0y = camp.y + 48;
+      const m0x = camp.x + 40;
+      const m0y = camp.y + 52;
+      parents.father.pos.x = f0x + (riftX - f0x) * ease;
+      parents.father.pos.y = f0y + (riftY - f0y) * ease * 0.85;
+      parents.mother.pos.x = m0x + (riftX + 30 - m0x) * ease;
+      parents.mother.pos.y = m0y + (riftY + 10 - m0y) * ease * 0.85;
+      parents.father.moving = false;
+      parents.mother.moving = false;
+      parents.father.workPulse = 0;
+      parents.mother.workPulse = 0;
+      parents.father.face = -1;
+      parents.mother.face = -1;
+      parents.father.walkPhase += dt * 3;
+      parents.mother.walkPhase += dt * 3.2;
+      state.story.introParentFade = clamp(1 - (ease - 0.35) / 0.55, 0, 1);
+      if (state.story.introParentFade > 0.08 && Math.random() < dt * 5) {
+        const p = Math.random() < 0.5 ? parents.father : parents.mother;
+        spawnParticles(
+          state,
+          {
+            x: p.pos.x,
+            y: p.pos.y - state.story.introParentLift,
+          },
+          2,
+          "#14101c",
+          { speed: 28, life: 0.9, size: 2.0, gravity: -8 },
+        );
+      }
+    } else {
+      state.story.introParentFade = 0;
+      state.story.introParentLift = 0;
+    }
+
+    const chase = clamp((t - 0.1) / 0.85, 0, 1);
+    const midX =
+      parents && !state.parentsReturned
+        ? (parents.father.pos.x + parents.mother.pos.x) / 2
+        : camp.x - 100;
+    const midY =
+      parents && !state.parentsReturned
+        ? (parents.father.pos.y + parents.mother.pos.y) / 2
+        : camp.y;
+    const lag = 70 + chase * 20;
+    const targetX = midX + lag * 0.75;
+    const targetY = midY + 36;
+    player.pos.x += (targetX - player.pos.x) * Math.min(1, dt * 2.6);
+    player.pos.y += (targetY - player.pos.y) * Math.min(1, dt * 2.6);
+    player.facing.x = midX < player.pos.x ? -1 : 1;
+    player.facing.y = 0;
+    player.moving = chase > 0.08 && state.story.introParentFade > 0.12;
+
+    if (player.moving && Math.random() < dt * 6) {
+      spawnParticles(
+        state,
+        { x: player.pos.x, y: player.pos.y - 15 },
+        1,
+        "#a8c8dc",
+        { speed: 12, life: 0.5, size: 1.4, gravity: 70 },
+      );
+    }
+    return;
+  }
+
+  state.story.introParentFade = 0;
+  state.story.introParentLift = 0;
+  player.moving = false;
 }
 
 function startLivestockRecoveryQuest(state: GameState): void {
@@ -2240,6 +2689,8 @@ export function updateMilestone4(state: GameState, dt: number): void {
 
 const STORM_TRACE_INTERACT_DISTANCE = 54;
 const STORM_TRACE_EFFECT_DURATION = 2.8;
+/** Ойртоход шуламын инээд нэг удаа */
+let stormTraceApproachSfxPlayed = false;
 
 function ensureStormTracePosition(state: GameState): Vector2 {
   const existing = state.story.stormTracePos;
@@ -2292,12 +2743,158 @@ export function tryInspectStormTrace(state: GameState): boolean {
     size: 3.2,
     gravity: -10,
   });
-  sfx("howl");
+  if (!stormTraceApproachSfxPlayed) sfx("witchLaugh");
+  stormTraceApproachSfxPlayed = true;
   setMessage(
     state,
     "Хар үнс салхины өөдөөс мөлхөх мэт хөдөлж, чулуун завсраас хахир инээд цуурайтав.",
     5,
   );
+  return true;
+}
+
+const SPIRIT_OVOO_INTERACT_DISTANCE = 62;
+
+export function nearSpiritOvooSite(state: GameState): boolean {
+  if (state.phase !== "playing") return false;
+  if (!state.story.postSpiritScoutDialogueCompleted) return false;
+  const pos = state.story.stormTracePos ?? ensureStormTracePosition(state);
+  return (
+    dist(state.player.pos, pos) <=
+    state.player.radius + SPIRIT_OVOO_INTERACT_DISTANCE
+  );
+}
+
+/** Хоёр дахь зорчилт — овооны шилэн ус авах (3 балга = 3 амь) */
+export function tryCollectSpiritOvooSoul(state: GameState): boolean {
+  if (!state.input.interact || state.phase !== "spirit") return false;
+  if (state.story.spiritOvooSoulCollected) return false;
+  if (!state.story.spiritOvooSoulActive) return false;
+
+  const pos = state.story.stormTracePos;
+  if (!pos) return false;
+  if (dist(state.player.pos, pos) > state.player.radius + 58) return false;
+
+  state.input.interact = false;
+  state.story.spiritOvooSoulCollected = true;
+  state.story.spiritOvooSoulActive = false;
+  state.spiritPoints += SPIRIT_WATER_SIPS;
+  spawnText(
+    state,
+    { x: pos.x, y: pos.y - 40 },
+    `+${SPIRIT_WATER_SIPS} амь`,
+    "#a8d4ff",
+  );
+  const canReturn = state.story.spiritAllowReturn;
+  setMessage(
+    state,
+    canReturn
+      ? `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} амь. (Cheat: дараа E — буцах)`
+      : `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} амь. Овоо сүүдэрлэг болов — дахин ашиглах боломжгүй.`,
+    5,
+  );
+  sfx("buy");
+  return true;
+}
+
+/** Сүнсний орноос буцах чулуун овоо (тагнах зорчилт) */
+export function nearSpiritExitOvoo(state: GameState): boolean {
+  if (state.phase !== "spirit") return false;
+  if (!state.story.spiritAllowReturn) return false;
+  const pos = state.story.stormTracePos ?? ensureStormTracePosition(state);
+  return (
+    dist(state.player.pos, pos) <=
+    state.player.radius + SPIRIT_OVOO_INTERACT_DISTANCE
+  );
+}
+
+/** Тагнах зорчилтоос чулуун овоогоор буцах */
+export function tryExitSpiritViaOvoo(state: GameState): boolean {
+  if (!state.input.interact) return false;
+  if (!state.story.spiritAllowReturn) return false;
+  if (state.phase !== "spirit") return false;
+
+  if (!nearSpiritExitOvoo(state)) {
+    state.input.interact = false;
+    setMessage(
+      state,
+      "Буцахын тулд хар мөрийн чулуун овоо руу оч.",
+      2.6,
+    );
+    sfx("move");
+    return true;
+  }
+
+  state.input.interact = false;
+  exitSpiritWorld(state, "Чулуун овоогоор хүний ертөнц рүү буцлаа.");
+  return true;
+}
+
+/** Хар мөрийн газарт овоо босгох эсвэл овоогоор сүнсний орон руу орох (заавал биш) */
+export function tryBuildOrEnterSpiritOvoo(state: GameState): boolean {
+  if (!state.input.interact || !nearSpiritOvooSite(state)) return false;
+
+  const story = state.story;
+  const pos = ensureStormTracePosition(state);
+  state.input.interact = false;
+
+  if (!story.spiritOvooBuilt) {
+    if (state.player.inventory.stone < SPIRIT_OVOO_STONE_COST) {
+      setMessage(
+        state,
+        `Овоо босгоход ${SPIRIT_OVOO_STONE_COST} чулуу хэрэгтэй.`,
+        2.6,
+      );
+      sfx("move");
+      return true;
+    }
+    state.player.inventory.stone -= SPIRIT_OVOO_STONE_COST;
+    story.spiritOvooBuilt = true;
+    // Зорилго болгохгүй — тоглогч бэлэн үедээ орно
+    if (
+      story.activeMainObjective === "buildSpiritOvoo" ||
+      story.activeMainObjective === "enterSpiritViaOvoo"
+    ) {
+      story.activeMainObjective = null;
+    }
+    state.fx.shake = Math.max(state.fx.shake, 2.8);
+    spawnParticles(state, pos, 18, "#8a8070", {
+      speed: 70,
+      life: 1.2,
+      size: 2.6,
+      gravity: 18,
+    });
+    spawnParticles(state, { x: pos.x, y: pos.y - 18 }, 10, "#c9b896", {
+      speed: 48,
+      life: 1.4,
+      size: 2.2,
+      gravity: -8,
+    });
+    spawnText(state, pos, `−${SPIRIT_OVOO_STONE_COST} чулуу`, "#c8c0b0");
+    sfx("stone");
+    setMessage(
+      state,
+      "Чулуун овоо бослоо. Бэлэн бол E дарж ор — орвол буцах хаалга байхгүй.",
+      5,
+    );
+    return true;
+  }
+
+  // Хоёр дахь зорчилтод лонх авсны дараа — овоо лацлагдсан
+  if (story.spiritOvooSoulCollected) {
+    setMessage(
+      state,
+      "Овоо сүүдэрлэг болов. Дахин орох, буцах боломжгүй.",
+      3.2,
+    );
+    sfx("move");
+    return true;
+  }
+
+  ensureShulmasHelpers(state);
+  placePlayerNearHelpers(state);
+  story.activeMainObjective = "defeatSpiritGuards";
+  enterSpiritWorld(state, { scout: false });
   return true;
 }
 
@@ -2311,6 +2908,17 @@ export function updateMilestone7(state: GameState, dt: number): void {
 
   story.milestone7Started = true;
   ensureStormTracePosition(state);
+
+  // Ойртоход шуламын инээд (чонын улих биш)
+  if (
+    !stormTraceApproachSfxPlayed &&
+    !story.stormTraceInspected &&
+    nearStormTrace(state)
+  ) {
+    stormTraceApproachSfxPlayed = true;
+    sfx("witchLaugh");
+  }
+
   if (story.stormTraceEffectRemaining > 0 && state.phase === "playing") {
     story.stormTraceEffectRemaining = Math.max(
       0,
@@ -2415,10 +3023,24 @@ export function drawStormTrace(
   camera: Camera,
 ): void {
   const story = state.story;
+  const time = state.world.elapsed;
+
+  const spiritExitOvoo =
+    state.phase === "spirit" && story.spiritAllowReturn === true;
+  const spiritSealedOvoo =
+    state.phase === "spirit" &&
+    state.spiritMode === "shulmas" &&
+    !story.spiritAllowReturn &&
+    story.spiritOvooBuilt === true;
+  const ovooPhase =
+    story.postSpiritScoutDialogueCompleted || story.spiritOvooBuilt;
   const visible =
-    state.phase === "playing" &&
-    story.milestone6DialogueCompleted &&
-    (!story.stormTraceInspected || story.stormTraceEffectRemaining > 0);
+    (state.phase === "playing" &&
+      story.milestone6DialogueCompleted &&
+      ((!story.stormTraceInspected || story.stormTraceEffectRemaining > 0) ||
+        ovooPhase)) ||
+    spiritExitOvoo ||
+    spiritSealedOvoo;
   if (!visible) return;
 
   const pos = ensureStormTracePosition(state);
@@ -2426,7 +3048,64 @@ export function drawStormTrace(
   const y = pos.y - camera.y;
   if (x < -90 || x > VIEW_W + 90 || y < -90 || y > VIEW_H + 90) return;
 
-  const time = state.world.elapsed;
+  if (spiritExitOvoo) {
+    ctx.save();
+    // Анхны зорчилт / cheat — овоо нээлттэй, гэрлээр хүрээлэгдсэн
+    const glow = ctx.createRadialGradient(x, y - 12, 4, x, y - 12, 56);
+    glow.addColorStop(0, "rgba(180,210,255,0.45)");
+    glow.addColorStop(0.45, "rgba(140,180,240,0.18)");
+    glow.addColorStop(1, "rgba(160,190,255,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y - 12, 56, 0, Math.PI * 2);
+    ctx.fill();
+    drawSpiritOvooAt(ctx, x, y, time, true);
+    // Cheat: буцах + ус — лонх үүдэнд
+    if (!story.spiritOvooSoulCollected && story.spiritOvooSoulActive) {
+      const bob = Math.sin(time * 2.2) * 1.2;
+      drawSpiritWaterBottle(ctx, x + 2, y - 6 + bob, time, 0.48);
+      ctx.textAlign = "center";
+      ctx.font = "600 10px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 2.5;
+      ctx.strokeText("E — Ус авах", x, y - 28);
+      ctx.fillStyle = "#c8e4ff";
+      ctx.fillText("E — Ус авах", x, y - 28);
+      ctx.textAlign = "left";
+    }
+    ctx.restore();
+    return;
+  }
+
+  // Хоёр дахь зорчилт — овоо + шилэн ус (эсвэл авсны дараа сүүдэр)
+  const secondVisitOvoo =
+    state.phase === "spirit" &&
+    state.spiritMode === "shulmas" &&
+    !story.spiritAllowReturn &&
+    story.spiritOvooBuilt;
+  if (secondVisitOvoo) {
+    ctx.save();
+    const sealed = story.spiritOvooSoulCollected === true;
+    drawSpiritOvooAt(ctx, x, y, time, !sealed);
+    // Жижиг лонх — овооны үүд (урд суурь)
+    if (!sealed && story.spiritOvooSoulActive) {
+      const bob = Math.sin(time * 2.2) * 1.2;
+      const sx = x + 2;
+      const sy = y - 6 + bob;
+      drawSpiritWaterBottle(ctx, sx, sy, time, 0.48);
+      ctx.textAlign = "center";
+      ctx.font = "600 10px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 2.5;
+      ctx.strokeText("E — Ус авах", x, y - 28);
+      ctx.fillStyle = "#c8e4ff";
+      ctx.fillText("E — Ус авах", x, y - 28);
+      ctx.textAlign = "left";
+    }
+    ctx.restore();
+    return;
+  }
+
   const effectRatio = clamp(
     story.stormTraceEffectRemaining / STORM_TRACE_EFFECT_DURATION,
     0,
@@ -2435,35 +3114,262 @@ export function drawStormTrace(
   const pulse = 0.72 + Math.sin(time * 3.7) * 0.12 + effectRatio * 0.25;
 
   ctx.save();
-  ctx.globalAlpha = pulse;
-  const stain = ctx.createRadialGradient(x, y, 3, x, y, 42);
-  stain.addColorStop(0, "rgba(16,12,17,0.82)");
-  stain.addColorStop(0.48, "rgba(38,30,42,0.55)");
-  stain.addColorStop(1, "rgba(40,35,46,0)");
-  ctx.fillStyle = stain;
+  if (!story.spiritOvooBuilt || effectRatio > 0) {
+    ctx.globalAlpha = story.spiritOvooBuilt ? 0.35 + effectRatio * 0.4 : pulse;
+    const stain = ctx.createRadialGradient(x, y, 3, x, y, 42);
+    stain.addColorStop(0, "rgba(16,12,17,0.82)");
+    stain.addColorStop(0.48, "rgba(38,30,42,0.55)");
+    stain.addColorStop(1, "rgba(40,35,46,0)");
+    ctx.fillStyle = stain;
+    ctx.beginPath();
+    ctx.ellipse(x, y + 5, 48, 24, -0.18, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (!story.spiritOvooBuilt) {
+      for (let i = 0; i < 5; i++) {
+        const phase = time * (0.75 + i * 0.08) + i * 1.4;
+        const drift = 12 + i * 5;
+        const wx = x + Math.sin(phase) * drift;
+        const wy = y - 8 - ((phase * 15) % 54);
+        ctx.strokeStyle = `rgba(135,151,180,${0.24 + effectRatio * 0.2})`;
+        ctx.lineWidth = 1.3 + (i % 2) * 0.7;
+        ctx.beginPath();
+        ctx.moveTo(wx - 8, wy + 12);
+        ctx.bezierCurveTo(wx + 12, wy + 4, wx - 12, wy - 7, wx + 5, wy - 18);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = `rgba(180,196,220,${0.42 + effectRatio * 0.28})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(x, y - 2, 31 + Math.sin(time * 2.5) * 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  if (story.spiritOvooBuilt) {
+    drawSpiritOvooAt(
+      ctx,
+      x,
+      y,
+      time,
+      story.spiritOvooSoulCollected !== true,
+    );
+  } else if (story.postSpiritScoutDialogueCompleted) {
+    // Босгох газрын тэмдэг — чулуун суурь
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#5a5348";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 6, 22, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#7a7164";
+    for (const [ox, oy, r] of [
+      [-10, 2, 5],
+      [8, 3, 4.5],
+      [-2, -1, 5.5],
+    ] as const) {
+      ctx.beginPath();
+      ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+
+/** Овоон дээрх шилэн лонхтой ус */
+function drawSpiritWaterBottle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+  scale = 1,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 28);
+  glow.addColorStop(0, "rgba(160,210,255,0.7)");
+  glow.addColorStop(0.55, "rgba(100,170,240,0.28)");
+  glow.addColorStop(1, "rgba(80,140,220,0)");
+  ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.ellipse(x, y + 5, 48, 24, -0.18, 0, Math.PI * 2);
+  ctx.arc(0, 0, 28, 0, Math.PI * 2);
   ctx.fill();
 
-  for (let i = 0; i < 5; i++) {
-    const phase = time * (0.75 + i * 0.08) + i * 1.4;
-    const drift = 12 + i * 5;
-    const wx = x + Math.sin(phase) * drift;
-    const wy = y - 8 - ((phase * 15) % 54);
-    ctx.strokeStyle = `rgba(135,151,180,${0.24 + effectRatio * 0.2})`;
-    ctx.lineWidth = 1.3 + (i % 2) * 0.7;
+  // Бие — шил
+  const body = ctx.createLinearGradient(-10, -8, 12, 18);
+  body.addColorStop(0, "rgba(230,245,255,0.85)");
+  body.addColorStop(0.45, "rgba(160,205,240,0.55)");
+  body.addColorStop(1, "rgba(90,150,200,0.65)");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.moveTo(-9, -6);
+  ctx.quadraticCurveTo(-11, 6, -8, 16);
+  ctx.lineTo(8, 16);
+  ctx.quadraticCurveTo(11, 6, 9, -6);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.95)";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  // Ус
+  const waterTop = 2 + Math.sin(time * 3.1) * 0.6;
+  ctx.fillStyle = "rgba(50,140,230,0.85)";
+  ctx.beginPath();
+  ctx.moveTo(-7.5, waterTop);
+  ctx.quadraticCurveTo(0, waterTop - 2, 7.5, waterTop);
+  ctx.lineTo(7, 15);
+  ctx.lineTo(-7, 15);
+  ctx.closePath();
+  ctx.fill();
+
+  // Хүзүү + таг
+  ctx.fillStyle = "rgba(210,235,255,0.8)";
+  ctx.fillRect(-3.5, -16, 7, 11);
+  ctx.fillStyle = "#c4a574";
+  ctx.fillRect(-4.5, -20, 9, 5);
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(-6, -2);
+  ctx.lineTo(-4, 10);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawSpiritOvooAt(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+  lit = true,
+): void {
+  ctx.globalAlpha = 1;
+
+  // Сүүдэр
+  ctx.fillStyle = lit ? "rgba(18, 14, 10, 0.38)" : "rgba(8, 6, 10, 0.55)";
+  ctx.beginPath();
+  ctx.ellipse(x, y + 12, 34, 11, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Чулуун суурь — тойрог
+  const baseStones: Array<[number, number, number, number, string]> = [
+    [-22, 8, 7, 5.2, lit ? "#6e6860" : "#3a3630"],
+    [-14, 10, 6.5, 4.8, lit ? "#5c564e" : "#2e2a26"],
+    [-4, 11, 7.2, 5, lit ? "#787168" : "#403c36"],
+    [6, 10, 6.8, 4.9, lit ? "#686258" : "#38342e"],
+    [16, 9, 7, 5.1, lit ? "#736c62" : "#3c3832"],
+    [24, 7, 5.8, 4.4, lit ? "#5a544c" : "#2c2824"],
+    [-20, 4, 5.5, 4.2, lit ? "#827a70" : "#444038"],
+    [18, 3, 5.2, 4, lit ? "#6a6359" : "#36322c"],
+    [-8, 5, 5, 3.8, lit ? "#4f4a44" : "#282420"],
+    [10, 5, 5.4, 4, lit ? "#8a8278" : "#4a443c"],
+  ];
+  for (const [ox, oy, rx, ry, color] of baseStones) {
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.moveTo(wx - 8, wy + 12);
-    ctx.bezierCurveTo(wx + 12, wy + 4, wx - 12, wy - 7, wx + 5, wy - 18);
+    ctx.ellipse(x + ox, y + oy, rx, ry, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    if (lit) {
+      ctx.fillStyle = "rgba(255,255,255,0.1)";
+      ctx.beginPath();
+      ctx.ellipse(
+        x + ox - rx * 0.22,
+        y + oy - ry * 0.25,
+        rx * 0.3,
+        ry * 0.22,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  }
+
+  const apexY = y - 58;
+  const baseHalfW = 20;
+  const poleCount = 14;
+  const poleColors = lit
+    ? ["#5a4e42", "#6b5c4c", "#4a4036", "#7a6a58", "#52463c"]
+    : ["#2a2420", "#322c28", "#1e1a16", "#3a342e", "#282420"];
+
+  for (let i = 0; i < poleCount; i++) {
+    const t = i / (poleCount - 1);
+    const angle = -0.95 + t * 1.9;
+    const behind = Math.cos(angle) < 0.15;
+    if (!behind) continue;
+    const bx = x + Math.sin(angle) * baseHalfW;
+    const by = y + 2 + Math.abs(Math.sin(angle)) * 3;
+    ctx.strokeStyle = poleColors[i % poleColors.length]!;
+    ctx.lineWidth = 1.35 + (i % 3) * 0.25;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(x + Math.sin(angle) * 1.5, apexY + ((i % 3) - 1) * 0.8);
     ctx.stroke();
   }
 
-  ctx.strokeStyle = `rgba(180,196,220,${0.42 + effectRatio * 0.28})`;
-  ctx.lineWidth = 1.2;
+  ctx.fillStyle = lit ? "rgba(22, 18, 14, 0.72)" : "rgba(8, 6, 8, 0.88)";
   ctx.beginPath();
-  ctx.arc(x, y - 2, 31 + Math.sin(time * 2.5) * 2, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.restore();
+  ctx.moveTo(x - 9, y + 2);
+  ctx.lineTo(x - 3, apexY + 14);
+  ctx.lineTo(x + 3, apexY + 14);
+  ctx.lineTo(x + 9, y + 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = lit ? "#6a5644" : "#2a221c";
+  ctx.fillRect(x - 7, y - 1, 14, 3.5);
+  ctx.fillStyle = lit ? "#8a7460" : "#3a3228";
+  ctx.fillRect(x - 6, y - 3.5, 12, 2.5);
+
+  for (let i = 0; i < poleCount; i++) {
+    const t = i / (poleCount - 1);
+    const angle = -0.95 + t * 1.9;
+    const front = Math.cos(angle) >= 0.15;
+    if (!front) continue;
+    if (Math.abs(angle) < 0.22) continue;
+    const bx = x + Math.sin(angle) * baseHalfW;
+    const by = y + 2 + Math.abs(Math.sin(angle)) * 3;
+    const tipJitter = ((i * 17) % 5) - 2;
+    ctx.strokeStyle = poleColors[(i + 2) % poleColors.length]!;
+    ctx.lineWidth = 1.5 + (i % 3) * 0.3;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(bx, by);
+    ctx.lineTo(x + Math.sin(angle) * 2 + tipJitter * 0.35, apexY + tipJitter * 0.4);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = lit ? "#5a4e42" : "#2a2420";
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 5; i++) {
+    const ox = (i - 2) * 2.2;
+    ctx.beginPath();
+    ctx.moveTo(x + ox * 0.3, apexY + 4);
+    ctx.lineTo(x + ox, apexY - 6 - (i % 2));
+    ctx.stroke();
+  }
+
+  if (lit) {
+    const glow = 0.16 + Math.sin(time * 2.2) * 0.06;
+    const aura = ctx.createRadialGradient(x, y - 24, 4, x, y - 24, 36);
+    aura.addColorStop(0, `rgba(150,175,210,${glow})`);
+    aura.addColorStop(1, "rgba(150,175,210,0)");
+    ctx.fillStyle = aura;
+    ctx.beginPath();
+    ctx.arc(x, y - 24, 36, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Сүүдэрлэг — гэрэлгүй
+    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.beginPath();
+    ctx.ellipse(x, y - 20, 28, 36, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 
@@ -2648,9 +3554,42 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     story.stormTraceDialogueCompleted = true;
     story.spiritPathOpened = true;
     ensureShulmasHelpers(state);
-    enterSpiritWorld(state);
+    enterSpiritWorld(state, { scout: true });
     story.activeMainObjective = "defeatSpiritGuards";
-    setMessage(state, "CHEAT: Сүнсний замыг нээлээ.", 2.5);
+    setMessage(state, "CHEAT: Сүнсний замыг нээлээ (тагнах).", 2.5);
+    return;
+  }
+
+  if (story.activeMainObjective === "talkAfterSpiritScout") {
+    story.postSpiritScoutDialogueCompleted = true;
+    story.activeMainObjective = null;
+    ensureStormTracePosition(state);
+    setMessage(
+      state,
+      "CHEAT: Өвгөний бэлтгэлийн яриаг алгаслаа. Овоо заавал биш.",
+      2.5,
+    );
+    return;
+  }
+
+  if (story.activeMainObjective === "buildSpiritOvoo") {
+    story.spiritOvooBuilt = true;
+    story.postSpiritScoutDialogueCompleted = true;
+    story.activeMainObjective = null;
+    ensureStormTracePosition(state);
+    state.player.pos = { ...ensureStormTracePosition(state) };
+    setMessage(state, "CHEAT: Сүнсний овоо бослоо.", 2.5);
+    return;
+  }
+
+  if (story.activeMainObjective === "enterSpiritViaOvoo") {
+    story.spiritOvooBuilt = true;
+    story.postSpiritScoutDialogueCompleted = true;
+    ensureShulmasHelpers(state);
+    placePlayerNearHelpers(state);
+    enterSpiritWorld(state, { scout: false });
+    story.activeMainObjective = "defeatSpiritGuards";
+    setMessage(state, "CHEAT: Овоогоор сүнсний орон руу орлоо.", 2.5);
     return;
   }
 
@@ -2771,9 +3710,37 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
 }
 
 /**
- * Cheat (`;`): Сүнсний ертөнцөд дөнгөж орсон үе рүү шилжинэ —
- * туслахууд босоод, замын эхэнд зогсоно.
+ * Cheat (`,`): Мангасын зэвсэг (+сонголтоор ус).
+ * `;` jump-аас дуудахад snapshot-ийн дараа дуудна — буцахад хураагдана.
  */
+export function debugGrantSpiritCombatGear(
+  state: GameState,
+  opts: { withWater?: boolean } = {},
+): void {
+  state.player.gear.bow = true;
+  state.player.inventory.arrows = Math.max(state.player.inventory.arrows, 80);
+  state.player.inventory.stone = Math.max(
+    state.player.inventory.stone,
+    SNAKE_CRUSH_STONE_COST,
+  );
+  state.player.inventory.wood = Math.max(state.player.inventory.wood, 40);
+  state.player.vitals.health = state.player.vitals.maxHealth;
+  state.player.vitals.hunger = Math.max(state.player.vitals.hunger, 70);
+  state.player.vitals.warmth = Math.max(state.player.vitals.warmth, 70);
+  if (opts.withWater) {
+    state.spiritPoints = Math.max(state.spiritPoints, SPIRIT_WATER_SIPS);
+    state.story.spiritOvooSoulCollected = true;
+  }
+  sfx("buy");
+  setMessage(
+    state,
+    opts.withWater
+      ? `CHEAT: Нум · сум 80 · чулуу ${SNAKE_CRUSH_STONE_COST} · ус ${SPIRIT_WATER_SIPS}.`
+      : `CHEAT: Нум · сум 80 · чулуу ${SNAKE_CRUSH_STONE_COST}.`,
+    3,
+  );
+}
+
 export function debugJumpToSpiritWorld(state: GameState): void {
   ensureStoryState(state);
   const story = state.story;
@@ -2872,6 +3839,17 @@ export function debugJumpToSpiritWorld(state: GameState): void {
   state.player.vitals.hunger = Math.max(state.player.vitals.hunger, 70);
   state.player.vitals.warmth = Math.max(state.player.vitals.warmth, 70);
 
+  // Түр cheat — нөөцийг хадгалаад зэвсэг өгнө (буцахад хураана)
+  state.spiritVisitSnapshot = null;
+  stashSpiritVisitSnapshot(state);
+  debugGrantSpiritCombatGear(state);
+  state.spiritPoints = 0;
+  story.spiritScoutDone = true;
+  story.spiritOvooBuilt = true;
+  story.postSpiritScoutDialogueCompleted = true;
+  story.spiritOvooSoulCollected = false;
+  story.spiritOvooSoulActive = true;
+
   state.shopOpen = false;
   state.craftOpen = false;
   state.gerArtZoom = null;
@@ -2881,19 +3859,22 @@ export function debugJumpToSpiritWorld(state: GameState): void {
   state.parents = null;
   state.parentsReturned = false;
 
-  // Сүнс рүү — туслахуудыг шинээр босгоод ойрлуулна
+  // Сүнс рүү — cheat: ус авч болох + буцах хаалга үлдэнэ
+  const ovooPos = ensureStormTracePosition(state);
   if (state.phase === "spirit") {
-    // Дахин орох: буцааж stash хийхгүйгээр туслахуудыг сэргээнэ
     ensureShulmasHelpers(state);
     state.spiritCleared = false;
     state.spiritTransition = 0.6;
-    placePlayerNearHelpers(state);
   } else {
     state.phase = "playing";
     ensureShulmasHelpers(state);
-    enterSpiritWorld(state);
-    placePlayerNearHelpers(state);
+    enterSpiritWorld(state, { scout: false });
   }
+  story.spiritAllowReturn = true;
+  story.spiritOvooSoulCollected = false;
+  story.spiritOvooSoulActive = true;
+  state.spiritPoints = 0;
+  state.player.pos = { x: ovooPos.x, y: ovooPos.y + 36 };
 
   state.fx.shake = Math.max(state.fx.shake, 2);
   spawnParticles(state, state.player.pos, 22, "#7ec8ff", {
@@ -2905,8 +3886,8 @@ export function debugJumpToSpiritWorld(state: GameState): void {
   sfx("howl");
   setMessage(
     state,
-    "CHEAT: Сүнсний ертөнц — дөнгөж орсон. Туслахуудыг дар.",
-    3.5,
+    `CHEAT: Ус ав (${SPIRIT_WATER_SIPS} амь) · E буцах үед зэвсэг/материал хураагдана.`,
+    4.5,
   );
 }
 
@@ -3375,50 +4356,51 @@ export function drawOpeningSequence(
 ): void {
   if (state.phase !== "intro") return;
 
-  const section = Math.min(
+  const sectionIndex = Math.min(
     state.story.introSection,
     OPENING_STORY_SECTIONS.length - 1,
   );
+  const section = OPENING_STORY_SECTIONS[sectionIndex]!;
   const elapsed = state.story.introSectionElapsed;
+  const hold = Math.max(state.story.introSectionHold, INTRO_SECTION_DURATION);
   const sectionAlpha = clamp(
-    Math.min(
-      elapsed / INTRO_FADE_DURATION,
-      (INTRO_SECTION_DURATION - elapsed) / INTRO_FADE_DURATION,
-    ),
+    Math.min(elapsed / INTRO_FADE_DURATION, (hold - elapsed) / INTRO_FADE_DURATION),
     0,
     1,
   );
 
   ctx.save();
+  // Нимгэн бүрхүүл — ард vignette тод харагдана
   const shade = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-  shade.addColorStop(0, "rgba(3,5,8,0.76)");
-  shade.addColorStop(0.52, "rgba(5,6,8,0.66)");
-  shade.addColorStop(1, "rgba(3,2,3,0.8)");
+  if (section.vignette === "coldDawn") {
+    shade.addColorStop(0, "rgba(18,22,36,0.28)");
+    shade.addColorStop(0.55, "rgba(8,10,14,0.18)");
+    shade.addColorStop(1, "rgba(4,6,10,0.62)");
+  } else {
+    shade.addColorStop(0, "rgba(4,6,12,0.42)");
+    shade.addColorStop(0.45, "rgba(6,8,12,0.22)");
+    shade.addColorStop(1, "rgba(2,3,6,0.68)");
+  }
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
+  // Letterbox
+  ctx.fillStyle = "rgba(0,0,0,0.55)";
+  ctx.fillRect(0, 0, VIEW_W, 56);
+  ctx.fillRect(0, VIEW_H - 118, VIEW_W, 118);
+
   ctx.globalAlpha = sectionAlpha;
-  ctx.strokeStyle = "rgba(216,183,105,0.65)";
-  ctx.lineWidth = 1.2;
-  drawOrnamentalLine(ctx, VIEW_W / 2, 184, 370);
+  ctx.strokeStyle = "rgba(216,183,105,0.5)";
+  ctx.lineWidth = 1;
+  drawOrnamentalLine(ctx, VIEW_W / 2, VIEW_H - 108, 420);
 
   ctx.textAlign = "center";
   ctx.fillStyle = "#f2e8d5";
-  ctx.font = "600 22px system-ui, sans-serif";
-  drawWrappedText(
-    ctx,
-    OPENING_STORY_SECTIONS[section],
-    VIEW_W / 2,
-    238,
-    680,
-    34,
-  );
+  ctx.font = "600 17px system-ui, sans-serif";
+  drawWrappedText(ctx, section.text, VIEW_W / 2, VIEW_H - 88, 720, 24);
 
-  ctx.strokeStyle = "rgba(216,183,105,0.45)";
-  drawOrnamentalLine(ctx, VIEW_W / 2, 350, 370);
   ctx.globalAlpha = 1;
-
-  ctx.fillStyle = "rgba(216,200,160,0.72)";
+  ctx.fillStyle = "rgba(216,200,160,0.7)";
   ctx.font = "12px 'Courier New', monospace";
   ctx.fillText(
     "E / Enter / Space — оршилыг бүтнээр алгасах",
@@ -3435,14 +4417,14 @@ export function drawOpeningSequence(
       2;
   OPENING_STORY_SECTIONS.forEach((_, index) => {
     ctx.fillStyle =
-      index === section
+      index === sectionIndex
         ? "rgba(232,197,106,0.85)"
         : "rgba(232,197,106,0.22)";
     ctx.fillRect(
       markerStart + index * (markerWidth + markerGap),
-      VIEW_H - 25,
+      VIEW_H - 14,
       markerWidth,
-      1,
+      2,
     );
   });
   ctx.restore();
@@ -3516,6 +4498,12 @@ export function drawMainObjectivePanel(
                     ? INSPECT_STORM_TRACE_QUEST
                     : objective === "returnToOldManWithTrace"
                       ? RETURN_TRACE_TO_OLD_MAN_QUEST
+                      : objective === "talkAfterSpiritScout"
+                        ? TALK_AFTER_SPIRIT_SCOUT_QUEST
+                        : objective === "buildSpiritOvoo"
+                          ? BUILD_SPIRIT_OVOO_QUEST
+                          : objective === "enterSpiritViaOvoo"
+                            ? ENTER_SPIRIT_VIA_OVOO_QUEST
                       : objective === "defeatSpiritGuards"
                         ? DEFEAT_SPIRIT_GUARDS_QUEST
                         : objective === "reachCursedGate"
@@ -3619,6 +4607,12 @@ export function drawMainObjectivePanel(
                     ? INSPECT_STORM_TRACE_QUEST.panelLines
                     : objective === "returnToOldManWithTrace"
                       ? RETURN_TRACE_TO_OLD_MAN_QUEST.panelLines
+                      : objective === "talkAfterSpiritScout"
+                        ? TALK_AFTER_SPIRIT_SCOUT_QUEST.panelLines
+                        : objective === "buildSpiritOvoo"
+                          ? BUILD_SPIRIT_OVOO_QUEST.panelLines
+                          : objective === "enterSpiritViaOvoo"
+                            ? ENTER_SPIRIT_VIA_OVOO_QUEST.panelLines
                       : objective === "defeatSpiritGuards"
                         ? DEFEAT_SPIRIT_GUARDS_QUEST.panelLines
                         : objective === "reachCursedGate"

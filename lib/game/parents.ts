@@ -86,6 +86,24 @@ export function ensureParents(state: GameState): void {
   state.parentsReturned = true;
 }
 
+/** Нээлтийн cinematic — аав ээж (parentsReturned биш, тоглоомын явцад нөлөөлөхгүй) */
+export function spawnIntroCinematicParents(state: GameState): void {
+  const c = state.world.campPos;
+  state.parents = {
+    father: makeParent("father", { x: c.x - 36, y: c.y + 48 }),
+    mother: makeParent("mother", { x: c.x + 40, y: c.y + 52 }),
+  };
+  state.parentsReturned = false;
+  state.story.introParentFade = 1;
+}
+
+export function clearIntroCinematicParents(state: GameState): void {
+  if (!state.parentsReturned) {
+    state.parents = null;
+  }
+  state.story.introParentFade = 0;
+}
+
 function setWalkTarget(p: ParentNpc, target: Vector2): void {
   p.walkTarget = { x: target.x, y: target.y };
 }
@@ -502,7 +520,7 @@ function updateFather(state: GameState, dt: number): void {
       stone.amount -= 1;
       inv.stone += 1;
       father.workPulse = 0.45;
-      sfx("chop");
+      sfx("stone");
       spawnParticles(state, stone.pos, 6, "#9a9488", { speed: 70, size: 2.8 });
       spawnText(state, stone.pos, "Аав +1 чулуу", "#c8c0b0");
       if (stone.amount <= 0) stone.respawnIn = 22 + Math.random() * 16;

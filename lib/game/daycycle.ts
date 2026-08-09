@@ -217,7 +217,7 @@ export function tryToggleFlockPen(state: GameState): boolean {
   if (!currentlyOut) {
     if (isCattle) world.cattleOut = true;
     else world.flockOut = true;
-    sfx("select");
+    sfx("gate");
     const label = isCattle ? "Үхэр бэлчээрт!" : "Хонь/ямаа бэлчээрт!";
     spawnText(state, gate, label, "#b8e8a0");
     setMessage(
@@ -232,7 +232,7 @@ export function tryToggleFlockPen(state: GameState): boolean {
 
   if (isCattle) world.cattleOut = false;
   else world.flockOut = false;
-  sfx("select");
+  sfx("gate");
   spawnText(
     state,
     gate,

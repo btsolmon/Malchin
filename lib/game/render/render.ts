@@ -1,5 +1,5 @@
 import {
-  Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
+  Camera, FENCE_GRID, GameState, HAY_GRASS_COST, HAY_HARVEST_RADIUS, MAX_HAY, MAX_PASTURE_GRASS, PASTURE_RADIUS, SPIRIT_OVOO_STONE_COST, VIEW_H, VIEW_W, WORLD_H, WORLD_W } from "../types";
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { tr, trFormat } from "../i18n";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, nearestPenGate, pastureCenter, randRange } from "../utils";
@@ -12,16 +12,19 @@ import {
 } from "../fish";
 import { drawGerInterior } from "./ger";
 import {
+  drawCrushMonoliths,
   drawFirstRouteBolts,
   drawFirstRouteGate,
   drawFirstRouteHint,
   drawMiniBossArena,
   drawMiniBossHud,
   drawRouteEnemy,
+  drawSixSunsSky,
   drawSwordDrop,
 } from "../firstRoute";
 
-import { drawColdFrostFrame, drawLighting, drawWeatherFx } from "./lighting";
+import { drawColdFrostFrame, drawIntroAbductionFx, drawIntroCrows, drawLighting, drawWeatherFx } from "./lighting";
+import { syncIntroCrowCaws } from "../audio";
 import { drawRiverFlowOverlay } from "./terrain";
 import { getCameraShakeOffset } from "../effects";
 import {
@@ -46,6 +49,8 @@ import {
   drawLivestockTrail,
   drawOpeningSequence,
   drawStormTrace,
+  nearSpiritExitOvoo,
+  nearSpiritOvooSite,
   nearStormTrace,
   nearestMissingOpeningLivestock,
 } from "../story";
@@ -187,15 +192,21 @@ function drawHaystack(
 export function getCamera(state: GameState): Camera {
   const shake = state.fx.shake;
   const bossShake = getCameraShakeOffset(state.fx.cameraShake);
+  const shakeX = (shake > 0 ? randRange(-shake, shake) : 0) + bossShake.x;
+  const shakeY = (shake > 0 ? randRange(-shake, shake) : 0) + bossShake.y;
+
+  if (state.phase === "intro") {
+    return {
+      x: clamp(state.story.introCamX - VIEW_W / 2, 0, WORLD_W - VIEW_W) + shakeX,
+      y: clamp(state.story.introCamY - VIEW_H / 2, 0, WORLD_H - VIEW_H) + shakeY,
+    };
+  }
+
   return {
     x:
-      clamp(state.player.pos.x - VIEW_W / 2, 0, WORLD_W- VIEW_W) +
-      (shake > 0 ? randRange(-shake, shake) : 0) +
-      bossShake.x,
+      clamp(state.player.pos.x - VIEW_W / 2, 0, WORLD_W - VIEW_W) + shakeX,
     y:
-      clamp(state.player.pos.y - VIEW_H / 2, 0, WORLD_H - VIEW_H) +
-      (shake > 0 ? randRange(-shake, shake) : 0) +
-      bossShake.y,
+      clamp(state.player.pos.y - VIEW_H / 2, 0, WORLD_H - VIEW_H) + shakeY,
   };
 }
 
@@ -511,22 +522,57 @@ export function render(
       draw: () => drawElder(ctx, world.elder, cam, time),
     });
   }
-  if (state.parentsReturned && state.parents && !world.gerPacked) {
-    if (!state.parents.father.insideGer) {
-      addDrawable("parentNpc", {
-        y: state.parents.father.pos.y,
-        key: -4,
-        draw: () =>
-          drawParentNpc(ctx, state.parents!.father, cam, time),
-      });
-    }
-    if (!state.parents.mother.insideGer) {
-      addDrawable("parentNpc", {
-        y: state.parents.mother.pos.y,
-        key: -3,
-        draw: () =>
-          drawParentNpc(ctx, state.parents!.mother, cam, time),
-      });
+  if (state.parents && !world.gerPacked) {
+    const introParents =
+      state.phase === "intro" && state.story.introParentFade > 0.02;
+    if (state.parentsReturned || introParents) {
+      const fade = introParents ? state.story.introParentFade : 1;
+      const lift = introParents ? state.story.introParentLift : 0;
+      if (!state.parents.father.insideGer) {
+        addDrawable("parentNpc", {
+          y: state.parents.father.pos.y - lift,
+          key: -4,
+          draw: () => {
+            ctx.save();
+            ctx.globalAlpha = fade;
+            const savedY = state.parents!.father.pos.y;
+            state.parents!.father.pos.y = savedY - lift;
+            // Бага зэрэг л манан руу хазайна
+            if (introParents && lift > 0.5) {
+              const px = state.parents!.father.pos.x - cam.x;
+              const py = state.parents!.father.pos.y - cam.y;
+              ctx.translate(px, py);
+              ctx.rotate(-0.06 - lift * 0.004);
+              ctx.translate(-px, -py);
+            }
+            drawParentNpc(ctx, state.parents!.father, cam, time);
+            state.parents!.father.pos.y = savedY;
+            ctx.restore();
+          },
+        });
+      }
+      if (!state.parents.mother.insideGer) {
+        addDrawable("parentNpc", {
+          y: state.parents.mother.pos.y - lift,
+          key: -3,
+          draw: () => {
+            ctx.save();
+            ctx.globalAlpha = fade;
+            const savedY = state.parents!.mother.pos.y;
+            state.parents!.mother.pos.y = savedY - lift;
+            if (introParents && lift > 0.5) {
+              const px = state.parents!.mother.pos.x - cam.x;
+              const py = state.parents!.mother.pos.y - cam.y;
+              ctx.translate(px, py);
+              ctx.rotate(-0.05 - lift * 0.003);
+              ctx.translate(-px, -py);
+            }
+            drawParentNpc(ctx, state.parents!.mother, cam, time);
+            state.parents!.mother.pos.y = savedY;
+            ctx.restore();
+          },
+        });
+      }
     }
   }
   if (world.campfire.placed) {
@@ -633,11 +679,19 @@ export function render(
   for (const enemy of world.firstRoute.enemies) {
     // Мангасууд — сүнсний оронд орсон л бол харагдана
     if (state.phase !== "spirit") continue;
+    if (enemy.kind === "zurgaanNar") continue; // тэнгэрийн overlay
     if (!enemy.alive && enemy.deathTimer <= 0) continue;
     addDrawable("routeEnemy", {
       y: enemy.pos.y,
       key: 7000 + enemy.id,
-      draw: () => drawRouteEnemy(ctx, enemy, cam, time),
+      draw: () =>
+        drawRouteEnemy(
+          ctx,
+          enemy,
+          cam,
+          time,
+          state.player.inventory.stone,
+        ),
     });
   }
   if (
@@ -767,6 +821,11 @@ export function render(
   });
   for (const d of drawables) d.draw();
 
+  // Шулам аав ээжийг чирч буй эффект (нээлт)
+  if (state.phase === "intro") {
+    drawIntroAbductionFx(ctx, state, cam, time);
+  }
+
   if (RENDER_LAYER_DEBUG) {
     const debugColors: Record<
       "lowWorldObject" | "actor" | "ySortedStructure",
@@ -804,32 +863,55 @@ export function render(
   for (const p of world.projectiles) drawProjectile(ctx, p, cam);
   if (state.phase === "spirit" && state.spiritMode === "shulmas") {
     drawFirstRouteBolts(ctx, state, cam, time);
+    drawCrushMonoliths(ctx, state, cam);
     drawTumurShulmasNeedles(ctx, state, cam);
   }
 
   // Гэрт орох / өвс хадах / тэвш / нүүдэл заавар
   if (state.phase === "spirit") {
-    const tx = state.player.pos.x - cam.x;
-    const ty = state.player.pos.y - 42 - cam.y;
-    ctx.textAlign = "center";
-    ctx.font = "600 12px system-ui, sans-serif";
-    ctx.strokeStyle = "rgba(0,0,0,0.7)";
-    ctx.lineWidth = 3;
-    const tip =
-      state.spiritMode === "shulmas"
-        ? state.spiritCleared
-          ? "E — бодит ертөнц рүү буцах"
-          : world.tumurShulmas.active
-            ? "Төмөр шулмастай тулаан · дуустал гарахгүй"
-            : "Шулмасын туслахууд · E — буцах"
-        : state.spiritCleared
-          ? "E — бодит ертөнц рүү буцах"
-          : "Сүнсний дайснууд · E/P — гарах";
-    ctx.strokeText(tip, tx, ty);
-    ctx.fillStyle =
-      state.spiritMode === "shulmas" ? "#ffb0a8" : "#a8d4ff";
-    ctx.fillText(tip, tx, ty);
-    ctx.textAlign = "left";
+    const allowReturn = state.story.spiritAllowReturn;
+    const nearExit = allowReturn && nearSpiritExitOvoo(state);
+    // Зөвхөн овоо дэргэд / тусгай үед заавар — тоглогчийг дагасан «Буцах:…» бүү харуул
+    let tip: string | null = null;
+    let tipPos = state.player.pos;
+    if (state.spiritMode === "shulmas") {
+      if (allowReturn && nearExit) {
+        const wantWater =
+          !state.story.spiritOvooSoulCollected &&
+          state.story.spiritOvooSoulActive;
+        tip = wantWater
+          ? "E — Ус авах · дараа нь буцах"
+          : "E — Чулуун овоогоор хүний ертөнц рүү буц";
+        tipPos = state.story.stormTracePos ?? state.player.pos;
+      } else if (
+        !allowReturn &&
+        !state.story.spiritOvooSoulCollected &&
+        state.story.spiritOvooSoulActive &&
+        state.story.stormTracePos &&
+        dist(state.player.pos, state.story.stormTracePos) < 70
+      ) {
+        tip = "E — Шилэн ус авах (3 амь)";
+        tipPos = state.story.stormTracePos;
+      } else if (world.tumurShulmas.active) {
+        tip = "Төмөр шулмастай тулаан · дуустал гарахгүй";
+      }
+    } else if (state.spiritCleared) {
+      tip = "E — бодит ертөнц рүү буцах";
+    }
+    if (tip) {
+      const tx = tipPos.x - cam.x;
+      const ty =
+        tipPos.y - (nearExit ? 78 : 42) - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle =
+        state.spiritMode === "shulmas" ? "#ffb0a8" : "#a8d4ff";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    }
   } else if (state.phase === "playing") {
     const c = pastureCenter(world);
     const gp = gerDoorPos(world);
@@ -998,12 +1080,34 @@ export function render(
         ctx.fillText(tip, tx, ty);
         ctx.textAlign = "left";
       }
+    } else if (nearSpiritOvooSite(state)) {
+      const trace = state.story.stormTracePos;
+      if (trace) {
+        const tx = trace.x - cam.x;
+        const ty = trace.y - 78 - cam.y;
+        ctx.textAlign = "center";
+        ctx.font = "600 11px system-ui, sans-serif";
+        ctx.strokeStyle = "rgba(0,0,0,0.78)";
+        ctx.lineWidth = 3;
+        const tip = state.story.spiritOvooSoulCollected
+          ? "Овоо сүүдэрлэг — нэвтрэх боломжгүй"
+          : state.story.spiritOvooBuilt
+            ? "E — Сүнсний орон руу ор"
+            : `E — Чулуун овоо босго (${SPIRIT_OVOO_STONE_COST} чулуу)`;
+        ctx.strokeText(tip, tx, ty);
+        ctx.fillStyle = state.story.spiritOvooSoulCollected
+          ? "#8a8090"
+          : "#d4c08a";
+        ctx.fillText(tip, tx, ty);
+        ctx.textAlign = "left";
+      }
     } else if (
       nearElder(state) &&
       (!state.story.activeMainObjective ||
         state.story.activeMainObjective === "growFlock" ||
         state.story.milestone8Completed ||
         state.story.activeMainObjective === "talkToOldMan" ||
+        state.story.activeMainObjective === "talkAfterSpiritScout" ||
         state.story.activeMainObjective === "visitOldManAtDawn" ||
         state.story.activeMainObjective === "returnToOldManWithTrace")
     ) {
@@ -1016,6 +1120,8 @@ export function render(
       const tip =
         state.story.activeMainObjective === "talkToOldMan"
           ? "E — Өвгөнтэй ярилц"
+          : state.story.activeMainObjective === "talkAfterSpiritScout"
+            ? "E — Өвгөн дээр очиж ярилц"
           : state.story.activeMainObjective === "visitOldManAtDawn"
             ? state.world.dayPhase === "dawn" || state.world.dayPhase === "day"
               ? "E — Өвгөнтэй уулз"
@@ -1167,7 +1273,35 @@ export function render(
   // Гэрэлтүүлэг + цаг агаар (сүнсний орноос гадна)
   if (state.phase !== "spirit") {
     drawLighting(ctx, rc.lightCanvas, state, cam, time);
-    drawWeatherFx(ctx, world, time);
+    const introStorm =
+      state.phase === "intro" &&
+      (state.story.introSection === 0 || state.story.introSection === 1);
+    const dawnSoft =
+      state.phase === "intro" && state.story.introSection === 2;
+    drawWeatherFx(
+      ctx,
+      world,
+      time,
+      introStorm ? 2.1 : dawnSoft ? 0.55 : 1,
+    );
+    if (introStorm) {
+      const crowN = state.story.introSection === 0 ? 3 : 4;
+      syncIntroCrowCaws(time, crowN);
+      drawIntroCrows(ctx, time, crowN);
+      const flash =
+        Math.sin(time * 1.7) > 0.97 || Math.sin(time * 3.1 + 1) > 0.985;
+      if (flash) {
+        ctx.fillStyle = "rgba(220,230,255,0.22)";
+        ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      }
+    }
+    if (dawnSoft) {
+      // Үүрийн зөөлөн улбар шар манан
+      const hold = Math.max(0.01, state.story.introSectionHold);
+      const dawnT = Math.min(1, state.story.introSectionElapsed / hold);
+      ctx.fillStyle = `rgba(255,150,70,${0.04 + dawnT * 0.1})`;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    }
   }
 
   // Vignette
@@ -1200,6 +1334,7 @@ export function render(
   }
 
   drawSpiritOverlay(ctx, state, VIEW_W, VIEW_H);
+  drawSixSunsSky(ctx, state, VIEW_W, VIEW_H, time);
 
   if (state.phase !== "menu" && state.phase !== "intro") {
     drawThreatArrows(ctx, state, cam);

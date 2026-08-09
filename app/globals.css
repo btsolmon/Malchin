@@ -48,6 +48,8 @@ body {
 
 .herder-stage {
   display: block;
+  /* Логик 960×540 (16:9) — viewport жижгэрэхэд ч харьцааг бүү алд */
+  aspect-ratio: 16 / 9;
   width: min(100vw, calc(100dvh * 16 / 9));
   height: min(100dvh, calc(100vw * 9 / 16));
   max-width: 100%;
@@ -238,6 +240,37 @@ body {
   .touch-rotate-hint {
     display: none;
   }
+}
+
+/* O / цэс — бүтэн дэлгэц (Fullscreen API байхгүй үед ч viewport дүүргэнэ) */
+html.herder-immersive,
+html.herder-immersive body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+.herder-immersive .herder-page {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: 9999;
+}
+
+.herder-immersive .herder-stage-wrap {
+  width: 100vw;
+  height: 100dvh;
+}
+
+/* Immersive: wrap дүүргэнэ — canvas 16:9 letterbox (бүү сунга) */
+.herder-immersive .herder-stage {
+  width: min(100vw, calc(100dvh * 16 / 9));
+  height: min(100dvh, calc(100vw * 9 / 16));
+  max-width: 100vw;
+  max-height: 100dvh;
+  aspect-ratio: 16 / 9;
 }
 
 .elder-backdrop {

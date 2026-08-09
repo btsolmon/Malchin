@@ -15,8 +15,27 @@ import {
   type Vector2,
   type WorldStone,
 } from "./types";
-import { dist, setMessage, updateGates, allocId, createCampPens, neutralInput } from "./utils";
-import { isInRiver, sampleBushPos, sampleStonePos, sampleTreePos } from "./biomes";
+import {
+  enterImmersiveDisplay,
+  ensureImmersiveDisplay,
+} from "./display";
+import {
+  dist,
+  setMessage,
+  updateGates,
+  allocId,
+  createCampPens,
+  neutralInput,
+  clamp,
+} from "./utils";
+import {
+  isInRiver,
+  riverCenterX,
+  riverHalfWidth,
+  sampleBushPos,
+  sampleStonePos,
+  sampleTreePos,
+} from "./biomes";
 import {
   DEFAULT_TERRAIN_SEED,
   createSeededRandom,
@@ -28,6 +47,10 @@ import {
   sfx,
   shutdownAudio,
   startMusic,
+  updateRiverAmbience,
+  tickHoofsteps,
+  tickLivestockVocal,
+  syncCampfireLoop,
 } from "../game/audio";
 import {
   beginElderLevelUp,
@@ -111,6 +134,7 @@ import {
   createInitialStoryState,
   debugJumpToFamilyLife,
   debugJumpToSpiritWorld,
+  debugGrantSpiritCombatGear,
   debugSkipCurrentStoryStage,
   ensureStoryState,
   firstNightElderCutsceneActive,
@@ -124,6 +148,8 @@ import {
   updateMilestone7,
   updateMilestone8,
   updateOpeningSequence,
+  tryExitSpiritViaOvoo,
+  tryCollectSpiritOvooSoul,
 } from "./story";
 
 export function createTrees(
@@ -392,6 +418,7 @@ export function createInitialState(): GameState {
     requestLoad: false,
     nextEntityId: 100,
     spiritPoints: 0,
+    spiritVisitSnapshot: null,
     elderTab: "trade",
     elderDialogueId: null,
     elderDialogueLine: 0,
@@ -440,39 +467,41 @@ export function bindInput(
   getInput: () => InputState,
   _getFencePreview: () => boolean = () => false,
 ): () => void {
-  const setKey = (code: string, pressed: boolean): void => {
+  const setKey = (code: string, pressed: boolean, isRepeat = false): void => {
     const input = getInput();
+    // Меню edge-trigger — key-repeat-ээр дууны түвшин/индекс унахгүй
+    const menuEdge = pressed && !isRepeat;
     switch (code) {
       case "KeyW":
         input.up = pressed;
-        if (pressed) input.menuUp = true;
+        if (menuEdge) input.menuUp = true;
         break;
       case "ArrowUp":
-        if (pressed) input.menuUp = true;
+        if (menuEdge) input.menuUp = true;
         input.up = pressed;
         break;
       case "KeyS":
         input.down = pressed;
-        if (pressed) input.menuDown = true;
+        if (menuEdge) input.menuDown = true;
         break;
       case "ArrowDown":
-        if (pressed) input.menuDown = true;
+        if (menuEdge) input.menuDown = true;
         input.down = pressed;
         break;
       case "KeyA":
         input.left = pressed;
-        if (pressed) input.menuLeft = true;
+        if (menuEdge) input.menuLeft = true;
         break;
       case "ArrowLeft":
-        if (pressed) input.menuLeft = true;
+        if (menuEdge) input.menuLeft = true;
         input.left = pressed;
         break;
       case "KeyD":
         input.right = pressed;
-        if (pressed) input.menuRight = true;
+        if (menuEdge) input.menuRight = true;
         break;
       case "ArrowRight":
-        if (pressed) input.menuRight = true;
+        if (menuEdge) input.menuRight = true;
         input.right = pressed;
         break;
       case "KeyE":
@@ -554,7 +583,7 @@ export function bindInput(
   };
 
   const onKeyDown = (e: KeyboardEvent): void => {
-    setKey(e.code, true);
+    setKey(e.code, true, e.repeat);
     if (
       [
         "Space",
@@ -582,9 +611,44 @@ export function bindInput(
 // Threat spawning
 // ---------------------------------------------------------------------------
 
+/** Гол / туурай / малын ambient — зөвхөн playing */
+function updatePlayingWorldAudio(state: GameState, dt: number): void {
+  const { player, world } = state;
+  const cx = riverCenterX(player.pos.y);
+  const half = riverHalfWidth(player.pos.y);
+  const edgeDist = Math.abs(player.pos.x - cx) - half;
+  let riverProx = 0;
+  if (isInRiver(player.pos, 8)) riverProx = 1;
+  else if (edgeDist < 160) riverProx = clamp(1 - edgeDist / 160, 0, 1);
+  updateRiverAmbience(riverProx);
+
+  tickHoofsteps(dt, player.riding, player.moving);
+
+  let nearSheep = false;
+  let nearCattle = false;
+  for (const a of world.flock.visuals) {
+    if (a.hp <= 0) continue;
+    if (dist(player.pos, a.pos) > 90) continue;
+    if (a.kind === "cattle") nearCattle = true;
+    else if (a.kind === "sheep" || a.kind === "goat") nearSheep = true;
+    if (nearSheep && nearCattle) break;
+  }
+  tickLivestockVocal(dt, nearSheep, nearCattle);
+
+  const fire = world.campfire;
+  const outdoorBurning =
+    fire.placed && (fire.lit || fire.igniting > 0);
+  syncCampfireLoop(outdoorBurning);
+}
+
 export function update(state: GameState, dt: number): void {
   ensureStoryState(state);
   const phaseBefore = state.phase;
+  if (state.phase !== "playing") {
+    updateRiverAmbience(0);
+    tickHoofsteps(0, false, false);
+    if (state.phase !== "ger") syncCampfireLoop(false);
+  }
 
   // Меню ба пауз
   if (state.phase === "menu") {
@@ -596,6 +660,10 @@ export function update(state: GameState, dt: number): void {
     updatePauseMenu(state);
   } else if (state.phase === "ger") {
     updateGer(state, dt);
+    const fire = state.world.campfire;
+    const outdoorBurning =
+      fire.placed && (fire.lit || fire.igniting > 0);
+    syncCampfireLoop(state.gerStoveLit || outdoorBurning);
     state.fencePreview = false;
   } else if (state.phase === "elder") {
     // React ElderModal хариуцна — P/Esc дарвал хаана
@@ -612,23 +680,8 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "spirit") {
     state.fencePreview = false;
-    // Шулмасын горимд P = пауз (босс тулаанд гарахгүй).
-    // Ердийн сүнс (purge) дээр P/E = гарах.
-    if (state.spiritMode === "purge") {
-      if (
-        state.input.pause ||
-        state.input.interact ||
-        (state.spiritCleared && state.input.confirm)
-      ) {
-        exitSpiritWorld(
-          state,
-          state.input.pause ? "Сүнсний орноос гарлаа." : undefined,
-        );
-        state.input.pause = false;
-        state.input.interact = false;
-        state.input.confirm = false;
-      }
-    } else if (state.input.pause) {
+    // Шулмасын горимд P = пауз. Буцах = чулуун овоо / хаалга (update loop).
+    if (state.input.pause) {
       state.pauseReturnPhase = "spirit";
       state.phase = "paused";
       state.pauseIndex = 0;
@@ -731,6 +784,7 @@ export function update(state: GameState, dt: number): void {
     if (!firstNightCutscene) {
       updateCombat(state, dt);
       updatePlayerMovement(state, dt);
+      updatePlayingWorldAudio(state, dt);
       if (!lighting) {
         const usedRouteInteraction =
           !openingMilestoneActive && tryInteractFirstRoute(state);
@@ -743,6 +797,9 @@ export function update(state: GameState, dt: number): void {
       if (!lighting) tryBuildFence(state);
     } else {
       state.player.moving = false;
+      updateRiverAmbience(0);
+      const fire = state.world.campfire;
+      syncCampfireLoop(fire.placed && (fire.lit || fire.igniting > 0));
       state.input.attack = false;
       state.input.attackPressed = false;
       state.input.parry = false;
@@ -788,12 +845,33 @@ export function update(state: GameState, dt: number): void {
       updatePlayerMovement(state, dt);
       const usedRouteInteraction = tryInteractFirstRoute(state);
       if (!usedRouteInteraction) {
-        // E — цэвэрлэсний дараа буцах / хаалга
-        if (state.input.interact && state.spiritCleared) {
+        if (tryCollectSpiritOvooSoul(state)) {
+          // амь авсан
+        } else if (state.story.spiritAllowReturn && state.input.interact) {
+          tryExitSpiritViaOvoo(state);
+        } else if (
+          state.spiritMode === "purge" &&
+          state.input.interact &&
+          (state.spiritCleared || state.input.confirm)
+        ) {
           exitSpiritWorld(state);
           state.input.interact = false;
+          state.input.confirm = false;
         } else {
           tryInteract(state);
+          if (
+            state.input.interact &&
+            state.spiritMode === "shulmas" &&
+            !state.story.spiritAllowReturn
+          ) {
+            state.input.interact = false;
+            setMessage(
+              state,
+              "Энэ удаа буцах хаалга байхгүй. Мангасыг дарж л гэртээ харьна.",
+              2.8,
+            );
+            sfx("move");
+          }
         }
       }
       updateFirstRoute(state, dt);
@@ -917,13 +995,6 @@ export function mountHerderGame(
   };
   applyCanvasBuffer();
 
-  const enterBrowserFullscreen = (): void => {
-    const root = canvas.parentElement ?? canvas;
-    if (!document.fullscreenElement) {
-      void root.requestFullscreen?.().catch(() => undefined);
-    }
-  };
-
   const rc: RenderContext = {
     ctx,
     terrain: renderTerrain(false, DEFAULT_TERRAIN_SEED),
@@ -943,6 +1014,7 @@ export function mountHerderGame(
   };
   window.addEventListener("resize", onWindowResize);
   document.addEventListener("fullscreenchange", onWindowResize);
+  document.addEventListener("webkitfullscreenchange", onWindowResize);
 
   let state = createInitialState();
   const unbindInput = bindInput(
@@ -952,10 +1024,16 @@ export function mountHerderGame(
 
   // Түр хөгжүүлэлтийн shortcut:
   // . — одоогийн story үеийг алгасана
-  // ; — сүнсний ертөнцөд дөнгөж орсон үе рүү
+  // ; — сүнс (ус+буцах; буцахад материал хураагдана)
   // ' — шулмасыг дийлээд аав ээжтэй амьдрах үе рүү шууд орно
+  // , — зэвсэг + ус 3 амь (орохгүй)
   const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
+    if (event.code === "Comma") {
+      event.preventDefault();
+      debugGrantSpiritCombatGear(state, { withWater: true });
+      return;
+    }
     if (event.code === "Period") {
       event.preventDefault();
       debugSkipCurrentStoryStage(state);
@@ -972,6 +1050,33 @@ export function mountHerderGame(
     }
   };
   window.addEventListener("keydown", onStoryCheatKeyDown);
+
+  /** O — бүтэн дэлгэц (CSS + Fullscreen API) */
+  const onFullscreenKey = (event: KeyboardEvent): void => {
+    if (event.repeat) return;
+    const isO =
+      event.code === "KeyO" ||
+      event.key === "o" ||
+      event.key === "O" ||
+      event.key === "о" ||
+      event.key === "О";
+    if (!isO) return;
+    const t = event.target as HTMLElement | null;
+    if (
+      t &&
+      (t.tagName === "INPUT" ||
+        t.tagName === "TEXTAREA" ||
+        t.isContentEditable)
+    ) {
+      return;
+    }
+    event.preventDefault();
+    void ensureImmersiveDisplay().then(() => {
+      setMessage(state, "Бүтэн дэлгэц", 1.6);
+      applyCanvasBuffer();
+    });
+  };
+  window.addEventListener("keydown", onFullscreenKey, true);
   let lastElderKey = "";
 
   const notifyElderUi = (): void => {
@@ -1025,8 +1130,42 @@ export function mountHerderGame(
     state.input.mouseY = p.y;
     state.input.mouseClicked = true;
   };
+  /** Мэдрэгч/хулгана хоёр товшилт — бүтэн дэлгэц */
+  const goImmersiveFromGesture = (): void => {
+    void ensureImmersiveDisplay().then(() => {
+      setMessage(state, "Бүтэн дэлгэц", 1.6);
+      applyCanvasBuffer();
+    });
+  };
+  const onDblClick = (e: MouseEvent): void => {
+    if (state.phase === "elder") return;
+    e.preventDefault();
+    goImmersiveFromGesture();
+  };
+  // Touch: dblclick үгүй тул хоёр товшилтыг гараар илрүүлнэ
+  let lastTapAt = 0;
+  let lastTapX = 0;
+  let lastTapY = 0;
+  const onTouchDoubleTap = (e: PointerEvent): void => {
+    if (e.pointerType !== "touch") return;
+    if (state.phase === "elder") return;
+    const now = performance.now();
+    const dx = e.clientX - lastTapX;
+    const dy = e.clientY - lastTapY;
+    if (now - lastTapAt < 320 && dx * dx + dy * dy < 40 * 40) {
+      e.preventDefault();
+      goImmersiveFromGesture();
+      lastTapAt = 0;
+      return;
+    }
+    lastTapAt = now;
+    lastTapX = e.clientX;
+    lastTapY = e.clientY;
+  };
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointerdown", onTouchDoubleTap);
+  canvas.addEventListener("dblclick", onDblClick);
 
   // Аудио — browser autoplay бодлогын дагуу эхний үйлдлээр асна
   loadAudioSettings();
@@ -1091,7 +1230,7 @@ export function mountHerderGame(
       phaseBefore === "menu" &&
       (state.phase === "intro" || state.phase === "playing")
     ) {
-      enterBrowserFullscreen();
+      void enterImmersiveDisplay().then(() => applyCanvasBuffer());
     }
 
     // Тоглолт дуусмагц амжилтыг бүртгэнэ. Ялагдвал хадгалалт цэвэрлэгдэнэ;
@@ -1126,9 +1265,13 @@ export function mountHerderGame(
       unbindInput();
       window.removeEventListener("resize", onWindowResize);
       document.removeEventListener("fullscreenchange", onWindowResize);
+      document.removeEventListener("webkitfullscreenchange", onWindowResize);
+      window.removeEventListener("keydown", onFullscreenKey, true);
       window.removeEventListener("keydown", onStoryCheatKeyDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointerdown", onTouchDoubleTap);
+      canvas.removeEventListener("dblclick", onDblClick);
       window.removeEventListener("keydown", unlockAudio);
       window.removeEventListener("pointerdown", unlockAudio);
       window.removeEventListener("beforeunload", persistNow);

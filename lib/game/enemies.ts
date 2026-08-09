@@ -595,6 +595,7 @@ function collideEntityWithFences(
         };
         spawnParticles(state, fence.pos, 10, colors[tier], { speed: 90 });
         spawnText(state, fence.pos, "Хашаа эвдэрлээ", "#c49a6c");
+        sfx("woodChop");
       }
     }
     contactDps = Math.max(contactDps, FENCE_CONTACT_DPS[tier]);

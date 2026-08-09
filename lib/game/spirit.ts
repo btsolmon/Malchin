@@ -6,7 +6,31 @@ import { ensureParents } from "./parents";
 import { setMessage } from "./utils";
 import type { GameState, Wolf } from "./types";
 
-/** Сүнс = амь: 1 сүнс зарцуулж дахин амилах */
+/** Сүнс рүү орохын өмнөх нөөцийг хадгална (буцахад сэргээнэ) */
+export function stashSpiritVisitSnapshot(state: GameState): void {
+  if (state.spiritVisitSnapshot) return;
+  state.spiritVisitSnapshot = {
+    bow: state.player.gear.bow,
+    arrows: state.player.inventory.arrows,
+    stone: state.player.inventory.stone,
+    wood: state.player.inventory.wood,
+    spiritPoints: state.spiritPoints,
+  };
+}
+
+/** Овоогоор буцахад зээл/cheat нөөцийг буцаана */
+export function restoreSpiritVisitSnapshot(state: GameState): void {
+  const snap = state.spiritVisitSnapshot;
+  if (!snap) return;
+  state.player.gear.bow = snap.bow;
+  state.player.inventory.arrows = snap.arrows;
+  state.player.inventory.stone = snap.stone;
+  state.player.inventory.wood = snap.wood;
+  state.spiritPoints = snap.spiritPoints;
+  state.spiritVisitSnapshot = null;
+}
+
+/** 1 балга = 1 амь: шилэн уснаас зарцуулж дахин амилах */
 export function trySpendSpiritLife(state: GameState): boolean {
   if (state.spiritPoints < 1) return false;
   state.spiritPoints -= 1;
@@ -16,8 +40,20 @@ export function trySpendSpiritLife(state: GameState): boolean {
   p.vitals.hunger = Math.max(p.vitals.hunger, 45);
   p.invuln = 2.2;
   state.fx.hurtFlash = 0.6;
-  spawnText(state, p.pos, "−1 сүнс · амиллаа", "#7ec8ff");
-  setMessage(state, "Сүнс зарцуулав — дахин амиллаа!", 3);
+  const left = state.spiritPoints;
+  spawnText(
+    state,
+    p.pos,
+    left > 0 ? `−1 балга · үлдсэн ${left}` : "−1 балга · дууссан",
+    "#7ec8ff",
+  );
+  setMessage(
+    state,
+    left > 0
+      ? `Шилэн уснаас балгав — амиллаа. Үлдсэн балга: ${left}`
+      : "Сүүлийн балгаа уув — амиллаа.",
+    3,
+  );
   sfx("buy");
   return true;
 }
@@ -32,7 +68,7 @@ export function handlePlayerDeath(state: GameState, reason: string): void {
   if (trySpendSpiritLife(state)) return;
 
   if (state.phase === "spirit") {
-    exitSpiritWorld(state, "Сүнс дууссан… бодит ертөнц рүү буцлаа.");
+    exitSpiritWorld(state, "Шилэн ус дууссан… бодит ертөнц рүү буцлаа.");
     state.player.vitals.health = Math.max(
       20,
       Math.floor(state.player.vitals.maxHealth * 0.35),
@@ -78,16 +114,34 @@ function resetPlayerCombatForSpirit(state: GameState): void {
   state.combatDodgeActive = false;
 }
 
+export type EnterSpiritOpts = {
+  /** Анхны тагнах зорчилт — буцахыг зөвшөөрнө */
+  scout?: boolean;
+};
+
 /**
  * Сүнсний орон — шулмасын туслахууд энд байна.
  * ensureShulmasHelpers()-ийг дуудагч (өвгөн гэх мэт) өмнө нь ажиллуулна.
  */
-export function enterSpiritWorld(state: GameState): void {
+export function enterSpiritWorld(
+  state: GameState,
+  opts: EnterSpiritOpts = {},
+): void {
   if (state.phase === "spirit" && state.spiritMode === "shulmas") return;
 
   stashRealWorldThreats(state);
   state.world.wolves = [];
   state.world.thieves = [];
+
+  const scout = opts.scout ?? !state.story.spiritScoutDone;
+  state.story.spiritAllowReturn = scout;
+  state.story.spiritPathOpened = true;
+  // Анхны зорчилт: шидэт усгүй. Хоёр дахь: овоон дээр лонх.
+  if (!scout) {
+    state.story.spiritOvooSoulActive = !state.story.spiritOvooSoulCollected;
+  } else {
+    state.story.spiritOvooSoulActive = false;
+  }
 
   state.phase = "spirit";
   state.spiritMode = "shulmas";
@@ -95,35 +149,28 @@ export function enterSpiritWorld(state: GameState): void {
   state.spiritCleared = false;
   state.world.elder.eyeMode = "spirit";
   resetPlayerCombatForSpirit(state);
-  sfx("howl");
+  sfx("witchLaugh");
+  if (scout && !state.story.stormTracePos) {
+    const elderCamp = state.world.elder.gerPos;
+    state.story.stormTracePos = {
+      x: Math.min(Math.max(elderCamp.x + 300, 54), state.world.width - 54),
+      y: Math.min(Math.max(elderCamp.y - 210, 54), state.world.height - 54),
+    };
+  }
   setMessage(
     state,
-    "Сүнсний орон… цаг зогсов. Шулмасын туслахуудыг цэвэрлэ. E — буцах.",
-    5,
+    scout
+      ? "Сүнсний орон… цаг зогсов. Буцахдаа хар мөрийн чулуун овоо руу оч — E дарж гарна."
+      : "Сүнсний орон… буцах зам хаагдсан. Мангасыг дарж аав ээжийгээ авраарай.",
+    5.5,
   );
 }
 
 /**
  * Шулмасын сүнсний орон — Төмөр шулмас / туслахууд энд л байдаг.
- * Бодит ертөнцийн чоно/хулгайчийг түр хадгална, ердийн сүнсний чоно spawn хийхгүй.
  */
 export function enterShulmasSpirit(state: GameState): void {
-  if (state.phase === "spirit" && state.spiritMode === "shulmas") return;
-
-  stashRealWorldThreats(state);
-  state.world.wolves = [];
-  state.world.thieves = [];
-
-  state.phase = "spirit";
-  state.spiritMode = "shulmas";
-  state.spiritTransition = 1.15;
-  state.spiritCleared = false;
-  state.world.elder.eyeMode = "spirit";
-
-  // Тулаанд бэлэн: тэнхэл нөхөгдөнө, зэвсэггүй ч сүнсний сум (K) ажиллана
-  resetPlayerCombatForSpirit(state);
-
-  sfx("howl");
+  enterSpiritWorld(state, { scout: false });
   setMessage(
     state,
     "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум. Туслахууд голын цаана.",
@@ -131,11 +178,26 @@ export function enterShulmasSpirit(state: GameState): void {
   );
 }
 
+/** Одоо буцахыг зөвшөөрөх эсэх */
+export function canExitSpiritWorld(state: GameState): boolean {
+  if (state.phase !== "spirit") return false;
+  const tumur = state.world.tumurShulmas;
+  if (
+    state.spiritMode === "shulmas" &&
+    tumur.active &&
+    !tumur.defeated &&
+    tumur.phase !== "death"
+  ) {
+    return false;
+  }
+  if (state.spiritMode === "purge") return true;
+  return state.story.spiritAllowReturn === true;
+}
+
 export function exitSpiritWorld(state: GameState, msg?: string): void {
   if (state.phase !== "spirit" && !state.spiritReturnPos) return;
 
   const tumur = state.world.tumurShulmas;
-  // Boss тулаан дуусаагүй бол сүнснээс гарахыг хориглоно
   if (
     state.spiritMode === "shulmas" &&
     tumur.active &&
@@ -147,7 +209,20 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
     return;
   }
 
-  // Тулаан дууссан бол ареныйг хаана
+  if (
+    state.spiritMode === "shulmas" &&
+    !state.story.spiritAllowReturn &&
+    !tumur.defeated
+  ) {
+    setMessage(
+      state,
+      "Энэ удаа буцах хаалга байхгүй. Мангасыг дарж л гэртээ харьна.",
+      3,
+    );
+    sfx("move");
+    return;
+  }
+
   if (tumur.active && tumur.defeated) {
     tumur.active = false;
     tumur.phase = "sealed";
@@ -166,7 +241,6 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
   state.spiritSavedThieves = null;
 
   if (state.spiritReturnPos) {
-    // Шулмасын ареныйн дараа хаалганы дэргэд буцаана
     if (state.spiritMode === "shulmas" && tumur.defeated) {
       state.player.pos = {
         x: tumur.gatePos.x,
@@ -180,13 +254,19 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
   const wasCleared = state.spiritCleared;
   const wasShulmas = state.spiritMode === "shulmas";
   const parentsFreed = wasShulmas && tumur.defeated;
+  const couldReturnViaOvoo =
+    wasShulmas && state.story.spiritAllowReturn && !tumur.defeated;
+  const wasScoutReturn =
+    couldReturnViaOvoo && !state.story.spiritScoutDone;
+
   state.spiritCleared = false;
   state.spiritMode = "purge";
   state.spiritTransition = 0.85;
   state.world.elder.eyeMode = "idle";
+  state.story.spiritAllowReturn = false;
+  state.story.spiritOvooSoulActive = false;
 
   if (parentsFreed) {
-    // Хар хүлээс тасарч, гэр бүлийн төгсгөлийн cutscene гэрт эхэлнэ.
     ensureParents(state);
     state.player.pos = {
       x: state.world.campPos.x + 28,
@@ -199,6 +279,59 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
   }
 
   state.phase = "playing";
+
+  if (wasScoutReturn) {
+    restoreSpiritVisitSnapshot(state);
+    state.story.spiritScoutDone = true;
+    state.story.activeMainObjective = "talkAfterSpiritScout";
+    const ovoo = state.story.stormTracePos;
+    if (ovoo) {
+      state.player.pos = { x: ovoo.x, y: ovoo.y + 28 };
+    }
+    setMessage(
+      state,
+      msg ?? "Чулуун овоогоор буцлаа. Өвгөн дээр очиж ярилц.",
+      5,
+    );
+    sfx("select");
+    return;
+  }
+
+  // Cheat / тагнах бус буцах — сүнсний тулааны зорилгыг хүний ертөнцөд бүү үлдээ
+  if (couldReturnViaOvoo) {
+    restoreSpiritVisitSnapshot(state);
+    // Cheat буцах: лонх/лацлыг дахин туршихад бэлэн болгоно
+    state.story.spiritOvooSoulCollected = false;
+    state.story.spiritOvooSoulActive = false;
+    const obj = state.story.activeMainObjective;
+    if (
+      obj === "defeatSpiritGuards" ||
+      obj === "reachCursedGate" ||
+      obj === "defeatShulmasBaatar" ||
+      obj === "claimSkySword" ||
+      obj === "openBlackIronGate" ||
+      obj === "defeatTumurShulmas" ||
+      obj === "returnFromSpirit" ||
+      obj === "enterSpiritViaOvoo"
+    ) {
+      state.story.activeMainObjective =
+        state.story.postSpiritScoutDialogueCompleted
+          ? null
+          : "talkAfterSpiritScout";
+    }
+    const ovoo = state.story.stormTracePos;
+    if (ovoo) {
+      state.player.pos = { x: ovoo.x, y: ovoo.y + 28 };
+    }
+    setMessage(
+      state,
+      msg ?? "Чулуун овоогоор буцлаа. Зээлсэн зэвсэг, материал үлдээгүй.",
+      4,
+    );
+    sfx("select");
+    return;
+  }
+
   setMessage(
     state,
     msg ??
@@ -234,12 +367,6 @@ export function updateSpiritWorld(state: GameState, dt: number): void {
       state.spiritCleared = tumur.defeated;
       return;
     }
-    // Нээлтийн story зам нээгдсэн бол таван сахиул, mini-boss, сэлэм,
-    // Төмөр шулмас бүгд нэг тасралтгүй аялал. Дундаас нь E-ээр буцаахгүй.
-    if (state.story.spiritPathOpened) {
-      state.spiritCleared = tumur.defeated;
-      return;
-    }
     const aliveHelpers = route.enemies.filter((e) => e.alive).length;
     if (
       !state.spiritCleared &&
@@ -247,11 +374,19 @@ export function updateSpiritWorld(state: GameState, dt: number): void {
       (!route.bossStarted || route.bossDefeated)
     ) {
       state.spiritCleared = true;
-      setMessage(
-        state,
-        "Шулмасын туслахууд унав. E — бодит ертөнц рүү буцах · хаалга руу оч.",
-        5,
-      );
+      if (state.story.spiritAllowReturn) {
+        setMessage(
+          state,
+          "Тагнах зорчилт хангалттай. Хар мөрийн чулуун овоогоор буц.",
+          5,
+        );
+      } else {
+        setMessage(
+          state,
+          "Шулмасын туслахууд унав. Хаалга руу оч.",
+          5,
+        );
+      }
       sfx("levelup");
     }
     return;
@@ -275,9 +410,15 @@ export function drawSpiritOverlay(
   const inSpirit = state.phase === "spirit";
   const t = state.spiritTransition;
   const shulmas = inSpirit && state.spiritMode === "shulmas";
+  const sixSunsAlive =
+    shulmas &&
+    state.world.firstRoute.enemies.some(
+      (e) => e.kind === "zurgaanNar" && e.alive,
+    );
 
   if (inSpirit) {
-    ctx.fillStyle = shulmas
+    // Нар амьд үед дулаан улаан; дараа нь анхны хөх бүүдгэр
+    ctx.fillStyle = sixSunsAlive
       ? "rgba(55, 12, 28, 0.42)"
       : "rgba(20, 40, 90, 0.38)";
     ctx.fillRect(0, 0, viewW, viewH);
@@ -289,7 +430,7 @@ export function drawSpiritOverlay(
       viewH / 2,
       Math.max(viewW, viewH) * 0.7,
     );
-    if (shulmas) {
+    if (sixSunsAlive) {
       g.addColorStop(0, "rgba(180,40,50,0.06)");
       g.addColorStop(1, "rgba(28,4,12,0.5)");
     } else {
@@ -302,7 +443,7 @@ export function drawSpiritOverlay(
 
   if (t > 0) {
     const a = Math.min(1, t > 0.6 ? (1.2 - t) / 0.4 : t / 0.6);
-    ctx.fillStyle = shulmas
+    ctx.fillStyle = sixSunsAlive
       ? `rgba(120, 20, 40, ${0.55 * a})`
       : `rgba(40, 90, 180, ${0.55 * a})`;
     ctx.fillRect(0, 0, viewW, viewH);

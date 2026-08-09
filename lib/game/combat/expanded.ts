@@ -1,4 +1,6 @@
 import {
+  VIEW_H,
+  VIEW_W,
   WORLD_H,
   WORLD_W,
   type AttackVariant,
@@ -35,6 +37,9 @@ import {
   damageRouteEnemyPosture,
   inShulmasSpirit,
   isRouteEnemyParryThreat,
+  zurgaanNarSkyScreenPos,
+  zurgaanNarSkyWorldPos,
+  zurgaanNarSlotIndex,
 } from "../firstRoute";
 import {
   damageTumurShulmasFromPlayer,
@@ -721,6 +726,8 @@ function resolveMeleeHit(state: GameState): void {
   if (inShulmasSpirit(state)) {
     for (const enemy of world.firstRoute.enemies) {
       if (!enemy.alive) continue;
+      // Нар тэнгэрт — ойрын цохилтоор оноохгүй
+      if (enemy.kind === "zurgaanNar") continue;
       if (
         !isInMeleeCone(
           player.pos,
@@ -807,7 +814,7 @@ function resolveMeleeHit(state: GameState): void {
         trFormat("СӨРӨГ ЦОХИЛТ! −{dmg}", { dmg: counterDamage }),
         "#fff0a8",
       );
-      damageRouteEnemy(state, nearestRouteEnemy, counterDamage);
+      damageRouteEnemy(state, nearestRouteEnemy, counterDamage, "melee");
 
       if (nearestRouteEnemy.alive) {
         nearestRouteEnemy.posture = Math.max(
@@ -826,7 +833,7 @@ function resolveMeleeHit(state: GameState): void {
     const postureDamage = Math.round((heavyHit ? 23 : 13) * postureMultiplier);
     addMeleeImpact(state, nearestRouteEnemy.pos, "#b65a45", heavyHit);
     damageRouteEnemyPosture(state, nearestRouteEnemy, postureDamage);
-    damageRouteEnemy(state, nearestRouteEnemy, weaponDamage);
+    damageRouteEnemy(state, nearestRouteEnemy, weaponDamage, "melee");
     return;
   }
 
@@ -1063,7 +1070,7 @@ function tryRangedAttack(state: GameState): boolean {
     return false;
   }
 
-  const range = spiritBolt ? 240 : 200;
+  const range = spiritBolt ? 240 : inShulmasSpirit(state) ? 360 : 200;
 
   player.attackCooldown =
     (spiritBolt ? 0.48 : 0.55) * player.cooldownMult;
@@ -1100,12 +1107,16 @@ function tryRangedAttack(state: GameState): boolean {
   if (inShulmasSpirit(state)) {
     for (const enemy of world.firstRoute.enemies) {
       if (!enemy.alive) continue;
-      const distance = dist(player.pos, enemy.pos);
+      const targetPos =
+        enemy.kind === "zurgaanNar"
+          ? zurgaanNarSkyWorldPos(state, enemy)
+          : enemy.pos;
+      const distance = dist(player.pos, targetPos);
       if (distance < bestDistance) {
         bestDistance = distance;
         dir = normalize({
-          x: enemy.pos.x - player.pos.x,
-          y: enemy.pos.y - player.pos.y,
+          x: targetPos.x - player.pos.x,
+          y: targetPos.y - player.pos.y,
         });
       }
     }
@@ -1384,10 +1395,52 @@ export function updateProjectiles(state: GameState, dt: number): void {
     }
 
     if (!consumed && inShulmasSpirit(state)) {
+      const camX = clamp(
+        state.player.pos.x - VIEW_W / 2,
+        0,
+        WORLD_W - VIEW_W,
+      );
+      const camY = clamp(
+        state.player.pos.y - VIEW_H / 2,
+        0,
+        WORLD_H - VIEW_H,
+      );
+      const arrowScreen = {
+        x: projectile.pos.x - camX,
+        y: projectile.pos.y - camY,
+      };
+
       for (const enemy of world.firstRoute.enemies) {
         if (!enemy.alive) continue;
+
+        if (enemy.kind === "zurgaanNar") {
+          // Тэнгэрийн нар — дэлгэцийн байрлалаар ононо
+          const sunScreen = zurgaanNarSkyScreenPos(
+            zurgaanNarSlotIndex(enemy),
+            VIEW_W,
+            VIEW_H,
+            state.world.elapsed,
+          );
+          if (dist(arrowScreen, sunScreen) < enemy.radius + 22) {
+            damageRouteEnemy(
+              state,
+              enemy,
+              projectile.dmg,
+              projectile.kind === "arrow" ? "arrow" : "spiritBolt",
+            );
+            consumed = true;
+            break;
+          }
+          continue;
+        }
+
         if (dist(projectile.pos, enemy.pos) < enemy.radius + 6) {
-          damageRouteEnemy(state, enemy, projectile.dmg);
+          damageRouteEnemy(
+            state,
+            enemy,
+            projectile.dmg,
+            projectile.kind === "arrow" ? "arrow" : "spiritBolt",
+          );
           consumed = true;
           break;
         }

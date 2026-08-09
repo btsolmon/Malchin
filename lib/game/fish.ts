@@ -7,6 +7,8 @@ import {
   riverCenterX,
   riverFlowDir,
   riverHalfWidth,
+  RIVER_FORD_HALF,
+  RIVER_FORD_Y,
 } from "./biomes";
 import { spawnParticles, spawnText } from "./effects";
 import type { Fish, GameState, Vector2 } from "./types";
@@ -14,8 +16,14 @@ import { WORLD_H } from "./types";
 import { clamp, dist, normalize, randRange, setMessage } from "./utils";
 
 const FISH_COUNT = 18;
+/** Доод хязгаар — үүнээс доош идэвхтэй нөхөнө */
+const MIN_FISH = 14;
 /** Эргээс уурганы хүрээ */
-const CATCH_RANGE = 96;
+const CATCH_RANGE = 110;
+const BOBBER_CATCH = 48;
+const ATTRACT_RANGE = 200;
+/** Дэнс орчмын “ойрхон загас” шалгалт */
+const LOCAL_FISH_RANGE = 240;
 
 function sampleRiverPos(y: number): Vector2 {
   const cx = riverCenterX(y);
@@ -26,22 +34,51 @@ function sampleRiverPos(y: number): Vector2 {
   };
 }
 
+/** Гүүр/газрын гарамнаас хол y сонгоно */
+function pickRiverY(preferred?: number): number {
+  let y =
+    preferred !== undefined
+      ? preferred + randRange(-50, 50)
+      : randRange(40, WORLD_H - 40);
+  for (let i = 0; i < 6; i++) {
+    y = clamp(y, 40, WORLD_H - 40);
+    if (!isAtRiverFord(y)) return y;
+    if (preferred !== undefined) {
+      y =
+        preferred < RIVER_FORD_Y
+          ? RIVER_FORD_Y - RIVER_FORD_HALF - randRange(20, 80)
+          : RIVER_FORD_Y + RIVER_FORD_HALF + randRange(20, 80);
+    } else {
+      y = randRange(40, WORLD_H - 40);
+    }
+  }
+  // Сүүлийн fallback — гарамнаас хол түлхэж
+  return clamp(
+    y < RIVER_FORD_Y
+      ? RIVER_FORD_Y - RIVER_FORD_HALF - 40
+      : RIVER_FORD_Y + RIVER_FORD_HALF + 40,
+    40,
+    WORLD_H - 40,
+  );
+}
+
+function makeFish(id: number, y: number): Fish {
+  const pos = sampleRiverPos(y);
+  const flow = riverFlowDir(pos.y);
+  return {
+    id,
+    pos,
+    vel: { x: flow.x * randRange(18, 36), y: flow.y * randRange(18, 36) },
+    radius: 7,
+    face: flow.x >= 0 ? 1 : -1,
+    spook: 0,
+  };
+}
+
 export function createRiverFish(nextId: () => number): Fish[] {
   const fish: Fish[] = [];
   for (let i = 0; i < FISH_COUNT; i++) {
-    let y = randRange(40, WORLD_H - 40);
-    if (isAtRiverFord(y)) y = y < WORLD_H * 0.5 ? y - 120 : y + 120;
-    y = clamp(y, 40, WORLD_H - 40);
-    const pos = sampleRiverPos(y);
-    const flow = riverFlowDir(pos.y);
-    fish.push({
-      id: nextId(),
-      pos,
-      vel: { x: flow.x * randRange(18, 36), y: flow.y * randRange(18, 36) },
-      radius: 7,
-      face: flow.x >= 0 ? 1 : -1,
-      spook: 0,
-    });
+    fish.push(makeFish(nextId(), pickRiverY()));
   }
   return fish;
 }
@@ -68,29 +105,37 @@ export function fishingBobberPos(playerPos: Vector2): Vector2 {
   };
 }
 
+function spawnFishNear(state: GameState, preferredY?: number): void {
+  state.world.fish.push(makeFish(state.nextEntityId++, pickRiverY(preferredY)));
+}
+
 export function updateFish(state: GameState, dt: number): void {
   const { world, player } = state;
-  if (world.fish.length < 8 && Math.random() < dt * 0.15) {
-    const y = randRange(40, WORLD_H - 40);
-    if (!isAtRiverFord(y)) {
-      const pos = sampleRiverPos(y);
-      const flow = riverFlowDir(pos.y);
-      world.fish.push({
-        id: state.nextEntityId++,
-        pos,
-        vel: { x: flow.x * 24, y: flow.y * 24 },
-        radius: 7,
-        face: flow.x >= 0 ? 1 : -1,
-        spook: 0,
-      });
-    }
-  }
 
   const anglerOnBank =
     state.phase === "playing" &&
     player.gear.fishingRod &&
     nearFishingSpot(player.pos);
   const bobber = anglerOnBank ? fishingBobberPos(player.pos) : null;
+
+  // Хүн ам — доод хязгаараас доош хурдан нөхөнө
+  if (world.fish.length < MIN_FISH && Math.random() < dt * 1.1) {
+    const preferLocal =
+      bobber && !nearestFish(bobber, world.fish, LOCAL_FISH_RANGE)
+        ? player.pos.y
+        : undefined;
+    spawnFishNear(state, preferLocal);
+  }
+
+  // Уургалаж байхад ойрхон загас байхгүй бол шууд ойртож spawn
+  if (
+    bobber &&
+    !nearestFish(bobber, world.fish, LOCAL_FISH_RANGE) &&
+    Math.random() < dt * 1.8
+  ) {
+    spawnFishNear(state, player.pos.y);
+  }
+
   const playerInWater = isInRiver(player.pos, 0);
 
   for (const f of world.fish) {
@@ -109,15 +154,19 @@ export function updateFish(state: GameState, dt: number): void {
       f.vel.x = away.x * 70 + flow.x * 20;
       f.vel.y = away.y * 70 + flow.y * 20;
       f.spook = Math.max(f.spook, 0.6);
-    } else if (bobber && dist(f.pos, bobber) < 130 && f.spook <= 0) {
-      // Дэнс рүү сонирхон ойртоно
+    } else if (bobber && dist(f.pos, bobber) < ATTRACT_RANGE && f.spook <= 0) {
+      // Дэнс рүү ойртоно — ойртоод удааширна (баригдах цонх)
+      const dBob = dist(f.pos, bobber);
       const to = normalize({
         x: bobber.x - f.pos.x,
         y: bobber.y - f.pos.y,
       });
-      const pull = 38 + Math.sin(state.world.elapsed * 2 + f.id) * 8;
-      f.vel.x = to.x * pull + flow.x * 12 + side.x * wobble * 0.4;
-      f.vel.y = to.y * pull + flow.y * 12 + side.y * wobble * 0.2;
+      const pull =
+        dBob < 40
+          ? 16 + Math.sin(state.world.elapsed * 2.4 + f.id) * 6
+          : 52 + Math.sin(state.world.elapsed * 2 + f.id) * 10;
+      f.vel.x = to.x * pull + flow.x * 10 + side.x * wobble * 0.35;
+      f.vel.y = to.y * pull + flow.y * 10 + side.y * wobble * 0.2;
     } else {
       const spd = f.spook > 0 ? 70 : 28;
       f.vel.x = flow.x * spd + side.x * wobble;
@@ -164,7 +213,7 @@ export function nearFishingSpot(pos: Vector2): boolean {
 export function fishNearBobber(state: GameState): Fish | null {
   if (!nearFishingSpot(state.player.pos)) return null;
   const bobber = fishingBobberPos(state.player.pos);
-  return nearestFish(bobber, state.world.fish, 28);
+  return nearestFish(bobber, state.world.fish, BOBBER_CATCH);
 }
 
 /** Загасны уургаар барих — эрэг дээр E */
@@ -185,7 +234,7 @@ export function tryCatchFish(state: GameState): boolean {
 
   const bobber = fishingBobberPos(player.pos);
   // Эхлээд дэнс орчим, дараа нь ерөнхий хүрээ
-  let target = nearestFish(bobber, world.fish, 32);
+  let target = nearestFish(bobber, world.fish, BOBBER_CATCH);
   if (!target) target = nearestFish(player.pos, world.fish, CATCH_RANGE);
 
   if (!target) {

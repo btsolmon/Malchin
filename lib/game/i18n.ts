@@ -47,6 +47,9 @@ const MN = {
   "controls.packGer": "Гэр моринд ачих / буулгах",
   "controls.horse": "Морь унах / буух (гэрийн дэргэд уяна)",
   "controls.pause": "Түр зогсоох",
+  "controls.fullscreen": "Бүтэн дэлгэц",
+  "controls.fullscreenTouch": "Бүтэн дэлгэц (мэдрэгч)",
+  "controls.skipIntro": "Нээлтийн түүх алгасах",
 
   "credits.title": "БАГИЙНХАН",
   "credits.core": "Тоглоомын цөм",
@@ -147,6 +150,9 @@ const EN: Record<StringKey, string> = {
   "controls.packGer": "Load / unload ger onto horse",
   "controls.horse": "Mount / dismount horse (hitch by the ger)",
   "controls.pause": "Pause",
+  "controls.fullscreen": "Fullscreen",
+  "controls.fullscreenTouch": "Fullscreen (touch)",
+  "controls.skipIntro": "Skip opening story",
 
   "credits.title": "TEAM",
   "credits.core": "Core mechanics",

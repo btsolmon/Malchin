@@ -31,6 +31,7 @@ export type GameIconId =
   | "fire"
   | "log"
   | "fence"
+  | "spiritWater"
   | "empty";
 
 const GOLD = "#e8c56a";
@@ -578,6 +579,42 @@ export function drawGameIcon(
       ctx.quadraticCurveTo(0, 1, 1, -3);
       ctx.quadraticCurveTo(4, 2, 0, 6);
       ctx.fill();
+      break;
+    }
+    case "spiritWater": {
+      // Шилэн лонх — HUD-д ойлгомжтой
+      ctx.fillStyle = "rgba(180,220,255,0.35)";
+      ctx.beginPath();
+      ctx.moveTo(-5, -2);
+      ctx.lineTo(-6, 8);
+      ctx.lineTo(6, 8);
+      ctx.lineTo(5, -2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "#3a9ae0";
+      ctx.beginPath();
+      ctx.moveTo(-4.5, 1);
+      ctx.lineTo(-5, 7.5);
+      ctx.lineTo(5, 7.5);
+      ctx.lineTo(4.5, 1);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = "rgba(210,235,255,0.7)";
+      ctx.fillRect(-2.2, -8, 4.4, 7);
+      ctx.fillStyle = "#c4a574";
+      ctx.fillRect(-3, -10, 6, 2.8);
+      strokeRound(
+        ctx,
+        () => {
+          ctx.moveTo(-5, -2);
+          ctx.lineTo(-6, 8);
+          ctx.lineTo(6, 8);
+          ctx.lineTo(5, -2);
+          ctx.closePath();
+        },
+        SKY,
+        1.2,
+      );
       break;
     }
     case "empty": {

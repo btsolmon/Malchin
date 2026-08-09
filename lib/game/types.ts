@@ -210,6 +210,12 @@ export interface Campfire {
 export const CAMPFIRE_IGNITE_SEC = 1.4;
 /** Гал асаахад шаардлагатай түлээ */
 export const CAMPFIRE_WOOD_COST = 3;
+/** Хар мөрийн газарт сүнсний овоо босгоход шаардлагатай чулуу */
+export const SPIRIT_OVOO_STONE_COST = 5;
+/** Хар могойг дарахад шаардлагатай чулуу (хүний ертөнцөд бэлдэнэ) */
+export const SNAKE_CRUSH_STONE_COST = 100;
+/** Хоёр дахь зорчилт — овооны шилэн усны балга (= нэмэлт амь) */
+export const SPIRIT_WATER_SIPS = 3;
 
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
 export type FenceTier = 1 | 2 | 3;
@@ -437,6 +443,8 @@ export interface Projectile {
 }
 
 export type RouteEnemyKind =
+  | "zurgaanNar"
+  | "harMogoi"
   | "talynHaragch"
   | "shulmasynHuu"
   | "shidetHarvaach"
@@ -491,6 +499,11 @@ export interface RouteEnemy {
   engaged: boolean;
   /** Алхалтын фаза — аав ээж шиг хөл/гар */
   walkPhase: number;
+  /**
+   * Хар могой — HP 0 болсон ч чулуугаар дарах хүртэл «амьд» үлдэнэ.
+   * true үед цааш хохирол авахгүй, crush шаардлагатай.
+   */
+  awaitingCrush: boolean;
 }
 
 export interface RouteBolt {
@@ -522,6 +535,13 @@ export interface FirstRoute {
   bolts: RouteBolt[];
   defeated: number;
   total: number;
+  /**
+   * Туслах мангасын давалгаа:
+   * 1 = Зургаан нар, 2 = Хар могой, 3 = үлдсэн 3 мангас.
+   */
+  helperWave: 1 | 2 | 3;
+  /** Могойг дарсан Тайхар чулууны хэлбэртэй хаднууд */
+  crushMonoliths: Array<{ pos: Vector2 }>;
 }
 
 export type TumurShulmasPhase =
@@ -766,6 +786,9 @@ export type MainObjectiveId =
   | "inspectStormTrace"
   | "returnToOldManWithTrace"
   | "defeatSpiritGuards"
+  | "talkAfterSpiritScout"
+  | "buildSpiritOvoo"
+  | "enterSpiritViaOvoo"
   | "reachCursedGate"
   | "defeatShulmasBaatar"
   | "claimSkySword"
@@ -795,6 +818,17 @@ export interface StoryState {
   introCompleted: boolean;
   introSection: number;
   introSectionElapsed: number;
+  /** Одоогийн хэсгийн барих хугацаа (дууны урт эсвэл default) */
+  introSectionHold: number;
+  /** Intro камерын төв (дэлхийн координат) */
+  introCamX: number;
+  introCamY: number;
+  /** Нээлтэнд аав ээжийн харагдах байдал (1→0 алга болох) */
+  introParentFade: number;
+  /** Нээлтийн зорилтот цаг (зөөлөн шилжилт) */
+  introTimeTarget: number;
+  /** Аав ээжийг агаарт өргөсөн хэмжээ (шулам чирэх) */
+  introParentLift: number;
   hearthQuestStarted: boolean;
   hearthWoodCollected: number;
   campfireRelit: boolean;
@@ -854,6 +888,18 @@ export interface StoryState {
   stormTraceEffectRemaining: number;
   stormTraceDialogueCompleted: boolean;
   spiritPathOpened: boolean;
+  /** Анхны сүнс зорчилт (тагнах) дуусаж буцсан */
+  spiritScoutDone: boolean;
+  /** Одоогийн сүнс зорчилтоос буцахыг зөвшөөрөх */
+  spiritAllowReturn: boolean;
+  /** Хар мөрийн газар овоо босгосон */
+  spiritOvooBuilt: boolean;
+  /** Хоёр дахь зорчилтод овооны шилэн ус авсан — овоо сүүдэрлэг болно */
+  spiritOvooSoulCollected: boolean;
+  /** Хоёр дахь зорчилтод овоон дээрх шилэн ус авахад бэлэн */
+  spiritOvooSoulActive: boolean;
+  /** Сүнснээс буцаад өвгөнтэй ярьсан */
+  postSpiritScoutDialogueCompleted: boolean;
   milestone7Completed: boolean;
   milestone8Started: boolean;
   familyReunionEffectRemaining: number;
@@ -864,6 +910,15 @@ export interface StoryState {
 }
 
 export type MenuScreen = "main" | "settings" | "controls" | "credits";
+
+/** Тагнах/cheat зорчилтын өмнөх нөөц — овоогоор буцахад сэргээнэ */
+export interface SpiritVisitSnapshot {
+  bow: boolean;
+  arrows: number;
+  stone: number;
+  wood: number;
+  spiritPoints: number;
+}
 
 export interface GameState {
   player: Player;
@@ -921,8 +976,13 @@ export interface GameState {
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
   combatDodgeActive: boolean;
   nextEntityId: number;
-  /** Сүнс = нэмэлт амь (хуучин арилжааны урамшуулал; одоо олгохгүй) */
+  /** Шилэн усны балга = нэмэлт амь (1 балга = 1 дахин амилах) */
   spiritPoints: number;
+  /**
+   * Сүнс рүү орохын өмнөх нөөц (тагнах/cheat).
+   * Овоогоор буцахад сэргээнэ — зээлсэн нум/сум, cheat материал алга болно.
+   */
+  spiritVisitSnapshot: SpiritVisitSnapshot | null;
   elderTab: "trade" | "talk";
   elderDialogueId: string | null;
   elderDialogueLine: number;

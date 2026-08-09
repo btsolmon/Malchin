@@ -22,7 +22,7 @@ import {
   roundRectPath,
   setMessage,
 } from "../game/utils";
-import { audio, setMusicVol, setSfxVol, sfx } from "../game/audio";
+import { audio, setMusicVol, setSfxVol, sfx, startSleepSnore, stopSleepSnore } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
 import { advanceToMorning } from "../game/daycycle";
 import { getLang, langLabel, setLang, t, tr, trFormat } from "./i18n";
@@ -180,13 +180,16 @@ export function updateSettingsMenu(state: GameState): void {
   const getters = [(): number => audio.musicVol, (): number => audio.sfxVol];
   const setters = [setMusicVol, setSfxVol];
   if (state.menuIndex < 2) {
+    // Key-repeat-ээр түвшин 0 руу унахгүй — зөвхөн нэг алхам
     if (input.menuLeft) {
       setters[state.menuIndex](getters[state.menuIndex]() - 0.1);
       sfx("move");
+      input.menuLeft = false;
     }
     if (input.menuRight) {
       setters[state.menuIndex](getters[state.menuIndex]() + 0.1);
       sfx("move");
+      input.menuRight = false;
     }
   }
 
@@ -224,7 +227,7 @@ export function updateSettingsMenu(state: GameState): void {
     if (overButton(lay.back, input)) {
       if (state.phase === "paused") {
         state.menuScreen = "main";
-        state.pauseIndex = 1;
+        state.pauseIndex = 2;
       } else {
         state.menuScreen = "main";
         state.menuIndex = mainMenuIndexOf("settings");
@@ -237,7 +240,7 @@ export function updateSettingsMenu(state: GameState): void {
   if (input.pause || (input.confirm && state.menuIndex === SETTINGS_BACK_ROW)) {
     if (state.phase === "paused") {
       state.menuScreen = "main";
-      state.pauseIndex = 1;
+      state.pauseIndex = 2;
     } else {
       state.menuScreen = "main";
       state.menuIndex = mainMenuIndexOf("settings");
@@ -670,6 +673,7 @@ export function updateGer(state: GameState, dt: number): void {
       player.vitals.warmth = Math.min(100, player.vitals.warmth + 40);
       player.sleepCooldown = 60;
       advanceToMorning(state);
+      stopSleepSnore();
       sfx("levelup");
       setMessage(
         state,
@@ -679,6 +683,7 @@ export function updateGer(state: GameState, dt: number): void {
     }
     if (state.gerSleepTimer <= 0) {
       state.gerSleepBed = null;
+      stopSleepSnore();
     }
     return;
   }
@@ -850,7 +855,7 @@ export function updateGer(state: GameState, dt: number): void {
       state.gerPlayer.x = bed.x + bed.w / 2;
       state.gerPlayer.y = bed.y + bed.h * 0.38;
       player.moving = false;
-      sfx("select");
+      startSleepSnore();
       setMessage(state, "Унтаж байна…", 5);
     }
     return;
@@ -863,7 +868,7 @@ export function updateGer(state: GameState, dt: number): void {
   ) {
     state.phase = "playing";
     player.moving = false;
-    sfx("select");
+    sfx("door");
   }
 }
 
@@ -878,7 +883,7 @@ export function updatePauseMenu(state: GameState): void {
   if (state.menuScreen === "controls") {
     if (input.confirm || input.pause || input.mouseClicked) {
       state.menuScreen = "main";
-      state.pauseIndex = 2;
+      state.pauseIndex = 3;
       sfx("select");
     }
     return;
@@ -1681,6 +1686,7 @@ export function drawMinimap(
     ctx.fillStyle = "#ff9b55";
     for (const enemy of state.world.firstRoute.enemies) {
       if (!enemy.alive || !enemy.engaged) continue;
+      if (enemy.kind === "zurgaanNar") continue;
       const size = enemy.kind === "shulmasynBaatar" ? 5 : 3;
       ctx.fillRect(
         mx + enemy.pos.x * sx - size / 2,
@@ -1981,6 +1987,9 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["G", t("controls.packGer")],
     ["H", t("controls.horse")],
     ["P", t("controls.pause")],
+    ["O", t("controls.fullscreen")],
+    ["2× товших", t("controls.fullscreenTouch")],
+    ["E / Space", t("controls.skipIntro")],
   ];
   const boxW = 520;
   const boxH = lines.length * 22 + 26;
@@ -2234,6 +2243,13 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     { icon: "fish", val: String(player.inventory.fish) },
     { icon: "hay", val: String(player.inventory.hay) },
   ];
+  // Шилэн лонх — авсны дараа нөөцийн мөрөнд (амьны балга)
+  if (state.story.spiritOvooSoulCollected && state.spiritPoints > 0) {
+    qItems.push({
+      icon: "spiritWater",
+      val: String(state.spiritPoints),
+    });
+  }
   const qW = qItems.length * (qSize + 4) - 4 + 8;
   const qX = VIEW_W - qW - 16;
   drawWoodFrame(ctx, qX, qY, qW, qSize + 8, 4);

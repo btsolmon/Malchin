@@ -3,6 +3,7 @@ import {
   VIEW_W,
   WORLD_H,
   WORLD_W,
+  SNAKE_CRUSH_STONE_COST,
   type Camera,
   type FirstRoute,
   type GameState,
@@ -25,6 +26,7 @@ import { riverCenterX, RIVER_HALF_W } from "./biomes";
 import { tryInteractTumurShulmasGate } from "./tumurShulmas";
 import { drawOngodDemon } from "./render/ongodDemons";
 import { tr, trFormat } from "./i18n";
+import { handlePlayerDeath } from "./spirit";
 
 /** Голын зүүн эрэг — туслахууд энд зогсоно */
 function eastOfRiver(y: number, margin = 70): number {
@@ -57,6 +59,28 @@ interface RouteEnemyConfig {
 }
 
 const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
+  zurgaanNar: {
+    hp: 28,
+    posture: 999,
+    radius: 34,
+    speed: 12,
+    damage: 6,
+    aggroRange: 520,
+    attackRange: 90,
+    score: 12,
+    xp: 10,
+  },
+  harMogoi: {
+    hp: 140,
+    posture: 70,
+    radius: 38,
+    speed: 88,
+    damage: 16,
+    aggroRange: 240,
+    attackRange: 78,
+    score: 60,
+    xp: 48,
+  },
   talynHaragch: {
     hp: 72,
     posture: 58,
@@ -115,6 +139,8 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
 };
 
 const ROUTE_ENEMY_LABELS: Record<RouteEnemyKind, string> = {
+  zurgaanNar: "Зургаан нар",
+  harMogoi: "Хар могой",
   talynHaragch: "Талын харагч",
   shulmasynHuu: "Шулмасын хүү",
   shidetHarvaach: "Шидэт харваач",
@@ -123,12 +149,16 @@ const ROUTE_ENEMY_LABELS: Record<RouteEnemyKind, string> = {
 };
 
 const ROUTE_ENEMY_COLORS: Record<RouteEnemyKind, string> = {
+  zurgaanNar: "#e8a030",
+  harMogoi: "#1a1218",
   talynHaragch: "#5a3a2e",
   shulmasynHuu: "#4a3834",
   shidetHarvaach: "#3d2a55",
   shulmasynZarts: "#3a322c",
   shulmasynBaatar: "#2a1c28",
 };
+
+export type RouteDamageSource = "melee" | "arrow" | "spiritBolt" | "other";
 
 function createEnemy(
   id: number,
@@ -171,38 +201,150 @@ function createEnemy(
     flash: 0,
     deathTimer: 0,
     alive: true,
-    engaged: false,
+    engaged: kind === "zurgaanNar",
     walkPhase: Math.random() * Math.PI * 2,
+    awaitingCrush: false,
   };
 }
 
-/** Туслах шулмасуудын spawn цэгүүд — голын зүүн эрэг */
-function buildHelperSlots(spawn: Vector2): Array<{
+/** Таван сахиул: Зургаан нар(1) + могой(1) + үлдсэн 3 мангас */
+const HELPER_TOTAL = 5;
+
+type HelperSlot = {
   kind: RouteEnemyKind;
   y: number;
   margin: number;
-}> {
+};
+
+function buildSunSlots(spawn: Vector2): HelperSlot[] {
+  const sunSlots: HelperSlot[] = [];
+  const sunMidY = clamp(spawn.y - 20, 160, WORLD_H - 160);
+  for (let i = 0; i < 6; i++) {
+    sunSlots.push({
+      kind: "zurgaanNar",
+      y: clamp(sunMidY + (i - 2.5) * 72, 120, WORLD_H - 120),
+      margin: 110 + (i % 2) * 28,
+    });
+  }
+  return sunSlots;
+}
+
+function buildSnakeSlot(spawn: Vector2): HelperSlot {
+  return { kind: "harMogoi", y: spawn.y + 80, margin: 95 };
+}
+
+/** Өмнөх таван сахиулаас үлдээсэн гурав */
+function buildTrioSlots(spawn: Vector2): HelperSlot[] {
   return [
-    { kind: "talynHaragch", y: spawn.y - 180, margin: 55 },
-    { kind: "shulmasynHuu", y: spawn.y - 40, margin: 95 },
-    { kind: "shidetHarvaach", y: spawn.y + 90, margin: 70 },
-    { kind: "shulmasynZarts", y: spawn.y + 220, margin: 110 },
-    { kind: "talynHaragch", y: spawn.y + 340, margin: 65 },
+    { kind: "shidetHarvaach", y: spawn.y + 160, margin: 70 },
+    { kind: "shulmasynZarts", y: spawn.y + 280, margin: 110 },
+    { kind: "talynHaragch", y: spawn.y + 400, margin: 65 },
   ];
 }
 
-function createHelperEnemies(spawn: Vector2): RouteEnemy[] {
-  return buildHelperSlots(spawn).map((slot, i) => {
+function createEnemiesFromSlots(
+  slots: HelperSlot[],
+  idStart: number,
+): RouteEnemy[] {
+  return slots.map((slot, i) => {
     const y = clamp(slot.y, 100, WORLD_H - 100);
-    return createEnemy(6001 + i, slot.kind, {
+    return createEnemy(idStart + i, slot.kind, {
       x: eastOfRiver(y, slot.margin),
       y,
     });
   });
 }
 
+/** Эхний давалгаа — зөвхөн 6 нар */
+function createHelperEnemies(spawn: Vector2): RouteEnemy[] {
+  return createEnemiesFromSlots(buildSunSlots(spawn), 6001);
+}
+
+function nextEnemyId(route: FirstRoute): number {
+  let maxId = 6000;
+  for (const enemy of route.enemies) {
+    if (enemy.id > maxId) maxId = enemy.id;
+  }
+  return maxId + 1;
+}
+
+function spawnHelperWave(
+  state: GameState,
+  slots: HelperSlot[],
+  message: string,
+): void {
+  const route = routeOf(state);
+  const spawned = createEnemiesFromSlots(slots, nextEnemyId(route));
+  route.enemies.push(...spawned);
+  setMessage(state, message, 4.5);
+  state.fx.shake = Math.max(state.fx.shake, 4);
+  sfx("levelup");
+  const mid = spawned[Math.floor(spawned.length / 2)] ?? spawned[0];
+  if (mid) {
+    spawnParticles(state, mid.pos, 18, ROUTE_ENEMY_COLORS[mid.kind], {
+      speed: 110,
+      size: 2.8,
+    });
+  }
+}
+
+/**
+ * Дараагийн давалгааг нээх:
+ * нар дууссан → могой; могой дарсан → 3 мангас.
+ */
+function tryAdvanceHelperWave(state: GameState): void {
+  const route = routeOf(state);
+  if (!route.active || route.complete) return;
+  const spawn = state.world.campPos;
+
+  if (route.helperWave === 1) {
+    const anySunAlive = route.enemies.some(
+      (e) => e.kind === "zurgaanNar" && e.alive,
+    );
+    if (anySunAlive) return;
+    // Нар аль хэдийн алга — могой гаргах
+    if (route.enemies.some((e) => e.kind === "harMogoi")) {
+      route.helperWave = 2;
+      return;
+    }
+    route.helperWave = 2;
+    // Халуун шар туяа арилга — сүнсний хөх бүүдгэр рүү буцна
+    state.player.vitals.warmth = Math.min(state.player.vitals.warmth, 55);
+    spawnHelperWave(
+      state,
+      [buildSnakeSlot(spawn)],
+      "Зургаан нар унтарлаа. Хар могой гарч ирлээ — унагаад чулуугаар дар!",
+    );
+    return;
+  }
+
+  if (route.helperWave === 2) {
+    const snakeAlive = route.enemies.some(
+      (e) => e.kind === "harMogoi" && e.alive,
+    );
+    if (snakeAlive) return;
+    if (
+      route.enemies.some(
+        (e) =>
+          e.kind === "shidetHarvaach" ||
+          e.kind === "shulmasynZarts" ||
+          e.kind === "talynHaragch",
+      )
+    ) {
+      route.helperWave = 3;
+      return;
+    }
+    route.helperWave = 3;
+    spawnHelperWave(
+      state,
+      buildTrioSlots(spawn),
+      "Могой дарлаа. Таван сахиулын үлдсэн гурав гарч ирлээ!",
+    );
+  }
+}
+
 export function createFirstRoute(spawn: Vector2): FirstRoute {
-  // Туслахууд — голын цаана (зүүн эрэг), фордоос урагш/хойш тархсан
+  // Эхэнд зөвхөн 6 нар — дараагийн давалгаанууд хожим нээгдэнэ
   const enemies = createHelperEnemies(spawn);
 
   const gateY = clamp(spawn.y + 420, 120, WORLD_H - 140);
@@ -230,7 +372,9 @@ export function createFirstRoute(spawn: Vector2): FirstRoute {
     enemies,
     bolts: [],
     defeated: 0,
-    total: enemies.length,
+    total: HELPER_TOTAL,
+    helperWave: 1,
+    crushMonoliths: [],
   };
 }
 
@@ -251,10 +395,12 @@ export function ensureShulmasHelpers(state: GameState): void {
     boss.alive;
 
   route.enemies = keepBoss && boss ? [...helpers, boss] : helpers;
-  route.total = route.enemies.filter((e) => e.kind !== "shulmasynBaatar").length;
+  route.total = HELPER_TOTAL;
   route.defeated = 0;
   route.complete = false;
+  route.helperWave = 1;
   route.bolts = [];
+  route.crushMonoliths = [];
   route.active = true;
   route.introductionShown = false;
   route.gateMessageShown = false;
@@ -275,6 +421,21 @@ export function ensureShulmasHelpers(state: GameState): void {
 /** Эхний амьд туслахын дэргэд (гол дээр биш) байрлуулах */
 export function placePlayerNearHelpers(state: GameState): void {
   const route = state.world.firstRoute;
+  const suns = route.enemies.filter(
+    (e) => e.alive && e.kind === "zurgaanNar",
+  );
+  if (suns.length > 0) {
+    const mid = suns[Math.floor(suns.length / 2)]!;
+    const bank = eastOfRiver(mid.spawnPos.y, 20);
+    state.player.pos = {
+      x: Math.max(80, bank - 40),
+      y: mid.spawnPos.y,
+    };
+    state.player.facing = { x: 1, y: 0 };
+    state.player.moving = false;
+    return;
+  }
+
   const anchor =
     route.enemies.find(
       (e) => e.alive && e.kind !== "shulmasynBaatar",
@@ -354,6 +515,7 @@ function resolvePlayerBodyContact(
   state: GameState,
   enemy: RouteEnemy,
 ): void {
+  if (enemy.kind === "zurgaanNar") return;
   const player = state.player;
   const minimumDistance = enemy.radius + player.radius + 3;
   const currentDistance = dist(enemy.pos, player.pos);
@@ -451,10 +613,11 @@ function damagePlayerFromRouteEnemy(
 }
 
 export function isRouteEnemyParryThreat(enemy: RouteEnemy): boolean {
-  if (!enemy.alive) return false;
+  if (!enemy.alive || enemy.awaitingCrush) return false;
   if (
     enemy.kind === "shulmasynHuu" ||
-    enemy.kind === "shidetHarvaach"
+    enemy.kind === "shidetHarvaach" ||
+    enemy.kind === "zurgaanNar"
   ) {
     return false;
   }
@@ -486,6 +649,7 @@ export function damageRouteEnemyPosture(
 ): boolean {
   if (!inShulmasSpirit(state)) return false;
   if (!enemy.alive || amount <= 0 || enemy.phase === "stunned") return false;
+  if (enemy.awaitingCrush || enemy.kind === "zurgaanNar") return false;
 
   enemy.posture = Math.max(0, enemy.posture - amount);
   enemy.postureRegenDelay = 2.4;
@@ -577,6 +741,8 @@ export function parryRouteEnemy(
 function completeRouteIfCleared(state: GameState): boolean {
   const route = routeOf(state);
   if (route.complete) return false;
+  // Дараагийн давалгаа үлдсэн бол хаалга бүү нээ
+  if (route.helperWave < 3) return false;
   if (route.enemies.some((enemy) => enemy.alive)) return false;
 
   route.complete = true;
@@ -600,20 +766,62 @@ export function damageRouteEnemy(
   state: GameState,
   enemy: RouteEnemy,
   damage: number,
+  source: RouteDamageSource = "other",
 ): void {
   // Зөвхөн шулмасын сүнсний оронд оногдоно (харагдахтай ижил)
   if (!inShulmasSpirit(state)) return;
   if (!enemy.alive || damage <= 0) return;
+  if (enemy.awaitingCrush) return;
+
+  if (enemy.kind === "zurgaanNar" && source !== "arrow") {
+    enemy.flash = 0.1;
+    enemy.engaged = true;
+    spawnText(
+      state,
+      zurgaanNarSkyWorldPos(state, enemy),
+      "Нум сумаар харва!",
+      "#ffe08a",
+    );
+    sfx("move");
+    return;
+  }
 
   enemy.hp -= damage;
   enemy.flash = 0.13;
   enemy.engaged = true;
   sfx("hit");
-  spawnParticles(state, enemy.pos, 8, ROUTE_ENEMY_COLORS[enemy.kind], {
+  const hitPos =
+    enemy.kind === "zurgaanNar"
+      ? zurgaanNarSkyWorldPos(state, enemy)
+      : enemy.pos;
+  spawnParticles(state, hitPos, 8, ROUTE_ENEMY_COLORS[enemy.kind], {
     speed: enemy.kind === "shulmasynBaatar" ? 130 : 100,
     size: enemy.kind === "shulmasynBaatar" ? 3.2 : 2.4,
   });
   if (enemy.hp > 0) return;
+
+  // Хар могой — унасны дараа чулуугаар дарна
+  if (enemy.kind === "harMogoi") {
+    enemy.hp = 0;
+    enemy.alive = true;
+    enemy.awaitingCrush = true;
+    enemy.engaged = true;
+    stopEnemy(enemy);
+    enemy.phase = "stunned";
+    enemy.phaseTimer = 9999;
+    enemy.vel = { x: 0, y: 0 };
+    setMessage(
+      state,
+      `Могой унав! Ойртоод E дар — ${SNAKE_CRUSH_STONE_COST} чулуугаар дар.`,
+      5,
+    );
+    sfx("levelup");
+    spawnParticles(state, enemy.pos, 16, "#6a5840", {
+      speed: 90,
+      size: 3,
+    });
+    return;
+  }
 
   enemy.hp = 0;
   enemy.alive = false;
@@ -629,8 +837,19 @@ export function damageRouteEnemy(
     route.swordDrop.visible = true;
     route.swordDrop.collected = false;
     route.swordDrop.pos = { ...enemy.pos };
+  } else if (enemy.kind === "zurgaanNar") {
+    // 6 нар = 1 сахиул — зөвхөн сүүлийн нар унахад тоолно
+    const sunsLeft = route.enemies.filter(
+      (e) => e.kind === "zurgaanNar" && e.alive,
+    ).length;
+    if (sunsLeft === 0) {
+      route.defeated += 1;
+      tryAdvanceHelperWave(state);
+      routeCompleted = completeRouteIfCleared(state);
+    }
   } else {
     route.defeated += 1;
+    tryAdvanceHelperWave(state);
     routeCompleted = completeRouteIfCleared(state);
   }
 
@@ -640,19 +859,25 @@ export function damageRouteEnemy(
   sfx("kill");
   spawnSoulRelease(
     state,
-    enemy.pos,
+    enemy.kind === "zurgaanNar"
+      ? zurgaanNarSkyWorldPos(state, enemy)
+      : enemy.pos,
     enemy.radius,
     isBoss
       ? "#f0e4ff"
-      : enemy.kind === "shidetHarvaach"
-        ? "#d9c8ff"
-        : "#d8f4ff",
+      : enemy.kind === "zurgaanNar"
+        ? "#ffd080"
+        : enemy.kind === "shidetHarvaach"
+          ? "#d9c8ff"
+          : "#d8f4ff",
   );
   spawnParticles(
     state,
-    enemy.pos,
+    enemy.kind === "zurgaanNar"
+      ? zurgaanNarSkyWorldPos(state, enemy)
+      : enemy.pos,
     isBoss ? 34 : 12,
-    isBoss ? "#c9a6ff" : "#d8f4ff",
+    isBoss ? "#c9a6ff" : enemy.kind === "zurgaanNar" ? "#ffc050" : "#d8f4ff",
     {
       speed: isBoss ? 175 : 110,
       size: isBoss ? 3.6 : 2.6,
@@ -660,7 +885,9 @@ export function damageRouteEnemy(
   );
   spawnText(
     state,
-    enemy.pos,
+    enemy.kind === "zurgaanNar"
+      ? zurgaanNarSkyWorldPos(state, enemy)
+      : enemy.pos,
     `+${config.score} · +${config.xp} XP`,
     "#ffd060",
   );
@@ -673,7 +900,10 @@ export function damageRouteEnemy(
     );
     state.fx.shake = Math.max(state.fx.shake, 12);
     triggerHitStop(state, 0.12);
-  } else if (!routeCompleted) {
+  } else if (
+    !routeCompleted &&
+    !(enemy.kind === "zurgaanNar" && route.helperWave >= 2)
+  ) {
     setMessage(
       state,
       trFormat("{name}-ын сүнс одлоо.", {
@@ -682,6 +912,77 @@ export function damageRouteEnemy(
       1.7,
     );
   }
+}
+
+/** Хар могойг 100 чулуугаар дарж алах */
+export function tryCrushHarMogoi(state: GameState): boolean {
+  if (!state.input.interact || !inShulmasSpirit(state)) return false;
+
+  const snake = routeOf(state).enemies.find(
+    (e) => e.kind === "harMogoi" && e.alive && e.awaitingCrush === true,
+  );
+  if (!snake) return false;
+
+  // Унасан могой байхад E-г овоо буцаах бүү хулгайлаарай
+  state.input.interact = false;
+
+  const reach = snake.radius + 96;
+  if (dist(state.player.pos, snake.pos) > reach) {
+    setMessage(state, "Могой руу ойртоод E дар — чулуугаар дар.", 2.6);
+    sfx("move");
+    return true;
+  }
+
+  const stones = state.player.inventory.stone ?? 0;
+  if (stones < SNAKE_CRUSH_STONE_COST) {
+    setMessage(
+      state,
+      `Чулуу дутуу: ${stones}/${SNAKE_CRUSH_STONE_COST}. Хүний ертөнцөд түүж бэлд.`,
+      3.5,
+    );
+    sfx("move");
+    return true;
+  }
+
+  state.player.inventory.stone -= SNAKE_CRUSH_STONE_COST;
+  snake.awaitingCrush = false;
+  snake.alive = false;
+  snake.deathTimer = 0.4;
+  stopEnemy(snake);
+
+  const route = routeOf(state);
+  route.crushMonoliths = route.crushMonoliths ?? [];
+  route.crushMonoliths.push({ pos: { ...snake.pos } });
+  route.defeated += 1;
+  tryAdvanceHelperWave(state);
+  const routeCompleted = completeRouteIfCleared(state);
+
+  const config = ROUTE_CONFIG.harMogoi;
+  state.score += config.score;
+  gainXp(state, config.xp);
+  state.fx.shake = Math.max(state.fx.shake, 10);
+  triggerHitStop(state, 0.14);
+  sfx("stone");
+  sfx("kill");
+  spawnParticles(state, snake.pos, 28, "#6a6358", {
+    speed: 120,
+    size: 3.4,
+    gravity: 40,
+  });
+  spawnText(
+    state,
+    snake.pos,
+    `−${SNAKE_CRUSH_STONE_COST} чулуу`,
+    "#c8c0b0",
+  );
+  setMessage(
+    state,
+    routeCompleted
+      ? "Тайхар чулуу могойг дарж, зам нээгдэв."
+      : "Тайхар чулуу могойг дарлаа.",
+    4,
+  );
+  return true;
 }
 
 function updatePosture(enemy: RouteEnemy, dt: number): void {
@@ -716,6 +1017,25 @@ function startLockedMeleeWindup(
   );
   setEnemyFacing(enemy, enemy.attackDirection);
   stopEnemy(enemy);
+}
+
+function updateZurgaanNar(
+  state: GameState,
+  enemy: RouteEnemy,
+  dt: number,
+): void {
+  // Тэнгэрт хөвнө — газрын хажууд биш, ойрын цохилт байхгүй
+  stopEnemy(enemy);
+  enemy.engaged = true;
+  enemy.walkPhase += dt * 1.6;
+  enemy.pos.x = enemy.spawnPos.x;
+  enemy.pos.y = enemy.spawnPos.y;
+  if (enemy.phase === "recovery") {
+    enemy.phaseTimer = Math.max(0, enemy.phaseTimer - dt);
+    if (enemy.phaseTimer <= 0) enemy.phase = "idle";
+    return;
+  }
+  enemy.phase = "idle";
 }
 
 function updateMeleeRouteEnemy(
@@ -1291,6 +1611,19 @@ export function updateFirstRoute(state: GameState, dt: number): void {
   const route = routeOf(state);
   if (!route.active) return;
 
+  // Хуучин save — helperWave байхгүй бол сэргээнэ
+  if (route.helperWave == null) {
+    const hasTrio = route.enemies.some(
+      (e) =>
+        e.kind === "shidetHarvaach" ||
+        e.kind === "shulmasynZarts" ||
+        e.kind === "talynHaragch",
+    );
+    const hasSnake = route.enemies.some((e) => e.kind === "harMogoi");
+    route.helperWave = hasTrio ? 3 : hasSnake ? 2 : 1;
+  }
+
+  tryAdvanceHelperWave(state);
   completeRouteIfCleared(state);
 
   // Туслахууд — сүнсний оронд
@@ -1303,12 +1636,33 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     route.introductionShown = true;
     setMessage(
       state,
-      "Шулмасын сүнсний зам: туслахуудыг давж, хараалт хаалгад хүр.",
-      4,
+      "Зүүн тэнгэрт зургаан нар! Нум сумаар харва. Дараа нь могой, дараа нь бусад мангас гарч ирнэ.",
+      5,
     );
   }
 
   updateRouteBolts(state, dt);
+
+  // Зургаан нар амьд үед тэнгэрийн халуун — амь багасгана
+  const sixSunsAlive = route.enemies.some(
+    (e) => e.kind === "zurgaanNar" && e.alive && !e.awaitingCrush,
+  );
+  if (sixSunsAlive && !state.godMode) {
+    const burn = 5.5 * dt;
+    state.player.vitals.health = Math.max(
+      0,
+      state.player.vitals.health - burn,
+    );
+    state.player.vitals.warmth = Math.min(
+      100,
+      state.player.vitals.warmth + 12 * dt,
+    );
+    if (state.player.vitals.health <= 0) {
+      handlePlayerDeath(state, "Зургаан нарын халуунд шатав…");
+      return;
+    }
+  }
+
   for (const enemy of route.enemies) {
     if (!enemy.alive) {
       enemy.deathTimer = Math.max(0, enemy.deathTimer - dt);
@@ -1318,6 +1672,12 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     enemy.flash = Math.max(0, enemy.flash - dt);
     enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
     updatePosture(enemy, dt);
+
+    if (enemy.awaitingCrush === true) {
+      stopEnemy(enemy);
+      enemy.phase = "stunned";
+      continue;
+    }
 
     if (enemy.phase === "stunned") {
       enemy.phaseTimer = Math.max(0, enemy.phaseTimer - dt);
@@ -1346,13 +1706,35 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     if (!enemy.engaged && dPlayer <= enemy.aggroRange) {
       enemy.engaged = true;
       enemy.phase = "chasing";
-      setMessage(
-        state,
-        trFormat("{name} тулалдаанд орлоо.", {
-          name: tr(routeEnemyLabel(enemy.kind)),
-        }),
-        1.5,
-      );
+      if (enemy.kind === "zurgaanNar") {
+        const alreadyTold = route.enemies.some(
+          (e) =>
+            e.kind === "zurgaanNar" &&
+            e.id !== enemy.id &&
+            e.engaged,
+        );
+        if (!alreadyTold) {
+          setMessage(
+            state,
+            "Зүүн тэнгэрт зургаан нар! Нум сумаар нэг бүрчлэн харва.",
+            3.5,
+          );
+        }
+      } else if (enemy.kind === "harMogoi") {
+        setMessage(
+          state,
+          "Хар могой мөлхөж ирлээ. Унагасны дараа чулуугаар дар.",
+          2.2,
+        );
+      } else {
+        setMessage(
+          state,
+          trFormat("{name} тулалдаанд орлоо.", {
+            name: tr(routeEnemyLabel(enemy.kind)),
+          }),
+          1.5,
+        );
+      }
     }
     if (!enemy.engaged) {
       stopEnemy(enemy);
@@ -1391,6 +1773,8 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       updateShulmasynHuu(state, enemy, dt);
     } else if (enemy.kind === "shidetHarvaach") {
       updateHarvaach(state, enemy, dt);
+    } else if (enemy.kind === "zurgaanNar") {
+      updateZurgaanNar(state, enemy, dt);
     } else {
       updateMeleeRouteEnemy(state, enemy, dt);
     }
@@ -1411,6 +1795,8 @@ export function tryInteractFirstRoute(state: GameState): boolean {
   if (state.phase === "playing") return false;
 
   if (!inShulmasSpirit(state)) return false;
+
+  if (tryCrushHarMogoi(state)) return true;
 
   const nearFinalGate =
     !encounter.active &&
@@ -1556,25 +1942,55 @@ function drawEnemyHealthBars(
   enemy: RouteEnemy,
   x: number,
   y: number,
+  stoneCount = 0,
 ): void {
   if (enemy.kind === "shulmasynBaatar") return;
+  // Нар — HP/шар зураас тэнгэрт бүү зур
+  if (enemy.kind === "zurgaanNar") return;
   if (!enemy.engaged && enemy.hp >= enemy.maxHp) return;
 
-  const width = enemy.kind === "shulmasynZarts" ? 62 : 48;
+  const width = enemy.kind === "shulmasynZarts" ? 62 : enemy.kind === "harMogoi" ? 56 : 48;
   const hpRatio = clamp(enemy.hp / enemy.maxHp, 0, 1);
+  const showPosture = !enemy.awaitingCrush;
   const postureRatio = clamp(
     enemy.posture / enemy.maxPosture,
     0,
     1,
   );
+
   ctx.fillStyle = "rgba(0,0,0,0.65)";
   ctx.fillRect(x - width / 2, y, width, 5);
-  ctx.fillStyle = "#c84242";
-  ctx.fillRect(x - width / 2, y, width * hpRatio, 5);
-  ctx.fillStyle = "rgba(0,0,0,0.65)";
-  ctx.fillRect(x - width / 2, y + 7, width, 3);
-  ctx.fillStyle = "#e2bd55";
-  ctx.fillRect(x - width / 2, y + 7, width * postureRatio, 3);
+  ctx.fillStyle = enemy.awaitingCrush ? "#8a7a68" : "#c84242";
+  ctx.fillRect(
+    x - width / 2,
+    y,
+    width * (enemy.awaitingCrush ? 0 : hpRatio),
+    5,
+  );
+
+  if (showPosture) {
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(x - width / 2, y + 7, width, 3);
+    ctx.fillStyle = "#e2bd55";
+    ctx.fillRect(x - width / 2, y + 7, width * postureRatio, 3);
+  }
+
+  if (enemy.kind === "harMogoi") {
+    const have = Math.max(0, Math.floor(stoneCount));
+    const hint = enemy.awaitingCrush
+      ? `E · ${have}/${SNAKE_CRUSH_STONE_COST} чулуу`
+      : `${have}/${SNAKE_CRUSH_STONE_COST} чулуу`;
+    const tipY = y + (showPosture ? 22 : 16);
+    ctx.textAlign = "center";
+    ctx.font = "600 10px system-ui, sans-serif";
+    ctx.strokeStyle = "rgba(0,0,0,0.75)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(hint, x, tipY);
+    ctx.fillStyle =
+      have >= SNAKE_CRUSH_STONE_COST ? "#e8d4a0" : "#d8c8b0";
+    ctx.fillText(hint, x, tipY);
+    ctx.textAlign = "left";
+  }
 }
 
 function drawRouteTelegraph(
@@ -1632,7 +2048,10 @@ export function drawRouteEnemy(
   enemy: RouteEnemy,
   cam: Camera,
   time: number,
+  stoneCount = 0,
 ): void {
+  // Зургаан нар — тэнгэрийн overlay (drawSixSunsSky)
+  if (enemy.kind === "zurgaanNar") return;
   if (!enemy.alive && enemy.deathTimer <= 0) return;
 
   const x = enemy.pos.x - cam.x;
@@ -1669,16 +2088,30 @@ export function drawRouteEnemy(
   }
 
   ctx.save();
-  ctx.translate(x, y + bob);
-  if (enemy.facing < 0) ctx.scale(-1, 1);
+  ctx.translate(x, y + (enemy.kind === "harMogoi" ? 0 : bob));
+  if (enemy.facing < 0 && enemy.kind !== "harMogoi") {
+    ctx.scale(-1, 1);
+  }
   ctx.fillStyle = "rgba(20,18,15,0.3)";
   ctx.beginPath();
-  ctx.ellipse(0, 10, enemy.radius + 4, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(
+    0,
+    10,
+    enemy.kind === "harMogoi" ? enemy.radius + 14 : enemy.radius + 4,
+    enemy.kind === "harMogoi" ? 9 : 7,
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
 
-  drawOngodDemon(ctx, enemy, flash, time);
+  if (enemy.kind === "harMogoi") {
+    drawHarMogoiBody(ctx, enemy, flash, time);
+  } else {
+    drawOngodDemon(ctx, enemy, flash, time);
+  }
 
-  if (enemy.phase === "stunned") {
+  if (enemy.phase === "stunned" && !enemy.awaitingCrush) {
     ctx.fillStyle = "#ffe08a";
     ctx.font = "bold 15px system-ui, sans-serif";
     ctx.textAlign = "center";
@@ -1691,13 +2124,14 @@ export function drawRouteEnemy(
   ctx.restore();
 
   drawRouteTelegraph(ctx, enemy, x, y, time);
-  drawEnemyHealthBars(
-    ctx,
-    enemy,
-    x,
-    y - enemy.radius - 35,
-  );
-  if (enemy.engaged && enemy.kind !== "shulmasynBaatar") {
+  const barY =
+    y - enemy.radius - (enemy.kind === "harMogoi" ? 56 : 35);
+  drawEnemyHealthBars(ctx, enemy, x, barY, stoneCount);
+  if (
+    enemy.engaged &&
+    enemy.kind !== "shulmasynBaatar" &&
+    enemy.kind !== "harMogoi"
+  ) {
     ctx.fillStyle = "#f0dfc3";
     ctx.font = "600 10px system-ui, sans-serif";
     ctx.textAlign = "center";
@@ -1708,6 +2142,356 @@ export function drawRouteEnemy(
     );
     ctx.textAlign = "left";
   }
+}
+
+/** Нарны slot (0–5) — эхний 6 id-аар тогтвортой */
+export function zurgaanNarSlotIndex(enemy: RouteEnemy): number {
+  return clamp(enemy.id - 6001, 0, 5);
+}
+
+/**
+ * Зургаан нар — дэлгэцийн дээд тэнгэрт (зүүн тийш).
+ * Газрын entity биш, тэнгэрийн биет.
+ */
+export function zurgaanNarSkyScreenPos(
+  slot: number,
+  viewW: number,
+  viewH: number,
+  time: number,
+): Vector2 {
+  const i = clamp(slot, 0, 5);
+  const bob = Math.sin(time * 1.35 + i * 0.9) * 4;
+  return {
+    // Дээд тэнгэр, зүүн зүг (дэлгэцийн баруун хагас)
+    x: viewW * 0.58 + (i - 2.5) * (viewW * 0.075),
+    y: viewH * 0.11 + (i % 2) * 16 + bob,
+  };
+}
+
+function spiritPlayCamera(state: GameState): Camera {
+  return {
+    x: clamp(state.player.pos.x - VIEW_W / 2, 0, WORLD_W - VIEW_W),
+    y: clamp(state.player.pos.y - VIEW_H / 2, 0, WORLD_H - VIEW_H),
+  };
+}
+
+/** Тэнгэрийн нарын дэлгэц → дэлхийн цэг (сумны чиглэл/онох) */
+export function zurgaanNarSkyWorldPos(
+  state: GameState,
+  enemy: RouteEnemy,
+  time = state.world.elapsed,
+): Vector2 {
+  const cam = spiritPlayCamera(state);
+  const screen = zurgaanNarSkyScreenPos(
+    zurgaanNarSlotIndex(enemy),
+    VIEW_W,
+    VIEW_H,
+    time,
+  );
+  return { x: cam.x + screen.x, y: cam.y + screen.y };
+}
+
+function drawZurgaanNarBody(
+  ctx: CanvasRenderingContext2D,
+  flash: boolean,
+  time: number,
+  walkPhase: number,
+): void {
+  const hover = Math.sin(walkPhase) * 2;
+  ctx.translate(0, hover);
+  const pulse = 1 + Math.sin(time * 2.1) * 0.04;
+
+  // Зөөлөн ууссан дугуй гэрэл — цэцэг/туяа биш
+  const outer = ctx.createRadialGradient(0, 0, 2, 0, 0, 58 * pulse);
+  outer.addColorStop(
+    0,
+    flash ? "rgba(255,255,240,0.95)" : "rgba(255,248,200,0.85)",
+  );
+  outer.addColorStop(
+    0.2,
+    flash ? "rgba(255,236,140,0.7)" : "rgba(255,220,100,0.55)",
+  );
+  outer.addColorStop(0.5, "rgba(255,180,50,0.22)");
+  outer.addColorStop(0.78, "rgba(255,140,30,0.08)");
+  outer.addColorStop(1, "rgba(255,120,20,0)");
+  ctx.fillStyle = outer;
+  ctx.beginPath();
+  ctx.arc(0, 0, 58 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  const core = ctx.createRadialGradient(-3, -4, 1, 0, 0, 20);
+  core.addColorStop(0, flash ? "#ffffff" : "#fffef0");
+  core.addColorStop(0.35, flash ? "#fff0a8" : "#ffe56a");
+  core.addColorStop(0.75, "#ffc040");
+  core.addColorStop(1, "rgba(240,150,30,0.35)");
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(0, 0, 20, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Тайхар чулууны хэлбэртэй том хад */
+export function drawCrushMonoliths(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  cam: Camera,
+): void {
+  for (const mono of state.world.firstRoute.crushMonoliths ?? []) {
+    const x = mono.pos.x - cam.x;
+    const y = mono.pos.y - cam.y;
+    if (x < -80 || x > VIEW_W + 80 || y < -120 || y > VIEW_H + 80) continue;
+    drawTaikharMonolith(ctx, x, y);
+  }
+}
+
+function drawTaikharMonolith(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+): void {
+  // Тайхар чулуу — нэг том босоо хад (зураг шиг)
+  ctx.save();
+  ctx.translate(x, y);
+
+  ctx.fillStyle = "rgba(16,12,8,0.45)";
+  ctx.beginPath();
+  ctx.ellipse(0, 22, 56, 18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const body = ctx.createLinearGradient(-40, -200, 45, 30);
+  body.addColorStop(0, "#c4a878");
+  body.addColorStop(0.25, "#a08860");
+  body.addColorStop(0.55, "#7a6248");
+  body.addColorStop(0.8, "#5a4834");
+  body.addColorStop(1, "#3a2e22");
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  // Өндөр монолит — орой өргөн, суурь нарийн
+  ctx.moveTo(-22, 20);
+  ctx.lineTo(-32, -30);
+  ctx.lineTo(-38, -90);
+  ctx.lineTo(-34, -150);
+  ctx.lineTo(-20, -200);
+  ctx.lineTo(4, -220);
+  ctx.lineTo(28, -205);
+  ctx.lineTo(40, -155);
+  ctx.lineTo(42, -90);
+  ctx.lineTo(36, -25);
+  ctx.lineTo(24, 20);
+  ctx.closePath();
+  ctx.fill();
+
+  // Гүн босоо хагарлууд
+  ctx.strokeStyle = "rgba(28,20,12,0.65)";
+  ctx.lineWidth = 2.8;
+  ctx.beginPath();
+  ctx.moveTo(-6, 14);
+  ctx.lineTo(-14, -70);
+  ctx.lineTo(-10, -160);
+  ctx.lineTo(-2, -210);
+  ctx.stroke();
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(14, 12);
+  ctx.lineTo(20, -50);
+  ctx.lineTo(16, -140);
+  ctx.lineTo(10, -195);
+  ctx.stroke();
+
+  // Нарны гэрэлтсэн хажуу
+  ctx.fillStyle = "rgba(255,235,190,0.16)";
+  ctx.beginPath();
+  ctx.moveTo(4, -215);
+  ctx.lineTo(26, -200);
+  ctx.lineTo(36, -100);
+  ctx.lineTo(20, -20);
+  ctx.lineTo(8, -80);
+  ctx.closePath();
+  ctx.fill();
+
+  // Оройн ирмэг
+  ctx.strokeStyle = "rgba(230,210,170,0.4)";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(-18, -198);
+  ctx.lineTo(4, -218);
+  ctx.lineTo(26, -202);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawHarMogoiBody(
+  ctx: CanvasRenderingContext2D,
+  enemy: RouteEnemy,
+  flash: boolean,
+  time: number,
+): void {
+  // Хар могой — кобра: ороосон бие, босоо хүзүү, дэлгэсэн бамбай
+  const face = enemy.facing < 0 ? -1 : 1;
+  const limp = enemy.awaitingCrush === true;
+  const sway = limp ? 0 : Math.sin(time * 2.8) * 2;
+
+  const scaleDark = flash ? "#3a3238" : "#121016";
+  const scaleMid = flash ? "#4a4048" : "#1c181e";
+  const belly = flash ? "#6a6058" : "#2a2420";
+  const hoodEdge = flash ? "#504848" : "#0e0c10";
+
+  ctx.save();
+  ctx.scale(face, 1);
+  if (limp) {
+    ctx.rotate(0.55);
+    ctx.translate(0, 8);
+  }
+
+  // Ороосон бие
+  ctx.fillStyle = scaleDark;
+  ctx.beginPath();
+  ctx.ellipse(2, 18, 22, 11, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = scaleMid;
+  ctx.beginPath();
+  ctx.ellipse(-6, 14, 14, 8, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(12, 16, 12, 7, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Босоо хүзүү
+  const neckH = limp ? 28 : 48;
+  ctx.fillStyle = scaleDark;
+  ctx.beginPath();
+  ctx.moveTo(-7 + sway * 0.2, 10);
+  ctx.quadraticCurveTo(-9 + sway, -neckH * 0.4, -6 + sway, -neckH);
+  ctx.lineTo(7 + sway, -neckH);
+  ctx.quadraticCurveTo(10 + sway, -neckH * 0.4, 8 + sway * 0.2, 10);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = belly;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, 6);
+  ctx.quadraticCurveTo(sway * 0.5, -neckH * 0.5, sway, -neckH + 6);
+  ctx.stroke();
+
+  // Бамбай
+  const hoodY = -neckH + 4;
+  const hoodW = limp ? 22 : 34;
+  const hoodH = limp ? 18 : 28;
+  ctx.fillStyle = hoodEdge;
+  ctx.beginPath();
+  ctx.moveTo(-4 + sway, hoodY + 8);
+  ctx.quadraticCurveTo(
+    -hoodW + sway,
+    hoodY - 2,
+    -hoodW * 0.7 + sway,
+    hoodY - hoodH,
+  );
+  ctx.quadraticCurveTo(sway, hoodY - hoodH - 6, hoodW * 0.7 + sway, hoodY - hoodH);
+  ctx.quadraticCurveTo(hoodW + sway, hoodY - 2, 4 + sway, hoodY + 8);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = belly;
+  ctx.beginPath();
+  ctx.moveTo(-2 + sway, hoodY + 4);
+  ctx.quadraticCurveTo(
+    -hoodW * 0.55 + sway,
+    hoodY - 2,
+    -hoodW * 0.35 + sway,
+    hoodY - hoodH * 0.75,
+  );
+  ctx.lineTo(hoodW * 0.35 + sway, hoodY - hoodH * 0.75);
+  ctx.quadraticCurveTo(hoodW * 0.55 + sway, hoodY - 2, 2 + sway, hoodY + 4);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(0,0,0,0.45)";
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 3; i++) {
+    const ty = hoodY - 6 - i * 6;
+    ctx.beginPath();
+    ctx.moveTo(-hoodW * 0.35 + sway, ty);
+    ctx.lineTo(hoodW * 0.35 + sway, ty);
+    ctx.stroke();
+  }
+
+  // Толгой + улаан нүд
+  const hx = sway;
+  const hy = hoodY - hoodH + 2;
+  ctx.fillStyle = scaleDark;
+  ctx.beginPath();
+  ctx.ellipse(hx, hy - 4, 11, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const eyeA = limp ? 0.4 : 0.8 + Math.sin(time * 5) * 0.15;
+  ctx.fillStyle = `rgba(220, 25, 35, ${eyeA})`;
+  ctx.beginPath();
+  ctx.ellipse(hx - 4, hy - 6, 3.2, 2.4, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(hx + 4, hy - 6, 3.2, 2.4, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = limp ? "#501010" : "#ff7078";
+  ctx.beginPath();
+  ctx.arc(hx - 3.5, hy - 6, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(hx + 3.5, hy - 6, 1.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (!limp) {
+    ctx.strokeStyle = "#c02838";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(hx, hy + 2);
+    ctx.lineTo(hx + 10, hy + 4 + Math.sin(time * 9) * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+/** Зургаан нар — дэлгэцийн дээд тэнгэрт зурна + халууны vignette */
+export function drawSixSunsSky(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  viewW: number,
+  viewH: number,
+  time: number,
+): void {
+  if (!inShulmasSpirit(state)) return;
+  const suns = state.world.firstRoute.enemies.filter(
+    (e) => e.kind === "zurgaanNar" && e.alive,
+  );
+  if (suns.length === 0) return;
+
+  const intensity = 0.05 + (suns.length / 6) * 0.12;
+  ctx.save();
+  ctx.fillStyle = `rgba(255, 130, 40, ${intensity})`;
+  ctx.fillRect(0, 0, viewW, viewH);
+
+  // Дээд тэнгэрийн зөөлөн гэрэл
+  const skyGlow = ctx.createLinearGradient(0, 0, 0, viewH * 0.4);
+  skyGlow.addColorStop(0, `rgba(255, 200, 80, ${0.12 + suns.length * 0.02})`);
+  skyGlow.addColorStop(1, "rgba(255, 160, 40, 0)");
+  ctx.fillStyle = skyGlow;
+  ctx.fillRect(0, 0, viewW, viewH * 0.4);
+
+  for (const sun of suns) {
+    const screen = zurgaanNarSkyScreenPos(
+      zurgaanNarSlotIndex(sun),
+      viewW,
+      viewH,
+      time,
+    );
+    ctx.save();
+    ctx.translate(screen.x, screen.y);
+    drawZurgaanNarBody(ctx, sun.flash > 0, time, sun.walkPhase);
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 export function drawMiniBossArena(

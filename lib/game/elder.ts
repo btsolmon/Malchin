@@ -11,13 +11,8 @@ import {
   startElderCultureQuiz,
   type ElderQuizUiState,
 } from "./elderQuiz";
-import { enterSpiritWorld } from "./spirit";
-import {
-  SHOP_ITEMS,
-  buyShopItemById,
-  shopItemId,
-  type ShopItem,
-} from "./shop";
+import { enterSpiritWorld, stashSpiritVisitSnapshot } from "./spirit";
+import { SHOP_ITEMS, buyShopItemById, shopItemId, type ShopItem } from "./shop";
 import { dist, setMessage } from "./utils";
 import type { GameState, Vector2 } from "./types";
 import { WORLD_H, WORLD_W } from "./types";
@@ -179,12 +174,60 @@ export const STORM_TRACE_ELDER_DIALOGUE: ElderDialogue = {
       text: "Бөөгийн толинд үлдсэн гэгээгээр ил ба далдын завсрыг түр нээж болно. Гэвч цаана нь хараалд автсан таван сахиул зам манана.",
     },
     {
-      speaker: "boy",
-      text: "Тэдний цаана аав, ээжийн минь мөр байгаа бол би буцахгүй.",
+      speaker: "elder",
+      text: "Эхэнд зүүн тэнгэрт Зургаан нар гарна. Тэдгээрийг зөвхөн нум сумаар харвах ёстой. Би чамд нум, сум өгье.",
     },
     {
       speaker: "elder",
-      text: "Тэгвэл амьсгалаа тогтоож, харсан бүхнээ санаж яв. Яарсан гар бус, анзаарсан нүд чамайг буцааж авчирна.",
+      text: "Дараа нь Хар могой мөлхөнө. Унагасны дараа зуун чулуугаар дарж алаарай. Гэвч энэ удаа чулуу цуглуулах цаг байхгүй. Зөвхөн тагнаад, үхэлгүй буцаж ирээрэй.",
+    },
+    {
+      speaker: "boy",
+      text: "Баярлалаа, өвгөн минь. Тэдний цаана аав, ээжийн минь мөр байгаа бол… би буцахыг хүсэхгүй.",
+    },
+    {
+      speaker: "elder",
+      text: "Энэ удаа зөвхөн тагнаж үз. Буцахдаа хар мөрийн чулуун овоогоор гар. Тэндээс л хүний ертөнц рүү харина. Харсан зүйлээ надад даруй хэлээрэй.",
+    },
+  ],
+};
+
+export const POST_SPIRIT_SCOUT_DIALOGUE: ElderDialogue = {
+  id: "post_spirit_scout",
+  title: "Сүнсний орноос буцсан нь",
+  storyOnly: true,
+  beats: [
+    {
+      speaker: "elder",
+      text: "Амьд мэнд ирэв үү, хүү минь? Царай чинь цайжээ. Тэнд юу харав?",
+    },
+    {
+      speaker: "boy",
+      text: "Зүүн тэнгэрт зургаан нар шатаж, хар могой хүлээж байв. Чулуугүй учир могойг дарах боломжгүй байлаа. Цааших мангасыг хараагүй. Гэвч аав, ээжийн минь мөр тэнд байна гэдгийг би мэдэрч байна.",
+    },
+    {
+      speaker: "elder",
+      text: "Эсэн мэнд ирсэн чинь сайн хэрэг. Энэ удаа чи зөвхөн замыг тагнасан. Дараагийн удаа орвол буцах хаалга байхгүй шүү.",
+    },
+    {
+      speaker: "elder",
+      text: "Харин тэр овоон дээр шилэн лонхтой ус үлдээнэ. Гурван балга л ус байгаа. Нэг балга нэг амь. Могойг дарсны дараа Шидэт харваач, Шулмасын зарц, Талын харагч гэсэн үлдсэн гурав босно.",
+    },
+    {
+      speaker: "elder",
+      text: "Гэхдээ чи ч бас хэзээ ч буцаж ирэхгүй байх аюултай. Заавал тийшээ явах албагүй шүү, хүү минь. Малаа өсгөж, хотоо сахин амар тайван амьдарч болно.",
+    },
+    {
+      speaker: "elder",
+      text: "Явах ёстой гэвэл нум сум, чулуугаа сайтар базаа. Могойг дарахад зуун чулуу хэрэгтэй. Бэлэн болохоор хар салхины мөр дээр чулуун овоо босгоод түүгээр ороорой.",
+    },
+    {
+      speaker: "boy",
+      text: "Ойлголоо.",
+    },
+    {
+      speaker: "elder",
+      text: "За. Би дахин толиороо нээхгүй. Зөвхөн тэр чулуун овоо л хаалга болно шүү!",
     },
   ],
 };
@@ -243,7 +286,7 @@ export const SPIRIT_GATE_DIALOGUE: ElderDialogue = {
     {
       speaker: "elder",
       stage:
-        "Өндөр наст өвгөний хөвд сахал чичирч, хүрэн бор царай нь хүйт дааж харагданa...",
+        "Өндөр наст өвгөний хөвд сахал чичирч, хүрэн бор царай нь хүйт дааж харагдана...",
       text: "",
     },
     {
@@ -252,7 +295,7 @@ export const SPIRIT_GATE_DIALOGUE: ElderDialogue = {
     },
     {
       speaker: "elder",
-      text: 'Тэд чинь амьд, гэхдээ бодит ба далд ертөнцийн зааг болох "Сүнсний орон"-д хүлээстэй байна. Эртний шулмас, сүнсний эзэд тэднийг татаж одсон юм. Би чиний насны хүүг тийшээ явуулж, аюулд унагамааргүй байна... Гэвч чиний аав ээжээ гэсэн халуун сэтгэл, цуглуулсан шим тэжээл чинь Сүнсний замын хаалгыг нээх хэмжээнд хүрэв.',
+      text: 'Тэд чинь амьд, гэхдээ бодит ба далд ертөнцийн зааг болох "Сүнсний орон"-д хүлээстэй байна. Эртний шулмас, сүнсний эзэд тэднийг татаж одсон юм. Би чиний насны хүүг тийшээ явуулж, аюулд унагамааргүй байна... Гэвч чиний аав ээжээ гэсэн халуун сэтгэл чинь Сүнсний замыг нээх хэмжээнд хүрэв.',
     },
     {
       speaker: "boy",
@@ -261,7 +304,7 @@ export const SPIRIT_GATE_DIALOGUE: ElderDialogue = {
     },
     {
       speaker: "elder",
-      text: "Би бөөгийн толиороо орон зайн заагийг нээнэ. Тэр ертөнцөд ороход бодит дэлхийн цаг хугацаа зогсох тул чиний хонь, ямаанд аюул тохиолдохгүй, тайван явж болно. Гэвч тэнд сүнсний аюултай дайснууд хүлээж байгааг санагтун! Чи явахад бэлэн үү?",
+      text: "Би бөөгийн толиороо орон зайн заагийг нээнэ. Тэр ертөнцөд ороход бодит дэлхийн цаг хугацаа зогсох тул чиний хонь, ямаанд аюул тохиолдохгүй. Гэвч тэнд Зургаан нар, Хар могой, бусад сахиулууд хүлээж байгааг санагтун! Чи явахад бэлэн үү?",
     },
   ],
 };
@@ -272,6 +315,7 @@ export const ELDER_DIALOGUES: ElderDialogue[] = [
   POST_WOLF_ELDER_DIALOGUE,
   DAWN_ELDER_DIALOGUE,
   STORM_TRACE_ELDER_DIALOGUE,
+  POST_SPIRIT_SCOUT_DIALOGUE,
   FAMILY_REUNION_DIALOGUE,
 ];
 
@@ -286,8 +330,8 @@ export interface ElderChoice {
 export const SPIRIT_GATE_CHOICES: ElderChoice[] = [
   {
     id: "enter_spirit",
-    label: "Сүнсний ертөнц рүү одох",
-    boyLine: "Би бэлэн байна, Өвгөн ахаа! Замыг минь нээж өгнө үү.",
+    label: "Сүнсний орон руу очих",
+    boyLine: "Би бэлэн байна, өвгөн ахаа! Замыг минь нээж өгнө үү.",
   },
   {
     id: "prepare",
@@ -403,16 +447,18 @@ export function openElder(state: GameState): void {
 export function closeElder(state: GameState): void {
   if (state.phase !== "elder") return;
   if (
-    ((state.elderDialogueId === FIRST_NIGHT_ELDER_DIALOGUE.id &&
+    (state.elderDialogueId === FIRST_NIGHT_ELDER_DIALOGUE.id &&
       !state.story.shortDialogueCompleted) ||
-      (state.elderDialogueId === POST_WOLF_ELDER_DIALOGUE.id &&
-        !state.story.milestone5DialogueCompleted) ||
-      (state.elderDialogueId === DAWN_ELDER_DIALOGUE.id &&
-        !state.story.milestone6DialogueCompleted) ||
-      (state.elderDialogueId === STORM_TRACE_ELDER_DIALOGUE.id &&
-        !state.story.stormTraceDialogueCompleted) ||
-      (state.elderDialogueId === FAMILY_REUNION_DIALOGUE.id &&
-        !state.story.familyReunionDialogueCompleted))
+    (state.elderDialogueId === POST_WOLF_ELDER_DIALOGUE.id &&
+      !state.story.milestone5DialogueCompleted) ||
+    (state.elderDialogueId === DAWN_ELDER_DIALOGUE.id &&
+      !state.story.milestone6DialogueCompleted) ||
+    (state.elderDialogueId === STORM_TRACE_ELDER_DIALOGUE.id &&
+      !state.story.stormTraceDialogueCompleted) ||
+    (state.elderDialogueId === POST_SPIRIT_SCOUT_DIALOGUE.id &&
+      !state.story.postSpiritScoutDialogueCompleted) ||
+    (state.elderDialogueId === FAMILY_REUNION_DIALOGUE.id &&
+      !state.story.familyReunionDialogueCompleted)
   ) {
     return;
   }
@@ -556,6 +602,14 @@ export function beginStormTraceElderDialogue(state: GameState): void {
   startElderDialogue(state, STORM_TRACE_ELDER_DIALOGUE.id);
 }
 
+/** Тагнах зорчилтод өвгөн амласан нум, сум (буцахад хураана) */
+function grantScoutBowAndArrows(state: GameState): void {
+  stashSpiritVisitSnapshot(state);
+  state.player.gear.bow = true;
+  state.player.inventory.arrows = Math.max(state.player.inventory.arrows, 24);
+  spawnText(state, state.player.pos, "Нум · сум (зээл)", "#e8c56a");
+}
+
 function completeStormTraceElderDialogue(state: GameState): void {
   const story = state.story;
   story.milestone7Started = true;
@@ -569,12 +623,44 @@ function completeStormTraceElderDialogue(state: GameState): void {
   state.elderTab = "trade";
   state.phase = "playing";
   state.world.elder.eyeMode = "spirit";
+  grantScoutBowAndArrows(state);
   ensureShulmasHelpers(state);
-  enterSpiritWorld(state);
+  enterSpiritWorld(state, { scout: true });
+}
+
+/** Сүнснээс тагнаад буцсаны дараах өвгөний яриа */
+export function beginPostSpiritScoutDialogue(state: GameState): void {
+  if (
+    !state.story.spiritScoutDone ||
+    state.story.postSpiritScoutDialogueCompleted ||
+    state.story.activeMainObjective !== "talkAfterSpiritScout"
+  ) {
+    return;
+  }
+
+  state.world.elder.pose = "seated";
+  state.world.elder.eyeMode = "idle";
+  state.phase = "elder";
+  startElderDialogue(state, POST_SPIRIT_SCOUT_DIALOGUE.id);
+}
+
+function completePostSpiritScoutDialogue(state: GameState): void {
+  const story = state.story;
+  story.postSpiritScoutDialogueCompleted = true;
+  // Хоёр дахь сүнсний зорчилт заавал биш — малчин шиг амьдарч болно
+  story.activeMainObjective = null;
+
+  state.elderDialogueId = null;
+  state.elderDialogueLine = 0;
+  state.elderShowingChoices = false;
+  state.elderTab = "trade";
+  state.phase = "playing";
+  state.world.elder.eyeMode = "idle";
+  sfx("select");
   setMessage(
     state,
-    "Ил ба далдын завсар нээгдэв. Замыг манах таван сахиулыг дар.",
-    4.5,
+    "Бэлэн болоход чулуу 100, нум сум базаагаад хар мөр дээр овоо босгоод ор. Яараад орох албагүй.",
+    5.5,
   );
 }
 
@@ -610,11 +696,7 @@ function completeFamilyReunionDialogue(state: GameState): void {
   state.elderTab = "trade";
   state.phase = "playing";
   sfx("win");
-  setMessage(
-    state,
-    "Голомтоо сахиж, сүргээ 1000 толгойд хүргэ.",
-    4.2,
-  );
+  setMessage(state, "Голомтоо сахиж, сүргээ 1000 толгойд хүргэ.", 4.2);
 }
 
 function completeFirstNightElderDialogue(state: GameState): void {
@@ -670,6 +752,8 @@ export function advanceElderDialogue(state: GameState): void {
       completeDawnElderDialogue(state);
     } else if (d.id === STORM_TRACE_ELDER_DIALOGUE.id) {
       completeStormTraceElderDialogue(state);
+    } else if (d.id === POST_SPIRIT_SCOUT_DIALOGUE.id) {
+      completePostSpiritScoutDialogue(state);
     } else if (d.id === FAMILY_REUNION_DIALOGUE.id) {
       completeFamilyReunionDialogue(state);
     }
@@ -688,8 +772,10 @@ export function retreatElderDialogue(state: GameState): void {
     state.elderDialogueId === FIRST_NIGHT_ELDER_DIALOGUE.id ||
     state.elderDialogueId === POST_WOLF_ELDER_DIALOGUE.id ||
     state.elderDialogueId === DAWN_ELDER_DIALOGUE.id ||
-    state.elderDialogueId === STORM_TRACE_ELDER_DIALOGUE.id
-  ) return;
+    state.elderDialogueId === STORM_TRACE_ELDER_DIALOGUE.id ||
+    state.elderDialogueId === POST_SPIRIT_SCOUT_DIALOGUE.id
+  )
+    return;
   if (state.elderShowingChoices) {
     state.elderShowingChoices = false;
     sfx("select");
@@ -713,6 +799,18 @@ export function chooseElderOption(
   state.world.elder.eyeMode = "idle";
 
   if (choiceId === "enter_spirit") {
+    if (state.story.spiritScoutDone) {
+      closeElder(state);
+      setMessage(
+        state,
+        state.story.spiritOvooBuilt
+          ? "Одоо өвгөнөөр биш — хар мөрийн овоогоор орж болно. Яараад орох албагүй."
+          : "Би дахин хаалга нээхгүй. Бэлэн болохоор хар мөр дээр чулуун овоо босгоод ор.",
+        4.5,
+      );
+      sfx("select");
+      return;
+    }
     setMessage(
       state,
       trFormat("Хүү: «{line}»", { line: tr(choice.boyLine) }),
@@ -720,8 +818,9 @@ export function chooseElderOption(
     );
     // Фазыг elder-ээс гаргаад сүнс рүү — туслахуудыг шууд босгоно
     state.phase = "playing";
+    grantScoutBowAndArrows(state);
     ensureShulmasHelpers(state);
-    enterSpiritWorld(state);
+    enterSpiritWorld(state, { scout: true });
     return;
   }
 
@@ -741,8 +840,7 @@ export function tradeWithElder(state: GameState, itemId: string): boolean {
   if (!item) return false;
 
   const scoreBefore = state.score;
-  const invBefore =
-    item.type === "sell" ? state.player.inventory[item.key] : 0;
+  const invBefore = item.type === "sell" ? state.player.inventory[item.key] : 0;
 
   buyShopItemById(state, itemId);
 

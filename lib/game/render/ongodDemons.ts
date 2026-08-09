@@ -17,6 +17,22 @@ interface OngodStyle {
 }
 
 const STYLE: Record<RouteEnemyKind, OngodStyle> = {
+  zurgaanNar: {
+    scale: 1.1,
+    headGear: "none",
+    weapon: "claws",
+    stocky: true,
+    hair: "tuft",
+    skin: "red",
+  },
+  harMogoi: {
+    scale: 1.5,
+    headGear: "none",
+    weapon: "claws",
+    stocky: true,
+    hair: "tuft",
+    skin: "grey",
+  },
   talynHaragch: {
     scale: 1.08,
     headGear: "horns",
