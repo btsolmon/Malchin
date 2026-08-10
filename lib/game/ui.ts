@@ -1970,7 +1970,11 @@ export function drawMenuSettings(
 }
 
 export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
-  drawMenuTitle(ctx, t("controls.title"));
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#e8c56a";
+  ctx.font = "bold 28px system-ui, sans-serif";
+  ctx.fillText(t("controls.title"), VIEW_W / 2, 72);
+  ctx.textAlign = "left";
 
   const lines: Array<[string, string]> = [
     ["WASD", t("controls.walk")],
@@ -1988,13 +1992,22 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["H", t("controls.horse")],
     ["P", t("controls.pause")],
     ["O", t("controls.fullscreen")],
-    ["2× товших", t("controls.fullscreenTouch")],
+    ["2×", t("controls.fullscreenTouch")],
     ["E / Space", t("controls.skipIntro")],
   ];
-  const boxW = 520;
-  const boxH = lines.length * 22 + 26;
+
+  const cols = 2;
+  const perCol = Math.ceil(lines.length / cols);
+  const rowH = 24;
+  const padX = 16;
+  const padY = 14;
+  const boxW = Math.min(820, VIEW_W - 48);
+  const boxH = perCol * rowH + padY * 2;
   const bx = (VIEW_W - boxW) / 2;
-  const by = 180;
+  const by = 92;
+  const colW = (boxW - padX * 2) / cols;
+  const keyColW = 78;
+
   ctx.fillStyle = "rgba(12,10,8,0.72)";
   roundRectPath(ctx, bx, by, boxW, boxH, 10);
   ctx.fill();
@@ -2004,20 +2017,31 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   ctx.stroke();
 
   lines.forEach(([key, desc], i) => {
-    const ly = by + 28 + i * 22;
-    if (key) {
-      ctx.textAlign = "right";
-      ctx.fillStyle = COLORS.hudAccent;
-      ctx.font = "600 13px system-ui, sans-serif";
-      ctx.fillText(key, bx + 140, ly);
-    }
+    const col = Math.floor(i / perCol);
+    const row = i % perCol;
+    const x0 = bx + padX + col * colW;
+    const ly = by + padY + 16 + row * rowH;
+    const descMaxW = colW - keyColW - 12;
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = COLORS.hudAccent;
+    ctx.font = "600 12px system-ui, sans-serif";
+    ctx.fillText(key, x0 + keyColW, ly);
+
     ctx.textAlign = "left";
-    ctx.fillStyle = key ? COLORS.hudText : COLORS.hudMuted;
-    ctx.font = "13px system-ui, sans-serif";
-    ctx.fillText(desc, bx + 158, ly);
+    ctx.fillStyle = COLORS.hudText;
+    ctx.font = "12px system-ui, sans-serif";
+    let text = desc;
+    if (ctx.measureText(text).width > descMaxW) {
+      while (text.length > 1 && ctx.measureText(`${text}…`).width > descMaxW) {
+        text = text.slice(0, -1);
+      }
+      text = `${text}…`;
+    }
+    ctx.fillText(text, x0 + keyColW + 10, ly);
   });
 
-  drawBackHint(ctx, by + boxH + 36);
+  drawBackHint(ctx, Math.min(VIEW_H - 24, by + boxH + 28));
 }
 
 export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {

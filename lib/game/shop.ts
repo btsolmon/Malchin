@@ -9,7 +9,7 @@ import {
   type GearId,
   type LivestockKind,
 } from "./types";
-import { pastureCenter, setMessage } from "./utils";
+import { setMessage } from "./utils";
 import { tr, trFormat } from "./i18n";
 
 export type ShopItem =
@@ -86,6 +86,22 @@ export const SHOP_ITEMS: ShopItem[] = [
     name: "Загасны уурга",
     desc: "Голоос загас барина · Q-аар иднэ",
     price: 220,
+  },
+  {
+    type: "livestock",
+    kind: "sheep",
+    icon: "sheep",
+    name: "Хонь",
+    desc: "Сүргийн хонь · ноос өгнө",
+    price: 80,
+  },
+  {
+    type: "livestock",
+    kind: "goat",
+    icon: "goat",
+    name: "Ямаа",
+    desc: "Сүргийн ямаа · сүү/ноос",
+    price: 100,
   },
   {
     type: "livestock",
@@ -258,9 +274,9 @@ export function buyItem(state: GameState, idx: number): void {
   state.player.gear[item.id] = true;
   sfx("buy");
   if (item.id === "dog") {
-    const c = pastureCenter(state.world);
+    const p = state.player.pos;
     state.world.dog = {
-      pos: { x: c.x + 40, y: c.y + 30 },
+      pos: { x: p.x + 28, y: p.y + 18 },
       vel: { x: 0, y: 0 },
       face: 1,
       attackCooldown: 0,

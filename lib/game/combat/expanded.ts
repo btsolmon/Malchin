@@ -14,7 +14,6 @@ import {
   clamp,
   dist,
   normalize,
-  pastureCenter,
   pushOutOfGer,
   pushOutOfUrtz,
   setMessage,
@@ -1468,7 +1467,7 @@ export function updateProjectiles(state: GameState, dt: number): void {
   );
 }
 
-/** Хоньчин нохой — чоно хөөж, сүрэг туудаг; хазуулж үхэж болно */
+/** Хоньчин нохой — тоглогчийг дагана; N үед малыг тууна; чоно хөөж болно */
 export function updateDog(state: GameState, dt: number): void {
   const dog = state.world.dog;
   if (!dog) return;
@@ -1495,13 +1494,10 @@ export function updateDog(state: GameState, dt: number): void {
 
   const herding = state.input.herd;
   const visuals = state.world.flock.visuals;
-  // Туух үед ойрын чононоос бусад үед сүргээ тусална
-  const preferHerd =
-    !prey ||
-    (herding && bestDistance > 160) ||
-    (!herding && bestDistance > 240);
+  // Ойрхон чоно байвал хөөх; бусад үед дагах эсвэл туух
+  const threatRange = herding ? 150 : 200;
   const chasePrey =
-    prey && (!preferHerd || visuals.length === 0) ? prey : null;
+    prey && bestDistance < threatRange ? prey : null;
 
   let target: Vector2 | null = null;
   let speed = 140;
@@ -1509,51 +1505,46 @@ export function updateDog(state: GameState, dt: number): void {
   if (chasePrey) {
     target = chasePrey.pos;
     speed = 165;
-  } else if (visuals.length > 0) {
-    let cx = 0;
-    let cy = 0;
+  } else if (herding && visuals.length > 0) {
+    // N — тоглогчид хамгийн ойр малын ард орж, ижил чигт тууна
+    const drive = normalize(state.player.facing);
+    let nearest = visuals[0];
+    let nearestD = Infinity;
     for (const sheep of visuals) {
-      cx += sheep.pos.x;
-      cy += sheep.pos.y;
-    }
-    cx /= visuals.length;
-    cy /= visuals.length;
-
-    // Туух чиг: N үед малчны нүүр, үгүй бол бэлчээр рүү
-    const center = pastureCenter(state.world);
-    const drive = herding
-      ? normalize(state.player.facing)
-      : normalize({ x: center.x - cx, y: center.y - cy });
-
-    // Туух чигийн ард хоцорсон хонийг сонгоод түүний ард орно
-    let bestSheep = visuals[0];
-    let bestScore = -Infinity;
-    for (const sheep of visuals) {
-      const along =
-        (sheep.pos.x - cx) * drive.x + (sheep.pos.y - cy) * drive.y;
-      const fromPlayer = dist(sheep.pos, state.player.pos);
-      const score = herding
-        ? -along + fromPlayer * 0.15
-        : dist(sheep.pos, { x: cx, y: cy });
-      if (score > bestScore) {
-        bestScore = score;
-        bestSheep = sheep;
+      const d = dist(sheep.pos, state.player.pos);
+      if (d < nearestD) {
+        nearestD = d;
+        nearest = sheep;
       }
     }
 
-    // Хонь нохойноос урагш зугтдаг тул түүний ард байрлана
-    const behindDist = herding ? 38 : 48;
-    target = {
-      x: bestSheep.pos.x - drive.x * behindDist,
-      y: bestSheep.pos.y - drive.y * behindDist,
-    };
-    speed = herding ? 185 : 150;
+    if (nearestD < 240) {
+      // Мал туух чигийн урд явах ёстой → нохой ард нь зогсоно
+      const behindDist = 34;
+      target = {
+        x: nearest.pos.x - drive.x * behindDist,
+        y: nearest.pos.y - drive.y * behindDist,
+      };
+      speed = 195;
+    } else {
+      // Ойр мал алга — тоглогчтой нийлж ойртоно
+      target = {
+        x: state.player.pos.x + drive.x * 24,
+        y: state.player.pos.y + drive.y * 24,
+      };
+      speed = 175;
+    }
   } else {
+    // Энгийн үед тоглогчийг дагана (ард/хажууд)
+    const face = normalize(state.player.facing);
     const follow = {
-      x: state.player.pos.x + 26,
-      y: state.player.pos.y + 12,
+      x: state.player.pos.x - face.x * 30 + face.y * 16,
+      y: state.player.pos.y - face.y * 30 - face.x * 16,
     };
-    if (dist(dog.pos, follow) > 34) target = follow;
+    if (dist(dog.pos, follow) > 26) {
+      target = follow;
+      speed = 160;
+    }
   }
 
   if (target) {

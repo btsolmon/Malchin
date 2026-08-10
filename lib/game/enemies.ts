@@ -331,15 +331,17 @@ export function updateFlock(state: GameState, dt: number): void {
       sepY = (sepY / sepLen) * Math.min(sepLen, 2.4);
     }
 
-    // Нохойноос зугтана — нохой ард байрлаж туухад ашиглагдана
-    if (dog) {
+    // Нохойноос зугтана — N үед туух чигтэй ижил зүгт түлхэнэ (хажуу тийш биш)
+    if (dog && herding) {
       const dDog = dist(sheep.pos, dog.pos);
-      const dogRange = herding ? 130 : 70;
+      const dogRange = 120;
       if (dDog < dogRange && dDog > 1) {
         const w = (dogRange - dDog) / dogRange;
-        const push = herding ? 4.2 : 1.4;
-        fleeX += ((sheep.pos.x - dog.pos.x) / dDog) * w * push;
-        fleeY += ((sheep.pos.y - dog.pos.y) / dDog) * w * push;
+        const push = 4.0;
+        const awayX = (sheep.pos.x - dog.pos.x) / dDog;
+        const awayY = (sheep.pos.y - dog.pos.y) / dDog;
+        fleeX += (drive.x * 0.75 + awayX * 0.35) * w * push;
+        fleeY += (drive.y * 0.75 + awayY * 0.35) * w * push;
       }
     }
 

@@ -6,6 +6,7 @@ import type {
   TouchHoldAction,
   TouchPulseAction,
 } from "@/lib/game/engine";
+import { toggleImmersiveDisplay } from "@/lib/game/display";
 
 type Props = {
   gameRef: React.RefObject<HerderGameHandle | null>;
@@ -28,7 +29,7 @@ function isPortrait(): boolean {
 
 /**
  * Утасны браузерын виртуал удирдлага.
- * Зүүн: joystick · Баруун: тулаан/үйлдэл · Дээд баруун: түр зогсоох
+ * Зүүн: joystick + H/G/N/B · Баруун: тулаан · Дээд зүүн: цэс / бүтэн дэлгэц
  */
 export default function TouchControls({ gameRef, hidden }: Props) {
   const [show, setShow] = useState(false);
@@ -146,16 +147,33 @@ export default function TouchControls({ gameRef, hidden }: Props) {
       gameRef.current?.pulseTouch(action);
     };
 
+  const onFullscreen = (e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    void toggleImmersiveDisplay();
+  };
+
   return (
     <div className="touch-controls" aria-hidden>
-      <button
-        type="button"
-        className="touch-btn touch-btn-pause"
-        onPointerDown={pulse("pause")}
-        aria-label="Pause"
-      >
-        II
-      </button>
+      {/* Дээд зүүн — цэс/pause ба fullscreen (баруун action-тай давхцахгүй) */}
+      <div className="touch-top-left">
+        <button
+          type="button"
+          className="touch-btn touch-btn-pause"
+          onPointerDown={pulse("pause")}
+          aria-label="Menu"
+        >
+          Menu
+        </button>
+        <button
+          type="button"
+          className="touch-btn touch-btn-fullscreen"
+          onPointerDown={onFullscreen}
+          aria-label="Fullscreen"
+        >
+          Full
+        </button>
+      </div>
 
       <div
         ref={stickRef}
@@ -166,6 +184,38 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         onPointerCancel={onStickUp}
       >
         <div ref={knobRef} className="touch-stick-knob" />
+      </div>
+
+      {/* Зүүн дунд — H / G / N / B */}
+      <div className="touch-utility">
+        <button
+          type="button"
+          className="touch-btn touch-btn-horse"
+          onPointerDown={pulse("horseMount")}
+        >
+          H
+        </button>
+        <button
+          type="button"
+          className="touch-btn touch-btn-pack"
+          onPointerDown={pulse("migrate")}
+        >
+          G
+        </button>
+        <button
+          type="button"
+          className="touch-btn touch-btn-herd"
+          onPointerDown={hold("herd")}
+        >
+          N
+        </button>
+        <button
+          type="button"
+          className="touch-btn touch-btn-fence"
+          onPointerDown={pulse("buildFence")}
+        >
+          B
+        </button>
       </div>
 
       <div className="touch-actions">
@@ -192,10 +242,10 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         </button>
         <button
           type="button"
-          className="touch-btn touch-btn-use"
+          className="touch-btn touch-btn-interact"
           onPointerDown={pulse("interact")}
         >
-          Use
+          Interact
         </button>
         <button
           type="button"
