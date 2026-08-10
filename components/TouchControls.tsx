@@ -6,7 +6,11 @@ import type {
   TouchHoldAction,
   TouchPulseAction,
 } from "@/lib/game/engine";
-import { toggleImmersiveDisplay } from "@/lib/game/display";
+import {
+  mobileFullscreenHintMn,
+  syncVisualViewportVars,
+  toggleImmersiveDisplay,
+} from "@/lib/game/display";
 import { gameIconUrl, type GameIconId } from "@/lib/game/icons";
 
 type Props = {
@@ -61,6 +65,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
   const [show, setShow] = useState(false);
   const [active, setActive] = useState(false);
   const [portrait, setPortrait] = useState(false);
+  const [fsHint, setFsHint] = useState<string | null>(null);
   const stickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const pointerId = useRef<number | null>(null);
@@ -90,12 +95,15 @@ export default function TouchControls({ gameRef, hidden }: Props) {
     setShow(isTouchDevice());
     const syncOrient = () => {
       setPortrait(isPortrait());
+      syncVisualViewportVars();
       // Эргүүлэх үед pointer алдагдаж хөдөлгөөн гацдаг
       clearAllTouch();
     };
     syncOrient();
     window.addEventListener("orientationchange", syncOrient);
     window.addEventListener("resize", syncOrient);
+    window.visualViewport?.addEventListener("resize", syncVisualViewportVars);
+    window.visualViewport?.addEventListener("scroll", syncVisualViewportVars);
     const onBlur = () => clearAllTouch();
     const onVis = () => {
       if (document.visibilityState === "hidden") clearAllTouch();
@@ -105,6 +113,14 @@ export default function TouchControls({ gameRef, hidden }: Props) {
     return () => {
       window.removeEventListener("orientationchange", syncOrient);
       window.removeEventListener("resize", syncOrient);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        syncVisualViewportVars,
+      );
+      window.visualViewport?.removeEventListener(
+        "scroll",
+        syncVisualViewportVars,
+      );
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onVis);
       clearAllTouch();
@@ -236,15 +252,25 @@ export default function TouchControls({ gameRef, hidden }: Props) {
       gameRef.current?.pulseTouch(action);
     };
 
-  const onFullscreen = (e: React.PointerEvent<HTMLButtonElement>) => {
+  const onFullscreen = (e: React.SyntheticEvent) => {
     e.preventDefault();
     e.stopPropagation();
     clearAllTouch();
-    void toggleImmersiveDisplay();
+    // click/pointerup gesture — requestFullscreen-д заавал хэрэгтэй
+    void toggleImmersiveDisplay().then((result) => {
+      window.dispatchEvent(new Event("resize"));
+      if (result === "hint") {
+        setFsHint(mobileFullscreenHintMn());
+        window.setTimeout(() => setFsHint(null), 6000);
+      } else {
+        setFsHint(null);
+      }
+    });
   };
 
   return (
     <div className="touch-controls" aria-hidden>
+      {fsHint ? <div className="touch-fs-hint">{fsHint}</div> : null}
       {/* Дээд зүүн — цэс/pause ба fullscreen (баруун action-тай давхцахгүй) */}
       <div className="touch-top-left">
         <button
@@ -266,7 +292,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         <button
           type="button"
           className="touch-btn touch-btn-fullscreen"
-          onPointerDown={onFullscreen}
+          onClick={onFullscreen}
           aria-label="Fullscreen"
         >
           Full

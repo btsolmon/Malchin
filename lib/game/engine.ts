@@ -18,6 +18,7 @@ import {
 import {
   enterImmersiveDisplay,
   ensureImmersiveDisplay,
+  syncVisualViewportVars,
 } from "./display";
 import {
   dist,
@@ -1090,11 +1091,15 @@ export function mountHerderGame(
   };
 
   const onWindowResize = (): void => {
+    syncVisualViewportVars();
     applyCanvasBuffer();
   };
   window.addEventListener("resize", onWindowResize);
+  window.visualViewport?.addEventListener("resize", onWindowResize);
+  window.visualViewport?.addEventListener("scroll", onWindowResize);
   document.addEventListener("fullscreenchange", onWindowResize);
   document.addEventListener("webkitfullscreenchange", onWindowResize);
+  syncVisualViewportVars();
 
   let state = createInitialState();
   const unbindInput = bindInput(
@@ -1209,6 +1214,10 @@ export function mountHerderGame(
     state.input.mouseX = p.x;
     state.input.mouseY = p.y;
     state.input.mouseClicked = true;
+    // Play/menu — ижил gesture дотор fullscreen (хожим frame-ээс дуудвал Android ч зөвшөөрөхгүй)
+    if (state.phase === "menu") {
+      void enterImmersiveDisplay().then(() => applyCanvasBuffer());
+    }
   };
   /** Мэдрэгч/хулгана хоёр товшилт — бүтэн дэлгэц */
   const goImmersiveFromGesture = (): void => {
@@ -1351,6 +1360,8 @@ export function mountHerderGame(
       cancelAnimationFrame(raf);
       unbindInput();
       window.removeEventListener("resize", onWindowResize);
+      window.visualViewport?.removeEventListener("resize", onWindowResize);
+      window.visualViewport?.removeEventListener("scroll", onWindowResize);
       document.removeEventListener("fullscreenchange", onWindowResize);
       document.removeEventListener("webkitfullscreenchange", onWindowResize);
       window.removeEventListener("keydown", onFullscreenKey, true);
