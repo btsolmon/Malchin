@@ -328,6 +328,7 @@ body {
 }
 
 .touch-btn-pause,
+.touch-btn-inventory,
 .touch-btn-fullscreen {
   position: relative;
   width: 56px;
@@ -337,6 +338,15 @@ body {
   font-size: 12px;
   letter-spacing: 0.06em;
   border-radius: 14px;
+}
+
+.touch-btn-inventory {
+  background:
+    radial-gradient(
+      circle at 32% 28%,
+      rgba(90, 70, 40, 0.92),
+      rgba(40, 28, 16, 0.88)
+    );
 }
 
 .touch-btn-fullscreen {

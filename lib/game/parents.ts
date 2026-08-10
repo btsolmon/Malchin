@@ -542,8 +542,18 @@ function updateFather(state: GameState, dt: number): void {
       inv.berries += 1;
       father.workPulse = 0.4;
       sfx("berry");
-      spawnParticles(state, bush.pos, 5, "#e04070", { speed: 60, size: 2.5 });
-      spawnText(state, bush.pos, "Аав +1 жимс", "#ff9fbf");
+      const blue =
+        (bush.kind ?? (bush.id % 3 === 0 ? "blue" : "red")) === "blue";
+      spawnParticles(state, bush.pos, 5, blue ? "#4a68d0" : "#e04070", {
+        speed: 60,
+        size: 2.5,
+      });
+      spawnText(
+        state,
+        bush.pos,
+        "Аав +1 жимс",
+        blue ? "#9ab8ff" : "#ff9fbf",
+      );
       if (bush.berries <= 0) bush.respawnIn = 18 + Math.random() * 12;
       beginIdle(father, 1.4);
     }

@@ -555,6 +555,8 @@ export function drawBerryBush(
   drawShadow(ctx, x, y + 6, 16, 6);
 
   const alive = bush.berries > 0;
+  const blue =
+    (bush.kind ?? (bush.id % 3 === 0 ? "blue" : "red")) === "blue";
   const clumps: Array<[number, number, number]> = [
     [0, 0, 13],
     [-9, -5, 9],
@@ -570,8 +572,13 @@ export function drawBerryBush(
       y + oy,
       r,
     );
-    g.addColorStop(0, alive ? "#3f7a38" : "#485842");
-    g.addColorStop(1, alive ? "#274d22" : "#37452f");
+    if (alive) {
+      g.addColorStop(0, blue ? "#3a6a48" : "#3f7a38");
+      g.addColorStop(1, blue ? "#1e3a2c" : "#274d22");
+    } else {
+      g.addColorStop(0, "#485842");
+      g.addColorStop(1, "#37452f");
+    }
     ctx.fillStyle = g;
     ctx.beginPath();
     ctx.arc(x + ox, y + oy, r, 0, Math.PI * 2);
@@ -580,21 +587,29 @@ export function drawBerryBush(
 
   if (alive) {
     const n = Math.min(bush.berries, 5);
+    const berryFill = blue ? "#3a4eb8" : "#c42a5a";
+    const berryDeep = blue ? "#243078" : "#8a1838";
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + 0.5;
       const bx = x + Math.cos(a) * 7;
       const by = y - 4 + Math.sin(a) * 5;
-      ctx.fillStyle = "#c42a5a";
+      // Бага зэрэг зууван — blueberry шиг
+      ctx.fillStyle = berryDeep;
       ctx.beginPath();
-      ctx.arc(bx, by, 2.8, 0, Math.PI * 2);
+      ctx.ellipse(bx, by + 0.4, blue ? 2.6 : 2.8, blue ? 3.1 : 2.8, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillStyle = berryFill;
       ctx.beginPath();
-      ctx.arc(bx - 0.8, by - 0.8, 1, 0, Math.PI * 2);
+      ctx.ellipse(bx, by, blue ? 2.4 : 2.6, blue ? 2.9 : 2.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = blue
+        ? "rgba(180,200,255,0.55)"
+        : "rgba(255,255,255,0.55)";
+      ctx.beginPath();
+      ctx.arc(bx - 0.8, by - 0.9, blue ? 0.9 : 1, 0, Math.PI * 2);
       ctx.fill();
     }
   }
-
 }
 
 export function drawCampfire(

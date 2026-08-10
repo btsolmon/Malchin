@@ -192,6 +192,9 @@ export type TreeKind = "pine" | "birch" | "leafy";
 
 export const TREE_KINDS: TreeKind[] = ["pine", "birch", "leafy"];
 
+/** Улаан жимс · нэрс (blueberry) */
+export type BerryKind = "red" | "blue";
+
 export interface BerryBush {
   id: number;
   pos: Vector2;
@@ -199,6 +202,8 @@ export interface BerryBush {
   maxBerries: number;
   radius: number;
   respawnIn: number;
+  /** Хуучин save-д байхгүй бол улаан гэж үзнэ */
+  kind?: BerryKind;
 }
 
 export interface Campfire {
@@ -743,6 +748,8 @@ export interface InputState {
   confirm: boolean;
   /** P — түр зогсоох */
   pause: boolean;
+  /** Tab — авдар / нөөц цонх */
+  inventoryToggle: boolean;
   /** Меню доторх нэг удаагийн шилжилтүүд */
   menuUp: boolean;
   menuDown: boolean;
@@ -1003,6 +1010,8 @@ export interface GameState {
   shopOpen: boolean;
   /** Гэр доторх урлал (зүүн авдар / тахил) нээлттэй эсэх */
   craftOpen: boolean;
+  /** Tab — нөөцийн авдар нээлттэй */
+  inventoryOpen: boolean;
   /** Гэрийн ханын зураг томруулж харах */
   gerArtZoom: "horse" | "family" | "tara" | null;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */

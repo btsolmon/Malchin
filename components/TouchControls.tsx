@@ -257,6 +257,14 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         </button>
         <button
           type="button"
+          className="touch-btn touch-btn-inventory"
+          onPointerDown={pulse("inventory")}
+          aria-label="Inventory"
+        >
+          Inv
+        </button>
+        <button
+          type="button"
           className="touch-btn touch-btn-fullscreen"
           onPointerDown={onFullscreen}
           aria-label="Fullscreen"

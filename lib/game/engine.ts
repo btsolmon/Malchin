@@ -216,6 +216,8 @@ export function createBushes(
       maxBerries: 5,
       radius: 16,
       respawnIn: 0,
+      // ~45% нэрс (blueberry), үлдсэн нь улаан жимс
+      kind: random() < 0.45 ? "blue" : "red",
     });
   }
   return bushes;
@@ -418,6 +420,7 @@ export function createInitialState(): GameState {
     pauseIndex: 0,
     shopOpen: false,
     craftOpen: false,
+    inventoryOpen: false,
     gerArtZoom: null,
     gerPlayer: { x: 480, y: 455 },
     gerSleepTimer: 0,
@@ -551,6 +554,9 @@ export function bindInput(
       case "KeyP":
         if (pressed) input.pause = true;
         break;
+      case "Tab":
+        if (pressed && !isRepeat) input.inventoryToggle = true;
+        break;
       case "KeyF":
         if (pressed) input.lightFire = true;
         break;
@@ -600,6 +606,7 @@ export function bindInput(
     if (
       [
         "Space",
+        "Tab",
         "ArrowUp",
         "ArrowDown",
         "ArrowLeft",
@@ -689,9 +696,15 @@ export function update(state: GameState, dt: number): void {
   } else if (state.phase === "intro") {
     updateOpeningSequence(state, dt);
     state.fencePreview = false;
+    state.inventoryOpen = false;
   } else if (state.phase === "paused") {
     updatePauseMenu(state);
+    state.inventoryOpen = false;
   } else if (state.phase === "ger") {
+    if (state.input.inventoryToggle) {
+      state.inventoryOpen = !state.inventoryOpen;
+      sfx("select");
+    }
     updateGer(state, dt);
     const fire = state.world.campfire;
     const outdoorBurning =
@@ -700,6 +713,7 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "elder") {
     // React ElderModal хариуцна — P/Esc дарвал хаана
+    state.inventoryOpen = false;
     if (
       state.input.interact &&
       state.story.shortDialogueStarted &&
@@ -713,6 +727,10 @@ export function update(state: GameState, dt: number): void {
     state.fencePreview = false;
   } else if (state.phase === "spirit") {
     state.fencePreview = false;
+    if (state.input.inventoryToggle) {
+      state.inventoryOpen = !state.inventoryOpen;
+      sfx("select");
+    }
     // Шулмасын горимд P = пауз. Буцах = чулуун овоо / хаалга (update loop).
     if (state.input.pause) {
       state.pauseReturnPhase = "spirit";
@@ -720,17 +738,23 @@ export function update(state: GameState, dt: number): void {
       state.pauseIndex = 0;
       state.menuScreen = "main";
       state.input.pause = false;
+      state.inventoryOpen = false;
       sfx("select");
     }
   } else if (state.phase === "levelup") {
     updateLevelUp(state);
     state.fencePreview = false;
+    state.inventoryOpen = false;
   } else if (state.phase === "playing" && state.input.pause) {
     state.pauseReturnPhase = "playing";
     state.phase = "paused";
     state.pauseIndex = 0;
     state.menuScreen = "main";
     state.fencePreview = false;
+    state.inventoryOpen = false;
+    sfx("select");
+  } else if (state.phase === "playing" && state.input.inventoryToggle) {
+    state.inventoryOpen = !state.inventoryOpen;
     sfx("select");
   } else if (
     state.phase === "lost" &&
@@ -756,6 +780,7 @@ export function update(state: GameState, dt: number): void {
 
   state.input.confirm = false;
   state.input.pause = false;
+  state.input.inventoryToggle = false;
   state.input.menuUp = false;
   state.input.menuDown = false;
   state.input.menuLeft = false;
@@ -997,6 +1022,7 @@ export type TouchPulseAction =
   | "migrate"
   | "horseMount"
   | "pause"
+  | "inventory"
   | "confirm";
 
 export interface HerderGameHandle {
@@ -1378,6 +1404,8 @@ export function mountHerderGame(
         state.input.horseMount = true;
       } else if (action === "pause") {
         state.input.pause = true;
+      } else if (action === "inventory") {
+        state.input.inventoryToggle = true;
       } else if (action === "confirm") {
         state.input.confirm = true;
       }

@@ -52,6 +52,7 @@ export function neutralInput(): InputState {
     skill4: false,
     confirm: false,
     pause: false,
+    inventoryToggle: false,
     menuUp: false,
     menuDown: false,
     menuLeft: false,
@@ -369,6 +370,110 @@ export function roundRectPath(
   ctx.lineTo(x, y + r);
   ctx.arcTo(x, y, x + r, y, r);
   ctx.closePath();
+}
+
+/** HUD цонх — нэвт харагдах бүрсийтэй шилэн дэвсгэр */
+let frostScratch: HTMLCanvasElement | null = null;
+
+function getFrostScratch(w: number, h: number): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  if (!frostScratch) frostScratch = document.createElement("canvas");
+  const needW = Math.max(1, Math.ceil(w));
+  const needH = Math.max(1, Math.ceil(h));
+  if (frostScratch.width < needW) frostScratch.width = needW;
+  if (frostScratch.height < needH) frostScratch.height = needH;
+  return frostScratch;
+}
+
+/**
+ * Логик VIEW координат → canvas битийн пиксел.
+ * Engine `setTransform(dpr, …)` хийдэг тул blur-д DPR заавал тооцно.
+ */
+export function drawFrostedGlassPanel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius = 10,
+): void {
+  const m = ctx.getTransform();
+  const dprX = m.a || 1;
+  const dprY = m.d || 1;
+  const pad = 12;
+
+  // Canvas bitmap дээрх жинхэнэ бүс (DPR-тай)
+  const sx = Math.max(0, Math.floor((x - pad) * dprX));
+  const sy = Math.max(0, Math.floor((y - pad) * dprY));
+  const sw = Math.min(
+    ctx.canvas.width - sx,
+    Math.ceil((w + pad * 2) * dprX),
+  );
+  const sh = Math.min(
+    ctx.canvas.height - sy,
+    Math.ceil((h + pad * 2) * dprY),
+  );
+
+  const scratch = getFrostScratch(sw, sh);
+  if (scratch && sw > 1 && sh > 1) {
+    const sctx = scratch.getContext("2d");
+    if (sctx) {
+      sctx.setTransform(1, 0, 0, 1, 0, 0);
+      sctx.clearRect(0, 0, sw, sh);
+      try {
+        sctx.drawImage(ctx.canvas, sx, sy, sw, sh, 0, 0, sw, sh);
+      } catch {
+        // ignore
+      }
+
+      ctx.save();
+      roundRectPath(ctx, x, y, w, h, radius);
+      ctx.clip();
+
+      // Бүрсийг device-pixel оронд зурна — буруу бүс авахгүй
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.filter = `blur(${Math.max(6, 8 * dprX)}px)`;
+      ctx.drawImage(scratch, 0, 0, sw, sh, sx, sy, sw, sh);
+      ctx.filter = "none";
+
+      const dx = x * dprX;
+      const dy = y * dprY;
+      const dw = w * dprX;
+      const dh = h * dprY;
+
+      const wash = ctx.createLinearGradient(dx, dy, dx, dy + dh);
+      wash.addColorStop(0, "rgba(28, 20, 12, 0.38)");
+      wash.addColorStop(0.55, "rgba(14, 10, 8, 0.48)");
+      wash.addColorStop(1, "rgba(10, 8, 6, 0.55)");
+      ctx.fillStyle = wash;
+      ctx.fillRect(dx, dy, dw, dh);
+
+      const sheen = ctx.createLinearGradient(dx, dy, dx, dy + dh * 0.45);
+      sheen.addColorStop(0, "rgba(255, 236, 200, 0.14)");
+      sheen.addColorStop(1, "rgba(255, 236, 200, 0)");
+      ctx.fillStyle = sheen;
+      ctx.fillRect(dx, dy, dw, dh * 0.45);
+
+      ctx.restore();
+    }
+  } else {
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, radius);
+    ctx.fillStyle = "rgba(16, 12, 8, 0.55)";
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(232, 197, 106, 0.42)";
+  ctx.lineWidth = 1.25;
+  roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, radius);
+  ctx.stroke();
+  ctx.strokeStyle = "rgba(255, 245, 220, 0.12)";
+  ctx.lineWidth = 1;
+  roundRectPath(ctx, x + 1.5, y + 1.5, w - 3, h - 3, Math.max(1, radius - 1));
+  ctx.stroke();
+  ctx.restore();
 }
 
 export function setMessage(

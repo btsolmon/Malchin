@@ -20,6 +20,7 @@ import {
   nearestFence,
   pastureCenter,
   roundRectPath,
+  drawFrostedGlassPanel,
   setMessage,
 } from "../game/utils";
 import { audio, setMusicVol, setSfxVol, sfx, startSleepSnore, stopSleepSnore } from "../game/audio";
@@ -1678,6 +1679,86 @@ function drawHotSlot(
   ctx.textAlign = "left";
 }
 
+function drawInventoryPanel(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+): void {
+  if (!state.inventoryOpen) return;
+  if (
+    state.phase !== "playing" &&
+    state.phase !== "spirit" &&
+    state.phase !== "ger"
+  ) {
+    return;
+  }
+
+  const { player } = state;
+  const inv = player.inventory;
+  const items: Array<{ icon: GameIconId; label: string; val: string }> = [
+    {
+      icon: "wood",
+      label: t("inv.wood"),
+      val: state.unlimitedWood ? "∞" : String(inv.wood),
+    },
+    { icon: "stone", label: t("inv.stone"), val: String(inv.stone) },
+    { icon: "arrow", label: t("inv.arrows"), val: String(inv.arrows) },
+    { icon: "berry", label: t("inv.berries"), val: String(inv.berries) },
+    { icon: "fish", label: t("inv.fish"), val: String(inv.fish) },
+    { icon: "hay", label: t("inv.hay"), val: String(inv.hay) },
+    { icon: "wool", label: t("inv.wool"), val: String(inv.wool) },
+    { icon: "cashmere", label: t("inv.cashmere"), val: String(inv.cashmere) },
+    { icon: "milk", label: t("inv.milk"), val: String(inv.milk) },
+    { icon: "felt", label: t("inv.felt"), val: String(inv.felt) },
+    { icon: "aaruul", label: t("inv.aaruul"), val: String(inv.aaruul) },
+  ];
+  if (state.story.spiritOvooSoulCollected || state.spiritPoints > 0) {
+    items.push({
+      icon: "spiritWater",
+      label: t("inv.spiritWater"),
+      val: String(state.spiritPoints),
+    });
+  }
+
+  const cols = 4;
+  const cell = 68;
+  const gapX = 12;
+  const gapY = 26;
+  const padX = 22;
+  const padTop = 52;
+  const padBot = 36;
+  const rows = Math.ceil(items.length / cols);
+  const panelW = padX * 2 + cols * cell + (cols - 1) * gapX;
+  const panelH = padTop + rows * cell + (rows - 1) * gapY + padBot;
+  const px = (VIEW_W - panelW) / 2;
+  const py = (VIEW_H - panelH) / 2 - 12;
+
+  ctx.fillStyle = "rgba(0,0,0,0.32)";
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  drawFrostedGlassPanel(ctx, px, py, panelW, panelH, 12);
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#e8c56a";
+  ctx.font = "bold 16px system-ui, sans-serif";
+  ctx.fillText(t("hud.inventory"), VIEW_W / 2, py + 28);
+  ctx.fillStyle = COLORS.hudMuted;
+  ctx.font = "11px 'Courier New', monospace";
+  ctx.fillText(t("hud.inventoryHint"), VIEW_W / 2, py + panelH - 14);
+
+  items.forEach((it, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const x = px + padX + col * (cell + gapX);
+    const y = py + padTop + row * (cell + gapY);
+    drawHotSlot(ctx, x, y, cell, it.val, it.icon, false);
+    ctx.fillStyle = "#d8c898";
+    ctx.font = "10px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(it.label, x + cell / 2, y + cell + 12);
+  });
+  ctx.textAlign = "left";
+}
+
 /** Hex өнгийг гэрэлтүүлэх/бараанруулах */
 export function shade(hex: string, amt: number): string {
   if (!hex.startsWith("#") || hex.length < 7) return hex;
@@ -2279,6 +2360,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["N", t("controls.herd")],
     ["G", t("controls.packGer")],
     ["H", t("controls.horse")],
+    ["Tab", t("controls.inventory")],
     ["P", t("controls.pause")],
     ["O", t("controls.fullscreen")],
     ["2×", t("controls.fullscreenTouch")],
@@ -2627,38 +2709,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     );
   });
 
-  // —— Баруун доод: нөөц ——
-  const qSize = 36;
-  const qY = VIEW_H - qSize - 20;
-  const qItems: Array<{ icon: GameIconId; val: string }> = [
-    {
-      icon: "wood",
-      val: state.unlimitedWood ? "∞" : String(player.inventory.wood),
-    },
-    { icon: "stone", val: String(player.inventory.stone) },
-    { icon: "arrow", val: String(player.inventory.arrows) },
-    { icon: "berry", val: String(player.inventory.berries) },
-    { icon: "fish", val: String(player.inventory.fish) },
-    { icon: "hay", val: String(player.inventory.hay) },
-  ];
-  // Шилэн лонх — авсны дараа нөөцийн мөрөнд (амьны балга)
-  if (state.story.spiritOvooSoulCollected && state.spiritPoints > 0) {
-    qItems.push({
-      icon: "spiritWater",
-      val: String(state.spiritPoints),
-    });
-  }
-  const qW = qItems.length * (qSize + 4) - 4 + 8;
-  const qX = VIEW_W - qW - 16;
-  drawWoodFrame(ctx, qX, qY, qW, qSize + 8, 4);
-  ctx.fillStyle = "#2a1c12";
-  ctx.fillRect(qX, qY, qW, qSize + 8);
-  qItems.forEach((it, i) => {
-    const sx = qX + 4 + i * (qSize + 4);
-    drawHotSlot(ctx, sx, qY + 4, qSize, it.val, it.icon, false);
-  });
-
-  // Малын төрөл — дүрс + тоо; унах морь мөн энэ мөрт
+  // Нөөц — зөвхөн Tab авдарт (баруун доод мөр байхгүй)
   let lx = barX;
   const hasBuff = player.gear.dog;
   const ly = hasBuff ? iconY + iconS + 2 : iconY + 12;
@@ -2791,6 +2842,8 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   }
 
   drawBannerAlert(ctx, state);
+
+  drawInventoryPanel(ctx, state);
 
   if (state.phase === "paused") {
     ctx.fillStyle = "rgba(0,0,0,0.55)";

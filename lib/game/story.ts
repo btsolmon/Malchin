@@ -57,6 +57,7 @@ import {
   pushOutOfGer,
   pushOutOfUrtz,
   roundRectPath,
+  drawFrostedGlassPanel,
   setMessage,
 } from "./utils";
 
@@ -4480,8 +4481,6 @@ export function drawMainObjectivePanel(
     return;
   }
 
-  const x = 664;
-  const y = 140;
   const w = 282;
   const h =
     objective === "restoreHearth" || objective === "findScatteredLivestock"
@@ -4489,17 +4488,14 @@ export function drawMainObjectivePanel(
       : objective === "defeatSpiritGuards" || objective === "growFlock"
         ? 134
         : 112;
+  // Баруун доод буланд тулгана
+  const x = VIEW_W - w - 12;
+  const y = VIEW_H - h - 12;
 
   ctx.save();
-  ctx.fillStyle = "rgba(22,15,11,0.9)";
-  roundRectPath(ctx, x, y, w, h, 8);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(232,197,106,0.48)";
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, 8);
-  ctx.stroke();
+  drawFrostedGlassPanel(ctx, x, y, w, h, 10);
 
-  ctx.strokeStyle = "rgba(232,197,106,0.55)";
+  ctx.strokeStyle = "rgba(232,197,106,0.4)";
   drawOrnamentalLine(ctx, x + w / 2, y + 15, 112);
 
   ctx.textAlign = "left";
