@@ -2384,6 +2384,77 @@ export function drawMenu(
   else drawMenuCredits(ctx);
 }
 
+function drawBannerAlert(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+): void {
+  const alert = state.bannerAlert;
+  if (!alert || alert.timer <= 0) return;
+  if (
+    state.phase !== "playing" &&
+    state.phase !== "spirit" &&
+    state.phase !== "ger"
+  ) {
+    return;
+  }
+
+  const duration = Math.max(0.1, alert.duration);
+  const elapsed = duration - alert.timer;
+  const fadeIn = clamp(elapsed / 0.18, 0, 1);
+  const fadeOut = clamp(alert.timer / 0.5, 0, 1);
+  const alpha = fadeIn * fadeOut;
+  if (alpha <= 0.01) return;
+
+  const pulse = 0.9 + Math.sin(state.world.elapsed * 6) * 0.08;
+  const isHunger = alert.kind === "hunger";
+  const isDanger = alert.kind === "danger";
+  const fill =
+    isHunger ? "#ffe08a" : isDanger ? "#ffb080" : "#ff8a8a";
+  const tint =
+    isHunger
+      ? "rgba(70,35,8,1)"
+      : isDanger
+        ? "rgba(70,18,8,1)"
+        : "rgba(70,8,8,1)";
+  const edge =
+    isHunger ? "rgba(255,190,80,1)" : "rgba(255,90,90,1)";
+
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.22 * pulse;
+  ctx.fillStyle = tint;
+  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  const border = 14 + Math.sin(state.world.elapsed * 7) * 2;
+  ctx.globalAlpha = alpha * 0.35 * pulse;
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, VIEW_W, border);
+  ctx.fillRect(0, VIEW_H - border, VIEW_W, border);
+  ctx.fillRect(0, 0, border, VIEW_H);
+  ctx.fillRect(VIEW_W - border, 0, border, VIEW_H);
+
+  const text = tr(alert.text);
+  const fontSize = Math.min(72, Math.max(36, VIEW_W * 0.085));
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
+  const cx = VIEW_W / 2;
+  const cy = VIEW_H * 0.4;
+  ctx.fillStyle = fill;
+  ctx.fillText(text, cx, cy);
+
+  ctx.font = `700 ${Math.max(16, fontSize * 0.28)}px system-ui, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  const sub = isHunger
+    ? tr("Q дарж ид · эсвэл малдаа өвс өг")
+    : tr("Бэлэн бай — хамгаал!");
+  ctx.fillText(sub, cx, cy + fontSize * 0.7);
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.restore();
+}
+
 export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   const { player, world } = state;
   const pad = 14;
@@ -2719,6 +2790,8 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.globalAlpha = 1;
   }
 
+  drawBannerAlert(ctx, state);
+
   if (state.phase === "paused") {
     ctx.fillStyle = "rgba(0,0,0,0.55)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
@@ -2793,29 +2866,41 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   if (state.phase === "won" || state.phase === "lost") {
     const won = state.phase === "won";
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    const herdWin = won && state.winReason === "herd";
+    ctx.fillStyle = "rgba(0,0,0,0.62)";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
     ctx.textAlign = "center";
     ctx.fillStyle = won ? "#e8c56a" : "#ff8080";
-    ctx.font = "bold 48px system-ui, sans-serif";
+    const titleSize = won ? 92 : 56;
+    ctx.font = `900 ${titleSize}px system-ui, sans-serif`;
     ctx.fillText(
-      won ? t("end.win") : t("end.lose"),
+      won
+        ? herdWin
+          ? t("end.winHerd")
+          : t("end.win")
+        : t("end.lose"),
       VIEW_W / 2,
-      VIEW_H / 2 - 30,
+      VIEW_H / 2 - (won ? 48 : 30),
     );
-    ctx.fillStyle = COLORS.hudText;
-    ctx.font = "16px system-ui, sans-serif";
+    ctx.fillStyle = won ? "#ffe9a8" : COLORS.hudText;
+    ctx.font = won
+      ? "700 26px system-ui, sans-serif"
+      : "16px system-ui, sans-serif";
     ctx.fillText(
-      won ? t("end.winSubtitle") : tr(state.message),
+      won
+        ? herdWin
+          ? t("end.winHerdSubtitle")
+          : t("end.winSubtitle")
+        : tr(state.message),
       VIEW_W / 2,
-      VIEW_H / 2 + 8,
+      VIEW_H / 2 + (won ? 18 : 8),
     );
     ctx.fillStyle = COLORS.hudMuted;
-    ctx.font = "13px system-ui, sans-serif";
+    ctx.font = "14px system-ui, sans-serif";
     ctx.fillText(
       `${t("hud.coins")} ${state.unlimitedCoins ? "∞" : state.score} · ${t("hud.livestock")} ${world.flock.total} · ${t("hud.day")} ${world.dayNumber}`,
       VIEW_W / 2,
-      VIEW_H / 2 + 36,
+      VIEW_H / 2 + (won ? 52 : 36),
     );
     ctx.fillText(
       won
@@ -2824,7 +2909,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
           ? t("end.loseHintSkip")
           : t("end.loseHint"),
       VIEW_W / 2,
-      VIEW_H / 2 + 70,
+      VIEW_H / 2 + (won ? 86 : 70),
     );
     ctx.textAlign = "left";
   }

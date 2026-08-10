@@ -2593,7 +2593,10 @@ function storyWolfIsInRedSignalWindow(wolf: Wolf): boolean {
   );
 }
 
-function beginNightCompletionEffect(state: GameState, wolf: Wolf): void {
+function beginNightCompletionEffect(
+  state: GameState,
+  deathPos: Vector2,
+): void {
   const story = state.story;
   if (story.nightCompletionEffectShown) return;
 
@@ -2608,7 +2611,7 @@ function beginNightCompletionEffect(state: GameState, wolf: Wolf): void {
   );
   setMessage(state, "Чоно унав! Голомтын дэргэд өвгөн дээр оч.", 4.2);
   sfx("levelup");
-  spawnParticles(state, wolf.pos, 18, "#d8e7ef", {
+  spawnParticles(state, deathPos, 18, "#d8e7ef", {
     speed: 92,
     life: 1.1,
     size: 2.6,
@@ -2627,7 +2630,9 @@ export function updateMilestone4(state: GameState, dt: number): void {
   const wolf = getStoryWolf(state);
 
   if (story.milestone4Completed) {
-    if (wolf && !wolf.alive) revealSeatedOldMan(state);
+    if (story.storyWolfDefeated || !wolf || !wolf.alive) {
+      revealSeatedOldMan(state);
+    }
     return;
   }
 
@@ -2654,11 +2659,19 @@ export function updateMilestone4(state: GameState, dt: number): void {
     return;
   }
 
-  if (!wolf) return;
-  if (!wolf.alive) {
-    beginNightCompletionEffect(state, wolf);
+  // Сэг шууд арилдаг тул чоно байхгүй ч ялагдсан бол эффектийг эхлүүлнэ
+  if (
+    (!wolf || !wolf.alive) &&
+    (story.storyWolfDefeated || story.storyWolfCounterCompleted)
+  ) {
+    beginNightCompletionEffect(
+      state,
+      wolf?.pos ?? state.player.pos,
+    );
     return;
   }
+
+  if (!wolf || !wolf.alive) return;
 
   if (
     !story.storyWolfRedSignalSeen &&
@@ -2679,10 +2692,6 @@ export function updateMilestone4(state: GameState, dt: number): void {
     story.activeMainObjective = openingActive
       ? "counterStoryWolf"
       : "parryStoryWolf";
-  }
-
-  if (story.storyWolfCounterCompleted && !wolf.alive) {
-    beginNightCompletionEffect(state, wolf);
   }
 }
 
@@ -3012,6 +3021,7 @@ export function updateMilestone8(state: GameState, dt: number): void {
     // Ялалтыг нэг удаа зарлаад, дараа нь сүрэг өсгөх тоглоом үргэлжилнэ.
     if (!state.victoryShown) {
       state.victoryShown = true;
+      state.winReason = "story";
       state.phase = "won";
     }
   }
@@ -4065,6 +4075,8 @@ export function startFamilyLifeRun(
   state.elderDialogueLine = 0;
   state.elderShowingChoices = false;
   state.victoryShown = true;
+  state.herdVictoryShown = state.herdVictoryShown ?? false;
+  state.winReason = state.winReason ?? null;
 
   story.milestone7Completed = true;
   story.milestone8Started = true;

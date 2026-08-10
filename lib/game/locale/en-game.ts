@@ -108,6 +108,7 @@ export const EN_GAME: Record<string, string> = {
     "Posture broken — now J: a quarter of its life!",
   "Story дууссан. Одоо сүргээ 1000 толгойд хүргэ.":
     "The story is done. Now grow your herd to 1000 head.",
+  "Сүргээ 1000 толгойд хүргэлээ!": "You grew the herd to 1000 head!",
   "WASD — алхах · E — харьцах · Зураг дээр дарж томруул · Хаалга руу алхаж гарна":
     "WASD — walk · E — interact · Click a painting to zoom · Walk to the door to leave",
   А: "A",
@@ -138,6 +139,8 @@ export const EN_GAME: Record<string, string> = {
     "The bear caught and bit you — you lived!",
   "Баавгай мал руу дайрлаа — маш аюултай!":
     "A bear is on the livestock — very dangerous!",
+  "БААВГАЙ ИРЛЭЭ!": "BEAR APPROACHING!",
+  "Бэлэн бай — хамгаал!": "Get ready — defend!",
   "Баавгайд ялагдлаа…": "The bear beat you…",
   "Баавгайн сүнс одлоо.": "The bear's spirit departs.",
   "Баавгайн сүнс одлоо — ойрхон аюул үлдлээ.":
@@ -262,10 +265,26 @@ export const EN_GAME: Record<string, string> = {
     "A Mongolian herder's life: guard the herd, fight wolves, gather 1000 sheep",
   "Морины зураг": "Horse painting",
   "Морь (сүрэг)": "Horse (herd)",
+  "Морь гарлаа — уургаа хүзүү рүү шид (E)!":
+    "A horse! Throw the lasso at its neck (E)!",
   "Морь гарлаа — уургатай ойртож E!":
     "A horse! Close in with the lasso and press E!",
   "Морь зугтав — ойртож дахин оролд!":
     "The horse bolted — get close and try again!",
+  "Морь зугтав — E-г хурдан дар!":
+    "The horse bolted — mash E faster!",
+  "Уурга хүзүүнд ороогүй — дахин шид!":
+    "The lasso missed the neck — throw again!",
+  "Уурга нисэж байна…": "Lasso in the air…",
+  "Уурга шидлээ — хүзүү рүү!": "Lasso thrown — toward the neck!",
+  "Уурга тасарлаа — ойртож дахин шид!":
+    "The lasso snapped — get closer and throw again!",
+  "Уурга алдлаа!": "You lost the lasso!",
+  "Хүзүүнд орлоо! E-г хурдан дарж тат!":
+    "Around the neck! Mash E to pull it in!",
+  "E хурдан дар — морь зугтаж байна!":
+    "Mash E — the horse is thrashing!",
+  "E — Уургаа хүзүү рүү шид": "E — Throw lasso at the neck",
   "Морь ойрхон байх ёстой — гадаа уясан морь руу оч.":
     "A horse must be near — go to the one hitched outside.",
   "Морь уналаа. H — буух.": "Mounted up. H — dismount.",
@@ -465,6 +484,8 @@ export const EN_GAME: Record<string, string> = {
   "Хулгайч зугтав.": "The thief fled.",
   "Хулгайч ойртлоо — хашаагаа шалга!":
     "A thief is closing in — check your fence!",
+  "ХУЛГАЙЧ ИРЛЭЭ!": "THIEF!",
+  "ХУЛГАЙЧ ОЙРТЛОО!": "THIEF NEARBY!",
   "Хулгайчид зодуулж ялагдлаа…": "The thieves beat you down…",
   "Хурга даарч үхэв": "A lamb froze to death",
   "Хурдан хөл": "Swift feet",
@@ -502,6 +523,7 @@ export const EN_GAME: Record<string, string> = {
   "Цохилтын хүч +30%": "Strike power +30%",
   Чоно: "Wolf",
   "Чоно ойртлоо — хамгаал!": "A wolf is near — defend!",
+  "ЧОНО ОЙРТЛОО!": "WOLF APPROACHING!",
   "Чоно хотонд ойртжээ.": "A wolf nears the pen.",
   "Чоно хотонд ойртжээ. Сүргээсээ холдуулж, амьд үлд.":
     "A wolf nears the pen. Draw it from the herd and survive.",
@@ -552,6 +574,7 @@ export const EN_GAME: Record<string, string> = {
   "Шуурганы мөрийг шинж": "Examine the storm's trail",
   "ШӨНИЙГ ДАВЛАА": "THE NIGHT IS SURVIVED",
   "Шөнийн чоно мал руу дайрлаа!": "A night wolf struck the livestock!",
+  "ШӨНИЙН ЧОНО ИРЛЭЭ!": "NIGHT WOLF!",
   "Шөнө боллоо! Мал гадаа. Чоно, баавгай дайрах аюултай":
     "Night! Livestock outside. Wolves and bears may strike",
   "Шөнө боллоо! Мал хашаандаа. Галд дулаац":
@@ -657,6 +680,11 @@ export const EN_GAME: Record<string, string> = {
     "Day has come — your livestock are still penned!",
   "Өлсгөлөн 40%-иар удаан унана": "Hunger falls 40% slower",
   "Өлсөж үхлээ…": "You starved…",
+  "ӨЛСӨЖ БАЙНА! ХООЛ ИД!": "STARVING! EAT FOOD!",
+  "ӨЛСӨЖ ҮХЭХ ГЭЖ БАЙНА!": "STARVING TO DEATH!",
+  "МАЛ ӨЛСӨЖ БАЙНА!": "LIVESTOCK STARVING!",
+  "МАЛ ӨЛСӨЖ ҮХЭЖ БАЙНА!": "LIVESTOCK DYING OF HUNGER!",
+  "Q дарж ид · эсвэл малдаа өвс өг": "Press Q to eat · or feed hay",
   "Өргөстэй тор": "Barbed wire",
   "өвгөнд очиж өгүүл.": "how the dark trail moves.",
   "өвгөний бууцанд оч.": "camp in the eastern hills.",

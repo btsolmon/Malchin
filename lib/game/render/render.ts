@@ -3,13 +3,14 @@ import {
 import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { tr, trFormat } from "../i18n";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, nearestPenGate, pastureCenter, randRange } from "../utils";
-import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawParentNpc, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldStone } from "./entities";
+import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawHorseLasso, drawParentNpc, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldStone } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
 import {
   fishNearBobber,
   fishingBobberPos,
   nearFishingSpot,
 } from "../fish";
+import { wildHorseNeckPos } from "../livestock";
 import { drawGerInterior } from "./ger";
 import {
   drawCrushMonoliths,
@@ -817,6 +818,9 @@ export function render(
         casting,
         casting ? fishingBobberPos(state.player.pos) : null,
       );
+      if (state.horseLasso) {
+        drawHorseLasso(ctx, state.player, cam, time, state.horseLasso);
+      }
     },
   });
 
@@ -1145,6 +1149,58 @@ export function render(
         const stone = nearestGatherableStone(state.player, world.stones);
         const tree = nearestAliveTree(state.player, world.trees);
         if (
+          state.player.gear.urga &&
+          (state.horseLasso ||
+            world.wildHorses.some(
+              (h) => dist(state.player.pos, h.pos) < 82,
+            ))
+        ) {
+          const target =
+            state.horseLasso &&
+            world.wildHorses.find((h) => h.id === state.horseLasso!.horseId);
+          const tipPos = target
+            ? wildHorseNeckPos(target)
+            : state.player.pos;
+          const tx = tipPos.x - cam.x;
+          const ty = tipPos.y - 28 - cam.y;
+          ctx.textAlign = "center";
+          ctx.font = "600 11px system-ui, sans-serif";
+          ctx.strokeStyle = "rgba(0,0,0,0.7)";
+          ctx.lineWidth = 3;
+          const phase = state.horseLasso?.phase;
+          const tip =
+            phase === "pulling"
+              ? "E — ХУРДАН ТАТ! (mash)"
+              : phase === "throwing"
+                ? "Уурга нисэж байна…"
+                : "E — Уургаа хүзүү рүү шид";
+          ctx.strokeText(tip, tx, ty);
+          ctx.fillStyle =
+            phase === "pulling"
+              ? "#ffd060"
+              : phase === "throwing"
+                ? "#e8d090"
+                : "#e8c56a";
+          ctx.fillText(tip, tx, ty);
+          if (phase === "pulling" && state.horseLasso) {
+            const bw = 56;
+            const bh = 6;
+            const bx = tx - bw / 2;
+            const by = ty - 16;
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+            ctx.fillStyle = "#2a1c12";
+            ctx.fillRect(bx, by, bw, bh);
+            const p = clamp(state.horseLasso.progress, 0, 1);
+            ctx.fillStyle = p > 0.7 ? "#7ecf6a" : "#e8c56a";
+            ctx.fillRect(bx, by, bw * p, bh);
+            const tMax = Math.max(0.1, state.horseLasso.timeMax || 4);
+            const tLeft = clamp(state.horseLasso.timeLeft / tMax, 0, 1);
+            ctx.fillStyle = "#ff8080";
+            ctx.fillRect(bx, by + bh + 2, bw * tLeft, 2);
+          }
+          ctx.textAlign = "left";
+        } else if (
           state.player.gear.fishingRod &&
           nearFishingSpot(state.player.pos)
         ) {
@@ -1363,6 +1419,37 @@ export function render(
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
+
+  // HP ≤20% — үхэх ойртож байгаа зөөлөн улаан хүрээ
+  if (
+    (state.phase === "playing" || state.phase === "spirit") &&
+    state.player.vitals.maxHealth > 0
+  ) {
+    const hpRatio =
+      state.player.vitals.health / state.player.vitals.maxHealth;
+    if (hpRatio <= 0.2) {
+      const severity = clamp(1 - hpRatio / 0.2, 0, 1);
+      const pulse = 0.72 + Math.sin(time * 4.2) * 0.18;
+      const edgeA = (0.1 + severity * 0.22) * pulse;
+      ctx.save();
+      const edge = ctx.createRadialGradient(
+        VIEW_W / 2,
+        VIEW_H / 2,
+        Math.min(VIEW_W, VIEW_H) * 0.42,
+        VIEW_W / 2,
+        VIEW_H / 2,
+        Math.max(VIEW_W, VIEW_H) * 0.78,
+      );
+      edge.addColorStop(0, "rgba(180,40,40,0)");
+      edge.addColorStop(0.45, "rgba(170,50,50,0)");
+      edge.addColorStop(0.75, `rgba(160,45,50,${edgeA * 0.45})`);
+      edge.addColorStop(1, `rgba(150,40,48,${edgeA})`);
+      ctx.fillStyle = edge;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+      ctx.restore();
+    }
+  }
+
   if (state.fx.screenPulse.remaining > 0 && state.fx.screenPulse.duration > 0) {
     const pulse = state.fx.screenPulse;
     const ratio = pulse.remaining / pulse.duration;

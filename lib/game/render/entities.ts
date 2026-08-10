@@ -2035,83 +2035,16 @@ export function drawWolf(
   time: number,
   showCombatFeedback = true,
 ): void {
+  if (!wolf.alive) {
+    // Сэг зурахгүй — шууд арилна
+    return;
+  }
+
   const x = wolf.pos.x - cam.x;
   const y = wolf.pos.y - cam.y;
   const flip = wolf.face;
   const run = Math.sin(time * 14 + wolf.id) * 3;
   const s = wolf.scale;
-
-  if (!wolf.alive) {
-    // Үхсэн чоно амьд зогсож буй мэт харагдахгүйгээр хажуу тийш
-    // унасан, хөдөлгөөнгүй corpse pose-оор үлдэнэ. Story wolf дараагийн
-    // өгүүлэмж эхлэх хүртэл world-д хадгалагддаг тул энд тусад нь зурна.
-    drawShadow(ctx, x + 2 * flip * s, y + 8 * s, 18 * s, 5 * s);
-
-    ctx.save();
-    ctx.translate(x, y + 4 * s);
-    ctx.scale(s, s);
-    ctx.rotate(-0.16 * flip);
-
-    ctx.strokeStyle = "#35363a";
-    ctx.lineWidth = 2.8;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-7, 3);
-    ctx.lineTo(-12, 7);
-    ctx.lineTo(-8, 9);
-    ctx.moveTo(1, 4);
-    ctx.lineTo(6, 8);
-    ctx.lineTo(10, 7);
-    ctx.stroke();
-
-    ctx.strokeStyle = "#424348";
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(-13 * flip, 0);
-    ctx.quadraticCurveTo(-18 * flip, 4, -22 * flip, 5);
-    ctx.stroke();
-
-    const deadBody = ctx.createLinearGradient(0, -7, 0, 7);
-    deadBody.addColorStop(0, "#575960");
-    deadBody.addColorStop(1, "#34353a");
-    ctx.fillStyle = deadBody;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 15.5, 7.5, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    const hx = 13 * flip;
-    ctx.fillStyle = "#484a50";
-    ctx.beginPath();
-    ctx.ellipse(hx, 1, 7, 5.7, 0.12 * flip, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#38393e";
-    ctx.beginPath();
-    ctx.ellipse(hx + 5 * flip, 2.2, 4, 2.4, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#34353a";
-    ctx.beginPath();
-    ctx.moveTo(hx - 2 * flip, -3);
-    ctx.lineTo(hx - 1 * flip, -8);
-    ctx.lineTo(hx + 2 * flip, -4);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = "#17181a";
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.moveTo(hx + 0.5 * flip, -0.6);
-    ctx.lineTo(hx + 4 * flip, -0.2);
-    ctx.stroke();
-
-    ctx.fillStyle = "#18191b";
-    ctx.beginPath();
-    ctx.arc(hx + 8.3 * flip, 2, 1.3, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-    return;
-  }
 
   drawShadow(ctx, x, y + 9 * s, 15 * s, 5 * s);
 
@@ -2224,6 +2157,11 @@ export function drawBear(
   cam: Camera,
   time: number,
 ): void {
+  if (!bear.alive) {
+    // Сэг зурахгүй — шууд арилна
+    return;
+  }
+
   const x = bear.pos.x - cam.x;
   const y = bear.pos.y - cam.y;
   const flip = bear.face;
@@ -5700,5 +5638,84 @@ export function drawFishingRod(
   ctx.beginPath();
   ctx.ellipse(bx, by + 3, 7 + Math.sin(time * 5) * 1.5, 2.2, 0, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.restore();
+}
+
+/** Зэрлэг морины уурга — шидэх / хүзүүнд ороод татах */
+export function drawHorseLasso(
+  ctx: CanvasRenderingContext2D,
+  player: Player,
+  cam: Camera,
+  time: number,
+  lasso: {
+    phase: "throwing" | "pulling";
+    throwT: number;
+    from: { x: number; y: number };
+    aim: { x: number; y: number };
+  },
+): void {
+  if (!player.gear.urga) return;
+  const x = player.pos.x - cam.x;
+  const y = player.pos.y - cam.y + (player.riding ? -14 : 0);
+  const flip = player.facing.x < 0 ? -1 : 1;
+  const handX = x + 8 * flip;
+  const handY = y - 6;
+  const tipX = handX + 14 * flip;
+  const tipY = handY - 16 + Math.sin(time * 3) * 1.2;
+
+  // Уурганы бариул
+  ctx.save();
+  ctx.strokeStyle = "#5a3a18";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(handX, handY);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+
+  const t =
+    lasso.phase === "throwing" ? Math.min(1, Math.max(0, lasso.throwT)) : 1;
+  const endX =
+    lasso.phase === "throwing"
+      ? lasso.from.x + (lasso.aim.x - lasso.from.x) * t - cam.x
+      : lasso.aim.x - cam.x;
+  const endY =
+    lasso.phase === "throwing"
+      ? lasso.from.y +
+        (lasso.aim.y - lasso.from.y) * t -
+        cam.y -
+        Math.sin(t * Math.PI) * 22
+      : lasso.aim.y - cam.y;
+
+  const sag =
+    lasso.phase === "pulling"
+      ? 8 + Math.sin(time * 10) * 3
+      : 6 + (1 - t) * 18;
+  ctx.strokeStyle = "rgba(220,200,150,0.9)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.quadraticCurveTo(
+    (tipX + endX) * 0.5,
+    Math.max(tipY, endY) + sag,
+    endX,
+    endY,
+  );
+  ctx.stroke();
+
+  // Гох / хүзүүний цагираг
+  const loopR = lasso.phase === "pulling" ? 7 + Math.sin(time * 14) * 1.2 : 9;
+  ctx.strokeStyle = "#d8c070";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(endX, endY, loopR, loopR * 0.55, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  if (lasso.phase === "pulling") {
+    ctx.strokeStyle = "rgba(255,220,120,0.55)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(endX, endY, loopR + 2.5, loopR * 0.55 + 1.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }

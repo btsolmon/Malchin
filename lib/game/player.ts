@@ -50,6 +50,7 @@ import {
   pushOutOfGer,
   pushOutOfUrtz,
   seasonForDay,
+  setBannerAlert,
   setMessage,
   wouldCloseFenceLoop,
 } from "./utils";
@@ -741,18 +742,22 @@ export function tryInteract(state: GameState): void {
     return;
   }
 
-  // Уургаар зэрлэг морь барих
+  // Уургаар зэрлэг морь барих (шилээ → хүзүү → E mash)
   if (player.gear.urga) {
-    let nearWild = false;
-    for (const h of world.wildHorses) {
-      if (dist(player.pos, h.pos) < 62) {
-        nearWild = true;
-        break;
+    const lassoing = !!state.horseLasso;
+    let nearWild = lassoing;
+    if (!nearWild) {
+      for (const h of world.wildHorses) {
+        if (dist(player.pos, h.pos) < 82) {
+          nearWild = true;
+          break;
+        }
       }
     }
     if (nearWild) {
       tryCatchWildHorse(state);
-      player.chopCooldown = 0.55;
+      player.chopCooldown =
+        state.horseLasso?.phase === "pulling" ? 0.09 : 0.32;
       state.input.interact = false;
       return;
     }
@@ -1392,6 +1397,23 @@ export function updateSurvival(state: GameState, dt: number): void {
     0,
     player.vitals.maxHunger,
   );
+  const hungerRatio =
+    player.vitals.maxHunger > 0
+      ? player.vitals.hunger / player.vitals.maxHunger
+      : 1;
+  if (hungerRatio <= 0.25 && state.phase === "playing") {
+    const hungerText =
+      hungerRatio <= 0
+        ? "ӨЛСӨЖ ҮХЭХ ГЭЖ БАЙНА!"
+        : "ӨЛСӨЖ БАЙНА! ХООЛ ИД!";
+    if (
+      !state.bannerAlert ||
+      state.bannerAlert.kind !== "hunger" ||
+      state.bannerAlert.timer < 1.1
+    ) {
+      setBannerAlert(state, hungerText, 3.4, "hunger");
+    }
+  }
   if (player.vitals.hunger <= 0) {
     if (!state.godMode) {
       player.vitals.health = clamp(
@@ -1469,6 +1491,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
       flock.starveAcc = 0;
     } else if (feeder.hay <= 0) {
       if (hadHay && feed > 0) {
+        setBannerAlert(state, "МАЛ ӨЛСӨЖ БАЙНА!", 4.0, "hunger");
         setMessage(state, "Тэвш хоосон — мал өлсөж байна!", 4);
       }
       flock.hunger = clamp(flock.hunger - 4.5 * dt, 0, 100);
@@ -1486,6 +1509,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
               "#ff9080",
             );
             sfx("baa");
+            setBannerAlert(state, "МАЛ ӨЛСӨЖ ҮХЭЖ БАЙНА!", 4.2, "danger");
             setMessage(state, "Мал өлсөж үхэж байна! Тэвшид өвс хий!", 3.5);
           }
         }
@@ -1533,6 +1557,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
               "−1 мал (өвсгүй)",
               "#ff9080",
             );
+            setBannerAlert(state, "МАЛ ӨЛСӨЖ БАЙНА!", 3.8, "hunger");
             setMessage(
               state,
               "Өвс дууссан — мал өлсөж байна! G-ээр нүү эсвэл өвс өг.",

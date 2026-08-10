@@ -16,6 +16,7 @@ import {
   type GameState,
   type InputState,
   type LivestockKind,
+  type BannerAlertKind,
   type PenKind,
   type Season,
   type Vector2,
@@ -377,6 +378,39 @@ export function setMessage(
 ): void {
   state.message = text;
   state.messageTimer = seconds;
+}
+
+export function setBannerAlert(
+  state: GameState,
+  text: string,
+  seconds = 3.8,
+  kind: BannerAlertKind = "threat",
+): void {
+  // Өлсгөлөн мэдэгдэл идэвхтэй дайсны мэдэгдлийг бүү дар
+  if (
+    kind === "hunger" &&
+    state.bannerAlert &&
+    state.bannerAlert.kind !== "hunger" &&
+    state.bannerAlert.timer > 0.9
+  ) {
+    return;
+  }
+  // Ижил өлсгөлөн баннерыг дахин fade-гүйгээр сунгана
+  if (
+    kind === "hunger" &&
+    state.bannerAlert &&
+    state.bannerAlert.kind === "hunger" &&
+    state.bannerAlert.text === text
+  ) {
+    state.bannerAlert.timer = Math.max(state.bannerAlert.timer, seconds * 0.75);
+    return;
+  }
+  state.bannerAlert = {
+    text,
+    timer: seconds,
+    duration: Math.max(0.1, seconds),
+    kind,
+  };
 }
 
 export function allocId(state: GameState): number {

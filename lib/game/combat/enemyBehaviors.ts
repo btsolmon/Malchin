@@ -42,6 +42,7 @@ import {
   normalize,
   pastureCenter,
   randRange,
+  setBannerAlert,
   setMessage,
   sheepFenceMitigation,
 } from "../utils";
@@ -180,6 +181,16 @@ export function spawnWolf(
   state.world.wolves.push(wolf);
   if (!options.silent) {
     sfx("howl");
+    setBannerAlert(
+      state,
+      bear
+        ? "БААВГАЙ ИРЛЭЭ!"
+        : night
+          ? "ШӨНИЙН ЧОНО ИРЛЭЭ!"
+          : "ЧОНО ОЙРТЛОО!",
+      4.2,
+      "threat",
+    );
     setMessage(
       state,
       bear
@@ -242,6 +253,7 @@ export function spawnThief(state: GameState): void {
   sfx("alert");
 
   spawnText(state, pos, trFormat("−{n} хонь!", { n: stolen }), "#ff8080");
+  setBannerAlert(state, "ХУЛГАЙЧ ИРЛЭЭ!", 4.2, "threat");
   setMessage(
     state,
     trFormat("Хулгайч {n} хонь авч зугтав! Гүйцэж ав!", { n: stolen }),
@@ -1672,9 +1684,8 @@ export function updateWolves(
     updateNormalWolfChasing(state, wolf, dt);
   }
 
-  if (onlyWolfId === undefined) {
-    state.world.wolves = wolves.filter((wolf) => wolf.alive);
-  }
+  // Үхсэн чоно/баавгайн сэгийг шууд арилгана (story wolf орно)
+  state.world.wolves = wolves.filter((wolf) => wolf.alive);
 }
 
 export function updateThieves(state: GameState, dt: number): void {

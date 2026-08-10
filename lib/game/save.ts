@@ -101,7 +101,15 @@ export function hasSave(): boolean {
 export function loadGame(): GameState | null {
   const envelope = readEnvelope();
   if (!envelope) return null;
-  return { ...envelope.state, input: neutralInput(), fishingHook: null };
+  return {
+    ...envelope.state,
+    input: neutralInput(),
+    fishingHook: null,
+    horseLasso: null,
+    bannerAlert: null,
+    herdVictoryShown: envelope.state.herdVictoryShown ?? false,
+    winReason: envelope.state.winReason ?? null,
+  };
 }
 
 export function clearSave(): void {

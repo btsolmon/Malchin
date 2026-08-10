@@ -88,6 +88,7 @@ import {
   emptyCounts,
   updateProduction,
   updateWildHorses,
+  checkHerdVictory,
 } from "./livestock";
 import { createRiverFish, updateFish } from "./fish";
 import { updateParents } from "./parents";
@@ -378,6 +379,7 @@ export function createInitialState(): GameState {
     fencePreviewAngle: 0,
     fencePreviewOffset: { x: 0, y: 0 },
     fishingHook: null,
+    horseLasso: null,
     unlimitedWood: false,
     unlimitedCoins: false,
     godMode: false,
@@ -403,6 +405,7 @@ export function createInitialState(): GameState {
     message:
       "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
     messageTimer: 6,
+    bannerAlert: null,
     score: 0,
     xp: 0,
     level: 1,
@@ -447,6 +450,8 @@ export function createInitialState(): GameState {
     spiritSavedThieves: null,
     parentsReturned: false,
     victoryShown: false,
+    herdVictoryShown: false,
+    winReason: null,
     parents: null,
   };
 
@@ -872,7 +877,12 @@ export function update(state: GameState, dt: number): void {
       updateDog(state, dt);
       updateProjectiles(state, dt);
       updateSurvival(state, dt);
+      checkHerdVictory(state);
       if (state.messageTimer > 0) state.messageTimer -= dt;
+      if (state.bannerAlert) {
+        state.bannerAlert.timer -= dt;
+        if (state.bannerAlert.timer <= 0) state.bannerAlert = null;
+      }
     }
   } else if (state.phase === "spirit" && !hitStopped) {
     // Бодит дэлхийн цаг / мал / цаг агаар зогсоно — зөвхөн тулаан
@@ -920,6 +930,10 @@ export function update(state: GameState, dt: number): void {
       updateDog(state, dt);
       updateProjectiles(state, dt);
       if (state.messageTimer > 0) state.messageTimer -= dt;
+      if (state.bannerAlert) {
+        state.bannerAlert.timer -= dt;
+        if (state.bannerAlert.timer <= 0) state.bannerAlert = null;
+      }
     }
   }
 

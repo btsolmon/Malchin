@@ -32,6 +32,7 @@ import {
   pushOutOfGer,
   pushOutOfUrtz,
   randRange,
+  setBannerAlert,
   setMessage,
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
@@ -182,6 +183,16 @@ export function spawnWolf(
   state.world.wolves.push(wolf);
   if (!options.silent) {
     sfx("howl");
+    setBannerAlert(
+      state,
+      bear
+        ? "БААВГАЙ ИРЛЭЭ!"
+        : night
+          ? "ШӨНИЙН ЧОНО ИРЛЭЭ!"
+          : "ЧОНО ОЙРТЛОО!",
+      4.2,
+      "threat",
+    );
     setMessage(
       state,
       bear
@@ -258,12 +269,14 @@ export function spawnThief(state: GameState): void {
 
   if (stolen > 0) {
     spawnText(state, pos, trFormat("−{n} мал!", { n: stolen }), "#ff8080");
+    setBannerAlert(state, "ХУЛГАЙЧ ИРЛЭЭ!", 4.2, "threat");
     setMessage(
       state,
       trFormat("Хулгайч {n} мал авч зугтав! Гүйцэж ав!", { n: stolen }),
       4,
     );
   } else if (defense.tier3Count < 5) {
+    setBannerAlert(state, "ХУЛГАЙЧ ОЙРТЛОО!", 4.0, "threat");
     setMessage(state, "Хулгайч ойртлоо — хашаагаа шалга!", 3);
   }
 }
@@ -687,9 +700,8 @@ export function updateWolves(
     }
   }
 
-  if (onlyWolfId === undefined) {
-    state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
-  }
+  // Үхсэн сэгийг шууд арилгана (story wolf орно)
+  state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
 }
 
 export function updateThieves(state: GameState, dt: number): void {

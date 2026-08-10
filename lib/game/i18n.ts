@@ -17,8 +17,8 @@ const MN = {
   "menu.continue": "Үргэлжлүүлэх",
   "menu.newGame": "Шинээр тоглох",
   "menu.skipStory": "Түүх алгасаад эхлэх",
-  "menu.watchStory": "Түүх үзээд эхлэх",
-  "menu.storyChoiceTitle": "Түүхээ үзэх үү?",
+  "menu.watchStory": "Түүх эхнээс нь эхлэх",
+  "menu.storyChoiceTitle": "Бүүүүүр эхнээс нь эхлэх үү?",
   "menu.storyChoiceHint":
     "Та өмнө нь аав ээжийг аварсан · cutscene-ээс өмнө сонго",
   "menu.settings": "Тохиргоо",
@@ -95,6 +95,8 @@ const MN = {
   "end.win": "ЯЛАЛТ!",
   "end.lose": "ЯЛАГДЛАА",
   "end.winSubtitle": "Төмөр шулмас дарагдаж, гэр бүл эргэн нэгдэв.",
+  "end.winHerd": "ЯЛАЛТ!",
+  "end.winHerdSubtitle": "Сүргээ 1000 толгойд хүргэлээ!",
   "end.hint": "Enter / P — үндсэн цэс · сүрэг өсгөх тоглоом хадгалагдана",
   "end.loseHint": "Enter / P — үндсэн цэс",
   "end.loseHintSkip":
@@ -205,7 +207,9 @@ const EN: Record<StringKey, string> = {
 
   "end.win": "VICTORY!",
   "end.lose": "DEFEATED",
-  "end.winSubtitle": "Tömör Shulmas is slain and the family is whole again.",
+  "end.winSubtitle": "Iron Witch is slain and the family is whole again.",
+  "end.winHerd": "VICTORY!",
+  "end.winHerdSubtitle": "You grew the herd to 1000 head!",
   "end.hint": "Enter / P — main menu · your herd is saved, keep growing it",
   "end.loseHint": "Enter / P — main menu",
   "end.loseHintSkip":

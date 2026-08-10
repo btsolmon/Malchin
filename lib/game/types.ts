@@ -347,6 +347,22 @@ export interface WildHorse {
   spooked: number;
 }
 
+/** Морь уургалаж барих — шидээд хүзүүнд орвол E mash */
+export interface HorseLassoState {
+  horseId: number;
+  phase: "throwing" | "pulling";
+  /** throwing: 0→1 нисэлт */
+  throwT: number;
+  /** pulling: 0→1 татах */
+  progress: number;
+  timeLeft: number;
+  timeMax: number;
+  /** Шидийг эхлэх цэг (гар) */
+  from: Vector2;
+  /** Шидийг чиглэсэн хүзүү */
+  aim: Vector2;
+}
+
 /** Голын загас — уургаар барина */
 export type FishTier = "easy" | "hard" | "elite";
 
@@ -779,6 +795,16 @@ export interface ScreenPulseState {
   color: string;
 }
 
+/** Дэлгэц дүүрэн аюулын мэдэгдэл (өлсгөлөн / дайсан) */
+export type BannerAlertKind = "hunger" | "threat" | "danger";
+
+export interface BannerAlert {
+  text: string;
+  timer: number;
+  duration: number;
+  kind: BannerAlertKind;
+}
+
 export interface Effects {
   particles: Particle[];
   texts: FloatingText[];
@@ -960,6 +986,8 @@ export interface GameState {
   fx: Effects;
   message: string;
   messageTimer: number;
+  /** Том дэлгэц дүүрэн аюулын мэдэгдэл */
+  bannerAlert: BannerAlert | null;
   score: number;
   xp: number;
   level: number;
@@ -1001,6 +1029,8 @@ export interface GameState {
   fencePreviewOffset: Vector2;
   /** Загас татах minigame (E mash) */
   fishingHook: FishingHookState | null;
+  /** Зэрлэг морь уургалах minigame (шилээ + E mash) */
+  horseLasso: HorseLassoState | null;
   /** / cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
   /** / cheat — зоос хязгааргүй, худалдан авалтад хасагдахгүй */
@@ -1052,6 +1082,10 @@ export interface GameState {
    * түүх дууссан төлөв дахин ялалт зарлахгүй.
    */
   victoryShown: boolean;
+  /** Сүрэг 1000 толгойд хүрсэн ялалт нэг удаа */
+  herdVictoryShown: boolean;
+  /** Ялалтын шалтгаан — дэлгэцийн текстэд */
+  winReason: "story" | "herd" | null;
   /** Аав ээж — буцаж ирсний дараа мал маллана */
   parents: { father: ParentNpc; mother: ParentNpc } | null;
 }
@@ -1070,6 +1104,8 @@ export const START_SHEEP = 1;
 export const START_GOATS = 1;
 export const START_CATTLE = 1;
 export const MAX_VISUAL_SHEEP = 1000;
+/** Сүргийн ялалтын зорилт — толгойн тоо */
+export const HERD_VICTORY_COUNT = 1000;
 export const MAX_FEEDER_HAY = 80;
 /** Малын бүтээгдэхүүн гарах хугацаа (сек) */
 export const PRODUCE_INTERVAL: Record<LivestockKind, number> = {
