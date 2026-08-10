@@ -36,6 +36,7 @@ export const EN_FORMAT: Record<string, string> = {
 
   // Мал, төллөлт, тэвш
   "+{n} мал": "+{n} livestock",
+  "+{n} жимс": "+{n} berries",
   "−{n} мал!": "−{n} livestock!",
   "+{n} төллөлт": "+{n} births",
   "Хавар төллөлт! +{n} залуу мал — шөнө дулаан байлга (гал/хашаа).":
@@ -72,6 +73,7 @@ export const EN_FORMAT: Record<string, string> = {
 
   // Түлхүүр товчны сануулга
   "E — Жимс түүх ({n})": "E — Pick berries ({n})",
+  "E — Бүх жимс түүх ({n})": "E — Pick all berries ({n})",
   "E — Чулуу түүх ({n})": "E — Gather stone ({n})",
   "E — Тэвшид өвс хийх ({n})": "E — Hay into trough ({n})",
   "E — Хараалт хаалга ({n} үлдсэн)": "E — Cursed gate ({n} left)",

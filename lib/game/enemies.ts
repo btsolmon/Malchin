@@ -39,6 +39,7 @@ import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import {
   animalInPen,
+  releaseLivestockThroughBreach,
   threatIntervalMult,
   winterFenceBreakMult,
 } from "./daycycle";
@@ -185,21 +186,15 @@ export function spawnWolf(
     sfx("howl");
     setBannerAlert(
       state,
-      bear
-        ? "БААВГАЙ ИРЛЭЭ!"
-        : night
-          ? "ШӨНИЙН ЧОНО ИРЛЭЭ!"
-          : "ЧОНО ОЙРТЛОО!",
+      bear ? "БААВГАЙ ИРЛЭЭ!" : "ЧОНО ОЙРТЛОО!",
       4.2,
-      "threat",
+      bear ? "bear" : "wolf",
     );
     setMessage(
       state,
       bear
         ? "Баавгай мал руу дайрлаа — маш аюултай!"
-        : night
-          ? "Шөнийн чоно мал руу дайрлаа!"
-          : "Чоно ойртлоо — хамгаал!",
+        : "Чоно ойртлоо — хамгаал!",
       3,
     );
   }
@@ -269,14 +264,14 @@ export function spawnThief(state: GameState): void {
 
   if (stolen > 0) {
     spawnText(state, pos, trFormat("−{n} мал!", { n: stolen }), "#ff8080");
-    setBannerAlert(state, "ХУЛГАЙЧ ИРЛЭЭ!", 4.2, "threat");
+    setBannerAlert(state, "ХУЛГАЙЧ ИРЛЭЭ!", 4.2, "thief");
     setMessage(
       state,
       trFormat("Хулгайч {n} мал авч зугтав! Гүйцэж ав!", { n: stolen }),
       4,
     );
   } else if (defense.tier3Count < 5) {
-    setBannerAlert(state, "ХУЛГАЙЧ ОЙРТЛОО!", 4.0, "threat");
+    setBannerAlert(state, "ХУЛГАЙЧ ОЙРТЛОО!", 4.0, "thief");
     setMessage(state, "Хулгайч ойртлоо — хашаагаа шалга!", 3);
   }
 }
@@ -383,29 +378,32 @@ export function updateFlock(state: GameState, dt: number): void {
     let steerY = toCenter.y;
     let routingGate = false;
 
-    // Хашаанаас гарах/орох — зөвхөн өөрийн хаалгаар
+    // Хашаанаас гарах/орох — нурсан завсар эсвэл хаалга
     const gate = flockGatePos(world, penKind);
+    const breach =
+      penKind === "cattle" ? world.cattleBreach : world.flockBreach;
+    const exit = breach ?? gate;
     const insidePen = animalInPen(sheep.pos, world, sheep.kind);
     const exitDir = normalize({
-      x: gate.x - pen.x,
-      y: gate.y - pen.y,
+      x: exit.x - pen.x,
+      y: exit.y - pen.y,
     });
     if (out && insidePen) {
       routingGate = true;
-      const dGate = dist(sheep.pos, gate);
-      if (dGate > 30) {
-        const toGate = normalize({
-          x: gate.x - sheep.pos.x,
-          y: gate.y - sheep.pos.y,
+      const dExit = dist(sheep.pos, exit);
+      if (dExit > 28) {
+        const toExit = normalize({
+          x: exit.x - sheep.pos.x,
+          y: exit.y - sheep.pos.y,
         });
-        steerX = toGate.x;
-        steerY = toGate.y;
-        pull = 3.4;
+        steerX = toExit.x;
+        steerY = toExit.y;
+        pull = 3.6;
       } else {
-        // Хаалганы гадна тал руу гарна
+        // Завсрын/хаалганы гадна тал руу гарна
         const target = {
-          x: gate.x + exitDir.x * 48,
-          y: gate.y + exitDir.y * 48,
+          x: exit.x + exitDir.x * 52,
+          y: exit.y + exitDir.y * 52,
         };
         const toOut = normalize({
           x: target.x - sheep.pos.x,
@@ -413,7 +411,7 @@ export function updateFlock(state: GameState, dt: number): void {
         });
         steerX = toOut.x;
         steerY = toOut.y;
-        pull = 3.6;
+        pull = 3.8;
       }
     } else if (!out && !insidePen) {
       routingGate = true;
@@ -531,6 +529,24 @@ export function updateFlock(state: GameState, dt: number): void {
     // Харах чигийг зөвхөн мэдэгдэхүйц хөдөлгөөнд солино (анивчилт арилгана)
     if (Math.abs(sheep.vel.x) > 8) sheep.face = sheep.vel.x < 0 ? -1 : 1;
   }
+
+  // Бүгд гарсан бол завсрын чиглэлийг арилгана
+  if (world.flockBreach) {
+    const stillIn = flock.some(
+      (a) =>
+        penForLivestock(a.kind) === "sheep" &&
+        animalInPen(a.pos, world, a.kind),
+    );
+    if (!stillIn) world.flockBreach = null;
+  }
+  if (world.cattleBreach) {
+    const stillIn = flock.some(
+      (a) =>
+        penForLivestock(a.kind) === "cattle" &&
+        animalInPen(a.pos, world, a.kind),
+    );
+    if (!stillIn) world.cattleBreach = null;
+  }
 }
 
 /**
@@ -600,7 +616,7 @@ function collideEntityWithFences(
     const tier = fence.tier as FenceTier;
     if (tier > hitTier) hitTier = tier;
     const breakDps = FENCE_BREAK_DPS[tier][attacker] * winterFenceBreakMult(state.world);
-    if (breakDps > 0) {
+      if (breakDps > 0) {
       fence.hp -= breakDps * dt;
       if (fence.hp <= 0) {
         const colors: Record<FenceTier, string> = {
@@ -611,6 +627,7 @@ function collideEntityWithFences(
         spawnParticles(state, fence.pos, 10, colors[tier], { speed: 90 });
         spawnText(state, fence.pos, "Хашаа эвдэрлээ", "#c49a6c");
         sfx("woodChop");
+        releaseLivestockThroughBreach(state, fence.pos, fence.pen);
       }
     }
     contactDps = Math.max(contactDps, FENCE_CONTACT_DPS[tier]);

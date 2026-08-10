@@ -183,21 +183,15 @@ export function spawnWolf(
     sfx("howl");
     setBannerAlert(
       state,
-      bear
-        ? "БААВГАЙ ИРЛЭЭ!"
-        : night
-          ? "ШӨНИЙН ЧОНО ИРЛЭЭ!"
-          : "ЧОНО ОЙРТЛОО!",
+      bear ? "БААВГАЙ ИРЛЭЭ!" : "ЧОНО ОЙРТЛОО!",
       4.2,
-      "threat",
+      bear ? "bear" : "wolf",
     );
     setMessage(
       state,
       bear
         ? "Баавгай мал руу дайрлаа — маш аюултай!"
-        : night
-          ? "Шөнийн чоно мал руу дайрлаа!"
-          : "Чоно ойртлоо — хамгаал!",
+        : "Чоно ойртлоо — хамгаал!",
       3,
     );
   }
@@ -253,7 +247,7 @@ export function spawnThief(state: GameState): void {
   sfx("alert");
 
   spawnText(state, pos, trFormat("−{n} хонь!", { n: stolen }), "#ff8080");
-  setBannerAlert(state, "ХУЛГАЙЧ ИРЛЭЭ!", 4.2, "threat");
+  setBannerAlert(state, "ХУЛГАЙЧ ИРЛЭЭ!", 4.2, "thief");
   setMessage(
     state,
     trFormat("Хулгайч {n} хонь авч зугтав! Гүйцэж ав!", { n: stolen }),

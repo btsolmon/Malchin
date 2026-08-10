@@ -23,6 +23,7 @@ export type GearId =
   | "horse"
   | "bow"
   | "axe"
+  | "basket"
   | "urga"
   | "fishingRod";
 export type CombatPhase = "idle" | "startup" | "active" | "recovery";
@@ -368,7 +369,8 @@ export interface HorseLassoState {
   aim: Vector2;
 }
 
-/** Голын загас — уургаар барина */
+/** Голын загас — өнгө (төрөл) × хүндрэл */
+export type FishColor = "blue" | "green" | "gold";
 export type FishTier = "easy" | "hard" | "elite";
 
 export interface Fish {
@@ -383,8 +385,12 @@ export interface Fish {
    * >0 үед л E дарж залгаж болно.
    */
   bite: number;
-  /** Барих хүндрэл — easy / hard / elite */
+  /** Өнгө/төрөл — цэнхэр · ногоон · алтан */
+  color: FishColor;
+  /** Барих хүндрэл — амархан · хэцүү · маш хэцүү */
   tier: FishTier;
+  /** Зөөлөн эргэх өнцөг (rad) — зурахад */
+  heading: number;
 }
 
 /** Загас татах — E хурдан дарж татна */
@@ -396,6 +402,7 @@ export interface FishingHookState {
   timeLeft: number;
   /** Эхний цаг — HUD progress-д */
   timeMax: number;
+  color: FishColor;
   tier: FishTier;
 }
 
@@ -678,6 +685,9 @@ export interface World {
   flockOut: boolean;
   /** Үхэр бэлчээрт гарсан эсэх */
   cattleOut: boolean;
+  /** Хашаа нурсан завсар — мал түүгээр гарна (null = хаалга ашиглана) */
+  flockBreach: Vector2 | null;
+  cattleBreach: Vector2 | null;
   /** Шөнийн гадаа эрсдэлийн хуримтлуулагч */
   outdoorRiskAcc: number;
   nextWolfIn: number;
@@ -803,7 +813,14 @@ export interface ScreenPulseState {
 }
 
 /** Дэлгэц дүүрэн аюулын мэдэгдэл (өлсгөлөн / дайсан) */
-export type BannerAlertKind = "hunger" | "cold" | "threat" | "danger";
+export type BannerAlertKind =
+  | "hunger"
+  | "cold"
+  | "threat"
+  | "danger"
+  | "wolf"
+  | "thief"
+  | "bear";
 
 export interface BannerAlert {
   text: string;

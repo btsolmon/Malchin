@@ -8,6 +8,7 @@ export type GameIconId =
   | "horseRide"
   | "bow"
   | "axe"
+  | "basket"
   | "urga"
   | "fishingRod"
   | "sheep"
@@ -43,6 +44,7 @@ export const GAME_ICON_SRC: Record<GameIconId, string> = {
   horseRide: "/icons/horseRide.svg",
   bow: "/icons/bow.svg",
   axe: "/icons/axe.svg",
+  basket: "/icons/basket.svg",
   urga: "/icons/urga.svg",
   fishingRod: "/icons/fishingRod.svg",
   sheep: "/icons/sheep.svg",

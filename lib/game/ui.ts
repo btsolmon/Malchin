@@ -2059,13 +2059,13 @@ export function drawMinimap(
     ctx.fillStyle = mh.tied ? "#8ab4d8" : "#c8a060";
     ctx.fillRect(mx + mh.pos.x * sx - 2, my + mh.pos.y * sy - 2, 4, 4);
   }
-  // Чоно
-  ctx.fillStyle = "#ff3030";
+  // Чоно / баавгай
   for (const w of state.world.wolves) {
+    ctx.fillStyle = w.kind === "bear" ? "#a07040" : "#b0b4b8";
     ctx.fillRect(mx + w.pos.x * sx - 2, my + w.pos.y * sy - 2, 4, 4);
   }
   // Хулгайч
-  ctx.fillStyle = "#c080ff";
+  ctx.fillStyle = "#a050d8";
   for (const t of state.world.thieves) {
     ctx.fillRect(mx + t.pos.x * sx - 2, my + t.pos.y * sy - 2, 4, 4);
   }
@@ -2125,9 +2125,12 @@ export function drawThreatArrows(
 ): void {
   const threats: Array<{ pos: Vector2; color: string }> = [];
   for (const w of state.world.wolves)
-    threats.push({ pos: w.pos, color: "#ff5050" });
+    threats.push({
+      pos: w.pos,
+      color: w.kind === "bear" ? "#a87848" : "#b0b4b8",
+    });
   for (const t of state.world.thieves)
-    threats.push({ pos: t.pos, color: "#c080ff" });
+    threats.push({ pos: t.pos, color: "#a050d8" });
   for (const enemy of state.world.firstRoute.enemies) {
     if (!inShulmasSpirit(state)) break;
     if (!enemy.alive || !enemy.engaged) continue;
@@ -2308,6 +2311,39 @@ export function drawMenuStoryChoice(
 }
 
 /** Өөрийн дээд амжилтууд — үндсэн цэсний баруун доод хэсэгт */
+function recordsPanelRect(): { x: number; y: number; w: number; h: number } {
+  const rows = 3;
+  const w = 210;
+  const h = 26 + rows * 20 + 12;
+  return {
+    w,
+    h,
+    x: VIEW_W - w - 20,
+    y: VIEW_H - h - 20,
+  };
+}
+
+/** Цэсний харанхуй бүрхүүл — шаардлагатай бол нэг цонхны нүх үлдээнэ */
+function fillMenuDim(
+  ctx: CanvasRenderingContext2D,
+  hole: { x: number; y: number; w: number; h: number } | null,
+): void {
+  const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+  g.addColorStop(0, "rgba(10,8,6,0.85)");
+  g.addColorStop(1, "rgba(10,8,6,0.62)");
+  ctx.fillStyle = g;
+  if (!hole) {
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    return;
+  }
+  const { x, y, w, h } = hole;
+  // Дөрвөн хэсгээр нүх үлдээнэ — frosted panel ард газрыг шууд харна
+  if (y > 0) ctx.fillRect(0, 0, VIEW_W, y);
+  if (y + h < VIEW_H) ctx.fillRect(0, y + h, VIEW_W, VIEW_H - (y + h));
+  if (x > 0) ctx.fillRect(0, y, x, h);
+  if (x + w < VIEW_W) ctx.fillRect(x + w, y, VIEW_W - (x + w), h);
+}
+
 function drawRecordsPanel(ctx: CanvasRenderingContext2D): void {
   if (!hasAnyRecord()) return;
 
@@ -2317,18 +2353,10 @@ function drawRecordsPanel(ctx: CanvasRenderingContext2D): void {
     [t("records.livestock"), r.bestLivestock],
     [t("records.coins"), r.bestCoins],
   ];
-  const w = 210;
-  const h = 26 + rows.length * 20 + 12;
-  const x = VIEW_W - w - 20;
-  const y = VIEW_H - h - 20;
+  const { x, y, w, h } = recordsPanelRect();
 
-  ctx.fillStyle = "rgba(12,10,8,0.7)";
-  roundRectPath(ctx, x, y, w, h, 10);
-  ctx.fill();
-  ctx.strokeStyle = "rgba(232,197,106,0.25)";
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, x, y, w, h, 10);
-  ctx.stroke();
+  // Меню dim-ийн нүхэнд үлдсэн газрыг бүрсийтэй шилээр харуулна
+  drawFrostedGlassPanel(ctx, x, y, w, h, 10);
 
   ctx.textAlign = "left";
   ctx.fillStyle = COLORS.hudAccent;
@@ -2347,6 +2375,24 @@ function drawRecordsPanel(ctx: CanvasRenderingContext2D): void {
     ctx.fillText(String(value), x + w - 14, ly);
   });
   ctx.textAlign = "left";
+}
+
+/** Меню — үндсэн, тохиргоо, удирдлага, багийнхан дэлгэцүүд */
+export function drawMenu(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+): void {
+  const hole =
+    state.menuScreen === "main" && hasAnyRecord()
+      ? recordsPanelRect()
+      : null;
+  fillMenuDim(ctx, hole);
+
+  if (state.menuScreen === "main") drawMenuMain(ctx, state);
+  else if (state.menuScreen === "storyChoice") drawMenuStoryChoice(ctx, state);
+  else if (state.menuScreen === "settings") drawMenuSettings(ctx, state);
+  else if (state.menuScreen === "controls") drawMenuControls(ctx);
+  else drawMenuCredits(ctx);
 }
 
 export function drawMenuSettings(
@@ -2543,24 +2589,6 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
   drawBackHint(ctx, 420);
 }
 
-/** Меню — үндсэн, тохиргоо, удирдлага, багийнхан дэлгэцүүд */
-export function drawMenu(
-  ctx: CanvasRenderingContext2D,
-  state: GameState,
-): void {
-  const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
-  g.addColorStop(0, "rgba(10,8,6,0.85)");
-  g.addColorStop(1, "rgba(10,8,6,0.62)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-
-  if (state.menuScreen === "main") drawMenuMain(ctx, state);
-  else if (state.menuScreen === "storyChoice") drawMenuStoryChoice(ctx, state);
-  else if (state.menuScreen === "settings") drawMenuSettings(ctx, state);
-  else if (state.menuScreen === "controls") drawMenuControls(ctx);
-  else drawMenuCredits(ctx);
-}
-
 function drawBannerAlert(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -2586,25 +2614,46 @@ function drawBannerAlert(
   const isHunger = alert.kind === "hunger";
   const isCold = alert.kind === "cold";
   const isDanger = alert.kind === "danger";
+  const isWolf = alert.kind === "wolf";
+  const isThief = alert.kind === "thief";
+  const isBear = alert.kind === "bear";
   const fill = isCold
     ? "#b8e4ff"
     : isHunger
       ? "#ffe566"
-      : isDanger
-        ? "#ffb080"
-        : "#ff8a8a";
+      : isWolf
+        ? "#d0d2d6"
+        : isThief
+          ? "#d4a0ff"
+          : isBear
+            ? "#d4a574"
+            : isDanger
+              ? "#ffb080"
+              : "#ff8a8a";
   const tint = isCold
     ? "rgba(6,24,48,1)"
     : isHunger
       ? "rgba(72,28,4,1)"
-      : isDanger
-        ? "rgba(70,18,8,1)"
-        : "rgba(70,8,8,1)";
+      : isWolf
+        ? "rgba(22,24,28,1)"
+        : isThief
+          ? "rgba(36,8,48,1)"
+          : isBear
+            ? "rgba(42,24,10,1)"
+            : isDanger
+              ? "rgba(70,18,8,1)"
+              : "rgba(70,8,8,1)";
   const edge = isCold
     ? "rgba(140,210,255,1)"
     : isHunger
       ? "rgba(255,210,70,1)"
-      : "rgba(255,90,90,1)";
+      : isWolf
+        ? "rgba(170,175,180,1)"
+        : isThief
+          ? "rgba(170,80,230,1)"
+          : isBear
+            ? "rgba(160,110,55,1)"
+            : "rgba(255,90,90,1)";
   // Өлсгөлөн/даарах — илүү тод; дайсан анхааруулга бага зэрэг зөөлөн
   const softAlert = isHunger || isCold;
   const tintA = softAlert ? 0.4 : 0.22;
@@ -2908,13 +2957,27 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       parts.push(trFormat("Хулгайч (−{n})", { n: stolen }));
     }
     const text = parts.join("  ·  ");
+    const onlyThief = world.wolves.length === 0 && world.thieves.length > 0;
+    const onlyWolf = world.wolves.length > 0 && world.thieves.length === 0;
     ctx.font = "bold 13px 'Courier New', monospace";
     const tw = ctx.measureText(text).width;
-    ctx.fillStyle = "rgba(120,20,20,0.85)";
+    ctx.fillStyle = onlyThief
+      ? "rgba(48,12,64,0.88)"
+      : onlyWolf
+        ? "rgba(32,34,38,0.88)"
+        : "rgba(40,20,48,0.88)";
     ctx.fillRect(VIEW_W / 2 - tw / 2 - 12, pad, tw + 24, 26);
-    ctx.strokeStyle = "#ff8080";
+    ctx.strokeStyle = onlyThief
+      ? "#a050d8"
+      : onlyWolf
+        ? "#b0b4b8"
+        : "#c080ff";
     ctx.strokeRect(VIEW_W / 2 - tw / 2 - 12.5, pad + 0.5, tw + 23, 25);
-    ctx.fillStyle = "#ffc0c0";
+    ctx.fillStyle = onlyThief
+      ? "#e0b8ff"
+      : onlyWolf
+        ? "#d8dce0"
+        : "#e8d0ff";
     ctx.fillText(text, VIEW_W / 2 - tw / 2, pad + 18);
   }
 

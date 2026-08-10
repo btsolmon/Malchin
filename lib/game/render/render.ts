@@ -6,6 +6,8 @@ import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawHorseLasso, drawParentNpc, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldStone } from "./entities";
 import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
 import {
+  fishKindInfo,
+  fishMouthPos,
   fishNearBobber,
   fishingBobberPos,
   nearFishingSpot,
@@ -810,13 +812,23 @@ export function render(
       const casting =
         state.player.gear.fishingRod &&
         nearFishingSpot(state.player.pos);
+      const hookedFish = state.fishingHook
+        ? world.fish.find((f) => f.id === state.fishingHook!.fishId) ?? null
+        : null;
+      const rodTip =
+        casting && hookedFish
+          ? fishMouthPos(hookedFish)
+          : casting
+            ? fishingBobberPos(state.player.pos)
+            : null;
       drawFishingRod(
         ctx,
         state.player,
         cam,
         time,
         casting,
-        casting ? fishingBobberPos(state.player.pos) : null,
+        rodTip,
+        !!hookedFish,
       );
       if (state.horseLasso) {
         drawHorseLasso(ctx, state.player, cam, time, state.horseLasso);
@@ -1212,18 +1224,26 @@ export function render(
           ctx.lineWidth = 3;
           const canPull = !!fishNearBobber(state);
           const hooking = !!state.fishingHook;
+          const hookedKind = state.fishingHook
+            ? fishKindInfo(
+                state.fishingHook.color ?? "blue",
+                state.fishingHook.tier,
+              )
+            : null;
           const tip = hooking
-            ? "E — ХУРДАН ТАТ! (mash)"
+            ? hookedKind
+              ? `E — ${hookedKind.name} тат!`
+              : "E — ХУРДАН ТАТ! (mash)"
             : canPull
               ? "E — Дэгээ залгах!"
               : "E — Уургалах (хазтал хүлээ)";
-          ctx.strokeText(tip, tx, ty);
+          ctx.strokeText(tr(tip), tx, ty);
           ctx.fillStyle = hooking
-            ? "#ffd060"
+            ? hookedKind?.color ?? "#ffd060"
             : canPull
               ? "#a8f0ff"
               : "#7ec8ff";
-          ctx.fillText(tip, tx, ty);
+          ctx.fillText(tr(tip), tx, ty);
           if (hooking && state.fishingHook) {
             const bw = 56;
             const bh = 6;
@@ -1234,15 +1254,7 @@ export function render(
             ctx.fillStyle = "#2a1c12";
             ctx.fillRect(bx, by, bw, bh);
             const p = clamp(state.fishingHook.progress, 0, 1);
-            const tier = state.fishingHook.tier;
-            ctx.fillStyle =
-              tier === "elite"
-                ? "#ffb060"
-                : tier === "hard"
-                  ? "#7ecf9a"
-                  : p > 0.7
-                    ? "#7ecf6a"
-                    : "#e8c56a";
+            ctx.fillStyle = hookedKind?.color ?? "#5aa8d8";
             ctx.fillRect(bx, by, bw * p, bh);
             // Цаг
             const tMax = Math.max(0.1, state.fishingHook.timeMax || 3.6);
@@ -1258,7 +1270,9 @@ export function render(
           ctx.font = "600 11px system-ui, sans-serif";
           ctx.strokeStyle = "rgba(0,0,0,0.7)";
           ctx.lineWidth = 3;
-          const tip = trFormat("E — Жимс түүх ({n})", { n: bush.berries });
+          const tip = state.player.gear.basket
+            ? trFormat("E — Бүх жимс түүх ({n})", { n: bush.berries })
+            : trFormat("E — Жимс түүх ({n})", { n: bush.berries });
           ctx.strokeText(tip, tx, ty);
           ctx.fillStyle = "#ff9fbf";
           ctx.fillText(tip, tx, ty);

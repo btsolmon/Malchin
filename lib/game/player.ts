@@ -71,6 +71,7 @@ import {
   updateDayPhaseTransitions,
   updateNewborns,
   updateOutdoorNightRisk,
+  releaseLivestockThroughBreach,
 } from "./daycycle";
 import {
   collectProduct,
@@ -799,18 +800,24 @@ export function tryInteract(state: GameState): void {
 
   const bush = nearestBerryBush(player, world.bushes);
   if (bush) {
-    bush.berries -= 1;
-    player.inventory.berries += 1;
-    player.chopCooldown = 0.35;
-    state.score += 2;
-    gainXp(state, 1);
+    const take = player.gear.basket ? bush.berries : 1;
+    bush.berries -= take;
+    player.inventory.berries += take;
+    player.chopCooldown = player.gear.basket ? 0.4 : 0.35;
+    state.score += 2 * take;
+    gainXp(state, take);
     sfx("berry");
     const blue = (bush.kind ?? (bush.id % 3 === 0 ? "blue" : "red")) === "blue";
-    spawnParticles(state, bush.pos, 5, blue ? "#4a68d0" : "#e04070", {
+    spawnParticles(state, bush.pos, 4 + take * 2, blue ? "#4a68d0" : "#e04070", {
       speed: 60,
       size: 2.5,
     });
-    spawnText(state, bush.pos, "+1 жимс", blue ? "#9ab8ff" : "#ff9fbf");
+    spawnText(
+      state,
+      bush.pos,
+      take > 1 ? trFormat("+{n} жимс", { n: take }) : "+1 жимс",
+      blue ? "#9ab8ff" : "#ff9fbf",
+    );
     if (bush.berries <= 0) {
       bush.respawnIn = 18 + Math.random() * 12;
     }
@@ -1152,6 +1159,8 @@ export function tryDemolishFence(state: GameState): boolean {
   const idx = world.fences.indexOf(fence);
   if (idx < 0) return false;
   const wasGate = fence.isGate;
+  const gap = { x: fence.pos.x, y: fence.pos.y };
+  const pen = fence.pen;
   world.fences.splice(idx, 1);
 
   const refund = Math.max(
@@ -1162,14 +1171,15 @@ export function tryDemolishFence(state: GameState): boolean {
     player.inventory.wood += refund;
   }
   sfx("woodChop");
-  spawnParticles(state, fence.pos, 10, "#8a6a3a", { speed: 80, size: 2.4 });
+  spawnParticles(state, gap, 10, "#8a6a3a", { speed: 80, size: 2.4 });
   spawnText(
     state,
-    fence.pos,
+    gap,
     state.unlimitedWood ? "Нураав" : trFormat("+{n} мод", { n: refund }),
     "#e8c56a",
   );
   setMessage(state, wasGate ? "Хаалга нурлаа." : "Хашаа нурлаа.", 1.6);
+  releaseLivestockThroughBreach(state, gap, pen);
   return true;
 }
 
@@ -1632,6 +1642,8 @@ export function tryMigrateGer(state: GameState): void {
     }
     world.flockOut = false;
     world.cattleOut = false;
+    world.flockBreach = null;
+    world.cattleBreach = null;
     sfx("buy");
     spawnParticles(state, pos, 20, "#e8c56a", { speed: 100, size: 3 });
     spawnText(state, pos, "Гэр буулаа!", "#ffe9a0");

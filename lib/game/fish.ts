@@ -1,5 +1,5 @@
 // Голын загас — эрэг дээрээс уургална · E mash-аар татна
-// Хүндрэл: easy (одоогийн) · hard · elite
+// Өнгө (цэнхэр/ногоон/алтан) × хүндрэл (амархан/хэцүү/маш хэцүү)
 
 import { sfx } from "./audio";
 import {
@@ -12,12 +12,12 @@ import {
   RIVER_FORD_Y,
 } from "./biomes";
 import { spawnParticles, spawnText } from "./effects";
-import type { Fish, FishTier, GameState, Vector2 } from "./types";
+import type { Fish, FishColor, FishTier, GameState, Vector2 } from "./types";
 import { WORLD_H } from "./types";
 import { clamp, dist, normalize, randRange, setMessage } from "./utils";
 
-const FISH_COUNT = 18;
-const MIN_FISH = 14;
+const FISH_COUNT = 9;
+const MIN_FISH = 7;
 const ATTRACT_RANGE = 170;
 const LOCAL_FISH_RANGE = 220;
 
@@ -37,8 +37,14 @@ interface TierStats {
   rewardFish: number;
 }
 
+/** Өнгө = төрөл (харагдах байдал) */
+export const FISH_COLORS: Record<FishColor, { name: string; hex: string }> = {
+  blue: { name: "Цэнхэр загас", hex: "#5aa8d8" },
+  green: { name: "Ногоон загас", hex: "#4ecf88" },
+  gold: { name: "Алтан загас", hex: "#f0b040" },
+};
+
 const TIER_STATS: Record<FishTier, TierStats> = {
-  // Одоогийн хялбар түвшин
   easy: {
     biteRange: 30,
     biteDuration: 2.2,
@@ -54,7 +60,6 @@ const TIER_STATS: Record<FishTier, TierStats> = {
     radius: 7,
     rewardFish: 1,
   },
-  // Хэцүү
   hard: {
     biteRange: 26,
     biteDuration: 1.35,
@@ -70,7 +75,6 @@ const TIER_STATS: Record<FishTier, TierStats> = {
     radius: 8.5,
     rewardFish: 2,
   },
-  // Бүр ч хэцүү
   elite: {
     biteRange: 22,
     biteDuration: 0.95,
@@ -92,16 +96,55 @@ export function fishTierStats(tier: FishTier): TierStats {
   return TIER_STATS[tier] ?? TIER_STATS.easy;
 }
 
-function normalizeTier(raw: unknown): FishTier {
+export function normalizeFishTier(raw: unknown): FishTier {
   return raw === "hard" || raw === "elite" ? raw : "easy";
 }
 
-/** ~58% easy · ~30% hard · ~12% elite */
+export function normalizeFishColor(raw: unknown): FishColor {
+  return raw === "green" || raw === "gold" ? raw : "blue";
+}
+
+function normalizeTier(raw: unknown): FishTier {
+  return normalizeFishTier(raw);
+}
+
+/** Хуучин save — өнгө байхгүй бол tier-ээс таамаглана */
+function colorFromLegacyTier(tier: FishTier): FishColor {
+  if (tier === "elite") return "gold";
+  if (tier === "hard") return "green";
+  return "blue";
+}
+
+export function fishLabel(color: FishColor, _tier?: FishTier): string {
+  return FISH_COLORS[color].name;
+}
+
+/** HUD/зурагт — өнгө */
+export function fishKindInfo(
+  color: FishColor,
+  tier: FishTier,
+): { name: string; color: string; tier: FishTier } {
+  return {
+    name: FISH_COLORS[color].name,
+    color: FISH_COLORS[color].hex,
+    tier,
+  };
+}
+
+/** ~50% амархан · ~33% хэцүү · ~17% маш хэцүү */
 function pickTier(): FishTier {
   const r = Math.random();
-  if (r < 0.58) return "easy";
-  if (r < 0.88) return "hard";
+  if (r < 0.5) return "easy";
+  if (r < 0.83) return "hard";
   return "elite";
+}
+
+/** Өнгө тэнцүү ойролцоо */
+function pickColor(): FishColor {
+  const r = Math.random();
+  if (r < 1 / 3) return "blue";
+  if (r < 2 / 3) return "green";
+  return "gold";
 }
 
 function sampleRiverPos(y: number): Vector2 {
@@ -113,53 +156,58 @@ function sampleRiverPos(y: number): Vector2 {
   };
 }
 
-function pickRiverY(preferred?: number): number {
-  let y =
-    preferred !== undefined
-      ? preferred + randRange(-50, 50)
-      : randRange(40, WORLD_H - 40);
-  for (let i = 0; i < 6; i++) {
-    y = clamp(y, 40, WORLD_H - 40);
-    if (!isAtRiverFord(y)) return y;
-    if (preferred !== undefined) {
-      y =
-        preferred < RIVER_FORD_Y
-          ? RIVER_FORD_Y - RIVER_FORD_HALF - randRange(20, 80)
-          : RIVER_FORD_Y + RIVER_FORD_HALF + randRange(20, 80);
-    } else {
-      y = randRange(40, WORLD_H - 40);
-    }
+/**
+ * Голын урсгалын дээд (хойд) зах — эндээс орж ирнэ.
+ * Доод талаас "төрөх"-ийг болиулна.
+ */
+const UPSTREAM_Y_MIN = 24;
+const UPSTREAM_Y_MAX = 38;
+
+function pickUpstreamSpawnY(): number {
+  let y = randRange(UPSTREAM_Y_MIN, UPSTREAM_Y_MAX);
+  // Гатлах газартай давхцвал (ховор) хойд талд үлдээнэ
+  if (isAtRiverFord(y)) {
+    y = Math.min(
+      UPSTREAM_Y_MAX,
+      Math.max(UPSTREAM_Y_MIN, RIVER_FORD_Y - RIVER_FORD_HALF - 20),
+    );
   }
-  return clamp(
-    y < RIVER_FORD_Y
-      ? RIVER_FORD_Y - RIVER_FORD_HALF - 40
-      : RIVER_FORD_Y + RIVER_FORD_HALF + 40,
-    40,
-    WORLD_H - 40,
-  );
+  return clamp(y, UPSTREAM_Y_MIN, UPSTREAM_Y_MAX);
 }
 
-function makeFish(id: number, y: number): Fish {
+function makeFish(
+  id: number,
+  y: number,
+  color = pickColor(),
+  tier = pickTier(),
+): Fish {
   const pos = sampleRiverPos(y);
   const flow = riverFlowDir(pos.y);
-  const tier = pickTier();
   const stats = fishTierStats(tier);
+  const spd = randRange(22, 34);
   return {
     id,
     pos,
-    vel: { x: flow.x * randRange(18, 36), y: flow.y * randRange(18, 36) },
+    vel: { x: flow.x * spd, y: flow.y * spd },
     radius: stats.radius,
     face: flow.x >= 0 ? 1 : -1,
     spook: 0,
     bite: 0,
+    color,
     tier,
+    heading: Math.atan2(flow.y, flow.x),
   };
 }
 
 export function createRiverFish(nextId: () => number): Fish[] {
   const fish: Fish[] = [];
+  const colors: FishColor[] = ["blue", "green", "gold"];
+  const tiers: FishTier[] = ["easy", "hard", "elite"];
   for (let i = 0; i < FISH_COUNT; i++) {
-    fish.push(makeFish(nextId(), pickRiverY()));
+    const color = colors[i % 3]!;
+    const tier = tiers[Math.floor(i / 3) % 3]!;
+    // Дээд захнаас бага зэрэг ээлжилж орно — доор төрөхгүй
+    fish.push(makeFish(nextId(), pickUpstreamSpawnY(), color, tier));
   }
   return fish;
 }
@@ -174,6 +222,25 @@ function keepInRiver(pos: Vector2): void {
   pos.y = clamp(pos.y, 24, WORLD_H - 24);
 }
 
+/**
+ * Урсгал зөвхөн урагш (өмнөд) тул загас өмнөд зах руу цуглаад тоглогчоос алга болно.
+ * Зах руу хүрсэн загасыг голын урсгалын дээд цэгээс дахин оруулна.
+ */
+function recycleDownstreamFish(f: Fish): void {
+  if (f.pos.y < WORLD_H - 28) return;
+  const pos = sampleRiverPos(pickUpstreamSpawnY());
+  f.pos.x = pos.x;
+  f.pos.y = pos.y;
+  const flow = riverFlowDir(f.pos.y);
+  const spd = randRange(22, 34);
+  f.vel.x = flow.x * spd;
+  f.vel.y = flow.y * spd;
+  f.face = flow.x >= 0 ? 1 : -1;
+  f.heading = Math.atan2(flow.y, flow.x);
+  f.spook = 0;
+  f.bite = 0;
+}
+
 export function fishingBobberPos(playerPos: Vector2): Vector2 {
   const cx = riverCenterX(playerPos.y);
   const half = riverHalfWidth(playerPos.y);
@@ -184,8 +251,26 @@ export function fishingBobberPos(playerPos: Vector2): Vector2 {
   };
 }
 
-function spawnFishNear(state: GameState, preferredY?: number): void {
-  state.world.fish.push(makeFish(state.nextEntityId++, pickRiverY(preferredY)));
+/** Залгагдсан үед дэгээний байрлал — загасны ам */
+export function fishMouthPos(fish: Fish): Vector2 {
+  const heading =
+    typeof fish.heading === "number" && !Number.isNaN(fish.heading)
+      ? fish.heading
+      : Math.atan2(fish.vel.y, fish.vel.x);
+  const tier = normalizeTier(fish.tier);
+  const scale = tier === "elite" ? 1.4 : tier === "hard" ? 1.18 : 1;
+  const reach = 10.2 * scale;
+  return {
+    x: fish.pos.x + Math.cos(heading) * reach,
+    y: fish.pos.y + Math.sin(heading) * reach,
+  };
+}
+
+function spawnFishNear(state: GameState, _preferredY?: number): void {
+  // Локал spawn өмнөд захын үлдэгдэлтэй нийлж хэт олшрохоос сэргийлнэ
+  if (state.world.fish.length >= FISH_COUNT + 3) return;
+  // Шинэ загас зөвхөн урсгалын дээд цэгээс орно
+  state.world.fish.push(makeFish(state.nextEntityId++, pickUpstreamSpawnY()));
 }
 
 function findFishById(worldFish: Fish[], id: number): Fish | null {
@@ -197,10 +282,95 @@ function findFishById(worldFish: Fish[], id: number): Fish | null {
 
 function ensureFish(f: Fish): TierStats {
   f.tier = normalizeTier(f.tier);
+  if (f.color !== "blue" && f.color !== "green" && f.color !== "gold") {
+    f.color = colorFromLegacyTier(f.tier);
+  } else {
+    f.color = normalizeFishColor(f.color);
+  }
   if (typeof f.bite !== "number") f.bite = 0;
   const stats = fishTierStats(f.tier);
   f.radius = stats.radius;
+  if (typeof f.heading !== "number" || Number.isNaN(f.heading)) {
+    f.heading = Math.atan2(f.vel.y, f.vel.x);
+  }
   return stats;
+}
+
+/** Өнцгийн зөрүүг -π..π-д авна */
+function angleDelta(from: number, to: number): number {
+  let d = to - from;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+/** Хүссэн хурд руу зөөлөн ойртуулна — хог шиг шууд drift биш */
+function steerVel(
+  f: Fish,
+  desiredX: number,
+  desiredY: number,
+  dt: number,
+  responsiveness: number,
+): void {
+  const k = 1 - Math.exp(-responsiveness * dt);
+  f.vel.x += (desiredX - f.vel.x) * k;
+  f.vel.y += (desiredY - f.vel.y) * k;
+}
+
+function updateFishHeading(f: Fish, dt: number, turnRate: number): void {
+  const spd = Math.hypot(f.vel.x, f.vel.y);
+  if (spd < 6) return;
+  const target = Math.atan2(f.vel.y, f.vel.x);
+  const k = 1 - Math.exp(-turnRate * dt);
+  f.heading += angleDelta(f.heading, target) * k;
+  if (Math.abs(f.vel.x) > 4) f.face = f.vel.x >= 0 ? 1 : -1;
+}
+
+/** Чөлөөт сэлэлт — урсгал дагаж S-хэлбэрээр, заримдаа түргэснэ */
+function freeSwimDesired(
+  f: Fish,
+  flow: Vector2,
+  side: Vector2,
+  t: number,
+  spooked: boolean,
+): Vector2 {
+  const idp = f.id * 2.173;
+  const lane =
+    Math.sin(t * 0.32 + idp) * 0.62 +
+    Math.sin(t * 0.13 + idp * 1.9) * 0.28 +
+    Math.sin(t * 0.7 + idp * 0.4) * 0.12;
+  const look = 55 + Math.sin(t * 0.9 + idp) * 18;
+  const aheadY = clamp(
+    f.pos.y + flow.y * look + flow.x * look * 0.05,
+    20,
+    WORLD_H - 20,
+  );
+  const half = Math.max(10, riverHalfWidth(aheadY) - 14);
+  const targetX = riverCenterX(aheadY) + lane * half;
+  const to = normalize({
+    x: targetX - f.pos.x,
+    y: aheadY - f.pos.y,
+  });
+
+  // Сэлэлтийн ритм — сүүлний цохилт шиг surge
+  const kickPhase = t * (spooked ? 5.5 : 3.4) + idp;
+  const kick = 0.55 + 0.45 * Math.max(0, Math.sin(kickPhase));
+  // Ховор dart
+  const dartWave = Math.sin(t * 0.48 + idp * 1.3);
+  const dart = !spooked && dartWave > 0.9 ? 1.85 : dartWave > 0.78 ? 1.25 : 1;
+
+  const cruise = spooked ? 58 : 24 + 14 * kick;
+  const spd = cruise * dart;
+
+  // Жижиг хажуугийн сэлгэлт — амьд мэдрэмж
+  const flutter =
+    Math.sin(t * 4.2 + idp) * (spooked ? 18 : 10) +
+    Math.sin(t * 7.1 + idp * 0.7) * 4;
+
+  return {
+    x: to.x * spd * 0.72 + flow.x * spd * 0.38 + side.x * flutter,
+    y: to.y * spd * 0.72 + flow.y * spd * 0.38 + side.y * flutter * 0.45,
+  };
 }
 
 function failHook(state: GameState, fish: Fish | null, reason: string): void {
@@ -227,38 +397,29 @@ function failHook(state: GameState, fish: Fish | null, reason: string): void {
 function completeCatch(state: GameState, target: Fish): void {
   const { player, world } = state;
   const stats = ensureFish(target);
+  const info = fishKindInfo(target.color, target.tier);
   const idx = world.fish.indexOf(target);
   if (idx >= 0) world.fish.splice(idx, 1);
   state.fishingHook = null;
   player.inventory.fish += stats.rewardFish;
   sfx("chop");
-  const color =
-    target.tier === "elite"
-      ? "#ffb060"
-      : target.tier === "hard"
-        ? "#90e0a8"
-        : "#6ab0e8";
-  spawnParticles(state, target.pos, 14 + stats.rewardFish * 4, color, {
+  spawnParticles(state, target.pos, 14 + stats.rewardFish * 4, info.color, {
     speed: 70,
     gravity: -18,
     size: 2.4,
   });
   const label =
     stats.rewardFish > 1 ? `+${stats.rewardFish} загас` : "+1 загас";
-  spawnText(state, player.pos, label, color);
-  const msg =
-    target.tier === "elite"
-      ? "Ховор том загас барьлаа! Q дарж идээрэй."
-      : target.tier === "hard"
-        ? "Том загас барьлаа! Q дарж идээрэй."
-        : "Загас барьлаа! Q дарж идээрэй.";
-  setMessage(state, msg, 2.5);
+  spawnText(state, player.pos, label, info.color);
+  setMessage(
+    state,
+    `${fishLabel(target.color, target.tier)} барьлаа! Q дарж идээрэй.`,
+    2.5,
+  );
 }
 
-function biteHint(tier: FishTier): string {
-  if (tier === "elite") return "ХОВОР том загас хазлаа! E дарж залга!";
-  if (tier === "hard") return "Том загас хазлаа! E дарж залга!";
-  return "Загас дэгээг хазлаа! E дарж залга!";
+function biteHint(color: FishColor, tier: FishTier): string {
+  return `${fishLabel(color, tier)} хазлаа! E дарж залга!`;
 }
 
 export function updateFish(state: GameState, dt: number): void {
@@ -290,6 +451,9 @@ export function updateFish(state: GameState, dt: number): void {
   if (state.fishingHook) {
     const hook = state.fishingHook;
     hook.tier = normalizeTier(hook.tier);
+    hook.color = normalizeFishColor(
+      hook.color ?? findFishById(world.fish, hook.fishId)?.color,
+    );
     const stats = fishTierStats(hook.tier);
     const hooked = findFishById(world.fish, hook.fishId);
     if (!hooked || !bobber || !anglerOnBank) {
@@ -329,36 +493,52 @@ export function updateFish(state: GameState, dt: number): void {
       f.spook = 0;
     }
     const flow = riverFlowDir(f.pos.y);
-    const wobble = Math.sin(state.world.elapsed * 3.2 + f.id) * 22;
     const side = normalize({ x: -flow.y, y: flow.x });
     const dPlayer = dist(f.pos, player.pos);
+    const t = state.world.elapsed;
+    let steerRate = 3.8;
+    let turnRate = 7;
 
     if (hookedId !== null && f.id === hookedId && bobber && hookedStats) {
       f.bite = 0;
-      const t = state.world.elapsed;
       const thrash = Math.sin(t * 14 + f.id) * 0.9;
       const away = normalize({
         x: f.pos.x - bobber.x + Math.cos(t * 9 + f.id) * 0.25,
         y: f.pos.y - bobber.y + Math.sin(t * 11 + f.id) * 0.25,
       });
       const spd = hookedStats.thrashSpd + Math.abs(thrash) * hookedStats.thrashSide;
-      f.vel.x = away.x * spd + side.x * thrash * (hookedStats.thrashSide + 10);
-      f.vel.y = away.y * spd + side.y * thrash * hookedStats.thrashSide;
       const pullBack = normalize({
         x: bobber.x - f.pos.x,
         y: bobber.y - f.pos.y,
       });
-      f.vel.x += pullBack.x * hookedStats.pullBack;
-      f.vel.y += pullBack.y * hookedStats.pullBack;
+      steerVel(
+        f,
+        away.x * spd +
+          side.x * thrash * (hookedStats.thrashSide + 10) +
+          pullBack.x * hookedStats.pullBack,
+        away.y * spd +
+          side.y * thrash * hookedStats.thrashSide +
+          pullBack.y * hookedStats.pullBack,
+        dt,
+        9,
+      );
+      turnRate = 14;
     } else if (playerInWater && dPlayer < 70 && state.phase === "playing") {
       f.bite = 0;
       const away = normalize({
         x: f.pos.x - player.pos.x,
         y: f.pos.y - player.pos.y,
       });
-      f.vel.x = away.x * 70 + flow.x * 20;
-      f.vel.y = away.y * 70 + flow.y * 20;
+      const zig = Math.sin(t * 11 + f.id) * 28;
+      steerVel(
+        f,
+        away.x * 78 + flow.x * 22 + side.x * zig,
+        away.y * 78 + flow.y * 22 + side.y * zig * 0.5,
+        dt,
+        8,
+      );
       f.spook = Math.max(f.spook, 0.6);
+      turnRate = 12;
     } else if (bobber && !state.fishingHook && f.bite > 0) {
       const to = normalize({
         x: bobber.x - f.pos.x,
@@ -366,10 +546,16 @@ export function updateFish(state: GameState, dt: number): void {
       });
       const dBob = dist(f.pos, bobber);
       const hold = dBob > 10 ? 55 : 12;
-      const nibble = Math.sin(state.world.elapsed * 16 + f.id) * 18;
+      const nibble = Math.sin(t * 16 + f.id) * 18;
       const orbit = normalize({ x: -to.y, y: to.x });
-      f.vel.x = to.x * hold + orbit.x * nibble;
-      f.vel.y = to.y * hold + orbit.y * nibble * 0.7;
+      steerVel(
+        f,
+        to.x * hold + orbit.x * nibble,
+        to.y * hold + orbit.y * nibble * 0.7,
+        dt,
+        7,
+      );
+      turnRate = 10;
     } else if (
       bobber &&
       !state.fishingHook &&
@@ -394,21 +580,34 @@ export function updateFish(state: GameState, dt: number): void {
             size: 1.8,
           });
           if (anglerOnBank) {
-            setMessage(state, biteHint(f.tier), 1.6);
+            setMessage(state, biteHint(f.color, f.tier), 1.6);
           }
         }
         const orbit = normalize({ x: -to.y, y: to.x });
-        f.vel.x = to.x * 6 + orbit.x * 42 + flow.x * 10;
-        f.vel.y = to.y * 6 + orbit.y * 42 + flow.y * 10;
+        const circle = Math.sin(t * 3.5 + f.id) * 36;
+        steerVel(
+          f,
+          to.x * 8 + orbit.x * (40 + circle * 0.2) + flow.x * 8,
+          to.y * 8 + orbit.y * (40 + circle * 0.2) + flow.y * 8,
+          dt,
+          5.5,
+        );
       } else {
-        const pull = 44 + Math.sin(state.world.elapsed * 2 + f.id) * 10;
-        f.vel.x = to.x * pull + flow.x * 10 + side.x * wobble * 0.35;
-        f.vel.y = to.y * pull + flow.y * 10 + side.y * wobble * 0.2;
+        const pull = 40 + Math.sin(t * 2.2 + f.id) * 12;
+        const glide = freeSwimDesired(f, flow, side, t, false);
+        steerVel(
+          f,
+          to.x * pull + glide.x * 0.35,
+          to.y * pull + glide.y * 0.35,
+          dt,
+          4.2,
+        );
       }
+      turnRate = 9;
     } else {
-      const spd = f.spook > 0 ? 48 : 30;
-      f.vel.x = flow.x * spd + side.x * wobble;
-      f.vel.y = flow.y * spd + side.y * wobble * 0.35;
+      const desired = freeSwimDesired(f, flow, side, t, f.spook > 0);
+      steerVel(f, desired.x, desired.y, dt, f.spook > 0 ? 6.5 : steerRate);
+      turnRate = f.spook > 0 ? 11 : 6.5;
     }
 
     f.pos.x += f.vel.x * dt;
@@ -425,8 +624,9 @@ export function updateFish(state: GameState, dt: number): void {
         f.pos.y += back.y * pull;
       }
     }
-    if (Math.abs(f.vel.x) > 4) f.face = f.vel.x >= 0 ? 1 : -1;
+    updateFishHeading(f, dt, turnRate);
     keepInRiver(f.pos);
+    if (hookedId !== f.id) recycleDownstreamFish(f);
   }
 }
 
@@ -518,13 +718,13 @@ export function tryCatchFish(state: GameState): boolean {
     if (state.fishingHook.progress >= 1) {
       completeCatch(state, hooked);
     } else {
-      const tip =
+      setMessage(
+        state,
         hooked.tier === "elite"
-          ? "E МАШ хурдан дар — ховор загас зугтана!"
-          : hooked.tier === "hard"
-            ? "E хурдан дар — том загас хүчтэй!"
-            : "E хурдан дар — загас зугтаж байна!";
-      setMessage(state, tip, 1.2);
+          ? `E МАШ хурдан дар — ${fishLabel(hooked.color, hooked.tier)}!`
+          : `E хурдан дар — ${fishLabel(hooked.color, hooked.tier)}!`,
+        1.2,
+      );
     }
     return true;
   }
@@ -542,6 +742,7 @@ export function tryCatchFish(state: GameState): boolean {
     progress: stats.hookPull * 0.85,
     timeLeft: stats.hookTime,
     timeMax: stats.hookTime,
+    color: target.color,
     tier: target.tier,
   };
   target.spook = 0;
@@ -551,12 +752,12 @@ export function tryCatchFish(state: GameState): boolean {
     gravity: -12,
     size: 2,
   });
-  const startMsg =
-    target.tier === "elite"
-      ? "Ховор загас залгалаа! E-г МАШ хурдан дар!"
-      : target.tier === "hard"
-        ? "Том загас залгалаа! E-г хурдан дарж тат!"
-        : "Залгалаа! E-г хурдан дарж тат!";
-  setMessage(state, startMsg, 2);
+  setMessage(
+    state,
+    `${fishLabel(target.color, target.tier)} залгалаа! E-г ${
+      target.tier === "elite" ? "МАШ " : ""
+    }хурдан дарж тат!`,
+    2,
+  );
   return true;
 }

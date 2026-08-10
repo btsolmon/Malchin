@@ -2,8 +2,10 @@
 
 import {
   DAY_LENGTH_SEC,
+  FENCE_GRID,
   type DayPhase,
   type GameState,
+  type PenKind,
   type Season,
   type Vector2,
 } from "./types";
@@ -41,6 +43,69 @@ export function animalInPen(
 ): boolean {
   const pen = kind ? penForLivestock(kind) : "sheep";
   return dist(pos, penCenterFor(world, pen)) < penRadiusFor(pen);
+}
+
+/** Хашааны аль хашаанд ойр вэ */
+function penForBreach(
+  world: GameState["world"],
+  gap: Vector2,
+  hint?: PenKind,
+): PenKind | null {
+  if (hint === "sheep" || hint === "cattle") {
+    const c = penCenterFor(world, hint);
+    if (dist(gap, c) <= penRadiusFor(hint) + FENCE_GRID * 1.4) return hint;
+  }
+  const sheepC = penCenterFor(world, "sheep");
+  const cattleC = penCenterFor(world, "cattle");
+  const dSheep = dist(gap, sheepC);
+  const dCattle = dist(gap, cattleC);
+  const sheepOk = dSheep <= penRadiusFor("sheep") + FENCE_GRID * 1.4;
+  const cattleOk = dCattle <= penRadiusFor("cattle") + FENCE_GRID * 1.4;
+  if (sheepOk && cattleOk) return dSheep <= dCattle ? "sheep" : "cattle";
+  if (sheepOk) return "sheep";
+  if (cattleOk) return "cattle";
+  return null;
+}
+
+/**
+ * Хашааны нэг хэсэг нурсан/эвдэрсэн үед — мал тэр завсраар бэлчээрт гарна.
+ */
+export function releaseLivestockThroughBreach(
+  state: GameState,
+  gap: Vector2,
+  penHint?: PenKind,
+): boolean {
+  const world = state.world;
+  const pen = penForBreach(world, gap, penHint);
+  if (!pen) return false;
+
+  const alreadyOut = pen === "cattle" ? world.cattleOut : world.flockOut;
+  if (pen === "cattle") {
+    world.cattleOut = true;
+    world.cattleBreach = { x: gap.x, y: gap.y };
+  } else {
+    world.flockOut = true;
+    world.flockBreach = { x: gap.x, y: gap.y };
+  }
+
+  if (!alreadyOut) {
+    sfx("alert");
+    spawnParticles(state, gap, 12, "#c49a6c", { speed: 85, size: 2.4 });
+    spawnText(
+      state,
+      gap,
+      pen === "cattle" ? "Үхэр гарлаа!" : "Мал гарлаа!",
+      "#e8c090",
+    );
+    setMessage(
+      state,
+      pen === "cattle"
+        ? "Хашаа нурлаа — үхэр завсраар бэлчээрт гарч байна!"
+        : "Хашаа нурлаа — мал завсраар бэлчээрт гарч байна!",
+      3.5,
+    );
+  }
+  return true;
 }
 
 export function flockMostlyPenned(world: GameState["world"]): boolean {
@@ -141,6 +206,8 @@ export function updateDayPhaseTransitions(state: GameState): void {
     // Шинэ өдөр — малыг хашаанд бэлдэнэ (өмнөх өдрийн гаргалтыг хаана)
     world.flockOut = false;
     world.cattleOut = false;
+    world.flockBreach = null;
+    world.cattleBreach = null;
     pullFlockToPen(state, 1);
     setMessage(
       state,
@@ -215,8 +282,13 @@ export function tryToggleFlockPen(state: GameState): boolean {
   const isCattle = pen === "cattle";
   const currentlyOut = isCattle ? world.cattleOut : world.flockOut;
   if (!currentlyOut) {
-    if (isCattle) world.cattleOut = true;
-    else world.flockOut = true;
+    if (isCattle) {
+      world.cattleOut = true;
+      world.cattleBreach = null;
+    } else {
+      world.flockOut = true;
+      world.flockBreach = null;
+    }
     sfx("gate");
     const label = isCattle ? "Үхэр бэлчээрт!" : "Хонь/ямаа бэлчээрт!";
     spawnText(state, gate, label, "#b8e8a0");
@@ -230,8 +302,13 @@ export function tryToggleFlockPen(state: GameState): boolean {
     return true;
   }
 
-  if (isCattle) world.cattleOut = false;
-  else world.flockOut = false;
+  if (isCattle) {
+    world.cattleOut = false;
+    world.cattleBreach = null;
+  } else {
+    world.flockOut = false;
+    world.flockBreach = null;
+  }
   sfx("gate");
   spawnText(
     state,
@@ -382,6 +459,8 @@ export function updateOutdoorNightRisk(state: GameState, dt: number): void {
     if (flockMostlyPenned(world)) {
       world.flockOut = false;
       world.cattleOut = false;
+      world.flockBreach = null;
+      world.cattleBreach = null;
       setMessage(state, "Мал хашаандаа орж амжлаа.", 2);
     }
     return;

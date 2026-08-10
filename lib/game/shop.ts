@@ -73,6 +73,14 @@ export const SHOP_ITEMS: ShopItem[] = [
   },
   {
     type: "gear",
+    id: "basket",
+    icon: "basket",
+    name: "Сагс",
+    desc: "Бутны бүх жимсийг нэг даралтаар түүнэ",
+    price: 280,
+  },
+  {
+    type: "gear",
     id: "urga",
     icon: "urga",
     name: "Уурга",

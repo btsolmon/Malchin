@@ -425,27 +425,7 @@ function drawTerrainClusters(
     }
   }
 
-  // Голын хоёр эргийн зэгс
-  if (!winter) {
-    for (let i = 0; i < 360; i++) {
-      const y = random() * WORLD_H;
-      if (Math.abs(y - RIVER_FORD_Y) < RIVER_FORD_HALF * 0.62) continue;
-      const half = riverHalfWidth(y);
-      const side = random() < 0.5 ? -1 : 1;
-      const x = riverCenterX(y) + side * (half + 8 + random() * 28);
-      if (x < 10 || x > WORLD_W - 10) continue;
-      const height = 7 + random() * 10;
-      ctx.strokeStyle = `rgba(46,92,48,${0.32 + random() * 0.28})`;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + (random() - 0.5) * 2, y - height);
-      ctx.stroke();
-      if (random() > 0.55) {
-        ctx.fillStyle = "rgba(103,87,44,0.55)";
-        ctx.fillRect(Math.round(x - 1), Math.round(y - height - 2), 2, 4);
-      }
-    }
-  }
+  // Зэгс/эргийн ургамлыг drawRiverbankDetails-д (голын дээр) зурна
 }
 
 export function renderTerrain(
@@ -465,6 +445,7 @@ export function renderTerrain(
 
   // Зүүн гол зам/terrain detail-ийн дээр зурагдана.
   drawRiver(ctx, winter, random);
+  drawRiverbankDetails(ctx, winter, random);
 
   // Төв бууцны шороон талбай
   const cx = WORLD_W / 2;
@@ -646,29 +627,36 @@ function drawRiver(
   ctx.save();
   buildRiverPath(ctx, -1);
   ctx.clip();
-  for (let i = 0; i < 48; i++) {
+  for (let i = 0; i < 80; i++) {
     const y = random() * WORLD_H;
     const cx = riverCenterX(y);
     const half = riverHalfWidth(y);
     const x = cx + (random() - 0.5) * half * 1.4;
-    const rx = range(14, 36);
-    const ry = range(2.5, 5.5);
-    ctx.fillStyle = winter ? "rgba(180,200,205,0.1)" : "rgba(142,184,196,0.12)";
+    const rx = range(14, 38);
+    const ry = range(2.5, 5.8);
+    ctx.fillStyle = winter ? "rgba(180,200,205,0.12)" : "rgba(142,184,196,0.14)";
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, range(-0.15, 0.15), 0, Math.PI * 2);
     ctx.fill();
   }
-  // Эргийн хайрганы жижиг чулуу
-  for (let i = 0; i < 55; i++) {
+  // Усан дахь эргийн хайрга
+  for (let i = 0; i < 180; i++) {
     const y = random() * WORLD_H;
     const cx = riverCenterX(y);
     const half = riverHalfWidth(y);
     const side = random() < 0.5 ? -1 : 1;
-    const x = cx + side * (half * (0.55 + random() * 0.4));
-    const r = range(1.2, 3.2);
-    ctx.fillStyle = winter ? "rgba(120,125,118,0.35)" : "rgba(95,90,75,0.32)";
+    const x = cx + side * (half * (0.45 + random() * 0.5));
+    const r = range(1.2, 4);
+    const warm = random() > 0.55;
+    ctx.fillStyle = winter
+      ? warm
+        ? "rgba(130,128,110,0.45)"
+        : "rgba(110,118,122,0.4)"
+      : warm
+        ? "rgba(110,95,72,0.48)"
+        : "rgba(88,92,86,0.42)";
     ctx.beginPath();
-    ctx.ellipse(x, y, r, r * 0.65, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y, r, r * range(0.5, 0.72), range(-0.4, 0.4), 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.restore();
@@ -692,6 +680,184 @@ function drawRiver(
     ctx.beginPath();
     ctx.ellipse(cx, y, half * 0.95, 7, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Гатлах газрын элсэн хайрга
+  for (let i = 0; i < 65; i++) {
+    const y = fordY0 + random() * (fordY1 - fordY0);
+    const cx = riverCenterX(y);
+    const half = riverHalfWidth(y);
+    const x = cx + (random() - 0.5) * half * 1.8;
+    const r = range(1.4, 4);
+    ctx.fillStyle = winter
+      ? "rgba(150,140,110,0.5)"
+      : "rgba(170,140,95,0.55)";
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/** Голын эргийн хайрга + жижиг ургамал — усны дээр зурна */
+function drawRiverbankDetails(
+  ctx: CanvasRenderingContext2D,
+  winter: boolean,
+  random: () => number,
+): void {
+  const range = (min: number, max: number): number =>
+    min + random() * (max - min);
+  const nearFord = (y: number): boolean =>
+    Math.abs(y - RIVER_FORD_Y) < RIVER_FORD_HALF * 0.55;
+
+  // Эргийн хайрганы бөөгнөрөл
+  for (let i = 0; i < 340; i++) {
+    const y = random() * WORLD_H;
+    const atFord = nearFord(y);
+    if (atFord && random() > 0.45) continue;
+    const half = riverHalfWidth(y);
+    const side = random() < 0.5 ? -1 : 1;
+    const bankDist = atFord ? range(1, 16) : range(0, 24);
+    const baseX = riverCenterX(y) + side * (half + bankDist);
+    if (baseX < 8 || baseX > WORLD_W - 8) continue;
+
+    const cluster = 2 + Math.floor(random() * 5);
+    for (let c = 0; c < cluster; c++) {
+      const ox = (random() - 0.5) * 10;
+      const oy = (random() - 0.5) * 5.5;
+      const r = range(1.6, 4.8);
+      // Сүүдэр
+      ctx.fillStyle = "rgba(40,32,22,0.2)";
+      ctx.beginPath();
+      ctx.ellipse(
+        baseX + ox + 0.6,
+        y + oy + 0.8,
+        r * 1.05,
+        r * 0.45,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+      const tone = random();
+      ctx.fillStyle = winter
+        ? tone < 0.33
+          ? "rgba(140,145,138,0.84)"
+          : tone < 0.66
+            ? "rgba(155,148,128,0.8)"
+            : "rgba(120,128,130,0.78)"
+        : tone < 0.33
+          ? "rgba(118,112,92,0.86)"
+          : tone < 0.66
+            ? "rgba(98,96,84,0.82)"
+            : "rgba(140,120,88,0.8)";
+      ctx.beginPath();
+      ctx.ellipse(
+        baseX + ox,
+        y + oy,
+        r,
+        r * range(0.48, 0.7),
+        range(-0.5, 0.5),
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+      if (random() > 0.62) {
+        ctx.fillStyle = winter
+          ? "rgba(200,205,198,0.38)"
+          : "rgba(180,170,140,0.38)";
+        ctx.beginPath();
+        ctx.ellipse(
+          baseX + ox - r * 0.25,
+          y + oy - r * 0.2,
+          r * 0.28,
+          r * 0.16,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+    }
+  }
+
+  // Жижиг эргийн ургамал
+  const plantCount = winter ? 280 : 620;
+  for (let i = 0; i < plantCount; i++) {
+    const y = random() * WORLD_H;
+    if (nearFord(y) && random() > 0.35) continue;
+    const half = riverHalfWidth(y);
+    const side = random() < 0.5 ? -1 : 1;
+    const x = riverCenterX(y) + side * (half + range(4, 38));
+    if (x < 10 || x > WORLD_W - 10) continue;
+
+    const kind = random();
+    if (winter) {
+      // Өвөл — саарал ногоон stub
+      const h = range(3.5, 8);
+      ctx.strokeStyle = `rgba(120,135,118,${0.32 + random() * 0.28})`;
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (random() - 0.5) * 2, y - h);
+      ctx.stroke();
+      continue;
+    }
+
+    if (kind < 0.42) {
+      // Өвсний ширхэг
+      const blades = 2 + Math.floor(random() * 4);
+      for (let b = 0; b < blades; b++) {
+        const lean = (random() - 0.5) * 4.2;
+        const h = range(4.5, 12);
+        ctx.strokeStyle = `rgba(${36 + random() * 30},${90 + random() * 40},${48 + random() * 20},${0.4 + random() * 0.38})`;
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(x + b * 1.1 - blades * 0.5, y);
+        ctx.quadraticCurveTo(
+          x + lean * 0.4,
+          y - h * 0.55,
+          x + lean,
+          y - h,
+        );
+        ctx.stroke();
+      }
+    } else if (kind < 0.78) {
+      // Зэгс
+      const stems = 1 + Math.floor(random() * 3);
+      for (let s = 0; s < stems; s++) {
+        const sx = x + (s - (stems - 1) * 0.5) * 2.5;
+        const h = range(10, 20);
+        const lean = (random() - 0.5) * 2.6;
+        ctx.strokeStyle = `rgba(40,88,46,${0.42 + random() * 0.34})`;
+        ctx.lineWidth = 1.25;
+        ctx.beginPath();
+        ctx.moveTo(sx, y);
+        ctx.lineTo(sx + lean, y - h);
+        ctx.stroke();
+        if (random() > 0.35) {
+          ctx.fillStyle = "rgba(110,90,42,0.62)";
+          ctx.beginPath();
+          ctx.ellipse(sx + lean, y - h - 1.5, 1.7, 3.4, lean * 0.08, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    } else {
+      // Жижиг навчит бут
+      const leaf = 2 + Math.floor(random() * 4);
+      for (let L = 0; L < leaf; L++) {
+        const ox = (random() - 0.5) * 8;
+        const oy = -range(2, 9);
+        ctx.fillStyle = `rgba(${34 + random() * 28},${100 + random() * 40},${50 + random() * 24},${0.45 + random() * 0.32})`;
+        ctx.beginPath();
+        ctx.ellipse(x + ox, y + oy, range(2.8, 5.5), range(2, 3.8), 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = "rgba(70,55,30,0.5)";
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (random() - 0.5), y - 5.5);
+      ctx.stroke();
+    }
   }
 }
 
@@ -747,16 +913,16 @@ export function drawRiverFlowOverlay(
   ctx.closePath();
   ctx.clip();
 
-  // Цөөн зөөлөн долгионы бүс — өмнөдөд гүйдэг урт эллипс
-  const bandCount = 5;
+  // Гол урсгалын зөөлөн долгион — өмнөдөд гүйдэг урт эллипс
+  const bandCount = 8;
   for (let lane = 0; lane < bandCount; lane++) {
     const h0 = riverFoamHash(lane, 1);
     const h1 = riverFoamHash(lane, 2);
     const h2 = riverFoamHash(lane, 3);
     const sideFrac =
-      ((lane + 0.5) / bandCount - 0.5) * 1.55 + (h0 - 0.5) * 0.18;
-    const period = 72 + h1 * 48;
-    const speed = 28 + h0 * 22;
+      ((lane + 0.5) / bandCount - 0.5) * 1.65 + (h0 - 0.5) * 0.15;
+    const period = 52 + h1 * 38;
+    const speed = 34 + h0 * 26;
     const phase = h1 * period;
     const scroll = time * speed + phase;
     const i0 = Math.floor((yStart - scroll) / period) - 1;
@@ -769,20 +935,21 @@ export function drawRiverFlowOverlay(
       if (y < yStart - 20 || y > yEnd + 20) continue;
       const half = riverHalfWidth(y);
       const x =
-        riverCenterX(y) + sideFrac * half * 0.78 + (h3 - 0.5) * 10 - cam.x;
+        riverCenterX(y) + sideFrac * half * 0.82 + (h3 - 0.5) * 10 - cam.x;
       const sy = y - cam.y;
-      const rx = 16 + h4 * 22;
-      const ry = 2.2 + h2 * 2.4;
+      const rx = 15 + h4 * 26;
+      const ry = 2.1 + h2 * 2.9;
       const flow = riverFlowDir(y);
       const ang = Math.atan2(flow.y, flow.x) - Math.PI / 2;
-      const a = 0.08 + h2 * 0.07;
+      const a = 0.11 + h2 * 0.09;
 
       const g = ctx.createRadialGradient(x, sy, 0, x, sy, rx);
       if (winter) {
         g.addColorStop(0, `rgba(170,190,195,${a})`);
         g.addColorStop(1, `rgba(170,190,195,0)`);
       } else {
-        g.addColorStop(0, `rgba(142,184,196,${a})`);
+        g.addColorStop(0, `rgba(155,200,210,${a})`);
+        g.addColorStop(0.55, `rgba(120,170,185,${a * 0.38})`);
         g.addColorStop(1, `rgba(106,154,170,0)`);
       }
       ctx.fillStyle = g;
@@ -792,19 +959,74 @@ export function drawRiverFlowOverlay(
     }
   }
 
-  // Зөөлөн хөөс — бага альфа, цөөн толбо
-  for (let i = 0; i < 14; i++) {
+  // Эргийн хөөс — хажуугийн хөвөлт
+  for (let side = -1; side <= 1; side += 2) {
+    for (let i = 0; i < 12; i++) {
+      const h = riverFoamHash(i, side + 4);
+      const period = 42 + h * 32;
+      const speed = 28 + h * 22;
+      const scroll = time * speed + h * 40;
+      const i0 = Math.floor((yStart - scroll) / period) - 1;
+      const i1 = Math.ceil((yEnd - scroll) / period) + 1;
+      for (let k = i0; k <= i1; k++) {
+        const h2 = riverFoamHash(k, i + 20);
+        const y = k * period + scroll + (h2 - 0.5) * 12;
+        if (y < yStart - 12 || y > yEnd + 12) continue;
+        if (Math.abs(y - RIVER_FORD_Y) < RIVER_FORD_HALF * 0.4) continue;
+        const half = riverHalfWidth(y);
+        const x = riverCenterX(y) + side * half * (0.77 + h2 * 0.17) - cam.x;
+        const sy = y - cam.y;
+        const pulse = 0.5 + 0.5 * Math.sin(time * 1.8 + k + i);
+        const a = (0.12 + h * 0.1) * pulse;
+        ctx.fillStyle = winter
+          ? `rgba(210,220,218,${a})`
+          : `rgba(230,240,236,${a})`;
+        ctx.beginPath();
+        ctx.ellipse(x, sy, 5.5 + h2 * 6.5, 1.3 + h * 1.2, 0.1 * side, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Гатлах газрын гүехэн долгион (riffle)
+  const fordY0 = RIVER_FORD_Y - RIVER_FORD_HALF * 0.6;
+  const fordY1 = RIVER_FORD_Y + RIVER_FORD_HALF * 0.6;
+  if (yEnd >= fordY0 && yStart <= fordY1) {
+    for (let i = 0; i < 24; i++) {
+      const h = riverFoamHash(i, 55);
+      const y =
+        fordY0 +
+        ((((h * 90 + time * (20 + h * 15)) % (fordY1 - fordY0)) +
+          (fordY1 - fordY0)) %
+          (fordY1 - fordY0));
+      if (y < yStart - 8 || y > yEnd + 8) continue;
+      const half = riverHalfWidth(y);
+      const x =
+        riverCenterX(y) + (h - 0.5) * half * 1.5 - cam.x;
+      const sy = y - cam.y;
+      const a = 0.16 + h * 0.12;
+      ctx.fillStyle = winter
+        ? `rgba(200,195,170,${a})`
+        : `rgba(220,205,160,${a})`;
+      ctx.beginPath();
+      ctx.ellipse(x, sy, 8 + h * 11, 1.5 + h * 1.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Зөөлөн хөөс
+  for (let i = 0; i < 28; i++) {
     const seed = i * 97.3;
     const h = riverFoamHash(i, 99);
-    const speed = 22 + h * 28;
+    const speed = 25 + h * 32;
     const y = (((seed * 13 + time * speed) % WORLD_H) + WORLD_H) % WORLD_H;
     if (y < yStart - 10 || y > yEnd + 10) continue;
     const half = riverHalfWidth(y);
-    const side = (riverFoamHash(i, 7) - 0.5) * 2 * half * 0.7;
+    const side = (riverFoamHash(i, 7) - 0.5) * 2 * half * 0.73;
     const cx = riverCenterX(y) + side;
     const pulse = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(time * 1.4 + seed));
     const flow = riverFlowDir(y);
-    const a = 0.12 * pulse;
+    const a = 0.16 * pulse;
     ctx.fillStyle = winter
       ? `rgba(220,230,228,${a})`
       : `rgba(235,242,240,${a})`;
@@ -812,8 +1034,8 @@ export function drawRiverFlowOverlay(
     ctx.ellipse(
       cx - cam.x,
       y - cam.y,
-      3.5 + (i % 3) * 1.2,
-      1.4 + (i % 2) * 0.4,
+      3.4 + (i % 3) * 1.5,
+      1.35 + (i % 2) * 0.45,
       Math.atan2(flow.y, flow.x),
       0,
       Math.PI * 2,

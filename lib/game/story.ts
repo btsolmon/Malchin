@@ -3466,6 +3466,8 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
 
     state.world.flockOut = false;
     state.world.cattleOut = false;
+    state.world.flockBreach = null;
+    state.world.cattleBreach = null;
     state.world.timeOfDay = FIRST_NIGHT_TARGET_TIME;
     state.world.dayPhase = getDayPhase(
       state.world.timeOfDay,
@@ -4000,6 +4002,8 @@ export function startFamilyLifeRun(
   });
   state.world.flockOut = false;
   state.world.cattleOut = false;
+  state.world.flockBreach = null;
+  state.world.cattleBreach = null;
 
   // Story чоныг арилгана
   for (const wolf of state.world.wolves) {
@@ -4152,6 +4156,8 @@ export function updateLivestockRecoveryQuest(
       story.firstNightSunsetStarted = true;
       state.world.flockOut = false;
       state.world.cattleOut = false;
+      state.world.flockBreach = null;
+      state.world.cattleBreach = null;
       state.message = "";
       state.messageTimer = 0;
       sfx("levelup");

@@ -101,14 +101,32 @@ export function hasSave(): boolean {
 export function loadGame(): GameState | null {
   const envelope = readEnvelope();
   if (!envelope) return null;
+  const gear = envelope.state.player.gear;
   return {
     ...envelope.state,
+    player: {
+      ...envelope.state.player,
+      gear: {
+        dog: !!gear?.dog,
+        horse: !!gear?.horse,
+        bow: !!gear?.bow,
+        axe: !!gear?.axe,
+        basket: !!gear?.basket,
+        urga: !!gear?.urga,
+        fishingRod: !!gear?.fishingRod,
+      },
+    },
     input: neutralInput(),
     fishingHook: null,
     horseLasso: null,
     bannerAlert: null,
     herdVictoryShown: envelope.state.herdVictoryShown ?? false,
     winReason: envelope.state.winReason ?? null,
+    world: {
+      ...envelope.state.world,
+      flockBreach: envelope.state.world.flockBreach ?? null,
+      cattleBreach: envelope.state.world.cattleBreach ?? null,
+    },
   };
 }
 

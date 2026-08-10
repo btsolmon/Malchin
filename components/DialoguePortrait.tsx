@@ -63,6 +63,7 @@ function makeBoyPortrait(): Player {
       horse: false,
       bow: false,
       axe: false,
+      basket: false,
       urga: false,
       fishingRod: false,
     },

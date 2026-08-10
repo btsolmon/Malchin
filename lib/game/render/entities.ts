@@ -1917,65 +1917,229 @@ export function drawFish(
   const x = fish.pos.x - cam.x;
   const y = fish.pos.y - cam.y;
   if (x < -40 || x > 1000 || y < -40 || y > 600) return;
-  const flip = fish.face;
-  const tier = fish.tier === "hard" || fish.tier === "elite" ? fish.tier : "easy";
-  const scale = tier === "elite" ? 1.35 : tier === "hard" ? 1.15 : 1;
-  const wiggle =
-    Math.sin(time * (thrashing ? 28 : 9) + fish.id) *
-    (thrashing ? 3.2 : 1.2) *
-    scale;
 
-  const colors =
-    tier === "elite"
-      ? { a: "#f0a050", b: "#d07028", c: "#8a4010", tail: "#a05018" }
-      : tier === "hard"
-        ? { a: "#6ecf9a", b: "#3a9a70", c: "#246a48", tail: "#2a7850" }
-        : { a: "#5a9ad0", b: "#3a78b0", c: "#2a5a90", tail: "#2a68a0" };
+  const tier = fish.tier === "hard" || fish.tier === "elite" ? fish.tier : "easy";
+  const fishColor =
+    fish.color === "green" || fish.color === "gold" ? fish.color : "blue";
+  const scale = tier === "elite" ? 1.4 : tier === "hard" ? 1.18 : 1;
+  const spd = Math.hypot(fish.vel.x, fish.vel.y);
+  const swimAng =
+    typeof fish.heading === "number" && !Number.isNaN(fish.heading)
+      ? fish.heading
+      : spd > 2
+        ? Math.atan2(fish.vel.y, fish.vel.x)
+        : fish.face > 0
+          ? 0
+          : Math.PI;
+
+  // Сэлэлтийн ритм — хурдтайгаа холбоотой сүүл/бие долгион
+  const strokeHz = thrashing ? 28 : 8 + Math.min(10, spd * 0.12);
+  const phase = time * strokeHz + fish.id * 1.7;
+  const flap = Math.sin(phase);
+  const flap2 = Math.sin(phase - 0.85);
+  const effort = thrashing ? 1 : 0.35 + Math.min(0.65, spd / 55);
+  const bodyWave = flap * (thrashing ? 0.32 : 0.14 * effort);
+  const tailFlap = flap * (thrashing ? 6.2 : 3.2 * effort);
+  const midBend = flap2 * (thrashing ? 0.18 : 0.08 * effort);
+  const bob = Math.sin(phase * 0.5) * (thrashing ? 1.2 : 0.55 * effort);
+
+  // Өнгө = төрөл; хэмжээ = хүндрэл
+  const palette =
+    fishColor === "gold"
+      ? {
+          back: "#c07018",
+          mid: "#f0b040",
+          belly: "#ffe8b0",
+          fin: "#a85810",
+          outline: "rgba(90,45,10,0.6)",
+          shine: "rgba(255,235,160,0.65)",
+        }
+      : fishColor === "green"
+        ? {
+            back: "#1e6a42",
+            mid: "#4ecf88",
+            belly: "#c8f5d8",
+            fin: "#186038",
+            outline: "rgba(12,48,28,0.55)",
+            shine: "rgba(180,255,210,0.5)",
+          }
+        : {
+            back: "#1e5a88",
+            mid: "#5aa8d8",
+            belly: "#c8e8f8",
+            fin: "#1a4a70",
+            outline: "rgba(10,36,56,0.55)",
+            shine: "rgba(180,230,255,0.55)",
+          };
 
   ctx.save();
-  ctx.translate(x, y + wiggle * 0.3);
-  ctx.rotate(thrashing ? Math.sin(time * 22 + fish.id) * 0.35 : 0);
-  ctx.scale(flip * scale, scale);
+  ctx.translate(x, y + bob);
+  ctx.rotate(
+    swimAng + (thrashing ? Math.sin(time * 22 + fish.id) * 0.35 : midBend),
+  );
+  ctx.scale(scale * (1 + Math.abs(flap) * 0.02 * effort), scale);
+  // Биеийн долгион — толгой бага, сүүл их
+  ctx.rotate(bodyWave * 0.55);
 
-  ctx.fillStyle = "rgba(20,40,70,0.25)";
+  // Усан доорх сүүдэр
+  ctx.fillStyle = "rgba(18,40,60,0.28)";
   ctx.beginPath();
-  ctx.ellipse(0, 4, 9, 2.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 3.8, 11, 2.2, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const body = ctx.createLinearGradient(-8, -3, 8, 3);
-  body.addColorStop(0, colors.a);
-  body.addColorStop(0.5, colors.b);
-  body.addColorStop(1, colors.c);
-  ctx.fillStyle = body;
+  // Сүүл (caudal) — салаалсан, фазын хоцрогдолтой
+  ctx.save();
+  ctx.translate(-7.2, 0);
+  ctx.rotate(flap2 * 0.45 * effort + (thrashing ? flap * 0.35 : 0));
+  ctx.fillStyle = palette.fin;
   ctx.beginPath();
-  ctx.ellipse(0, 0, 9, 3.6 + wiggle * 0.15, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = colors.tail;
-  ctx.beginPath();
-  ctx.moveTo(-7, 0);
-  ctx.lineTo(-13, -4 + wiggle);
-  ctx.lineTo(-13, 4 - wiggle);
+  ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(-3, -1.6, -7.2, -5.2 + tailFlap * 0.12);
+  ctx.lineTo(-4.2, 0);
+  ctx.lineTo(-7.2, 5.2 - tailFlap * 0.12);
+  ctx.quadraticCurveTo(-3, 1.6, 0, 0);
   ctx.closePath();
   ctx.fill();
+  ctx.strokeStyle = palette.outline;
+  ctx.lineWidth = 0.7;
+  ctx.stroke();
+  ctx.restore();
 
-  if (tier !== "easy") {
-    ctx.strokeStyle =
-      tier === "elite" ? "rgba(255,220,120,0.7)" : "rgba(180,255,210,0.45)";
-    ctx.lineWidth = 1.2;
+  // Биеийн хэлбэр (fusiform) — дунд хэсэг бага зэрэг нугална
+  const bodyGrad = ctx.createLinearGradient(0, -4.5, 0, 4.5);
+  bodyGrad.addColorStop(0, palette.back);
+  bodyGrad.addColorStop(0.42, palette.mid);
+  bodyGrad.addColorStop(1, palette.belly);
+  ctx.fillStyle = bodyGrad;
+  const bend = midBend * 3.2;
+  ctx.beginPath();
+  ctx.moveTo(10.5, 0);
+  ctx.bezierCurveTo(10, -2.2, 6, -4.2 + bend * 0.2, 1, -4.4 + bend);
+  ctx.bezierCurveTo(-4, -4.5 + bend * 1.1, -7, -2.8, -8.2, 0);
+  ctx.bezierCurveTo(-7, 2.8, -4, 4.3 - bend * 1.1, 1, 4.2 - bend);
+  ctx.bezierCurveTo(6, 4 - bend * 0.2, 10, 2.2, 10.5, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = palette.outline;
+  ctx.lineWidth = 0.85;
+  ctx.stroke();
+
+  // Гялбаа — нурууны шугам
+  ctx.strokeStyle = palette.shine;
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  ctx.moveTo(7, -1.8);
+  ctx.quadraticCurveTo(1, -3.2 + bend * 0.5, -5, -1.2);
+  ctx.stroke();
+
+  // Хэйрсний зөөлөн мөр
+  ctx.strokeStyle =
+    fishColor === "gold"
+      ? "rgba(255,210,120,0.28)"
+      : fishColor === "green"
+        ? "rgba(180,240,200,0.22)"
+        : "rgba(180,220,240,0.25)";
+  ctx.lineWidth = 0.6;
+  for (let i = 0; i < 4; i++) {
+    const sx = 5 - i * 2.8;
     ctx.beginPath();
-    ctx.ellipse(0, 0, 9.4, 4, 0, 0, Math.PI * 2);
+    ctx.moveTo(sx, -2.6 + i * 0.15 + bend * 0.3);
+    ctx.quadraticCurveTo(sx - 1.2, bend * 0.4, sx, 2.5 - i * 0.1 - bend * 0.3);
     ctx.stroke();
   }
 
-  ctx.fillStyle = "#0a1828";
+  // Нурууны сэрвээ
+  ctx.fillStyle = palette.fin;
   ctx.beginPath();
-  ctx.arc(5.5, -0.8, 1.1, 0, Math.PI * 2);
+  ctx.moveTo(-1.5, -3.8 + bend * 0.5);
+  ctx.quadraticCurveTo(0.5, -8.2, 4.5, -4);
+  ctx.quadraticCurveTo(2, -4.2, -1.5, -3.8 + bend * 0.5);
+  ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = "#e8f4ff";
+  ctx.strokeStyle = palette.outline;
+  ctx.lineWidth = 0.6;
+  ctx.stroke();
+
+  // Цээжний сэрвээ — сэлэлттэй хамт
+  ctx.fillStyle = palette.fin;
+  ctx.globalAlpha = 0.85;
   ctx.beginPath();
-  ctx.arc(5.8, -1.1, 0.4, 0, Math.PI * 2);
+  ctx.moveTo(3.5, 1.5);
+  ctx.quadraticCurveTo(5.5 + flap * 0.6, 4.5 + flap * 0.9 * effort, 1.5, 5.2);
+  ctx.quadraticCurveTo(2.2, 3.2, 3.5, 1.5);
+  ctx.closePath();
   ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Хойд сэрвээ (anal)
+  ctx.beginPath();
+  ctx.moveTo(-3, 3.2 - bend * 0.4);
+  ctx.quadraticCurveTo(-1.5, 5.5, 0.5, 3.4 - bend * 0.3);
+  ctx.quadraticCurveTo(-1, 3.6, -3, 3.2 - bend * 0.4);
+  ctx.closePath();
+  ctx.fill();
+
+  // Заламгай
+  ctx.strokeStyle = palette.outline;
+  ctx.lineWidth = 0.9;
+  ctx.beginPath();
+  ctx.arc(5.2, 0, 2.4, -1.1, 1.1);
+  ctx.stroke();
+
+  // Нүд
+  ctx.fillStyle = "#f4f8fc";
+  ctx.beginPath();
+  ctx.arc(7.6, -0.9, 1.35, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#0c1824";
+  ctx.beginPath();
+  ctx.arc(7.9, -0.95, 0.75, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(8.15, -1.25, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Амны зөөлөн шугам
+  ctx.strokeStyle = "rgba(30,40,50,0.35)";
+  ctx.lineWidth = 0.7;
+  ctx.beginPath();
+  ctx.moveTo(10.2, 0.3);
+  ctx.quadraticCurveTo(9.4, 1.2, 8.4, 1.1);
+  ctx.stroke();
+
+  // Залгагдсан дэгээ — аманд
+  if (thrashing) {
+    ctx.strokeStyle = "#b0b8c0";
+    ctx.lineWidth = 1.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(10.4, 0.15);
+    ctx.lineTo(12.2, 0.9);
+    ctx.quadraticCurveTo(13.6, 2.8, 12.1, 3.6);
+    ctx.stroke();
+    ctx.fillStyle = "#d0d6dc";
+    ctx.beginPath();
+    ctx.arc(10.2, 0.05, 0.85, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (tier !== "easy") {
+    ctx.strokeStyle =
+      fishColor === "gold"
+        ? "rgba(255,210,100,0.55)"
+        : fishColor === "green"
+          ? "rgba(160,255,200,0.45)"
+          : "rgba(160,210,255,0.45)";
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(10.5, 0);
+    ctx.bezierCurveTo(10, -2.2, 6, -4.2 + bend * 0.2, 1, -4.4 + bend);
+    ctx.bezierCurveTo(-4, -4.5 + bend * 1.1, -7, -2.8, -8.2, 0);
+    ctx.bezierCurveTo(-7, 2.8, -4, 4.3 - bend * 1.1, 1, 4.2 - bend);
+    ctx.bezierCurveTo(6, 4 - bend * 0.2, 10, 2.2, 10.5, 0);
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -5561,6 +5725,7 @@ export function drawParentNpc(
 /**
  * Загасны уурга — байнга харагдана; эрэг дээр уургалахад шугам + дэнс.
  * casting: эрэг дээр уургалаж байгаа эсэх
+ * hooked: дэгээ загасны аманд — дэнс усанд биш, шугам аманд очино
  */
 export function drawFishingRod(
   ctx: CanvasRenderingContext2D,
@@ -5569,6 +5734,7 @@ export function drawFishingRod(
   time: number,
   casting: boolean,
   bobber: Vector2 | null,
+  hooked = false,
 ): void {
   if (!player.gear.fishingRod) return;
   const x = player.pos.x - cam.x;
@@ -5599,13 +5765,15 @@ export function drawFishingRod(
     return;
   }
 
-  // Уургалаж байгаа: гар → уурга → шугам → дэнс
+  // Уургалаж байгаа: гар → уурга → шугам → дэнс/дэгээ
   const bx = bobber.x - cam.x;
   const by = bobber.y - cam.y;
   const handX = x + 8 * flip;
   const handY = y - 6;
   const tipX = handX + (bx - handX) * 0.22;
   const tipY = handY - 18 + Math.sin(time * 2.2) * 1.2;
+  const tipEndX = tipX + 5 * flip;
+  const tipEndY = tipY - 4;
 
   ctx.save();
   ctx.strokeStyle = "#5a3a18";
@@ -5620,39 +5788,53 @@ export function drawFishingRod(
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(tipX, tipY);
-  ctx.lineTo(tipX + 5 * flip, tipY - 4);
+  ctx.lineTo(tipEndX, tipEndY);
   ctx.stroke();
 
-  // Шугам
-  const sag = 10 + Math.sin(time * 3 + player.pos.x * 0.01) * 3;
-  ctx.strokeStyle = "rgba(230,235,240,0.75)";
-  ctx.lineWidth = 1.1;
+  // Шугам — залгагдсан үед илүү чангарсан
+  const midX = (tipEndX + bx) * 0.5;
+  const sag = hooked
+    ? 4 + Math.sin(time * 11) * 2.2
+    : 10 + Math.sin(time * 3 + player.pos.x * 0.01) * 3;
+  const midY = hooked
+    ? (tipEndY + by) * 0.5 + sag
+    : Math.max(tipEndY, by) + sag;
+  ctx.strokeStyle = hooked
+    ? "rgba(235,240,245,0.9)"
+    : "rgba(230,235,240,0.75)";
+  ctx.lineWidth = hooked ? 1.25 : 1.1;
   ctx.beginPath();
-  ctx.moveTo(tipX + 5 * flip, tipY - 4);
-  ctx.quadraticCurveTo(
-    (tipX + bx) * 0.5,
-    Math.max(tipY, by) + sag,
-    bx,
-    by,
-  );
+  ctx.moveTo(tipEndX, tipEndY);
+  ctx.quadraticCurveTo(midX, midY, bx, by);
   ctx.stroke();
 
-  // Дэнс
-  const bob = Math.sin(time * 4.5) * 1.5;
-  ctx.fillStyle = "#c04040";
-  ctx.beginPath();
-  ctx.ellipse(bx, by + bob, 3.2, 2.4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#e8e8e8";
-  ctx.beginPath();
-  ctx.ellipse(bx, by + bob - 1.5, 2.2, 1.4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Жижиг долгион
-  ctx.strokeStyle = "rgba(180,220,255,0.45)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.ellipse(bx, by + 3, 7 + Math.sin(time * 5) * 1.5, 2.2, 0, 0, Math.PI * 2);
-  ctx.stroke();
+  if (hooked) {
+    // Шугам аманд очино — жижиг холбоос; дэгээ өөрөө загасны зураг дээр
+    ctx.fillStyle = "#c4ccd4";
+    ctx.beginPath();
+    ctx.arc(bx, by, 1.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(40,50,60,0.35)";
+    ctx.lineWidth = 0.7;
+    ctx.stroke();
+  } else {
+    // Дэнс усанд хөвж байна
+    const bob = Math.sin(time * 4.5) * 1.5;
+    ctx.fillStyle = "#c04040";
+    ctx.beginPath();
+    ctx.ellipse(bx, by + bob, 3.2, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#e8e8e8";
+    ctx.beginPath();
+    ctx.ellipse(bx, by + bob - 1.5, 2.2, 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Жижиг долгион
+    ctx.strokeStyle = "rgba(180,220,255,0.45)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(bx, by + 3, 7 + Math.sin(time * 5) * 1.5, 2.2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

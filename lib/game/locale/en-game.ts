@@ -204,25 +204,78 @@ export const EN_GAME: Record<string, string> = {
   Дээд: "High",
   "Дээд амь +25, бүрэн эдгэрнэ": "Max health +25, full heal",
   "Загас барьлаа! Q дарж идээрэй.": "A fish! Press Q to eat it.",
+  "Цэнхэр загас (амархан) барьлаа! Q дарж идээрэй.":
+    "Blue fish (easy) caught! Press Q to eat.",
+  "Ногоон загас (хэцүү) барьлаа! Q дарж идээрэй.":
+    "Green fish (hard) caught! Press Q to eat.",
+  "Алтан загас (маш хэцүү) барьлаа! Q дарж идээрэй.":
+    "Gold fish (very hard) caught! Press Q to eat.",
   "Загас зарах": "Sell fish",
   "Загас ойртоогүй — дэнсээ хүлээ.": "No fish yet — wait for a bite.",
   "Загас дэгээг хазтал хүлээ — дараа нь E дар.":
     "Wait for a bite — then press E.",
   "Загас дэгээг хазлаа! E дарж залга!": "Bite! Press E to set the hook!",
+  "Цэнхэр загас (амархан) хазлаа! E дарж залга!":
+    "Blue fish (easy) bite! Press E!",
+  "Ногоон загас (хэцүү) хазлаа! E дарж залга!":
+    "Green fish (hard) bite! Press E!",
+  "Алтан загас (маш хэцүү) хазлаа! E дарж залга!":
+    "Gold fish (very hard) bite! Press E!",
   "Том загас хазлаа! E дарж залга!": "Big fish bite! Press E!",
   "ХОВОР том загас хазлаа! E дарж залга!": "RARE huge bite! Press E!",
   "Залгалаа! E-г хурдан дарж тат!": "Hooked! Mash E to reel it in!",
+  "Цэнхэр загас (амархан) залгалаа! E-г хурдан дарж тат!":
+    "Blue fish (easy) hooked! Mash E!",
+  "Ногоон загас (хэцүү) залгалаа! E-г хурдан дарж тат!":
+    "Green fish (hard) hooked! Mash E!",
+  "Алтан загас (маш хэцүү) залгалаа! E-г МАШ хурдан дар!":
+    "Gold fish (very hard) hooked! MASH E!",
   "Том загас залгалаа! E-г хурдан дарж тат!":
     "Big fish hooked! Mash E hard!",
   "Ховор загас залгалаа! E-г МАШ хурдан дар!":
     "Rare fish hooked! MASH E!",
   "E хурдан дар — загас зугтаж байна!": "Mash E — the fish is escaping!",
+  "E хурдан дар — цэнхэр загас (амархан)!":
+    "Mash E — blue fish (easy)!",
+  "E хурдан дар — ногоон загас (хэцүү)!": "Mash E — green fish (hard)!",
+  "E МАШ хурдан дар — алтан загас (маш хэцүү)!":
+    "MASH E — gold fish (very hard)!",
   "E хурдан дар — том загас хүчтэй!": "Mash E — the big one fights hard!",
   "E МАШ хурдан дар — ховор загас зугтана!":
     "MASH E — the rare fish is breaking free!",
   "Том загас барьлаа! Q дарж идээрэй.": "Caught a big fish! Press Q to eat.",
   "Ховор том загас барьлаа! Q дарж идээрэй.":
     "Caught a rare fish! Press Q to eat.",
+  "E — Цэнхэр загас тат! (амархан)": "E — Reel blue fish! (easy)",
+  "E — Ногоон загас тат! (хэцүү)": "E — Reel green fish! (hard)",
+  "E — Алтан загас тат! (маш хэцүү)": "E — Reel gold fish! (very hard)",
+  "E — Цэнхэр загас тат!": "E — Reel blue fish!",
+  "E — Ногоон загас тат!": "E — Reel green fish!",
+  "E — Алтан загас тат!": "E — Reel gold fish!",
+  "Цэнхэр загас барьлаа! Q дарж идээрэй.": "Blue fish caught! Press Q to eat.",
+  "Ногоон загас барьлаа! Q дарж идээрэй.": "Green fish caught! Press Q to eat.",
+  "Алтан загас барьлаа! Q дарж идээрэй.": "Gold fish caught! Press Q to eat.",
+  "Цэнхэр загас хазлаа! E дарж залга!": "Blue fish bite! Press E!",
+  "Ногоон загас хазлаа! E дарж залга!": "Green fish bite! Press E!",
+  "Алтан загас хазлаа! E дарж залга!": "Gold fish bite! Press E!",
+  "Цэнхэр загас залгалаа! E-г хурдан дарж тат!": "Blue fish hooked! Mash E!",
+  "Ногоон загас залгалаа! E-г хурдан дарж тат!": "Green fish hooked! Mash E!",
+  "Алтан загас залгалаа! E-г хурдан дарж тат!": "Gold fish hooked! Mash E!",
+  "Алтан загас залгалаа! E-г МАШ хурдан дарж тат!":
+    "Gold fish hooked! MASH E!",
+  "E хурдан дар — Цэнхэр загас!": "Mash E — blue fish!",
+  "E хурдан дар — Ногоон загас!": "Mash E — green fish!",
+  "E хурдан дар — Алтан загас!": "Mash E — gold fish!",
+  "E МАШ хурдан дар — Цэнхэр загас!": "MASH E — blue fish!",
+  "E МАШ хурдан дар — Ногоон загас!": "MASH E — green fish!",
+  "E МАШ хурдан дар — Алтан загас!": "MASH E — gold fish!",
+  Цэнхэр: "Blue",
+  "Цэнхэр загас": "Blue fish",
+  "Ногоон загас": "Green fish",
+  "Алтан загас": "Gold fish",
+  амархан: "easy",
+  хэцүү: "hard",
+  "маш хэцүү": "very hard",
   "+2 загас": "+2 fish",
   "+3 загас": "+3 fish",
   "Загас зугтлаа!": "The fish got away!",
@@ -260,6 +313,9 @@ export const EN_GAME: Record<string, string> = {
   "Малчин survival тоглоом": "Nomad — Mongolian herder survival",
   "Малчин — Survival": "Nomad — Survival",
   "Мод/түлээ нэг цохилтоор унагана": "Fells trees and firewood in one hit",
+  "Бутны бүх жимсийг нэг даралтаар түүнэ":
+    "Picks every berry on a bush in one press",
+  Сагс: "Basket",
   "Модны дээр хашаа барихгүй.": "No fence on top of a tree.",
   "Модон хашаа": "Wooden fence",
   "Монгол малчны амьдрал: сүрэг хамгаалах, чонотой тулалдах, 1000 хонь цуглуулах":
@@ -473,6 +529,12 @@ export const EN_GAME: Record<string, string> = {
   "Харсан зүгт барина · B дахин · P цуцлах":
     "Builds where you face · B again · P cancel",
   "Хашаа нурлаа.": "The fence is down.",
+  "Хашаа нурлаа — мал завсраар бэлчээрт гарч байна!":
+    "Fence down — livestock are escaping to graze through the gap!",
+  "Хашаа нурлаа — үхэр завсраар бэлчээрт гарч байна!":
+    "Fence down — cattle are escaping to graze through the gap!",
+  "Мал гарлаа!": "Livestock out!",
+  "Үхэр гарлаа!": "Cattle out!",
   "Хашаа хамгааллаа": "The fence held",
   "Хашаа хамгааллаа!": "The fence held!",
   "Хашаа хулгайчийг зогсоов!": "The fence stopped the thief!",

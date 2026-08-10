@@ -418,6 +418,7 @@ export const EN_QUIZ_B: Record<string, string> = {
     "What is one of the things a horse herder prizes most?",
   "Уурга": "Lasso pole",
   "Сүх": "Axe",
+  "Сагс": "Basket",
   "Нум": "Bow",
   "Хутга": "Knife",
 
