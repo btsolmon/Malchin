@@ -256,12 +256,11 @@ export default function TouchControls({ gameRef, hidden }: Props) {
     e.preventDefault();
     e.stopPropagation();
     clearAllTouch();
-    // click/pointerup gesture — requestFullscreen-д заавал хэрэгтэй
     void toggleImmersiveDisplay().then((result) => {
       window.dispatchEvent(new Event("resize"));
       if (result === "hint") {
         setFsHint(mobileFullscreenHintMn());
-        window.setTimeout(() => setFsHint(null), 6000);
+        window.setTimeout(() => setFsHint(null), 7000);
       } else {
         setFsHint(null);
       }
@@ -292,7 +291,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         <button
           type="button"
           className="touch-btn touch-btn-fullscreen"
-          onClick={onFullscreen}
+          onPointerDown={onFullscreen}
           aria-label="Fullscreen"
         >
           Full

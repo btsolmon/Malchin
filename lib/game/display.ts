@@ -1,4 +1,10 @@
-/** Бүтэн дэлгэц / immersive — Fullscreen API + CSS fallback (iOS-д CSS + PWA) */
+/**
+ * Бүтэн дэлгэц — тоглоом + joystick хамт:
+ * Fullscreen API-г `.herder-stage-wrap` дээр (canvas + touch controls).
+ * iPhone Safari элемент FS зөвшөөрөхгүй тул CSS immersive + PWA.
+ *
+ * (Видео webkitEnterFullscreen — joystick алдана, тоглоход хэрэггүй.)
+ */
 
 const IMMERSIVE_CLASS = "herder-immersive";
 
@@ -23,9 +29,20 @@ function pageRoot(): HTMLElement {
   );
 }
 
-/** Browser-ийн жинхэнэ Fullscreen API байгаа эсэх (iPhone Safari = ихэвчлэн үгүй) */
+/** Canvas + TouchControls багтсан root — fullscreen-д joystick үлдэнэ */
+function stageWrap(): HTMLElement | null {
+  return document.querySelector(".herder-stage-wrap") as HTMLElement | null;
+}
+
 export function canUseBrowserFullscreen(): boolean {
   if (typeof document === "undefined") return false;
+  const doc = document as Document & {
+    fullscreenEnabled?: boolean;
+    webkitFullscreenEnabled?: boolean;
+  };
+  if (doc.fullscreenEnabled === false && !doc.webkitFullscreenEnabled) {
+    return false;
+  }
   const el = document.documentElement as FsEl;
   return !!(
     el.requestFullscreen ||
@@ -56,7 +73,6 @@ function setImmersiveClass(on: boolean): void {
   }
 }
 
-/** visualViewport → CSS хувьсагч (адрес барын доорх бодит өндөр) */
 export function syncVisualViewportVars(): void {
   if (typeof window === "undefined") return;
   const vv = window.visualViewport;
@@ -69,7 +85,6 @@ export function syncVisualViewportVars(): void {
 
 function tryHideMobileChrome(): void {
   syncVisualViewportVars();
-  // Safari хаягийн мөрийг бага зэрэг нуух оролдлого
   window.scrollTo(0, 1);
   requestAnimationFrame(() => {
     window.scrollTo(0, 1);
@@ -83,15 +98,18 @@ function tryLockLandscape(): void {
   };
   if (typeof orient?.lock === "function") {
     void orient.lock("landscape").catch(() => {
-      /* зөвшөөрөгдөөгүй — үл хэрэгс */
+      /* ignore */
     });
   }
 }
 
-/**
- * Зөвхөн нэг удаа requestFullscreen — хэрэглэгчийн gesture-ийг бүү алд.
- * (Олон await/давтан дуудах нь mobile дээр FS хориглодог.)
- */
+function isLikelyAppleTouch(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+}
+
 function requestFsOnce(el: HTMLElement): Promise<boolean> {
   const node = el as FsEl;
   try {
@@ -128,11 +146,11 @@ async function exitFs(): Promise<void> {
       await Promise.resolve(doc.webkitCancelFullScreen());
     }
   } catch {
-    // ignore
+    /* ignore */
   }
 }
 
-/** Асаана: CSS дүүргэлт + боломжтой бол браузерын fullscreen */
+/** Асаана: CSS + stage-wrap fullscreen (joystick хамт) */
 export async function enterImmersiveDisplay(): Promise<boolean> {
   setImmersiveClass(true);
   tryHideMobileChrome();
@@ -140,9 +158,12 @@ export async function enterImmersiveDisplay(): Promise<boolean> {
 
   if (isBrowserFullscreen()) return true;
 
-  // Gesture хадгалахын тулд зөвхөн documentElement дээр нэг удаа
-  const ok = await requestFsOnce(document.documentElement);
-  if (ok || isBrowserFullscreen()) return true;
+  // Эхлээд stage (canvas + joystick) — gesture-ийг бүү алд, нэг л удаа
+  const wrap = stageWrap();
+  if (wrap && (await requestFsOnce(wrap))) return true;
+
+  // Fallback: бүтэн хуудас
+  if (await requestFsOnce(document.documentElement)) return true;
 
   return isImmersiveDisplay();
 }
@@ -152,35 +173,41 @@ export async function exitImmersiveDisplay(): Promise<void> {
   setImmersiveClass(false);
 }
 
-/**
- * O товч — үргэлж томруулна (ESC-ээр гарсны дараа дахин ороход).
- * Гаргах: ESC эсвэл цэснээс.
- */
 export async function ensureImmersiveDisplay(): Promise<boolean> {
   return enterImmersiveDisplay();
 }
 
-/**
- * Full товч:
- * - Жинхэнэ browser fullscreen байвал → гаргана
- * - Үгүй бол → орно (CSS уже ассан ч дахин FS оролдоно)
- * - iPhone Safari (API байхгүй) → CSS + PWA заавар ("hint"), бүү унтраа
- */
 export async function toggleImmersiveDisplay(): Promise<ImmersiveToggleResult> {
   if (isBrowserFullscreen()) {
     await exitImmersiveDisplay();
     return "exited";
   }
 
+  // CSS-only (iPhone) уже ассан бол дахин FS оролдоно; гаргахгүй
   await enterImmersiveDisplay();
 
-  if (!canUseBrowserFullscreen()) {
-    return "hint";
-  }
-  return "entered";
+  if (isBrowserFullscreen()) return "entered";
+  if (isLikelyAppleTouch() || !canUseBrowserFullscreen()) return "hint";
+  return isImmersiveDisplay() ? "entered" : "hint";
 }
 
-/** iPhone/iPad Safari — Home Screen заавар */
+/** iPhone — joystick-той бүтэн дэлгэц зөвхөн Home Screen-ээр */
 export function mobileFullscreenHintMn(): string {
-  return "iPhone: Share → Add to Home Screen → нээгээд тогло (бүтэн дэлгэц)";
+  if (isLikelyAppleTouch()) {
+    return "iPhone: Share → Add to Home Screen → нээгээд тогло (joystick + бүтэн дэлгэц)";
+  }
+  return "Full дахин дар, эсвэл браузерын fullscreen зөвшөөр.";
+}
+
+export function mobileFullscreenEnteredTipMn(): string | null {
+  return null;
+}
+
+/** Хуучин video-path API — no-op (compat) */
+export function bindDisplayCanvas(_canvas: HTMLCanvasElement | null): void {
+  /* video fullscreen хассан */
+}
+
+export function armVideoFullscreen(): void {
+  /* video fullscreen хассан */
 }

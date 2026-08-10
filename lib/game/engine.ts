@@ -16,6 +16,7 @@ import {
   type WorldStone,
 } from "./types";
 import {
+  bindDisplayCanvas,
   enterImmersiveDisplay,
   ensureImmersiveDisplay,
   syncVisualViewportVars,
@@ -1061,6 +1062,7 @@ export function mountHerderGame(
 ): HerderGameHandle {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D context дэмжигдэхгүй");
+  bindDisplayCanvas(canvas);
 
   // Canvas дээрх бүх бичвэр эндээс орчуулагдана — дэлгэрэнгүйг locale/canvasText
   localizeCanvasText(ctx);
@@ -1359,6 +1361,7 @@ export function mountHerderGame(
       alive = false;
       cancelAnimationFrame(raf);
       unbindInput();
+      bindDisplayCanvas(null);
       window.removeEventListener("resize", onWindowResize);
       window.visualViewport?.removeEventListener("resize", onWindowResize);
       window.visualViewport?.removeEventListener("scroll", onWindowResize);

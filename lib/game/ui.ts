@@ -2502,10 +2502,6 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["G", t("controls.packGer")],
     ["H", t("controls.horse")],
     ["Tab", t("controls.inventory")],
-    ["P", t("controls.pause")],
-    ["O", t("controls.fullscreen")],
-    ["2×", t("controls.fullscreenTouch")],
-    ["E / Space", t("controls.skipIntro")],
   ];
 
   const cols = 2;
@@ -2776,16 +2772,6 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   });
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
-  // Статус дүрсүүд (buff мөр) — нохой гэх мэт
-  const iconY = portraitY + portraitRadius + 14;
-  const iconS = 18;
-  let ix = portraitX + portraitRadius + 8;
-
-  if (player.gear.dog) {
-    drawGameIcon(ctx, "dog", ix + iconS / 2, iconY + iconS / 2 - 2, iconS + 2);
-    ix += iconS + 6;
-  }
-
   // —— Баруун дээд: Монгол гэрийн тооно — нар/сараар цаг ——
   const clockX = VIEW_W - pad - 52;
   const clockY = pad + 52;
@@ -2890,8 +2876,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
   // Нөөц — зөвхөн Tab авдарт (баруун доод мөр байхгүй)
   let lx = barX;
-  const hasBuff = player.gear.dog;
-  const ly = hasBuff ? iconY + iconS + 2 : iconY + 12;
+  const ly = portraitY + portraitRadius + 26;
   if (player.gear.horse) {
     drawGameIcon(
       ctx,
