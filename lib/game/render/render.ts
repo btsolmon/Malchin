@@ -23,7 +23,7 @@ import {
   drawSwordDrop,
 } from "../firstRoute";
 
-import { drawColdFrostFrame, drawIntroAbductionFx, drawIntroCrows, drawLighting, drawWeatherFx } from "./lighting";
+import { drawIntroAbductionFx, drawIntroCrows, drawLighting, drawWeatherFx } from "./lighting";
 import { syncIntroCrowCaws } from "../audio";
 import { drawRiverFlowOverlay } from "./terrain";
 import { getCameraShakeOffset } from "../effects";
@@ -649,7 +649,14 @@ export function render(
     addDrawable("fish", {
       y: fish.pos.y,
       key: 2400 + fish.id,
-      draw: () => drawFish(ctx, fish, cam, time),
+      draw: () =>
+        drawFish(
+          ctx,
+          fish,
+          cam,
+          time,
+          state.fishingHook?.fishId === fish.id,
+        ),
     });
   }
   for (const wolf of world.wolves) {
@@ -1148,12 +1155,45 @@ export function render(
           ctx.strokeStyle = "rgba(0,0,0,0.7)";
           ctx.lineWidth = 3;
           const canPull = !!fishNearBobber(state);
-          const tip = canPull
-            ? "E — Загас татах!"
-            : "E — Уургалах (загас ойртохыг хүлээ)";
+          const hooking = !!state.fishingHook;
+          const tip = hooking
+            ? "E — ХУРДАН ТАТ! (mash)"
+            : canPull
+              ? "E — Дэгээ залгах!"
+              : "E — Уургалах (хазтал хүлээ)";
           ctx.strokeText(tip, tx, ty);
-          ctx.fillStyle = canPull ? "#a8f0ff" : "#7ec8ff";
+          ctx.fillStyle = hooking
+            ? "#ffd060"
+            : canPull
+              ? "#a8f0ff"
+              : "#7ec8ff";
           ctx.fillText(tip, tx, ty);
+          if (hooking && state.fishingHook) {
+            const bw = 56;
+            const bh = 6;
+            const bx = tx - bw / 2;
+            const by = ty - 16;
+            ctx.fillStyle = "rgba(0,0,0,0.55)";
+            ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+            ctx.fillStyle = "#2a1c12";
+            ctx.fillRect(bx, by, bw, bh);
+            const p = clamp(state.fishingHook.progress, 0, 1);
+            const tier = state.fishingHook.tier;
+            ctx.fillStyle =
+              tier === "elite"
+                ? "#ffb060"
+                : tier === "hard"
+                  ? "#7ecf9a"
+                  : p > 0.7
+                    ? "#7ecf6a"
+                    : "#e8c56a";
+            ctx.fillRect(bx, by, bw * p, bh);
+            // Цаг
+            const tMax = Math.max(0.1, state.fishingHook.timeMax || 3.6);
+            const tLeft = clamp(state.fishingHook.timeLeft / tMax, 0, 1);
+            ctx.fillStyle = "#ff8080";
+            ctx.fillRect(bx, by + bh + 2, bw * tLeft, 2);
+          }
           ctx.textAlign = "left";
         } else if (bush) {
           const tx = bush.pos.x - cam.x;
@@ -1306,9 +1346,6 @@ export function render(
 
   // Vignette
   ctx.drawImage(rc.vignette, 0, 0, VIEW_W, VIEW_H);
-
-  // Даарахад цэнхэр мөстөн хүрээ
-  drawColdFrostFrame(ctx, state, time);
 
   // Цохиулах улаан ирмэг
   if (state.fx.hurtFlash > 0) {

@@ -104,9 +104,10 @@ import {
   updateFirstRoute,
 } from "./firstRoute";
 import { clearSave, loadGame, saveGame } from "./save";
-import { captureRecords } from "./records";
+import { captureRecords, hasCompletedStory } from "./records";
 import { loadLangSetting } from "./i18n";
 import { localizeCanvasText } from "./locale/canvasText";
+import { preloadGameIcons } from "./icons";
 
 /** Автомат хадгалалтын давтамж (сек) */
 const AUTOSAVE_INTERVAL = 8;
@@ -140,6 +141,7 @@ import {
   firstNightElderCutsceneActive,
   initializeOpeningLivestock,
   openingStoryControlsWorldTime,
+  startFamilyLifeRun,
   storyWolfUsesExistingAi,
   updateHearthQuest,
   updateLivestockRecoveryQuest,
@@ -171,13 +173,17 @@ export function createTrees(
       attempts < 50
     );
 
+    const roll = random();
+    const kind =
+      roll < 0.34 ? "pine" : roll < 0.67 ? "birch" : "leafy";
     trees.push({
       id: i,
       pos,
       hp: 3,
       maxHp: 3,
-      radius: 18,
+      radius: kind === "pine" ? 16 : kind === "birch" ? 15 : 18,
       respawnIn: 0,
+      kind,
     });
   }
   return trees;
@@ -371,6 +377,7 @@ export function createInitialState(): GameState {
     fencePreview: false,
     fencePreviewAngle: 0,
     fencePreviewOffset: { x: 0, y: 0 },
+    fishingHook: null,
     unlimitedWood: false,
     unlimitedCoins: false,
     godMode: false,
@@ -415,6 +422,7 @@ export function createInitialState(): GameState {
     gerStoveLit: false,
     gerStoveFuel: 0,
     requestRestart: false,
+    requestSkipStory: false,
     requestLoad: false,
     nextEntityId: 100,
     spiritPoints: 0,
@@ -598,12 +606,32 @@ export function bindInput(
   };
   const onKeyUp = (e: KeyboardEvent): void => setKey(e.code, false);
 
+  /** Цонх алдах / таб солих үед WASD гацахаас сэргийлнэ */
+  const clearHeldMove = (): void => {
+    const input = getInput();
+    input.up = false;
+    input.down = false;
+    input.left = false;
+    input.right = false;
+    input.attack = false;
+    input.shoot = false;
+    input.herd = false;
+  };
+  const onBlur = (): void => clearHeldMove();
+  const onVis = (): void => {
+    if (document.visibilityState === "hidden") clearHeldMove();
+  };
+
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVis);
 
   return () => {
     window.removeEventListener("keydown", onKeyDown);
     window.removeEventListener("keyup", onKeyUp);
+    window.removeEventListener("blur", onBlur);
+    document.removeEventListener("visibilitychange", onVis);
   };
 }
 
@@ -698,6 +726,15 @@ export function update(state: GameState, dt: number): void {
     state.pauseIndex = 0;
     state.menuScreen = "main";
     state.fencePreview = false;
+    sfx("select");
+  } else if (
+    state.phase === "lost" &&
+    hasCompletedStory() &&
+    state.input.interact
+  ) {
+    // Түүх нэг удаа дуусгасан бол ялагдлын дэлгэцээс шууд family life рүү
+    clearSave();
+    state.requestSkipStory = true;
     sfx("select");
   } else if (
     (state.phase === "won" || state.phase === "lost") &&
@@ -1170,6 +1207,7 @@ export function mountHerderGame(
   // Аудио — browser autoplay бодлогын дагуу эхний үйлдлээр асна
   loadAudioSettings();
   loadLangSetting();
+  preloadGameIcons();
   const unlockAudio = (): void => {
     ensureAudio();
     startMusic();
@@ -1202,7 +1240,13 @@ export function mountHerderGame(
     const dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    if (state.requestRestart) {
+    if (state.requestSkipStory) {
+      state = createInitialState();
+      startFamilyLifeRun(state);
+      lastElderKey = "";
+      autosaveIn = AUTOSAVE_INTERVAL;
+      options.onElderUi?.({ open: false });
+    } else if (state.requestRestart) {
       state = createInitialState();
       lastElderKey = "";
       autosaveIn = AUTOSAVE_INTERVAL;

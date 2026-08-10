@@ -184,7 +184,13 @@ export interface Tree {
   maxHp: number;
   radius: number;
   respawnIn: number;
+  /** Нарс · хус · навчит */
+  kind: TreeKind;
 }
+
+export type TreeKind = "pine" | "birch" | "leafy";
+
+export const TREE_KINDS: TreeKind[] = ["pine", "birch", "leafy"];
 
 export interface BerryBush {
   id: number;
@@ -342,6 +348,8 @@ export interface WildHorse {
 }
 
 /** Голын загас — уургаар барина */
+export type FishTier = "easy" | "hard" | "elite";
+
 export interface Fish {
   id: number;
   pos: Vector2;
@@ -349,6 +357,25 @@ export interface Fish {
   radius: number;
   face: 1 | -1;
   spook: number;
+  /**
+   * Дэгээг амандаа хийсэн үеийн үлдсэн хугацаа (сек).
+   * >0 үед л E дарж залгаж болно.
+   */
+  bite: number;
+  /** Барих хүндрэл — easy / hard / elite */
+  tier: FishTier;
+}
+
+/** Загас татах — E хурдан дарж татна */
+export interface FishingHookState {
+  fishId: number;
+  /** 0→1: дүүрсэн үед барина */
+  progress: number;
+  /** Зугтах хүртэл үлдсэн хугацаа (сек) */
+  timeLeft: number;
+  /** Эхний цаг — HUD progress-д */
+  timeMax: number;
+  tier: FishTier;
 }
 
 export interface Wolf {
@@ -909,7 +936,12 @@ export interface StoryState {
   milestone8Completed: boolean;
 }
 
-export type MenuScreen = "main" | "settings" | "controls" | "credits";
+export type MenuScreen =
+  | "main"
+  | "settings"
+  | "controls"
+  | "credits"
+  | "storyChoice";
 
 /** Тагнах/cheat зорчилтын өмнөх нөөц — овоогоор буцахад сэргээнэ */
 export interface SpiritVisitSnapshot {
@@ -957,6 +989,8 @@ export interface GameState {
   gerStoveFuel: number;
   /** Пауз менюгээс үндсэн цэс рүү буцах */
   requestRestart: boolean;
+  /** Түүх алгасаад аав ээжтэй амьдралаас эхлэх */
+  requestSkipStory: boolean;
   /** Менюгээс хадгалсан тоглоомыг унших — engine төлөвийг солино */
   requestLoad: boolean;
   /** B эхний даралт — хашааны цагаан preview идэвхтэй */
@@ -965,6 +999,8 @@ export interface GameState {
   fencePreviewAngle: number;
   /** Preview байршлын нэмэлт алхам (хагас тор) — сумнаар */
   fencePreviewOffset: Vector2;
+  /** Загас татах minigame (E mash) */
+  fishingHook: FishingHookState | null;
   /** / cheat — мод/түлээ хязгааргүй, зарцуулалт хасагдахгүй */
   unlimitedWood: boolean;
   /** / cheat — зоос хязгааргүй, худалдан авалтад хасагдахгүй */

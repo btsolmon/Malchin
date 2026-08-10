@@ -758,10 +758,11 @@ export function tryInteract(state: GameState): void {
     }
   }
 
-  // Загасны уурга — голоос загас барих
+  // Загасны уурга — голоос загас барих (E mash)
   if (player.gear.fishingRod && nearFishingSpot(player.pos)) {
     tryCatchFish(state);
-    player.chopCooldown = 0.7;
+    // Татах үед хурдан дарах боломжтой байлгах
+    player.chopCooldown = state.fishingHook ? 0.09 : 0.28;
     state.input.interact = false;
     return;
   }
@@ -1325,25 +1326,34 @@ export function updateSurvival(state: GameState, dt: number): void {
 
   const nearFire =
     fire.lit && fire.placed && dist(player.pos, fire.pos) < fire.radius;
-  const night =
-    world.dayPhase === "night" || world.timeOfDay < 6 || world.timeOfDay > 20;
-  const coldWeather =
-    world.weather === "snow" ||
-    world.weather === "storm" ||
-    world.season === "winter";
-
+  const phase = world.dayPhase;
+  const isNightCold =
+    phase === "night" ||
+    phase === "dawn" ||
+    world.timeOfDay < 6 ||
+    world.timeOfDay >= 20;
+  const harshWeather =
+    world.weather === "snow" || world.weather === "storm";
   const seasonCold = seasonWarmthMult(world.season);
+
   let warmthDelta = 0;
-  if (night || coldWeather || world.season === "winter") {
-    warmthDelta = -2.5 * dt * player.warmthResist * seasonCold;
-    if (coldWeather && night) warmthDelta -= 1.5 * dt * player.warmthResist;
-    if (world.dayPhase === "dawn" && !nearFire) {
-      warmthDelta -= 0.8 * dt * player.warmthResist;
-    }
+  if (nearFire) {
+    warmthDelta = 14 * dt;
+  } else if (isNightCold) {
+    // Шөнө / үүр — даарна (2× удаан)
+    warmthDelta = -1.25 * dt * player.warmthResist * seasonCold;
+    if (harshWeather) warmthDelta -= 0.75 * dt * player.warmthResist;
+    if (phase === "dawn") warmthDelta -= 0.2 * dt * player.warmthResist;
+  } else if (world.season === "winter") {
+    // Өвлийн өдөр — даарна (шөнөөс зөөлөн)
+    warmthDelta = -0.7 * dt * player.warmthResist * seasonCold;
+    if (harshWeather) warmthDelta -= 0.45 * dt * player.warmthResist;
   } else {
-    warmthDelta = 6 * dt;
+    // Зун/хавар/намар өдөр — дулаарна (шуургад арай удаан)
+    let recover = 6;
+    if (harshWeather) recover *= 0.45;
+    warmthDelta = recover * dt;
   }
-  if (nearFire) warmthDelta = 14 * dt;
 
   player.vitals.warmth = clamp(
     player.vitals.warmth + warmthDelta,

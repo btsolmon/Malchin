@@ -101,7 +101,7 @@ export function hasSave(): boolean {
 export function loadGame(): GameState | null {
   const envelope = readEnvelope();
   if (!envelope) return null;
-  return { ...envelope.state, input: neutralInput() };
+  return { ...envelope.state, input: neutralInput(), fishingHook: null };
 }
 
 export function clearSave(): void {

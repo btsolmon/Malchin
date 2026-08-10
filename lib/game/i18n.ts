@@ -16,6 +16,11 @@ const MN = {
   "menu.play": "Тоглох",
   "menu.continue": "Үргэлжлүүлэх",
   "menu.newGame": "Шинээр тоглох",
+  "menu.skipStory": "Түүх алгасаад эхлэх",
+  "menu.watchStory": "Түүх үзээд эхлэх",
+  "menu.storyChoiceTitle": "Түүхээ үзэх үү?",
+  "menu.storyChoiceHint":
+    "Та өмнө нь аав ээжийг аварсан · cutscene-ээс өмнө сонго",
   "menu.settings": "Тохиргоо",
   "menu.controls": "Удирдлага",
   "menu.credits": "Багийнхан",
@@ -91,6 +96,9 @@ const MN = {
   "end.lose": "ЯЛАГДЛАА",
   "end.winSubtitle": "Төмөр шулмас дарагдаж, гэр бүл эргэн нэгдэв.",
   "end.hint": "Enter / P — үндсэн цэс · сүрэг өсгөх тоглоом хадгалагдана",
+  "end.loseHint": "Enter / P — үндсэн цэс",
+  "end.loseHintSkip":
+    "Enter / P — цэс · E — түүх алгасаад аав ээжтэй амьдралаас эхлэх",
 
   "chest.title": "АВДАР",
   "chest.empty": "Алга",
@@ -119,6 +127,11 @@ const EN: Record<StringKey, string> = {
   "menu.play": "Play",
   "menu.continue": "Continue",
   "menu.newGame": "New game",
+  "menu.skipStory": "Skip story & start",
+  "menu.watchStory": "Watch story & start",
+  "menu.storyChoiceTitle": "Watch the story?",
+  "menu.storyChoiceHint":
+    "You've saved your parents before · choose before the cutscene",
   "menu.settings": "Settings",
   "menu.controls": "Controls",
   "menu.credits": "Team",
@@ -194,6 +207,9 @@ const EN: Record<StringKey, string> = {
   "end.lose": "DEFEATED",
   "end.winSubtitle": "Tömör Shulmas is slain and the family is whole again.",
   "end.hint": "Enter / P — main menu · your herd is saved, keep growing it",
+  "end.loseHint": "Enter / P — main menu",
+  "end.loseHintSkip":
+    "Enter / P — menu · E — skip story, start with parents saved",
 
   "chest.title": "CHEST",
   "chest.empty": "None",

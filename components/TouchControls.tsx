@@ -1,18 +1,44 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   HerderGameHandle,
   TouchHoldAction,
   TouchPulseAction,
 } from "@/lib/game/engine";
 import { toggleImmersiveDisplay } from "@/lib/game/display";
+import { gameIconUrl, type GameIconId } from "@/lib/game/icons";
 
 type Props = {
   gameRef: React.RefObject<HerderGameHandle | null>;
   /** Өвгөний цонх нээлттэй үед нууна */
   hidden?: boolean;
 };
+
+function TouchGlyph({
+  icon,
+  size = 28,
+  letter,
+}: {
+  icon?: GameIconId;
+  size?: number;
+  letter?: string;
+}) {
+  if (icon) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        className="touch-glyph"
+        src={gameIconUrl(icon)}
+        alt=""
+        width={size}
+        height={size}
+        draggable={false}
+      />
+    );
+  }
+  return <span className="touch-glyph-letter">{letter}</span>;
+}
 
 function isTouchDevice(): boolean {
   if (typeof window === "undefined") return false;
@@ -38,36 +64,79 @@ export default function TouchControls({ gameRef, hidden }: Props) {
   const stickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
   const pointerId = useRef<number | null>(null);
+  const gameRefStable = useRef(gameRef);
+  gameRefStable.current = gameRef;
+
+  const clearMove = useCallback(() => {
+    pointerId.current = null;
+    if (knobRef.current) knobRef.current.style.transform = "translate(0, 0)";
+    gameRefStable.current.current?.setTouchMove(0, 0);
+  }, []);
+
+  const clearHolds = useCallback(() => {
+    const g = gameRefStable.current.current;
+    if (!g) return;
+    g.setTouchHold("attack", false);
+    g.setTouchHold("shoot", false);
+    g.setTouchHold("herd", false);
+  }, []);
+
+  const clearAllTouch = useCallback(() => {
+    clearMove();
+    clearHolds();
+  }, [clearMove, clearHolds]);
 
   useEffect(() => {
     setShow(isTouchDevice());
-    const syncOrient = () => setPortrait(isPortrait());
+    const syncOrient = () => {
+      setPortrait(isPortrait());
+      // Эргүүлэх үед pointer алдагдаж хөдөлгөөн гацдаг
+      clearAllTouch();
+    };
     syncOrient();
     window.addEventListener("orientationchange", syncOrient);
     window.addEventListener("resize", syncOrient);
+    const onBlur = () => clearAllTouch();
+    const onVis = () => {
+      if (document.visibilityState === "hidden") clearAllTouch();
+    };
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onVis);
     return () => {
       window.removeEventListener("orientationchange", syncOrient);
       window.removeEventListener("resize", syncOrient);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVis);
+      clearAllTouch();
     };
-  }, []);
+  }, [clearAllTouch]);
 
   useEffect(() => {
-    if (!show || hidden) return;
+    if (!show || hidden) {
+      clearAllTouch();
+      return;
+    }
     let raf = 0;
     const tick = () => {
       const phase = gameRef.current?.getPhase();
-      setActive(
+      const next =
         phase === "playing" ||
-          phase === "spirit" ||
-          phase === "ger" ||
-          phase === "intro" ||
-          phase === "paused",
-      );
+        phase === "spirit" ||
+        phase === "ger" ||
+        phase === "intro" ||
+        phase === "paused";
+      setActive((prev) => {
+        if (prev && !next) clearAllTouch();
+        return next;
+      });
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [show, hidden, gameRef]);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearAllTouch();
+    };
+  }, [show, hidden, gameRef, clearAllTouch]);
 
   if (!show || hidden) return null;
 
@@ -91,12 +160,34 @@ export default function TouchControls({ gameRef, hidden }: Props) {
     gameRef.current?.setTouchMove(x, y);
   };
 
+  const releaseStick = () => {
+    clearMove();
+  };
+
   const onStickDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    // Өмнөх гацсан pointer байвал цэвэрлэ
+    if (pointerId.current !== null && pointerId.current !== e.pointerId) {
+      clearMove();
+    }
     pointerId.current = e.pointerId;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
     moveStick(e);
+
+    // Capture алдагдсан ч window дээр суллана — гацахгүй
+    const onWinUp = (ev: PointerEvent) => {
+      if (pointerId.current !== ev.pointerId) return;
+      releaseStick();
+      window.removeEventListener("pointerup", onWinUp);
+      window.removeEventListener("pointercancel", onWinUp);
+    };
+    window.addEventListener("pointerup", onWinUp);
+    window.addEventListener("pointercancel", onWinUp);
   };
 
   const moveStick = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -121,9 +212,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
 
   const onStickUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (pointerId.current !== e.pointerId) return;
-    pointerId.current = null;
-    if (knobRef.current) knobRef.current.style.transform = "translate(0, 0)";
-    setMove(0, 0);
+    releaseStick();
   };
 
   const hold =
@@ -150,6 +239,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
   const onFullscreen = (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    clearAllTouch();
     void toggleImmersiveDisplay();
   };
 
@@ -182,6 +272,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         onPointerMove={moveStick}
         onPointerUp={onStickUp}
         onPointerCancel={onStickUp}
+        onLostPointerCapture={releaseStick}
       >
         <div ref={knobRef} className="touch-stick-knob" />
       </div>
@@ -192,29 +283,33 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           type="button"
           className="touch-btn touch-btn-horse"
           onPointerDown={pulse("horseMount")}
+          aria-label="Horse"
         >
-          H
+          <TouchGlyph icon="horse" size={26} letter="H" />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-pack"
           onPointerDown={pulse("migrate")}
+          aria-label="Pack"
         >
-          G
+          <TouchGlyph icon="camel" size={26} letter="G" />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-herd"
           onPointerDown={hold("herd")}
+          aria-label="Herd"
         >
-          N
+          <TouchGlyph icon="sheep" size={26} letter="N" />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-fence"
           onPointerDown={pulse("buildFence")}
+          aria-label="Fence"
         >
-          B
+          <TouchGlyph icon="fence" size={24} letter="B" />
         </button>
       </div>
 
@@ -223,50 +318,57 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           type="button"
           className="touch-btn touch-btn-parry"
           onPointerDown={pulse("parry")}
+          aria-label="Parry"
         >
-          Parry
+          <TouchGlyph icon="shield" size={28} />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-dodge"
           onPointerDown={pulse("dodge")}
+          aria-label="Dodge"
         >
-          Dodge
+          <TouchGlyph icon="dodge" size={28} />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-attack"
           onPointerDown={hold("attack")}
+          aria-label="Attack"
         >
-          Hit
+          <TouchGlyph icon="punch" size={36} />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-interact"
           onPointerDown={pulse("interact")}
+          aria-label="Interact"
         >
-          Interact
+          <TouchGlyph icon="hand" size={28} />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-bow"
           onPointerDown={hold("shoot")}
+          aria-label="Bow"
         >
-          Bow
+          <TouchGlyph icon="bow" size={26} />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-eat"
           onPointerDown={pulse("eat")}
+          aria-label="Eat"
         >
-          Eat
+          <TouchGlyph icon="berry" size={26} />
         </button>
         <button
           type="button"
           className="touch-btn touch-btn-fire"
           onPointerDown={pulse("lightFire")}
+          aria-label="Fire"
         >
-          Fire
+          <TouchGlyph icon="fire" size={26} />
         </button>
       </div>
     </div>

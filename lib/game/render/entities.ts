@@ -387,24 +387,138 @@ export function drawTree(
 ): void {
   const x = tree.pos.x - cam.x;
   const y = tree.pos.y - cam.y;
+  const kind = tree.kind ?? "leafy";
 
   if (tree.hp <= 0) {
     drawShadow(ctx, x, y + 4, 11, 5);
-    ctx.fillStyle = "#4a3828";
+    ctx.fillStyle = kind === "birch" ? "#c8c0b0" : "#4a3828";
     ctx.beginPath();
     ctx.ellipse(x, y + 2, 9, 5, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#6a5238";
+    ctx.fillStyle = kind === "birch" ? "#9a9488" : "#6a5238";
     ctx.beginPath();
     ctx.ellipse(x, y, 8, 4, 0, 0, Math.PI * 2);
     ctx.fill();
     return;
   }
 
-  const sway = Math.sin(time * 1.6 + tree.id * 1.7) * windAmp;
-  drawShadow(ctx, x + 4, y + 6, 18, 7);
+  // Мод хөдөлгөөнгүй — салхинд найгахгүй
+  const sway = 0;
+  drawShadow(ctx, x + 4, y + 6, kind === "pine" ? 14 : 18, 7);
 
-  // Иш
+  if (kind === "pine") {
+    drawPineTree(ctx, x, y, sway);
+  } else if (kind === "birch") {
+    drawBirchTree(ctx, x, y, sway);
+  } else {
+    drawLeafyTree(ctx, x, y, sway);
+  }
+
+  if (tree.hp < tree.maxHp) {
+    const bw = 26;
+    const barY = kind === "pine" ? -54 : -46;
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    roundRectPath(ctx, x - bw / 2, y + barY, bw, 5, 2);
+    ctx.fill();
+    ctx.fillStyle = "#6fcf6f";
+    roundRectPath(
+      ctx,
+      x - bw / 2,
+      y + barY,
+      (bw * tree.hp) / tree.maxHp,
+      5,
+      2,
+    );
+    ctx.fill();
+  }
+}
+
+function drawPineTree(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  sway: number,
+): void {
+  // Нарс — бор иш, гурвалжин навчис
+  ctx.fillStyle = "#4a3220";
+  ctx.beginPath();
+  ctx.moveTo(x - 3.2, y + 8);
+  ctx.lineTo(x - 1.2 + sway * 0.35, y - 14);
+  ctx.lineTo(x + 1.2 + sway * 0.35, y - 14);
+  ctx.lineTo(x + 3.2, y + 8);
+  ctx.closePath();
+  ctx.fill();
+
+  const cx = x + sway;
+  const tiers: Array<[number, number, number, string]> = [
+    [0, -18, 16, "#1e4a28"],
+    [0, -28, 13, "#245a30"],
+    [0, -37, 10, "#2d6e3a"],
+    [0, -45, 7, "#3a8248"],
+  ];
+  for (const [ox, oy, halfW, color] of tiers) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx + ox, y + oy - halfW * 0.85);
+    ctx.lineTo(cx + ox - halfW, y + oy + halfW * 0.55);
+    ctx.lineTo(cx + ox + halfW, y + oy + halfW * 0.55);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawBirchTree(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  sway: number,
+): void {
+  // Хус — цагаан иш, хар зураас, цайвар навч
+  const trunkTop = y - 18;
+  ctx.fillStyle = "#e8e4d8";
+  ctx.beginPath();
+  ctx.moveTo(x - 3.5, y + 8);
+  ctx.quadraticCurveTo(x - 2 + sway * 0.25, y - 6, x - 1.5 + sway * 0.45, trunkTop);
+  ctx.lineTo(x + 1.5 + sway * 0.45, trunkTop);
+  ctx.quadraticCurveTo(x + 2 + sway * 0.25, y - 6, x + 3.5, y + 8);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = "rgba(40,36,32,0.72)";
+  ctx.lineWidth = 1.2;
+  ctx.lineCap = "round";
+  for (let i = 0; i < 5; i++) {
+    const ty = y + 4 - i * 5.2;
+    const side = i % 2 === 0 ? -1 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x + side * 0.4, ty);
+    ctx.lineTo(x + side * 2.8, ty - 1.2);
+    ctx.stroke();
+  }
+
+  const cx = x + sway;
+  const layers: Array<[number, number, number, string]> = [
+    [0, -24, 14, "#5a9a58"],
+    [-9, -18, 10, "#6aac62"],
+    [9, -18, 10, "#6aac62"],
+    [0, -32, 10, "#7cbc70"],
+    [-5, -26, 7, "#8ec87e"],
+  ];
+  for (const [ox, oy, r, c] of layers) {
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.arc(cx + ox, y + oy, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function drawLeafyTree(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  sway: number,
+): void {
+  // Навчит — бор иш, бөөрөнхий ногоон титэм
   ctx.fillStyle = "#5c3d22";
   ctx.beginPath();
   ctx.moveTo(x - 4, y + 8);
@@ -414,7 +528,6 @@ export function drawTree(
   ctx.closePath();
   ctx.fill();
 
-  // Навчис — давхарласан
   const cx = x + sway;
   const layers: Array<[number, number, number, string]> = [
     [0, -20, 17, "#2a6332"],
@@ -427,16 +540,6 @@ export function drawTree(
     ctx.fillStyle = c;
     ctx.beginPath();
     ctx.arc(cx + ox, y + oy, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  if (tree.hp < tree.maxHp) {
-    const bw = 26;
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    roundRectPath(ctx, x - bw / 2, y - 46, bw, 5, 2);
-    ctx.fill();
-    ctx.fillStyle = "#6fcf6f";
-    roundRectPath(ctx, x - bw / 2, y - 46, (bw * tree.hp) / tree.maxHp, 5, 2);
     ctx.fill();
   }
 }
@@ -1794,35 +1897,46 @@ export function drawFish(
   fish: Fish,
   cam: Camera,
   time: number,
+  thrashing = false,
 ): void {
   const x = fish.pos.x - cam.x;
   const y = fish.pos.y - cam.y;
   if (x < -40 || x > 1000 || y < -40 || y > 600) return;
   const flip = fish.face;
-  const wiggle = Math.sin(time * 9 + fish.id) * 1.2;
+  const tier = fish.tier === "hard" || fish.tier === "elite" ? fish.tier : "easy";
+  const scale = tier === "elite" ? 1.35 : tier === "hard" ? 1.15 : 1;
+  const wiggle =
+    Math.sin(time * (thrashing ? 28 : 9) + fish.id) *
+    (thrashing ? 3.2 : 1.2) *
+    scale;
+
+  const colors =
+    tier === "elite"
+      ? { a: "#f0a050", b: "#d07028", c: "#8a4010", tail: "#a05018" }
+      : tier === "hard"
+        ? { a: "#6ecf9a", b: "#3a9a70", c: "#246a48", tail: "#2a7850" }
+        : { a: "#5a9ad0", b: "#3a78b0", c: "#2a5a90", tail: "#2a68a0" };
 
   ctx.save();
   ctx.translate(x, y + wiggle * 0.3);
-  ctx.scale(flip, 1);
+  ctx.rotate(thrashing ? Math.sin(time * 22 + fish.id) * 0.35 : 0);
+  ctx.scale(flip * scale, scale);
 
-  // Усны гялбаа / сүүдэр
   ctx.fillStyle = "rgba(20,40,70,0.25)";
   ctx.beginPath();
   ctx.ellipse(0, 4, 9, 2.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Бие
   const body = ctx.createLinearGradient(-8, -3, 8, 3);
-  body.addColorStop(0, "#5a9ad0");
-  body.addColorStop(0.5, "#3a78b0");
-  body.addColorStop(1, "#2a5a90");
+  body.addColorStop(0, colors.a);
+  body.addColorStop(0.5, colors.b);
+  body.addColorStop(1, colors.c);
   ctx.fillStyle = body;
   ctx.beginPath();
   ctx.ellipse(0, 0, 9, 3.6 + wiggle * 0.15, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Сүүл
-  ctx.fillStyle = "#2a68a0";
+  ctx.fillStyle = colors.tail;
   ctx.beginPath();
   ctx.moveTo(-7, 0);
   ctx.lineTo(-13, -4 + wiggle);
@@ -1830,7 +1944,15 @@ export function drawFish(
   ctx.closePath();
   ctx.fill();
 
-  // Нүд
+  if (tier !== "easy") {
+    ctx.strokeStyle =
+      tier === "elite" ? "rgba(255,220,120,0.7)" : "rgba(180,255,210,0.45)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 9.4, 4, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   ctx.fillStyle = "#0a1828";
   ctx.beginPath();
   ctx.arc(5.5, -0.8, 1.1, 0, Math.PI * 2);
@@ -2592,6 +2714,100 @@ function drawLegsAndBoots(
   }
 }
 
+/**
+ * Shift dodge — гүйлтийн поза:
+ * нэг хөл өвдөг цээж рүү нугарсан, нөгөө хөл хойш сунасан.
+ * cycle: -1..1 (аль хөл урд)
+ */
+function drawSprintLegsAndBoots(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  flip: number,
+  cycle: number,
+  trouser = "#33323b",
+  boot = "#241f26",
+  bootTrim = "#8a5a2e",
+): void {
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  const t = Math.max(-1, Math.min(1, cycle));
+  // Нугарсан (урд) хөл
+  const tuckHip = x + 2.4 * flip;
+  const tuckKneeX = x + 5.2 * flip;
+  const tuckKneeY = y - 0.5;
+  const tuckFootX = x + 1.6 * flip;
+  const tuckFootY = y + 4.8;
+  // Сунасан (хойд) хөл
+  const stretchHip = x - 2.8 * flip;
+  const stretchKneeX = x - 6.2 * flip;
+  const stretchKneeY = y + 6.8;
+  const stretchFootX = x - 10 * flip;
+  const stretchFootY = y + 11.4;
+
+  const drawOne = (
+    hipX: number,
+    kneeX: number,
+    kneeY: number,
+    footX: number,
+    footY: number,
+    width: number,
+  ): void => {
+    ctx.strokeStyle = trouser;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(hipX, y + 2.4);
+    ctx.quadraticCurveTo(kneeX, kneeY, footX, footY - 1.1);
+    ctx.stroke();
+
+    ctx.fillStyle = boot;
+    ctx.beginPath();
+    ctx.ellipse(footX, footY, 2.2, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(
+      footX + flip * 1.35,
+      footY + 1.45,
+      3.2,
+      1.55,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.strokeStyle = bootTrim;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(footX - 2, footY - 1.35);
+    ctx.lineTo(footX + 2, footY - 1.35);
+    ctx.stroke();
+  };
+
+  if (t >= 0) {
+    drawOne(stretchHip, stretchKneeX, stretchKneeY, stretchFootX, stretchFootY, 3.5);
+    drawOne(tuckHip, tuckKneeX, tuckKneeY, tuckFootX, tuckFootY, 3.85);
+  } else {
+    // Эсрэг хөл урд — толин тусгалтай
+    drawOne(
+      x + 2.4 * flip,
+      x - 5.2 * flip,
+      stretchKneeY,
+      x - 9.2 * flip,
+      stretchFootY,
+      3.5,
+    );
+    drawOne(
+      x - 2.8 * flip,
+      x + 4.8 * flip,
+      tuckKneeY,
+      x + 0.8 * flip,
+      tuckFootY,
+      3.85,
+    );
+  }
+}
+
 /** Дээл — мөрөндөө нарийн, хормойдоо дэлгэр; эмжээр, зах, бүс, зангилаатай */
 function drawDeelBody(
   ctx: CanvasRenderingContext2D,
@@ -3257,12 +3473,25 @@ export function drawPlayer(
   const y = player.pos.y - cam.y;
   const flip = player.facing.x < 0 ? -1 : 1;
   const riding = player.riding;
-  const walk = riding ? 0 : player.moving ? Math.sin(time * 11) * 3 : 0;
+  const dashPose =
+    !riding &&
+    (player.dodgePhase === "dodging" ||
+      (player.dodgePhase === "recovery" && player.dodgeTimer > 0.03));
+  const dashActive = !riding && player.dodgePhase === "dodging";
+  const walk = riding
+    ? 0
+    : dashPose
+      ? 0
+      : player.moving
+        ? Math.sin(time * 11) * 3
+        : 0;
   const bob = riding
     ? Math.sin(time * 2) * 0.25
-    : player.moving
-      ? Math.abs(Math.sin(time * 11)) * 1.5
-      : Math.sin(time * 2) * 0.6;
+    : dashPose
+      ? Math.abs(Math.sin(time * 26)) * 2.2
+      : player.moving
+        ? Math.abs(Math.sin(time * 11)) * 1.5
+        : Math.sin(time * 2) * 0.6;
   const angry = player.attackAnim > 0 && !eyesClosed;
 
   if (riding) {
@@ -3288,40 +3517,81 @@ export function drawPlayer(
   }
 
   if (!eyesClosed) {
-    drawShadow(ctx, x, y + 12, 11, 4.5);
+    drawShadow(ctx, x, y + 12, dashPose ? 13 : 11, dashPose ? 3.8 : 4.5);
   }
+
+  // Dodge — урагш тонгойх (хөлийн төвөөр эргүүлнэ)
+  const lean =
+    dashActive ? 0.52 : dashPose ? 0.22 : 0;
+  if (lean > 0.02) {
+    ctx.save();
+    ctx.translate(x, y + 12);
+    ctx.rotate(lean * flip);
+    ctx.translate(-x, -(y + 12));
+  }
+
   // Морь унасан үед хөл хөдөлгөөнгүй суулгана
   if (riding) {
     drawLegsAndBoots(ctx, x, y + 1, 0, flip, "#2e2d36", "#1c181e", "#8a5a2e");
+  } else if (dashPose) {
+    // Гүйлтийн хөл — нэг нугарсан, нэг хойш сунасан
+    const runCycle = Math.sin(time * 30);
+    drawSprintLegsAndBoots(
+      ctx,
+      x,
+      y - bob * 0.1,
+      flip,
+      runCycle,
+      "#2e2d36",
+      "#1c181e",
+      "#8a5a2e",
+    );
   } else {
     drawLegsAndBoots(ctx, x, y - bob * 0.15, walk, flip, "#2e2d36", "#1c181e", "#8a5a2e");
   }
 
   const armSwing = riding
     ? 0
-    : player.moving
-      ? -Math.sin(time * 11) * 4.5
-      : -Math.sin(time * 1.5) * 0.8;
+    : dashPose
+      ? 0
+      : player.moving
+        ? -Math.sin(time * 11) * 4.5
+        : -Math.sin(time * 1.5) * 0.8;
   const armFlip = -flip;
-  const bodyY = y - 2 - bob * 0.4;
-  const shoulderY = y - 6 - bob * 0.3;
+  const bodyY = y - 2 - bob * 0.4 + (dashPose ? 1.2 : 0);
+  const shoulderY = y - 6 - bob * 0.3 + (dashPose ? 1.0 : 0);
 
-  // Хойд ханцуй
-  drawSleevedArm(
-    ctx,
-    x - 6.2 * armFlip,
-    shoulderY,
-    x - 9.2 * armFlip - armSwing * 0.35,
-    shoulderY + 7.2 - armSwing * 0.15,
-    BOY_SLEEVE,
-    BOY_DEEL.trim,
-    "#e0b890",
-  );
+  // Хойд ханцуй — dodge үед хоёр гар хойш
+  if (dashPose) {
+    drawSleevedArm(
+      ctx,
+      x - 5.5 * armFlip,
+      shoulderY + 1,
+      x - 12.5 * armFlip,
+      shoulderY + 3.5,
+      BOY_SLEEVE,
+      BOY_DEEL.trim,
+      "#e0b890",
+      x - 9 * armFlip,
+      shoulderY + 5.5,
+    );
+  } else {
+    drawSleevedArm(
+      ctx,
+      x - 6.2 * armFlip,
+      shoulderY,
+      x - 9.2 * armFlip - armSwing * 0.35,
+      shoulderY + 7.2 - armSwing * 0.15,
+      BOY_SLEEVE,
+      BOY_DEEL.trim,
+      "#e0b890",
+    );
+  }
 
   drawDeelBody(ctx, x, bodyY, flip, BOY_DEEL, 0.96);
 
   // Толгой — хуучин энгийн нүүр (бие/гутал шинэ хэвээр)
-  const hdy = y - 15 - bob;
+  const hdy = y - 15 - bob + (dashPose ? 0.8 : 0);
   drawHerderHairBack(ctx, x, hdy, flip, time);
   ctx.fillStyle = "#e0b890";
   ctx.beginPath();
@@ -3396,10 +3666,36 @@ export function drawPlayer(
     swordEquipped && player.combatPhase !== "idle";
   const punching =
     !swordEquipped && player.attackMelee && player.attackAnim > 0;
-  const handX = x + 7 * armFlip + armSwing * 0.25;
-  const handY = shoulderY + 8 + armSwing * 0.2;
+  const handX = dashPose
+    ? x + 4 * armFlip - 8 * flip
+    : x + 7 * armFlip + armSwing * 0.25;
+  const handY = dashPose
+    ? shoulderY + 5.5
+    : shoulderY + 8 + armSwing * 0.2;
 
-  if (swordSlashing) {
+  if (dashPose && !punching && !swordSlashing) {
+    // Урд гар ч хойш — гүйх поза
+    drawSleevedArm(
+      ctx,
+      x + 5.2 * armFlip,
+      shoulderY + 0.5,
+      handX,
+      handY,
+      BOY_SLEEVE,
+      BOY_DEEL.trim,
+      "#e0b890",
+      x + 1.5 * armFlip - 3 * flip,
+      shoulderY + 6,
+    );
+    ctx.fillStyle = "#e0b890";
+    ctx.beginPath();
+    ctx.arc(handX, handY, 2.3, 0, Math.PI * 2);
+    ctx.fill();
+    if (swordEquipped) {
+      const faceAng = Math.atan2(player.facing.y, player.facing.x);
+      drawHeldSkySword(ctx, player, handX, handY, faceAng, time, 0);
+    }
+  } else if (swordSlashing) {
     // Сэлэм цавчих — гар сэлмийн чиглэлд сунана (нударга биш)
     const atk = player.attackFacing;
     const faceAng = Math.atan2(atk.y, atk.x);
@@ -3497,7 +3793,7 @@ export function drawPlayer(
     }
   }
 
-  if (!punching && !swordSlashing && hasBow) {
+  if (!punching && !swordSlashing && !dashPose && hasBow) {
     const draw =
       player.attackAnim > 0
         ? Math.min(1, (0.18 - player.attackAnim) / 0.12)
@@ -3534,6 +3830,7 @@ export function drawPlayer(
     ctx.restore();
   }
 
+  if (lean > 0.02) ctx.restore();
   if (riding) ctx.restore();
   if (player.parryPhase === "startup" || player.parryPhase === "active") {
     const angle = Math.atan2(player.facing.y, player.facing.x);

@@ -66,6 +66,10 @@ export const EN_GAME: Record<string, string> = {
   "E — Гэрт орох · H — бууж уях · G — моринд ачих":
     "E — Enter ger · H — dismount, hitch · G — load on horse",
   "E — Загас татах!": "E — Reel it in!",
+  "E — Загас залгах!": "E — Hook the fish!",
+  "E — Дэгээ залгах!": "E — Set the hook!",
+  "E — ХУРДАН ТАТ! (mash)": "E — MASH to reel!",
+  "E — Уургалах (хазтал хүлээ)": "E — Cast (wait for a bite)",
   "E — Мал гаргах · J — Нураах": "E — Let livestock out · J — Tear down",
   "E — Мал оруулах · J — Нураах": "E — Bring livestock in · J — Tear down",
   "E — Мод хагалах": "E — Chop wood",
@@ -198,6 +202,28 @@ export const EN_GAME: Record<string, string> = {
   "Загас барьлаа! Q дарж идээрэй.": "A fish! Press Q to eat it.",
   "Загас зарах": "Sell fish",
   "Загас ойртоогүй — дэнсээ хүлээ.": "No fish yet — wait for a bite.",
+  "Загас дэгээг хазтал хүлээ — дараа нь E дар.":
+    "Wait for a bite — then press E.",
+  "Загас дэгээг хазлаа! E дарж залга!": "Bite! Press E to set the hook!",
+  "Том загас хазлаа! E дарж залга!": "Big fish bite! Press E!",
+  "ХОВОР том загас хазлаа! E дарж залга!": "RARE huge bite! Press E!",
+  "Залгалаа! E-г хурдан дарж тат!": "Hooked! Mash E to reel it in!",
+  "Том загас залгалаа! E-г хурдан дарж тат!":
+    "Big fish hooked! Mash E hard!",
+  "Ховор загас залгалаа! E-г МАШ хурдан дар!":
+    "Rare fish hooked! MASH E!",
+  "E хурдан дар — загас зугтаж байна!": "Mash E — the fish is escaping!",
+  "E хурдан дар — том загас хүчтэй!": "Mash E — the big one fights hard!",
+  "E МАШ хурдан дар — ховор загас зугтана!":
+    "MASH E — the rare fish is breaking free!",
+  "Том загас барьлаа! Q дарж идээрэй.": "Caught a big fish! Press Q to eat.",
+  "Ховор том загас барьлаа! Q дарж идээрэй.":
+    "Caught a rare fish! Press Q to eat.",
+  "+2 загас": "+2 fish",
+  "+3 загас": "+3 fish",
+  "Загас зугтлаа!": "The fish got away!",
+  "Загас зугтлаа! E-г хурдан дар.": "It escaped! Mash E faster next time.",
+  "Загас шугам таслаад зугтлаа!": "The line snapped — fish escaped!",
   "Загасны уурга": "Fishing pole",
   "Загасны уурга хэрэгтэй — өвгөнөөс ав.":
     "You need a fishing pole — get one from the elder.",

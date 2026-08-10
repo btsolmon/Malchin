@@ -3895,6 +3895,17 @@ export function debugJumpToSpiritWorld(state: GameState): void {
  * Cheat (`'`): Төмөр шулмасыг дийлээд аав ээжтэй амьдрах үе рүү шууд шилжинэ.
  */
 export function debugJumpToFamilyLife(state: GameState): void {
+  startFamilyLifeRun(state, { cheat: true });
+}
+
+/**
+ * Түүх алгасаад аав ээжтэй амьдрах / сүрэг өсгөх үеэс эхэлнэ.
+ * Story нэг удаа дуусгасан тоглогчид дахин эхлэхэд ашиглана.
+ */
+export function startFamilyLifeRun(
+  state: GameState,
+  options: { cheat?: boolean } = {},
+): void {
   ensureStoryState(state);
   const story = state.story;
 
@@ -4053,6 +4064,7 @@ export function debugJumpToFamilyLife(state: GameState): void {
   state.elderDialogueId = null;
   state.elderDialogueLine = 0;
   state.elderShowingChoices = false;
+  state.victoryShown = true;
 
   story.milestone7Completed = true;
   story.milestone8Started = true;
@@ -4071,7 +4083,13 @@ export function debugJumpToFamilyLife(state: GameState): void {
     gravity: -14,
   });
   sfx("win");
-  setMessage(state, "CHEAT: Шулмасыг дийлээд аав ээжтэй амьдрах үе эхэллээ.", 3.2);
+  setMessage(
+    state,
+    options.cheat
+      ? "CHEAT: Шулмасыг дийлээд аав ээжтэй амьдрах үе эхэллээ."
+      : "Түүх алгасаж, аав ээжтэй амьдралаа эхлэв. Сүргээ өсгө!",
+    3.2,
+  );
 }
 
 export function updateLivestockRecoveryQuest(

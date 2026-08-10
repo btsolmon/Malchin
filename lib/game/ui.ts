@@ -26,7 +26,7 @@ import { audio, setMusicVol, setSfxVol, sfx, startSleepSnore, stopSleepSnore } f
 import { maybeLevelUp } from "../game/player";
 import { advanceToMorning } from "../game/daycycle";
 import { getLang, langLabel, setLang, t, tr, trFormat } from "./i18n";
-import { hasAnyRecord, loadRecords } from "./records";
+import { hasAnyRecord, hasCompletedStory, loadRecords } from "./records";
 import { clearSave, hasSave } from "./save";
 import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
 import { inShulmasSpirit } from "./firstRoute";
@@ -67,6 +67,8 @@ export type MainMenuAction =
   | "controls"
   | "credits";
 
+export type StoryChoiceAction = "watchStory" | "skipStory" | "back";
+
 /**
  * Үндсэн цэсний мөрүүд. Хадгалсан тоглоом байвал "Үргэлжлүүлэх" нэмэгдэж
  * мөрийн тоо өөрчлөгдөнө — тиймээс индексээр биш action-аар шийднэ.
@@ -86,6 +88,33 @@ export function mainMenuEntries(): Array<{
   entries.push({ action: "controls", label: t("menu.controls") });
   entries.push({ action: "credits", label: t("menu.credits") });
   return entries;
+}
+
+export function storyChoiceEntries(): Array<{
+  action: StoryChoiceAction;
+  label: string;
+}> {
+  return [
+    { action: "watchStory", label: t("menu.watchStory") },
+    { action: "skipStory", label: t("menu.skipStory") },
+    { action: "back", label: t("settings.back") },
+  ];
+}
+
+export function storyChoiceButtons(): UiButton[] {
+  const w = 260;
+  const h = 46;
+  const gap = 14;
+  const x = (VIEW_W - w) / 2;
+  const entries = storyChoiceEntries();
+  const y0 = 268;
+  return entries.map((entry, i) => ({
+    x,
+    y: y0 + i * (h + gap),
+    w,
+    h,
+    label: entry.label,
+  }));
 }
 
 export function mainMenuButtons(): UiButton[] {
@@ -289,9 +318,14 @@ export function updateMenu(state: GameState): void {
       state.requestLoad = true;
       sfx("select");
     } else if (action === "play") {
-      // Шинээр эхэлбэл хуучин хадгалалт хөндөлдөхгүй байхаар устгана
-      clearSave();
-      beginOpeningSequence(state);
+      if (hasCompletedStory()) {
+        // Cutscene-ээс өмнө түүх үзэх/алгасах — хадгалалтыг сонгосны дараа устгана
+        state.menuScreen = "storyChoice";
+        state.menuIndex = 0;
+      } else {
+        clearSave();
+        beginOpeningSequence(state);
+      }
       sfx("select");
     } else if (action === "settings") {
       state.menuScreen = "settings";
@@ -302,6 +336,56 @@ export function updateMenu(state: GameState): void {
       sfx("select");
     } else if (action === "credits") {
       state.menuScreen = "credits";
+      sfx("select");
+    }
+    return;
+  }
+
+  if (state.menuScreen === "storyChoice") {
+    const entries = storyChoiceEntries();
+    const btns = storyChoiceButtons();
+    if (input.menuUp) {
+      state.menuIndex = (state.menuIndex + btns.length - 1) % btns.length;
+      sfx("move");
+    }
+    if (input.menuDown) {
+      state.menuIndex = (state.menuIndex + 1) % btns.length;
+      sfx("move");
+    }
+    if (input.mouseMoved) {
+      btns.forEach((b, i) => {
+        if (overButton(b, input)) state.menuIndex = i;
+      });
+    }
+    if (input.pause) {
+      state.menuScreen = "main";
+      state.menuIndex = mainMenuIndexOf("play");
+      sfx("select");
+      return;
+    }
+
+    let activate = -1;
+    if (input.confirm) activate = state.menuIndex;
+    if (input.mouseClicked) {
+      const i = btns.findIndex((b) => overButton(b, input));
+      if (i >= 0) activate = i;
+    }
+    if (activate < 0 || activate >= entries.length) return;
+
+    const action = entries[activate].action;
+    if (action === "watchStory") {
+      clearSave();
+      beginOpeningSequence(state);
+      state.menuScreen = "main";
+      sfx("select");
+    } else if (action === "skipStory") {
+      clearSave();
+      state.requestSkipStory = true;
+      state.menuScreen = "main";
+      sfx("select");
+    } else if (action === "back") {
+      state.menuScreen = "main";
+      state.menuIndex = mainMenuIndexOf("play");
       sfx("select");
     }
     return;
@@ -330,6 +414,7 @@ export interface CraftRecipe {
   id: string;
   name: string;
   desc: string;
+  icon: GameIconId;
   need: Partial<Record<"wool" | "cashmere" | "milk" | "wood" | "stone", number>>;
   give: Partial<Record<"felt" | "aaruul" | "arrows", number>>;
 }
@@ -341,6 +426,7 @@ export function craftRecipes(): CraftRecipe[] {
       id: "arrows",
       name: t("craft.arrows.name"),
       desc: t("craft.arrows.desc"),
+      icon: "arrow",
       need: { wood: 1, stone: 1 },
       give: { arrows: 2 },
     },
@@ -348,6 +434,7 @@ export function craftRecipes(): CraftRecipe[] {
       id: "felt",
       name: t("craft.felt.name"),
       desc: t("craft.felt.desc"),
+      icon: "felt",
       need: { wool: 3 },
       give: { felt: 1 },
     },
@@ -355,6 +442,7 @@ export function craftRecipes(): CraftRecipe[] {
       id: "aaruul",
       name: t("craft.aaruul.name"),
       desc: t("craft.aaruul.desc"),
+      icon: "aaruul",
       need: { milk: 2 },
       give: { aaruul: 1 },
     },
@@ -362,6 +450,7 @@ export function craftRecipes(): CraftRecipe[] {
       id: "cashmere_felt",
       name: t("craft.cashmereFelt.name"),
       desc: t("craft.cashmereFelt.desc"),
+      icon: "felt",
       need: { cashmere: 2 },
       give: { felt: 2 },
     },
@@ -549,14 +638,16 @@ export function craftLayout(): {
   close: UiButton;
 } {
   const w = 520;
-  const h = 76 + craftRecipes().length * 58 + 70;
+  const rowH = 58;
+  const rowGap = 8;
+  const h = 76 + craftRecipes().length * (rowH + rowGap) + 70;
   const x = (VIEW_W - w) / 2;
   const y = (VIEW_H - h) / 2;
   const rows: UiButton[] = craftRecipes().map((it, i) => ({
     x: x + 24,
-    y: y + 76 + i * 58,
+    y: y + 76 + i * (rowH + rowGap),
     w: w - 48,
-    h: 50,
+    h: rowH,
     label: it.name,
   }));
   return {
@@ -1081,6 +1172,101 @@ function drawHudPortrait(
     false,
   );
   ctx.restore();
+
+  // Даарахад аватарын тойрог цэнхэрлэж мөстөнө
+  drawPortraitColdFrost(ctx, state, cx, cy, radius);
+}
+
+/** Дулаан багасахад зүүн дээд аватарын хүрээ мөстөнө */
+function drawPortraitColdFrost(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  cx: number,
+  cy: number,
+  radius: number,
+): void {
+  if (
+    state.phase === "menu" ||
+    state.phase === "intro" ||
+    state.phase === "spirit"
+  ) {
+    return;
+  }
+
+  const { warmth, maxWarmth } = state.player.vitals;
+  const ratio = maxWarmth > 0 ? warmth / maxWarmth : 1;
+  if (ratio >= 0.45) return;
+
+  const intensity = Math.min(1, (0.45 - ratio) / 0.45);
+  const time = performance.now() / 1000;
+  const shimmer = 0.85 + Math.sin(time * 2.8) * 0.15;
+  const rimR = radius + 5;
+
+  ctx.save();
+
+  // Гадна цэнхэр гэрэл / мөсөн хүрээ
+  ctx.globalAlpha = (0.35 + intensity * 0.55) * shimmer;
+  ctx.strokeStyle = `rgba(${140 + intensity * 80},${200 + intensity * 40},255,0.95)`;
+  ctx.lineWidth = 3 + intensity * 3.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rimR + 1 + intensity * 2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Дотор мөстөн цагираг
+  ctx.globalAlpha = (0.25 + intensity * 0.45) * shimmer;
+  ctx.strokeStyle = "rgba(210,235,255,0.9)";
+  ctx.lineWidth = 2 + intensity * 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rimR - 2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Мөстөн ширхэг — тойргийн дагуу
+  ctx.globalAlpha = (0.4 + intensity * 0.5) * shimmer;
+  ctx.strokeStyle = "rgba(230,245,255,0.95)";
+  ctx.fillStyle = "rgba(200,230,255,0.7)";
+  ctx.lineWidth = 1.1;
+  const spikes = 10 + Math.floor(intensity * 8);
+  for (let i = 0; i < spikes; i++) {
+    const a = (i / spikes) * Math.PI * 2 + time * 0.15;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const base = rimR + 0.5;
+    const len = 3 + (i % 3) * 1.6 + intensity * 4;
+    ctx.beginPath();
+    ctx.moveTo(cx + cos * base, cy + sin * base);
+    ctx.lineTo(cx + cos * (base + len), cy + sin * (base + len));
+    const mid = base + len * 0.45;
+    const px = -sin;
+    const py = cos;
+    ctx.moveTo(cx + cos * mid, cy + sin * mid);
+    ctx.lineTo(cx + cos * mid + px * 2.2, cy + sin * mid + py * 2.2);
+    ctx.moveTo(cx + cos * mid, cy + sin * mid);
+    ctx.lineTo(cx + cos * mid - px * 2.2, cy + sin * mid - py * 2.2);
+    ctx.stroke();
+
+    if (i % 2 === 0) {
+      ctx.beginPath();
+      ctx.arc(
+        cx + cos * (base + 1.2),
+        cy + sin * (base + 1.2),
+        1.1 + intensity * 0.8,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  }
+
+  // Хүчтэй даарахад доторх цэнхэр бүрхүүл
+  if (intensity > 0.35) {
+    ctx.globalAlpha = (intensity - 0.35) * 0.35 * shimmer;
+    ctx.fillStyle = "rgba(90,160,230,0.55)";
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function drawHudMeter(
@@ -1092,7 +1278,7 @@ function drawHudMeter(
   ratio: number,
   color: string,
 ): void {
-  const cut = Math.min(8, height / 2);
+  const cut = Math.min(6, height / 2 + 1);
   const meterPath = (meterWidth: number): void => {
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -1103,11 +1289,11 @@ function drawHudMeter(
     ctx.closePath();
   };
 
-  meterPath(width + 8);
+  meterPath(width + 6);
   ctx.fillStyle = "#35231d";
   ctx.fill();
   ctx.strokeStyle = "#8d5a35";
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   meterPath(width);
@@ -1122,9 +1308,9 @@ function drawHudMeter(
     ctx.fillStyle = color;
     ctx.fillRect(x, y, fillWidth, height);
     ctx.fillStyle = "rgba(255,255,255,0.28)";
-    ctx.fillRect(x, y + 1, fillWidth, Math.max(2, height * 0.28));
+    ctx.fillRect(x, y + 1, fillWidth, Math.max(1, height * 0.28));
     ctx.fillStyle = "rgba(0,0,0,0.25)";
-    ctx.fillRect(x, y + height - 3, fillWidth, 3);
+    ctx.fillRect(x, y + height - 2, fillWidth, 2);
     ctx.restore();
   }
 }
@@ -1451,18 +1637,44 @@ function drawHotSlot(
   icon: GameIconId,
   active = false,
 ): void {
-  ctx.fillStyle = active ? "#6a4a28" : "#4a3020";
-  ctx.fillRect(x, y, size, size);
-  ctx.fillStyle = active ? "#3a2818" : "#2a1c12";
-  ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
-  ctx.strokeStyle = active ? "#e8c56a" : "#8a6a42";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x + 1, y + 1, size - 2, size - 2);
-  drawGameIcon(ctx, icon, x + size / 2, y + size * 0.42, size * 0.62);
-  ctx.font = "bold 9px 'Courier New', monospace";
+  const r = 6;
+  // Гадна хүрээ
+  const rim = ctx.createLinearGradient(x, y, x, y + size);
+  rim.addColorStop(0, active ? "#c49a4a" : "#8a6a42");
+  rim.addColorStop(1, active ? "#6a4820" : "#4a3220");
+  ctx.fillStyle = rim;
+  roundRectPath(ctx, x, y, size, size, r);
+  ctx.fill();
+
+  // Дотор хонхор
+  const inset = 2.5;
+  const well = ctx.createLinearGradient(x, y, x, y + size);
+  well.addColorStop(0, active ? "#4a3018" : "#1a120c");
+  well.addColorStop(0.45, active ? "#3a2414" : "#14100c");
+  well.addColorStop(1, active ? "#5a3820" : "#221810");
+  ctx.fillStyle = well;
+  roundRectPath(
+    ctx,
+    x + inset,
+    y + inset,
+    size - inset * 2,
+    size - inset * 2,
+    r - 2,
+  );
+  ctx.fill();
+
+  if (active) {
+    ctx.strokeStyle = "rgba(255,220,120,0.85)";
+    ctx.lineWidth = 1.5;
+    roundRectPath(ctx, x + 1, y + 1, size - 2, size - 2, r - 1);
+    ctx.stroke();
+  }
+
+  drawGameIcon(ctx, icon, x + size / 2, y + size * 0.4, size * 0.66);
+  ctx.font = "bold 9px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillStyle = "#e8c56a";
-  ctx.fillText(key, x + size / 2, y + size - 3);
+  ctx.fillStyle = active ? "#ffe090" : "#e8c56a";
+  ctx.fillText(key, x + size / 2, y + size - 4);
   ctx.textAlign = "left";
 }
 
@@ -1786,19 +1998,80 @@ export function drawUiButton(
   b: UiButton,
   selected: boolean,
 ): void {
-  ctx.fillStyle = selected ? "rgba(232,197,106,0.18)" : "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, b.x, b.y, b.w, b.h, 10);
+  const r = 11;
+  // Зөөлөн сүүдэр
+  ctx.fillStyle = "rgba(0,0,0,0.35)";
+  roundRectPath(ctx, b.x + 1.5, b.y + 2.5, b.w, b.h, r);
   ctx.fill();
-  ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.28)";
-  ctx.lineWidth = selected ? 2 : 1;
-  roundRectPath(ctx, b.x, b.y, b.w, b.h, 10);
+
+  // Модон/арьсан өнгөөр
+  const fill = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+  if (selected) {
+    fill.addColorStop(0, "rgba(120,80,28,0.95)");
+    fill.addColorStop(0.45, "rgba(70,45,16,0.96)");
+    fill.addColorStop(1, "rgba(42,28,10,0.98)");
+  } else {
+    fill.addColorStop(0, "rgba(38,28,18,0.92)");
+    fill.addColorStop(0.5, "rgba(18,14,10,0.94)");
+    fill.addColorStop(1, "rgba(12,10,8,0.96)");
+  }
+  ctx.fillStyle = fill;
+  roundRectPath(ctx, b.x, b.y, b.w, b.h, r);
+  ctx.fill();
+
+  // Дээд гэрэл
+  ctx.fillStyle = selected
+    ? "rgba(255,220,140,0.14)"
+    : "rgba(255,230,180,0.06)";
+  roundRectPath(ctx, b.x + 2, b.y + 2, b.w - 4, b.h * 0.42, r - 2);
+  ctx.fill();
+
+  // Гадна хүрээ
+  ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.32)";
+  ctx.lineWidth = selected ? 2.2 : 1.2;
+  roundRectPath(ctx, b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, r);
   ctx.stroke();
 
-  ctx.fillStyle = selected ? "#e8c56a" : COLORS.hudText;
+  // Дотор нимгэн шугам
+  ctx.strokeStyle = selected
+    ? "rgba(255,230,160,0.35)"
+    : "rgba(232,197,106,0.12)";
+  ctx.lineWidth = 1;
+  roundRectPath(ctx, b.x + 3.5, b.y + 3.5, b.w - 7, b.h - 7, r - 3);
+  ctx.stroke();
+
+  ctx.fillStyle = selected ? "#ffe9a0" : COLORS.hudText;
   ctx.font = "600 17px system-ui, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 6);
+  ctx.textBaseline = "middle";
+  ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 0.5);
+  ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
+}
+
+/** Авдар/урлалын мөр дээрх icon-ийн жижиг хүрээ */
+function drawItemIconWell(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  icon: GameIconId,
+  selected: boolean,
+): void {
+  const half = size / 2;
+  const x = cx - half;
+  const y = cy - half;
+  const fill = ctx.createLinearGradient(x, y, x, y + size);
+  fill.addColorStop(0, selected ? "#5a3c1c" : "#2a1c12");
+  fill.addColorStop(1, selected ? "#3a2810" : "#16100a");
+  ctx.fillStyle = fill;
+  roundRectPath(ctx, x, y, size, size, 7);
+  ctx.fill();
+  ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.35)";
+  ctx.lineWidth = selected ? 1.6 : 1;
+  roundRectPath(ctx, x, y, size, size, 7);
+  ctx.stroke();
+  drawGameIcon(ctx, icon, cx, cy, size * 0.72);
 }
 
 export function drawMenuTitle(
@@ -1840,6 +2113,22 @@ export function drawMenuMain(
   btns.forEach((b, i) => drawUiButton(ctx, b, i === state.menuIndex));
 
   drawRecordsPanel(ctx);
+}
+
+export function drawMenuStoryChoice(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+): void {
+  drawMenuTitle(ctx, t("menu.storyChoiceTitle"));
+  ctx.textAlign = "center";
+  ctx.fillStyle = COLORS.hudMuted;
+  ctx.font = "14px system-ui, sans-serif";
+  ctx.fillText(t("menu.storyChoiceHint"), VIEW_W / 2, 210);
+  ctx.textAlign = "left";
+
+  const btns = storyChoiceButtons();
+  btns.forEach((b, i) => drawUiButton(ctx, b, i === state.menuIndex));
+  drawBackHint(ctx, VIEW_H - 36);
 }
 
 /** Өөрийн дээд амжилтууд — үндсэн цэсний баруун доод хэсэгт */
@@ -2089,6 +2378,7 @@ export function drawMenu(
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   if (state.menuScreen === "main") drawMenuMain(ctx, state);
+  else if (state.menuScreen === "storyChoice") drawMenuStoryChoice(ctx, state);
   else if (state.menuScreen === "settings") drawMenuSettings(ctx, state);
   else if (state.menuScreen === "controls") drawMenuControls(ctx);
   else drawMenuCredits(ctx);
@@ -2104,18 +2394,22 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     return;
   }
 
-  // —— Зүүн дээд: character portrait + HP/stamina/hunger ——
+  // —— Зүүн дээд: character portrait + HP/stamina/hunger/warmth ——
   const portraitX = pad + 34;
-  const portraitY = pad + 38;
+  const portraitY = pad + 42;
   const portraitRadius = 29;
-  const barX = portraitX + portraitRadius - 2;
-  const barW = 166;
-  const barH = 13;
-  const barGap = 18;
+  // Баруудын зүүн үзүүр аватарын доор орно — эхлээд зурж, аватар дээр нь
+  const barX = portraitX - 10;
+  const barW = 168;
+  const barH = 10;
+  const barStep = 13;
+  const barCount = 4;
+  const stackH = barH + (barCount - 1) * barStep;
+  const barStartY = portraitY - stackH / 2;
   drawHudMeter(
     ctx,
     barX,
-    pad + 19,
+    barStartY,
     barW,
     barH,
     player.vitals.health / player.vitals.maxHealth,
@@ -2124,8 +2418,8 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawHudMeter(
     ctx,
     barX,
-    pad + 19 + barGap,
-    barW - 26,
+    barStartY + barStep,
+    barW - 20,
     barH,
     player.stamina / Math.max(1, player.maxStamina),
     "#3299d0",
@@ -2133,18 +2427,27 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   drawHudMeter(
     ctx,
     barX,
-    pad + 19 + barGap * 2,
-    barW - 48,
+    barStartY + barStep * 2,
+    barW - 40,
     barH,
     player.vitals.hunger / player.vitals.maxHunger,
     "#d7a629",
   );
+  drawHudMeter(
+    ctx,
+    barX,
+    barStartY + barStep * 3,
+    barW - 60,
+    barH,
+    player.vitals.warmth / Math.max(1, player.vitals.maxWarmth),
+    "#e8eef5",
+  );
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
   // Статус дүрсүүд (buff мөр) — нохой гэх мэт
-  const iconY = pad + 90;
+  const iconY = portraitY + portraitRadius + 14;
   const iconS = 18;
-  let ix = barX;
+  let ix = portraitX + portraitRadius + 8;
 
   if (player.gear.dog) {
     drawGameIcon(ctx, "dog", ix + iconS / 2, iconY + iconS / 2 - 2, iconS + 2);
@@ -2514,7 +2817,15 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       VIEW_W / 2,
       VIEW_H / 2 + 36,
     );
-    ctx.fillText(t("end.hint"), VIEW_W / 2, VIEW_H / 2 + 70);
+    ctx.fillText(
+      won
+        ? t("end.hint")
+        : hasCompletedStory()
+          ? t("end.loseHintSkip")
+          : t("end.loseHint"),
+      VIEW_W / 2,
+      VIEW_H / 2 + 70,
+    );
     ctx.textAlign = "left";
   }
 
@@ -2555,26 +2866,33 @@ export function drawChest(
     const have = inv[item.key];
     const selected = state.menuIndex === i;
 
-    ctx.fillStyle = selected
-      ? "rgba(232,197,106,0.14)"
-      : have > 0
-        ? "rgba(12,10,8,0.6)"
-        : "rgba(12,10,8,0.35)";
-    roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
+    const rowFill = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    if (selected) {
+      rowFill.addColorStop(0, "rgba(100,70,24,0.45)");
+      rowFill.addColorStop(1, "rgba(40,28,10,0.55)");
+    } else if (have > 0) {
+      rowFill.addColorStop(0, "rgba(28,20,12,0.85)");
+      rowFill.addColorStop(1, "rgba(12,10,8,0.75)");
+    } else {
+      rowFill.addColorStop(0, "rgba(16,12,8,0.45)");
+      rowFill.addColorStop(1, "rgba(10,8,6,0.4)");
+    }
+    ctx.fillStyle = rowFill;
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 9);
     ctx.fill();
     ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.22)";
-    ctx.lineWidth = selected ? 2 : 1;
-    roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
+    ctx.lineWidth = selected ? 1.8 : 1;
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 9);
     ctx.stroke();
 
-    drawGameIcon(ctx, item.icon, r.x + 24, r.y + r.h / 2, 26);
+    drawItemIconWell(ctx, r.x + 26, r.y + r.h / 2, 32, item.icon, selected);
 
     ctx.fillStyle = selected ? "#e8c56a" : COLORS.hudText;
     ctx.font = "600 14px system-ui, sans-serif";
-    ctx.fillText(item.name, r.x + 48, r.y + 20);
+    ctx.fillText(item.name, r.x + 52, r.y + 20);
     ctx.fillStyle = COLORS.hudMuted;
     ctx.font = "11px system-ui, sans-serif";
-    ctx.fillText(item.desc, r.x + 48, r.y + 38);
+    ctx.fillText(item.desc, r.x + 52, r.y + 38);
 
     ctx.textAlign = "right";
     ctx.fillStyle = have > 0 ? "#ffd060" : "#a89880";
@@ -2625,6 +2943,15 @@ export function drawCraft(
   ctx.textAlign = "left";
 
   const inv = state.player.inventory;
+  const needIcon: Record<"wool" | "cashmere" | "milk" | "wood" | "stone", GameIconId> =
+    {
+      wool: "wool",
+      cashmere: "cashmere",
+      milk: "milk",
+      wood: "wood",
+      stone: "stone",
+    };
+
   rows.forEach((r, i) => {
     const recipe = craftRecipes()[i];
     const selected = state.menuIndex === i;
@@ -2637,20 +2964,44 @@ export function drawCraft(
         can = false;
     }
 
-    ctx.fillStyle = selected ? "rgba(232,197,106,0.14)" : "rgba(12,10,8,0.6)";
-    roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
+    const rowFill = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    if (selected) {
+      rowFill.addColorStop(0, "rgba(100,70,24,0.45)");
+      rowFill.addColorStop(1, "rgba(40,28,10,0.55)");
+    } else {
+      rowFill.addColorStop(0, "rgba(28,20,12,0.85)");
+      rowFill.addColorStop(1, "rgba(12,10,8,0.75)");
+    }
+    ctx.fillStyle = rowFill;
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 9);
     ctx.fill();
     ctx.strokeStyle = selected ? "#e8c56a" : "rgba(232,197,106,0.22)";
-    ctx.lineWidth = selected ? 2 : 1;
-    roundRectPath(ctx, r.x, r.y, r.w, r.h, 8);
+    ctx.lineWidth = selected ? 1.8 : 1;
+    roundRectPath(ctx, r.x, r.y, r.w, r.h, 9);
     ctx.stroke();
 
+    drawItemIconWell(ctx, r.x + 28, r.y + r.h / 2, 34, recipe.icon, selected);
+
     ctx.fillStyle = selected ? "#e8c56a" : COLORS.hudText;
-    ctx.font = "600 15px system-ui, sans-serif";
-    ctx.fillText(recipe.name, r.x + 16, r.y + 22);
+    ctx.font = "600 14px system-ui, sans-serif";
+    ctx.fillText(recipe.name, r.x + 56, r.y + 18);
     ctx.fillStyle = COLORS.hudMuted;
-    ctx.font = "12px system-ui, sans-serif";
-    ctx.fillText(recipe.desc, r.x + 16, r.y + 40);
+    ctx.font = "11px system-ui, sans-serif";
+    ctx.fillText(recipe.desc, r.x + 56, r.y + 34);
+
+    // Шаардлага — жижиг icon + тоо
+    let nx = r.x + 56;
+    const ny = r.y + r.h - 10;
+    for (const [k, need] of Object.entries(recipe.need)) {
+      const key = k as "wool" | "cashmere" | "milk" | "wood" | "stone";
+      const have = inv[key] ?? 0;
+      const enough = have >= (need ?? 0);
+      drawGameIcon(ctx, needIcon[key], nx + 7, ny - 4, 14);
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.fillStyle = enough ? "#a0d890" : "#e07070";
+      ctx.fillText(`×${need}`, nx + 16, ny);
+      nx += 44;
+    }
 
     ctx.textAlign = "right";
     ctx.fillStyle = can ? "#a0d890" : "#e07070";
