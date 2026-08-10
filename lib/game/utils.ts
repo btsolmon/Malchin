@@ -491,20 +491,22 @@ export function setBannerAlert(
   seconds = 3.8,
   kind: BannerAlertKind = "threat",
 ): void {
-  // Өлсгөлөн мэдэгдэл идэвхтэй дайсны мэдэгдлийг бүү дар
+  const soft = kind === "hunger" || kind === "cold";
+  // Зөөлөн мэдэгдэл идэвхтэй дайсны мэдэгдлийг бүү дар
   if (
-    kind === "hunger" &&
+    soft &&
     state.bannerAlert &&
     state.bannerAlert.kind !== "hunger" &&
+    state.bannerAlert.kind !== "cold" &&
     state.bannerAlert.timer > 0.9
   ) {
     return;
   }
-  // Ижил өлсгөлөн баннерыг дахин fade-гүйгээр сунгана
+  // Ижил зөөлөн баннерыг дахин fade-гүйгээр сунгана
   if (
-    kind === "hunger" &&
+    soft &&
     state.bannerAlert &&
-    state.bannerAlert.kind === "hunger" &&
+    state.bannerAlert.kind === kind &&
     state.bannerAlert.text === text
   ) {
     state.bannerAlert.timer = Math.max(state.bannerAlert.timer, seconds * 0.75);

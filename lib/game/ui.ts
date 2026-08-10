@@ -1316,6 +1316,101 @@ function drawHudMeter(
   }
 }
 
+type HudMeterIcon = "heart" | "bolt" | "drumstick" | "snow";
+
+/** Баруудын зүүн талд — амь / стамина / өлсгөлөн / даарах */
+function drawHudMeterIcon(
+  ctx: CanvasRenderingContext2D,
+  kind: HudMeterIcon,
+  cx: number,
+  cy: number,
+  size: number,
+): void {
+  const s = size / 16;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(s, s);
+
+  if (kind === "heart") {
+    ctx.fillStyle = "#e84840";
+    ctx.beginPath();
+    ctx.moveTo(0, 5);
+    ctx.bezierCurveTo(-1, 2.5, -7.5, -1.5, -7.5, -5);
+    ctx.bezierCurveTo(-7.5, -8.2, -5, -10, -2.2, -10);
+    ctx.bezierCurveTo(-0.6, -10, 0.6, -9.2, 0, -7.8);
+    ctx.bezierCurveTo(-0.6, -9.2, 0.6, -10, 2.2, -10);
+    ctx.bezierCurveTo(5, -10, 7.5, -8.2, 7.5, -5);
+    ctx.bezierCurveTo(7.5, -1.5, 1, 2.5, 0, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,220,210,0.45)";
+    ctx.beginPath();
+    ctx.ellipse(-3.2, -5.5, 1.6, 1.1, -0.5, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (kind === "bolt") {
+    ctx.fillStyle = "#f0d040";
+    ctx.beginPath();
+    ctx.moveTo(1.5, -10);
+    ctx.lineTo(-5.5, 1);
+    ctx.lineTo(-0.5, 1);
+    ctx.lineTo(-2.5, 10);
+    ctx.lineTo(6.5, -2);
+    ctx.lineTo(1.5, -2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(120,80,10,0.45)";
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+  } else if (kind === "drumstick") {
+    // Яс
+    ctx.strokeStyle = "#f2e0b8";
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-6, 6);
+    ctx.lineTo(1, -1);
+    ctx.stroke();
+    ctx.fillStyle = "#f2e0b8";
+    ctx.beginPath();
+    ctx.arc(-7.2, 7.2, 2.2, 0, Math.PI * 2);
+    ctx.arc(-5.2, 8.4, 2, 0, Math.PI * 2);
+    ctx.fill();
+    // Мах — улбар шар
+    ctx.fillStyle = "#e87828";
+    ctx.beginPath();
+    ctx.ellipse(4, -4, 5.5, 4.2, -0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#f09848";
+    ctx.beginPath();
+    ctx.ellipse(3.2, -4.8, 3.2, 2.4, -0.55, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Цас
+    ctx.strokeStyle = "#7ec8ff";
+    ctx.fillStyle = "#a8dcff";
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 3; i++) {
+      const a = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * -8, Math.sin(a) * -8);
+      ctx.lineTo(Math.cos(a) * 8, Math.sin(a) * 8);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, 0, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * 5.5, Math.sin(a) * 5.5, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
+}
+
 /** Гэрийн тооно — тэнгэрээр нар/сар явж цаг харуулна */
 function drawRoundClock(
   ctx: CanvasRenderingContext2D,
@@ -2487,27 +2582,41 @@ function drawBannerAlert(
   const alpha = fadeIn * fadeOut;
   if (alpha <= 0.01) return;
 
-  const pulse = 0.9 + Math.sin(state.world.elapsed * 6) * 0.08;
+  const pulse = 0.92 + Math.sin(state.world.elapsed * 6) * 0.08;
   const isHunger = alert.kind === "hunger";
+  const isCold = alert.kind === "cold";
   const isDanger = alert.kind === "danger";
-  const fill =
-    isHunger ? "#ffe08a" : isDanger ? "#ffb080" : "#ff8a8a";
-  const tint =
-    isHunger
-      ? "rgba(70,35,8,1)"
+  const fill = isCold
+    ? "#b8e4ff"
+    : isHunger
+      ? "#ffe566"
+      : isDanger
+        ? "#ffb080"
+        : "#ff8a8a";
+  const tint = isCold
+    ? "rgba(6,24,48,1)"
+    : isHunger
+      ? "rgba(72,28,4,1)"
       : isDanger
         ? "rgba(70,18,8,1)"
         : "rgba(70,8,8,1)";
-  const edge =
-    isHunger ? "rgba(255,190,80,1)" : "rgba(255,90,90,1)";
+  const edge = isCold
+    ? "rgba(140,210,255,1)"
+    : isHunger
+      ? "rgba(255,210,70,1)"
+      : "rgba(255,90,90,1)";
+  // Өлсгөлөн/даарах — илүү тод; дайсан анхааруулга бага зэрэг зөөлөн
+  const softAlert = isHunger || isCold;
+  const tintA = softAlert ? 0.4 : 0.22;
+  const edgeA = softAlert ? 0.62 : 0.35;
 
   ctx.save();
-  ctx.globalAlpha = alpha * 0.22 * pulse;
+  ctx.globalAlpha = alpha * tintA * pulse;
   ctx.fillStyle = tint;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
   const border = 14 + Math.sin(state.world.elapsed * 7) * 2;
-  ctx.globalAlpha = alpha * 0.35 * pulse;
+  ctx.globalAlpha = alpha * edgeA * pulse;
   ctx.fillStyle = edge;
   ctx.fillRect(0, 0, VIEW_W, border);
   ctx.fillRect(0, VIEW_H - border, VIEW_W, border);
@@ -2522,14 +2631,27 @@ function drawBannerAlert(
   ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
   const cx = VIEW_W / 2;
   const cy = VIEW_H * 0.4;
+  // Текст илүү тод — хар хүрээ
+  ctx.lineWidth = Math.max(4, fontSize * 0.08);
+  ctx.strokeStyle = softAlert
+    ? "rgba(0,0,0,0.75)"
+    : "rgba(0,0,0,0.45)";
+  ctx.strokeText(text, cx, cy);
   ctx.fillStyle = fill;
   ctx.fillText(text, cx, cy);
 
   ctx.font = `700 ${Math.max(16, fontSize * 0.28)}px system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(255,255,255,0.82)";
-  const sub = isHunger
-    ? tr("Q дарж ид · эсвэл малдаа өвс өг")
-    : tr("Бэлэн бай — хамгаал!");
+  ctx.fillStyle = softAlert
+    ? "rgba(255,255,255,0.95)"
+    : "rgba(255,255,255,0.82)";
+  const sub = isCold
+    ? tr("F — гал асаа · гэртээ дулаац")
+    : isHunger
+      ? tr("Q дарж ид · эсвэл малдаа өвс өг")
+      : tr("Бэлэн бай — хамгаал!");
+  ctx.strokeStyle = "rgba(0,0,0,0.55)";
+  ctx.lineWidth = 3;
+  if (softAlert) ctx.strokeText(sub, cx, cy + fontSize * 0.7);
   ctx.fillText(sub, cx, cy + fontSize * 0.7);
 
   ctx.textAlign = "left";
@@ -2551,7 +2673,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   const portraitX = pad + 34;
   const portraitY = pad + 42;
   const portraitRadius = 29;
-  // Баруудын зүүн үзүүр аватарын доор орно — эхлээд зурж, аватар дээр нь
+  // Баруудын зүүн үзүүр аватарын доор; icon — баруун үзүүрт
   const barX = portraitX - 10;
   const barW = 168;
   const barH = 10;
@@ -2559,42 +2681,50 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   const barCount = 4;
   const stackH = barH + (barCount - 1) * barStep;
   const barStartY = portraitY - stackH / 2;
-  drawHudMeter(
-    ctx,
-    barX,
-    barStartY,
-    barW,
-    barH,
-    player.vitals.health / player.vitals.maxHealth,
-    "#c83b32",
-  );
-  drawHudMeter(
-    ctx,
-    barX,
-    barStartY + barStep,
-    barW - 20,
-    barH,
-    player.stamina / Math.max(1, player.maxStamina),
-    "#3299d0",
-  );
-  drawHudMeter(
-    ctx,
-    barX,
-    barStartY + barStep * 2,
-    barW - 40,
-    barH,
-    player.vitals.hunger / player.vitals.maxHunger,
-    "#d7a629",
-  );
-  drawHudMeter(
-    ctx,
-    barX,
-    barStartY + barStep * 3,
-    barW - 60,
-    barH,
-    player.vitals.warmth / Math.max(1, player.vitals.maxWarmth),
-    "#e8eef5",
-  );
+  const iconGap = 12;
+  const meters: Array<{
+    width: number;
+    ratio: number;
+    color: string;
+    icon: HudMeterIcon;
+  }> = [
+    {
+      width: barW,
+      ratio: player.vitals.health / player.vitals.maxHealth,
+      color: "#d43830",
+      icon: "heart",
+    },
+    {
+      width: barW - 20,
+      ratio: player.stamina / Math.max(1, player.maxStamina),
+      color: "#e8c040",
+      icon: "bolt",
+    },
+    {
+      width: barW - 40,
+      ratio: player.vitals.hunger / player.vitals.maxHunger,
+      color: "#e87828",
+      icon: "drumstick",
+    },
+    {
+      width: barW - 60,
+      ratio: player.vitals.warmth / Math.max(1, player.vitals.maxWarmth),
+      color: "#5eb0e8",
+      icon: "snow",
+    },
+  ];
+  meters.forEach((m, i) => {
+    const my = barStartY + barStep * i;
+    drawHudMeter(ctx, barX, my, m.width, barH, m.ratio, m.color);
+    // Бар бүрийн баруун үзүүрийн хажууд
+    drawHudMeterIcon(
+      ctx,
+      m.icon,
+      barX + m.width + iconGap,
+      my + barH / 2,
+      13,
+    );
+  });
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 
   // Статус дүрсүүд (buff мөр) — нохой гэх мэт

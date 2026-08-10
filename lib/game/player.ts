@@ -948,8 +948,9 @@ export function tryEatBerry(state: GameState): void {
       0,
       player.vitals.maxHunger,
     );
+    // Жимс (+4) -ээс ~5 дахин их амь нөхнө
     player.vitals.health = clamp(
-      player.vitals.health + 6,
+      player.vitals.health + 20,
       0,
       player.vitals.maxHealth,
     );
@@ -963,7 +964,7 @@ export function tryEatBerry(state: GameState): void {
       "#6ab0e8",
       { speed: 40, gravity: -20, size: 2 },
     );
-    spawnText(state, player.pos, "+36 хоол", "#7ec8ff");
+    spawnText(state, player.pos, "+36 хоол · +20 амь", "#7ec8ff");
     return;
   }
 
@@ -1370,19 +1371,34 @@ export function updateSurvival(state: GameState, dt: number): void {
     player.vitals.maxWarmth,
   );
 
-  if (player.vitals.warmth <= 0) {
-    if (!state.godMode) {
-      player.vitals.health = clamp(
-        player.vitals.health - 3 * dt,
-        storyHealthFloor,
-        player.vitals.maxHealth,
-      );
-      if (
-        !state.story.temporaryPlayerProtectionActive &&
-        player.vitals.health <= 0
-      ) {
-        handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
-      }
+  const warmthRatio =
+    player.vitals.maxWarmth > 0
+      ? player.vitals.warmth / player.vitals.maxWarmth
+      : 1;
+  if (warmthRatio <= 0.2 && state.phase === "playing") {
+    if (
+      !state.bannerAlert ||
+      state.bannerAlert.kind !== "cold" ||
+      state.bannerAlert.timer < 1.1
+    ) {
+      setBannerAlert(state, "ДААРЧ БАЙНА! ГАЛ ТҮЛ!", 3.4, "cold");
+    }
+  }
+
+  // Даарч эхлэхэд (≤20%) амь багсана — бүрэн хүйтэнд хүчтэй
+  if (warmthRatio <= 0.2 && !state.godMode) {
+    const severity = clamp(1 - warmthRatio / 0.2, 0, 1);
+    const coldDps = 2.5 + severity * 4.5; // 2.5 → 7 HP/сек
+    player.vitals.health = clamp(
+      player.vitals.health - coldDps * dt,
+      storyHealthFloor,
+      player.vitals.maxHealth,
+    );
+    if (
+      !state.story.temporaryPlayerProtectionActive &&
+      player.vitals.health <= 0
+    ) {
+      handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
     }
   }
 

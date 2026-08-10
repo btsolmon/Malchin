@@ -803,7 +803,7 @@ export interface ScreenPulseState {
 }
 
 /** Дэлгэц дүүрэн аюулын мэдэгдэл (өлсгөлөн / дайсан) */
-export type BannerAlertKind = "hunger" | "threat" | "danger";
+export type BannerAlertKind = "hunger" | "cold" | "threat" | "danger";
 
 export interface BannerAlert {
   text: string;
