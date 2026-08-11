@@ -35,6 +35,7 @@ export type GameIconId =
   | "log"
   | "fence"
   | "spiritWater"
+  | "steak"
   | "empty";
 
 /** public/icons доторх файлтай 1:1 */
@@ -71,6 +72,7 @@ export const GAME_ICON_SRC: Record<GameIconId, string> = {
   log: "/icons/log.svg",
   fence: "/icons/fence.svg",
   spiritWater: "/icons/spiritWater.svg",
+  steak: "/icons/steak.svg",
   empty: "/icons/empty.svg",
 };
 

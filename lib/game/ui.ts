@@ -1316,7 +1316,7 @@ function drawHudMeter(
   }
 }
 
-type HudMeterIcon = "heart" | "bolt" | "drumstick" | "snow";
+type HudMeterIcon = "heart" | "bolt" | "steak" | "snow";
 
 /** Баруудын зүүн талд — амь / стамина / өлсгөлөн / даарах */
 function drawHudMeterIcon(
@@ -1361,29 +1361,64 @@ function drawHudMeterIcon(
     ctx.strokeStyle = "rgba(120,80,10,0.45)";
     ctx.lineWidth = 0.8;
     ctx.stroke();
-  } else if (kind === "drumstick") {
-    // Яс
-    ctx.strokeStyle = "#f2e0b8";
-    ctx.lineWidth = 2.4;
+  } else if (kind === "steak") {
+    // 3D T-bone — зузаан хажуу, өөхний ирмэг, улаан мах, T яс
+    const steakBlob = (ox: number, oy: number) => {
+      ctx.beginPath();
+      ctx.moveTo(-6.6 + ox, -1.4 + oy);
+      ctx.bezierCurveTo(
+        -8.8 + ox, -5.6 + oy,
+        -5.4 + ox, -9.4 + oy,
+        -0.4 + ox, -8.8 + oy,
+      );
+      ctx.bezierCurveTo(
+        5.2 + ox, -8.2 + oy,
+        9.0 + ox, -5.2 + oy,
+        8.6 + ox, -0.4 + oy,
+      );
+      ctx.bezierCurveTo(
+        8.2 + ox, 4.0 + oy,
+        5.0 + ox, 7.0 + oy,
+        0.6 + ox, 7.4 + oy,
+      );
+      ctx.bezierCurveTo(
+        -4.0 + ox, 7.8 + oy,
+        -8.2 + ox, 5.0 + oy,
+        -8.2 + ox, 1.4 + oy,
+      );
+      ctx.bezierCurveTo(
+        -8.2 + ox, 0.0 + oy,
+        -7.8 + ox, 0.6 + oy,
+        -6.6 + ox, -1.4 + oy,
+      );
+      ctx.closePath();
+    };
+    ctx.fillStyle = "#c4a06a";
+    steakBlob(0.2, 3.2);
+    ctx.fill();
+    ctx.fillStyle = "#f0e2bc";
+    steakBlob(0, 0);
+    ctx.fill();
+    ctx.fillStyle = "#8a2a1c";
+    ctx.beginPath();
+    ctx.moveTo(-5.0, -1.2);
+    ctx.bezierCurveTo(-6.6, -4.4, -4.0, -7.2, -0.3, -6.8);
+    ctx.bezierCurveTo(3.8, -6.4, 6.8, -4.0, 6.5, -0.4);
+    ctx.bezierCurveTo(6.2, 3.0, 3.8, 5.2, 0.4, 5.5);
+    ctx.bezierCurveTo(-3.0, 5.8, -6.2, 3.6, -6.2, 0.8);
+    ctx.bezierCurveTo(-6.2, -0.2, -5.8, 0.2, -5.0, -1.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#f6eed8";
     ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.1;
     ctx.beginPath();
-    ctx.moveTo(-6, 6);
-    ctx.lineTo(1, -1);
+    ctx.moveTo(-2.5, -3.8);
+    ctx.lineTo(-0.9, 3.4);
+    ctx.moveTo(-1.7, -0.3);
+    ctx.lineTo(4.8, 0.4);
     ctx.stroke();
-    ctx.fillStyle = "#f2e0b8";
-    ctx.beginPath();
-    ctx.arc(-7.2, 7.2, 2.2, 0, Math.PI * 2);
-    ctx.arc(-5.2, 8.4, 2, 0, Math.PI * 2);
-    ctx.fill();
-    // Мах — улбар шар
-    ctx.fillStyle = "#e87828";
-    ctx.beginPath();
-    ctx.ellipse(4, -4, 5.5, 4.2, -0.55, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#f09848";
-    ctx.beginPath();
-    ctx.ellipse(3.2, -4.8, 3.2, 2.4, -0.55, 0, Math.PI * 2);
-    ctx.fill();
   } else {
     // Цас
     ctx.strokeStyle = "#7ec8ff";
@@ -2748,8 +2783,8 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     {
       width: barW - 40,
       ratio: player.vitals.hunger / player.vitals.maxHunger,
-      color: "#e87828",
-      icon: "drumstick",
+      color: "#b04030",
+      icon: "steak",
     },
     {
       width: barW - 60,
@@ -2762,13 +2797,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     const my = barStartY + barStep * i;
     drawHudMeter(ctx, barX, my, m.width, barH, m.ratio, m.color);
     // Бар бүрийн баруун үзүүрийн хажууд
-    drawHudMeterIcon(
-      ctx,
-      m.icon,
-      barX + m.width + iconGap,
-      my + barH / 2,
-      13,
-    );
+    drawHudMeterIcon(ctx, m.icon, barX + m.width + iconGap, my + barH / 2, 13);
   });
   drawHudPortrait(ctx, state, portraitX, portraitY, portraitRadius);
 

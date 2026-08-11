@@ -1231,7 +1231,7 @@ export const COLORS = {
   hudAccent: "#e8c56a",
   hudMuted: "#a89880",
   health: "#d64545",
-  hunger: "#c4a035",
+  hunger: "#b04030",
   warmth: "#ff9f5a",
   flockBar: "#d4c4a0",
 } as const;
