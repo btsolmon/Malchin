@@ -38,6 +38,8 @@ export const EN_FORMAT: Record<string, string> = {
   "+{n} мал": "+{n} livestock",
   "+{n} жимс": "+{n} berries",
   "−{n} мал!": "−{n} livestock!",
+  "Мал {n} хоног хашаандаа байлаа — өлсөж үхэв! Өглөө бүр бэлчээрт гарга.":
+    "Livestock stayed penned {n} days — starved! Let them out every morning.",
   "+{n} төллөлт": "+{n} births",
   "Хавар төллөлт! +{n} залуу мал — шөнө дулаан байлга (гал/хашаа).":
     "Spring births! +{n} young — keep them warm at night (fire/fence).",

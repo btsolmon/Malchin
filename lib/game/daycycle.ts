@@ -3,6 +3,7 @@
 import {
   DAY_LENGTH_SEC,
   FENCE_GRID,
+  PENNED_STARVE_DAYS,
   type DayPhase,
   type GameState,
   type PenKind,
@@ -24,9 +25,10 @@ import {
   animalIsOut,
   PEN_RADIUS,
   seasonForDay,
+  setBannerAlert,
   setMessage,
 } from "./utils";
-import { addLivestock, killHerdVisual } from "./livestock";
+import { addLivestock, killHerdVisual, loseLivestock } from "./livestock";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import { trFormat } from "./i18n";
@@ -105,6 +107,10 @@ export function releaseLivestockThroughBreach(
       3.5,
     );
   }
+  const phase = world.dayPhase;
+  if (phase === "dawn" || phase === "day") {
+    markFlockGrazedToday(state);
+  }
   return true;
 }
 
@@ -139,6 +145,73 @@ export function getDayPhase(
   return "night";
 }
 
+/** Бэлчээрт гарвал өнөөдрийн бэлчээрлэлт тооцогдоно */
+export function markFlockGrazedToday(state: GameState): void {
+  const world = state.world;
+  if (world.season === "winter") return;
+  world.grazedToday = true;
+  world.pennedDays = 0;
+}
+
+/**
+ * Үүрээр — өмнөх өдөр гаргаагүй бол pennedDays нэмэгдэнэ.
+ * 3 хоног дараалан хашаанд байвал өлсөж үхнэ.
+ */
+export function resolvePennedDaysAtDawn(state: GameState): void {
+  const world = state.world;
+  if (typeof world.grazedToday !== "boolean") world.grazedToday = false;
+  if (!Number.isFinite(world.pennedDays)) world.pennedDays = 0;
+
+  // Өвөл тэвшээр тэжээнэ — бэлчээрийн хоногийн тоо хэрэггүй
+  if (world.season === "winter") {
+    world.grazedToday = false;
+    world.pennedDays = 0;
+    return;
+  }
+
+  if (world.grazedToday) {
+    world.pennedDays = 0;
+  } else {
+    world.pennedDays += 1;
+  }
+  world.grazedToday = false;
+
+  if (world.pennedDays >= PENNED_STARVE_DAYS) {
+    const lost = loseLivestock(state, 1);
+    if (lost > 0) {
+      spawnText(
+        state,
+        pastureCenter(world),
+        "−1 мал (3 хоног хашаанд)",
+        "#ff9080",
+      );
+      sfx("baa");
+      setBannerAlert(state, "МАЛ ӨЛСӨЖ ҮХЭЖ БАЙНА!", 4.2, "hunger");
+      setMessage(
+        state,
+        trFormat(
+          "Мал {n} хоног хашаандаа байлаа — өлсөж үхэв! Өглөө бүр бэлчээрт гарга.",
+          { n: world.pennedDays },
+        ),
+        5,
+      );
+    }
+  } else if (world.pennedDays === 2) {
+    setMessage(
+      state,
+      "Мал 2 хоног хашаандаа! Маргааш өлсөж үхнэ — E-ээр бэлчээрт гарга.",
+      4.5,
+    );
+    sfx("alert");
+  } else if (world.pennedDays === 1) {
+    setMessage(
+      state,
+      "Үүр цайлаа! Өчигдөр гаргаагүй. 3 хоног хашаанд байвал өлсөж үхнэ.",
+      4,
+    );
+  }
+}
+
 /** Унтаад босоход — дараагийн өглөөний үүр рүү шилжүүлнэ */
 export function advanceToMorning(state: GameState): void {
   const world = state.world;
@@ -154,11 +227,17 @@ export function advanceToMorning(state: GameState): void {
       state.score += growth;
     }
     spawnSpringBirths(state);
+    resolvePennedDaysAtDawn(state);
   }
 
   world.timeOfDay = morning;
   world.season = seasonForDay(world.dayNumber);
   world.dayPhase = getDayPhase(world.timeOfDay, world.season);
+  world.flockOut = false;
+  world.cattleOut = false;
+  world.flockBreach = null;
+  world.cattleBreach = null;
+  pullFlockToPen(state, 1);
 
   if (world.season !== prevSeason) {
     world.pastureGrass = pastureRefillForSeason(world.season);
@@ -178,7 +257,7 @@ export function dayPhaseHint(
   }
   if (phase === "day") {
     if (!flockOut) {
-      return "Өдөр! Мал хашаандаа өлсөнө — E-ээр бэлчээрт гарга";
+      return "Өдөр! Малаа бэлчээрт гарга — 3 хоног хашаанд байвал өлсөж үхнэ";
     }
     if (season === "summer") return "Өдөр боллоо! Өвс, жимс, хоньны ноос түү";
     if (season === "autumn") return "Өдөр боллоо! Түлээ нөөцөл, хашаагаа хүчитгэ";
@@ -207,21 +286,27 @@ export function updateDayPhaseTransitions(state: GameState): void {
 
   if (phase === "dawn" && prev === "night") {
     // Шинэ өдөр — малыг хашаанд бэлдэнэ (өмнөх өдрийн гаргалтыг хаана)
+    resolvePennedDaysAtDawn(state);
     world.flockOut = false;
     world.cattleOut = false;
     world.flockBreach = null;
     world.cattleBreach = null;
     pullFlockToPen(state, 1);
-    setMessage(
-      state,
-      "Үүр цайлаа! Гал түлээд E-ээр малаа бэлчээрт гарга.",
-      4,
-    );
+    if (world.pennedDays < 1) {
+      setMessage(
+        state,
+        "Үүр цайлаа! Гал түлээд E-ээр малаа бэлчээрт гарга.",
+        4,
+      );
+    }
+    // pennedDays >= 1 үед resolvePennedDaysAtDawn аль хэдийн мессеж өгсөн
   } else if (phase === "day" && prev === "dawn") {
     if (!world.flockOut && !world.cattleOut) {
       setMessage(
         state,
-        "Өдөр болов — малаа гаргаагүй! Өдөржин хашаанд байлгавал өлсөж үхнэ.",
+        world.pennedDays >= 2
+          ? "Өдөр болов — малаа яаралтай гарга! 3 хоног хашаанд байвал өлсөж үхнэ."
+          : "Өдөр болов — малаа гаргаагүй! 3 хоног хашаанд байвал өлсөж үхнэ.",
         4,
       );
       sfx("alert");
@@ -316,6 +401,9 @@ export function tryToggleFlockPen(state: GameState): boolean {
       world.flockOut = true;
       world.flockBreach = null;
     }
+    if (phase === "dawn" || phase === "day") {
+      markFlockGrazedToday(state);
+    }
     sfx("gate");
     const label = isCattle ? "Үхэр бэлчээрт!" : "Хонь/ямаа бэлчээрт!";
     spawnText(state, gate, label, "#b8e8a0");
@@ -346,7 +434,7 @@ export function tryToggleFlockPen(state: GameState): boolean {
   setMessage(
     state,
     phase === "dawn" || phase === "day"
-      ? "Өдөр хашаанд байлгавал өлсөнө — орой л оруулдаг нь дээр."
+      ? "Өдөр бэлчээрт байлга — 3 хоног хашаанд байвал өлсөж үхнэ."
       : isCattle
         ? "Үхэр хаалгаар хашаандаа орж байна."
         : "Хонь/ямаа хаалгаар хашаандаа орж байна.",

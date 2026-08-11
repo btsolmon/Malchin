@@ -2616,6 +2616,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["L", t("controls.parry")],
     ["1 / 2", t("controls.weapon")],
     ["E", t("controls.interact")],
+    ["H", t("controls.horse")],
     ["Q", t("controls.eat")],
     ["R", t("controls.rashaan")],
     ["F", t("controls.fire")],
@@ -2707,7 +2708,7 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
   drawBackHint(ctx, 420);
 }
 
-/** 6 салбартай цасан ширхэг */
+/** 6 салбартай цасан ширхэг — зөвхөн хүйтэн анхааруулга */
 function drawSnowflake(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -2726,12 +2727,10 @@ function drawSnowflake(
     const ang = (a * Math.PI) / 3;
     const cos = Math.cos(ang);
     const sin = Math.sin(ang);
-    // Гол салбар
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.lineTo(cos * arm, sin * arm);
     ctx.stroke();
-    // Хоёр жижиг мөчир
     const bx = cos * arm * 0.55;
     const by = sin * arm * 0.55;
     const px = -sin;
@@ -2742,7 +2741,6 @@ function drawSnowflake(
     ctx.lineTo(bx, by);
     ctx.lineTo(bx - px * twig, by - py * twig);
     ctx.stroke();
-    // Гадна жижиг V
     const bx2 = cos * arm * 0.82;
     const by2 = sin * arm * 0.82;
     const twig2 = arm * 0.18;
@@ -2752,11 +2750,184 @@ function drawSnowflake(
     ctx.lineTo(bx2 - px * twig2, by2 - py * twig2);
     ctx.stroke();
   }
-  // Төв цэг
   ctx.beginPath();
   ctx.arc(0, 0, Math.max(0.6, size * 0.12), 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+}
+
+type BannerTheme = {
+  title: string;
+  washDeep: string;
+  washLite: string;
+  particle: string;
+  sub: string;
+  soft: boolean;
+  /** snow | ember | spark | pulse | mote */
+  particleStyle: "snow" | "ember" | "spark" | "pulse" | "mote";
+};
+
+function bannerTheme(
+  kind: import("./types").BannerAlertKind,
+): BannerTheme {
+  switch (kind) {
+    case "cold":
+      return {
+        title: "#dceef8",
+        washDeep: "40,110,180",
+        washLite: "140,210,255",
+        particle: "220,240,255",
+        sub: "F — гал асаа · гэртээ дулаац",
+        soft: true,
+        particleStyle: "snow",
+      };
+    case "hunger":
+      return {
+        title: "#ffd4b8",
+        washDeep: "120,40,28",
+        washLite: "200,80,55",
+        particle: "255,170,120",
+        sub: "Q дарж ид · эсвэл малдаа өвс өг",
+        soft: true,
+        particleStyle: "ember",
+      };
+    case "health":
+      return {
+        title: "#ffc8c0",
+        washDeep: "140,28,28",
+        washLite: "220,70,60",
+        particle: "255,140,130",
+        sub: "Аюулаас зайл · хоол ид · амар",
+        soft: true,
+        particleStyle: "pulse",
+      };
+    case "stamina":
+      return {
+        title: "#ffe9a0",
+        washDeep: "120,90,20",
+        washLite: "232,192,64",
+        particle: "255,220,120",
+        sub: "Зогс · амсгаа аваарай",
+        soft: true,
+        particleStyle: "spark",
+      };
+    case "thief":
+      return {
+        title: "#f0e0ff",
+        washDeep: "70,30,100",
+        washLite: "180,110,220",
+        particle: "230,200,255",
+        sub: "Бэлэн бай — хамгаал!",
+        soft: false,
+        particleStyle: "mote",
+      };
+    case "bear":
+      return {
+        title: "#ffe8c8",
+        washDeep: "100,50,20",
+        washLite: "200,120,60",
+        particle: "255,210,160",
+        sub: "Бэлэн бай — хамгаал!",
+        soft: false,
+        particleStyle: "mote",
+      };
+    case "wolf":
+      return {
+        title: "#eef0f2",
+        washDeep: "40,45,55",
+        washLite: "150,160,175",
+        particle: "220,225,230",
+        sub: "Бэлэн бай — хамгаал!",
+        soft: false,
+        particleStyle: "mote",
+      };
+    case "danger":
+      return {
+        title: "#ffd0c8",
+        washDeep: "130,25,25",
+        washLite: "230,80,70",
+        particle: "255,170,160",
+        sub: "Бэлэн бай — хамгаал!",
+        soft: false,
+        particleStyle: "pulse",
+      };
+    default:
+      return {
+        title: "#ffd8d0",
+        washDeep: "120,35,30",
+        washLite: "220,90,70",
+        particle: "255,190,175",
+        sub: "Бэлэн бай — хамгаал!",
+        soft: false,
+        particleStyle: "mote",
+      };
+  }
+}
+
+function drawBannerParticle(
+  ctx: CanvasRenderingContext2D,
+  style: BannerTheme["particleStyle"],
+  x: number,
+  y: number,
+  size: number,
+  spin: number,
+  rgb: string,
+): void {
+  ctx.strokeStyle = `rgb(${rgb})`;
+  ctx.fillStyle = `rgb(${rgb})`;
+  if (style === "snow") {
+    drawSnowflake(ctx, x, y, size, spin);
+    return;
+  }
+  if (style === "ember") {
+    // Өлсгөлөн — дулаан оч / уур
+    ctx.beginPath();
+    ctx.ellipse(x, y, size * 0.45, size * 0.7, spin * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha *= 0.55;
+    ctx.beginPath();
+    ctx.ellipse(
+      x,
+      y - size * 0.8,
+      size * 0.28,
+      size * 0.55,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    return;
+  }
+  if (style === "spark") {
+    // Стамина — оч
+    ctx.lineWidth = Math.max(0.8, size * 0.18);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x - size * 0.7, y);
+    ctx.lineTo(x + size * 0.7, y);
+    ctx.moveTo(x, y - size * 0.7);
+    ctx.lineTo(x, y + size * 0.7);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  if (style === "pulse") {
+    // Амь — зөөлөн улаан дусал
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha *= 0.4;
+    ctx.beginPath();
+    ctx.arc(x, y, size * 0.7, 0, Math.PI * 2);
+    ctx.stroke();
+    return;
+  }
+  // mote — жижиг цэг
+  ctx.beginPath();
+  ctx.arc(x, y, size * 0.28, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawBannerAlert(
@@ -2781,48 +2952,16 @@ function drawBannerAlert(
   const alpha = ease(fadeIn) * ease(fadeOut);
   if (alpha <= 0.01) return;
 
-  const isHunger = alert.kind === "hunger";
-  const isCold = alert.kind === "cold";
-  const isDanger = alert.kind === "danger";
-  const isWolf = alert.kind === "wolf";
-  const isThief = alert.kind === "thief";
-  const isBear = alert.kind === "bear";
-  const softAlert = isHunger || isCold;
-
-  const titleColor = isCold
-    ? "#dceef8"
-    : isHunger
-      ? "#ffe8a8"
-      : isWolf
-        ? "#eef0f2"
-        : isThief
-          ? "#f0e0ff"
-          : isBear
-            ? "#ffe8c8"
-            : "#ffd8d0";
-  const flakeRgb = isCold
-    ? "220,240,255"
-    : isHunger
-      ? "255,240,200"
-      : isThief
-        ? "240,220,255"
-        : isBear
-          ? "255,235,210"
-          : isDanger
-            ? "255,220,215"
-            : "235,240,245";
-
+  const theme = bannerTheme(alert.kind);
   const breath = 0.75 + 0.25 * (0.5 + 0.5 * Math.sin(state.world.elapsed * 2.4));
   const t = state.world.elapsed;
-  // Давхар цэнхэр — өөр фазын анивчал
   const pulseA = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 3.1));
   const pulseB = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 3.1 + Math.PI * 0.7));
 
   ctx.save();
 
-  // —— Давхар цэнхэр уусалт (ирмэг) ——
-  const washBand = softAlert ? 100 : 78;
-  const drawBlueWash = (
+  const washBand = theme.soft ? 100 : 78;
+  const drawEdgeWash = (
     rgb: string,
     strength: number,
     bandW: number,
@@ -2848,18 +2987,20 @@ function drawBannerAlert(
   };
 
   ctx.globalAlpha = 1;
-  // Гүн цэнхэр (гадна)
-  drawBlueWash("40,110,180", alpha * pulseA * (softAlert ? 0.4 : 0.26), washBand);
-  // Цайвар цэнхэр (дотоод)
-  drawBlueWash(
-    "140,210,255",
-    alpha * pulseB * (softAlert ? 0.34 : 0.22),
+  drawEdgeWash(
+    theme.washDeep,
+    alpha * pulseA * (theme.soft ? 0.4 : 0.26),
+    washBand,
+  );
+  drawEdgeWash(
+    theme.washLite,
+    alpha * pulseB * (theme.soft ? 0.34 : 0.22),
     washBand * 0.55,
   );
 
-  // —— Ирмэгийг 6 салбартай цасан ширхэгээр тойруулна ——
-  const band = softAlert ? 64 : 54;
-  const flakeCount = softAlert ? 36 : 28;
+  // Ирмэг дээрх ширхэг — төрөл бүрт өөр
+  const band = theme.soft ? 64 : 54;
+  const flakeCount = theme.soft ? 34 : 26;
   for (let i = 0; i < flakeCount; i++) {
     const side = i % 4;
     const along = (i * 0.6180339887) % 1;
@@ -2870,7 +3011,15 @@ function drawBannerAlert(
 
     let x = 0;
     let y = 0;
-    if (side === 0) {
+    // Ember дээшээ хөвнө; бусад ирмэг дагана
+    if (theme.particleStyle === "ember") {
+      x = along * VIEW_W + wobble * 0.6;
+      y =
+        VIEW_H -
+        depth * band -
+        ((drift * 1.4) % (band + 20)) -
+        (i % 3) * 4;
+    } else if (side === 0) {
       x = along * VIEW_W + wobble;
       y = depth * band + (drift % 12) * 0.35;
     } else if (side === 1) {
@@ -2888,19 +3037,20 @@ function drawBannerAlert(
     const twinkle = 0.6 + 0.4 * Math.sin(t * 2.6 + i * 1.1);
     const size = 3.2 + (i % 4) * 1.4 + fade * 2.2;
     ctx.globalAlpha =
-      alpha * breath * fade * twinkle * (softAlert ? 0.9 : 0.7);
-    ctx.strokeStyle = `rgb(${flakeRgb})`;
-    ctx.fillStyle = `rgb(${flakeRgb})`;
-    drawSnowflake(ctx, x, y, size, spin);
+      alpha * breath * fade * twinkle * (theme.soft ? 0.88 : 0.68);
+    drawBannerParticle(
+      ctx,
+      theme.particleStyle,
+      x,
+      y,
+      size,
+      spin,
+      theme.particle,
+    );
   }
 
   const text = tr(alert.text);
-  const sub = isCold
-    ? tr("F — гал асаа · гэртээ дулаац")
-    : isHunger
-      ? tr("Q дарж ид · эсвэл малдаа өвс өг")
-      : tr("Бэлэн бай — хамгаал!");
-
+  const sub = tr(theme.sub);
   const cx = VIEW_W / 2;
   const cy = VIEW_H * 0.22;
 
@@ -2912,12 +3062,12 @@ function drawBannerAlert(
   ctx.fillStyle = "rgba(0,0,0,0.7)";
   ctx.fillText(text, cx, cy - 7 + 1);
   ctx.globalAlpha = alpha * (0.9 + 0.1 * breath);
-  ctx.fillStyle = titleColor;
+  ctx.fillStyle = theme.title;
   ctx.fillText(text, cx, cy - 7);
 
   ctx.globalAlpha = alpha * 0.75;
   ctx.font = "500 12px system-ui, sans-serif";
-  ctx.fillStyle = softAlert
+  ctx.fillStyle = theme.soft
     ? "rgba(255,245,220,0.9)"
     : "rgba(255,255,255,0.78)";
   ctx.fillText(sub, cx, cy + 16);

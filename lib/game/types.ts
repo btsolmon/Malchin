@@ -697,6 +697,10 @@ export interface World {
   cattleBreach: Vector2 | null;
   /** Шөнийн гадаа эрсдэлийн хуримтлуулагч */
   outdoorRiskAcc: number;
+  /** Өнөөдөр бэлчээрт гарсан эсэх (өдөржин хашаанд = false) */
+  grazedToday: boolean;
+  /** Дараалан бэлчээрлээгүй хоногийн тоо — 3 хоногт өлсөж үхнэ */
+  pennedDays: number;
   nextWolfIn: number;
   nextThiefIn: number;
   nextWildHorseIn: number;
@@ -757,7 +761,7 @@ export interface InputState {
   herd: boolean;
   /** G — гэр хураах / буулгах (нүүдэл) */
   migrate: boolean;
-  /** Утасны морины товч — унах / буух / уях */
+  /** H / утасны товч — морь унах / буух / уях */
   horseMount: boolean;
   skill1: boolean;
   skill2: boolean;
@@ -821,8 +825,10 @@ export interface ScreenPulseState {
   color: string;
 }
 
-/** Дэлгэц дүүрэн аюулын мэдэгдэл (өлсгөлөн / дайсан) */
+/** Дэлгэц дүүрэн аюулын мэдэгдэл (хэмжүүр / дайсан) */
 export type BannerAlertKind =
+  | "health"
+  | "stamina"
   | "hunger"
   | "cold"
   | "threat"
@@ -1232,6 +1238,8 @@ export const HAY_PER_SHEEP_PER_DAY = 0.18;
 export const GRAZE_PER_ANIMAL_PER_DAY = 0.85;
 /** Тоглоомын нэг өдрийн бодит хугацаа (сек) — 4 мин = 1 өдөр */
 export const DAY_LENGTH_SEC = 240;
+/** Дараалан бэлчээрлээгүй хоног — энэ тоонд хүрвэл мал өлсөж үхнэ */
+export const PENNED_STARVE_DAYS = 3;
 /** Бэлчээрээс өвс хадах зай (гэрийн гадна) */
 export const HAY_HARVEST_RADIUS = PASTURE_RADIUS + 28;
 

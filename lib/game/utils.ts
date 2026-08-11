@@ -492,13 +492,16 @@ export function setBannerAlert(
   seconds = 3.8,
   kind: BannerAlertKind = "threat",
 ): void {
-  const soft = kind === "hunger" || kind === "cold";
-  // Зөөлөн мэдэгдэл идэвхтэй дайсны мэдэгдлийг бүү дар
+  const soft =
+    kind === "hunger" ||
+    kind === "cold" ||
+    kind === "health" ||
+    kind === "stamina";
+  // Зөөлөн мэдэгдэл идэвхтэй дайсны / өөр хэмжүүрийн мэдэгдлийг бүү дар
   if (
     soft &&
     state.bannerAlert &&
-    state.bannerAlert.kind !== "hunger" &&
-    state.bannerAlert.kind !== "cold" &&
+    state.bannerAlert.kind !== kind &&
     state.bannerAlert.timer > 0.9
   ) {
     return;

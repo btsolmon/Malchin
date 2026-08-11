@@ -126,6 +126,8 @@ export function loadGame(): GameState | null {
       ...envelope.state.world,
       flockBreach: envelope.state.world.flockBreach ?? null,
       cattleBreach: envelope.state.world.cattleBreach ?? null,
+      grazedToday: envelope.state.world.grazedToday ?? false,
+      pennedDays: envelope.state.world.pennedDays ?? 0,
     },
   };
 }

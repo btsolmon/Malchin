@@ -368,6 +368,8 @@ export function createInitialState(): GameState {
       flockBreach: null,
       cattleBreach: null,
       outdoorRiskAcc: 0,
+      grazedToday: false,
+      pennedDays: 0,
       nextWolfIn: 72,
       nextThiefIn: 140,
       nextWildHorseIn: 60,
@@ -532,6 +534,9 @@ export function bindInput(
         // Дарахад асаана, update() эсвэл хэрэглэгч нь унтраана —
         // ингэснээр маш богино даралт ч frame алгасахгүй
         if (pressed) input.interact = true;
+        break;
+      case "KeyH":
+        if (pressed) input.horseMount = true;
         break;
       case "Space":
         if (pressed) input.confirm = true;

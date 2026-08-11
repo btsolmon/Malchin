@@ -94,10 +94,10 @@ export const EN_GAME: Record<string, string> = {
   "E — Өвс хадаад тэвшид хий": "E — Cut hay into the trough",
   "E — Өвс хадах": "E — Cut hay",
   "G — Гэр буулгах (мориноос)": "G — Unload ger (from horse)",
-  "E — морь унах": "E — mount horse",
-  "E — морьноос буух": "E — dismount horse",
   "H — морь унах": "H — mount horse",
   "H — морьноос буух": "H — dismount horse",
+  "E — морь унах": "H — mount horse",
+  "E — морьноос буух": "H — dismount horse",
   "J — ТӨГСГӨЛ": "J — FINISH",
   "J / Attack": "J / Attack",
   "J — Хаалга нураах": "J — Tear down gate",
@@ -348,8 +348,8 @@ export const EN_GAME: Record<string, string> = {
   "E — Уургаа хүзүү рүү шид": "E — Throw lasso at the neck",
   "Морь ойрхон байх ёстой — гадаа уясан морь руу оч.":
     "A horse must be near — go to the one hitched outside.",
-  "Морь уналаа. E — буух.": "Mounted up. E — dismount.",
   "Морь уналаа. H — буух.": "Mounted up. H — dismount.",
+  "Морь уналаа. E — буух.": "Mounted up. H — dismount.",
   "Морь уялаа": "Horse hitched",
   "Морь хамгаалав": "The horse took it",
   "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.":
@@ -359,9 +359,9 @@ export const EN_GAME: Record<string, string> = {
   "Морь үхэв!": "The horse is dead!",
   "Морь үхэж гэр унав! Энд буулаа — шинийг авч нүү.":
     "The horse died and the ger came down! It stands here — buy another and move.",
-  "Морьноос бууж уялаа. E — дахин унах.":
-    "Dismounted and hitched. E — mount again.",
   "Морьноос бууж уялаа. H — дахин унах.":
+    "Dismounted and hitched. H — mount again.",
+  "Морьноос бууж уялаа. E — дахин унах.":
     "Dismounted and hitched. H — mount again.",
   "Морьноос буулаа.": "Off the horse.",
   Мянганнаст: "Myanganast",
@@ -494,9 +494,9 @@ export const EN_GAME: Record<string, string> = {
   "Унасан баатрын дэргэд үлдсэн сэлмийг ав.":
     "Take the sword left beside the fallen warrior.",
   "Унах морь": "Riding horse",
-  "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. E — бууж уях.":
-    "Got a riding horse! A hitching line stands west of the ger. E — dismount, hitch.",
   "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. H — бууж уях.":
+    "Got a riding horse! A hitching line stands west of the ger. H — dismount, hitch.",
+  "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. E — бууж уях.":
     "Got a riding horse! A hitching line stands west of the ger. H — dismount, hitch.",
   "Унах морь алга — авдраас ав.": "No riding horse — get one from the chest.",
   "Унтаж байна…": "Sleeping…",
@@ -672,9 +672,9 @@ export const EN_GAME: Record<string, string> = {
   "Эрэг дээр зогсож уургална — ус руу бүү ор.":
     "Cast from the bank — do not step into the water.",
   "Эсгий зарах": "Sell felt",
-  "Эхлээд E-ээр морь уна, дараа нь G дарж гэр ачна.":
-    "Mount with E first, then press G to load the ger.",
   "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.":
+    "Mount with H first, then press G to load the ger.",
+  "Эхлээд E-ээр морь уна, дараа нь G дарж гэр ачна.":
     "Mount with H first, then press G to load the ger.",
   "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.":
     "Pen the livestock first (E at the gate), then G.",
@@ -762,10 +762,23 @@ export const EN_GAME: Record<string, string> = {
     "Day has come — your livestock are still penned!",
   "Өдөр болов — малаа гаргаагүй! Өдөржин хашаанд байлгавал өлсөж үхнэ.":
     "Day has come — livestock still penned! Keep them in all day and they'll starve.",
+  "Өдөр болов — малаа гаргаагүй! 3 хоног хашаанд байвал өлсөж үхнэ.":
+    "Day has come — livestock still penned! 3 days in the pen and they starve.",
+  "Өдөр болов — малаа яаралтай гарга! 3 хоног хашаанд байвал өлсөж үхнэ.":
+    "Day! Let them out now — 3 days penned and they starve.",
   "Өдөр! Мал хашаандаа өлсөнө — E-ээр бэлчээрт гарга":
     "Day! Livestock starve in the pen — press E to let them graze",
+  "Өдөр! Малаа бэлчээрт гарга — 3 хоног хашаанд байвал өлсөж үхнэ":
+    "Day! Let the livestock graze — 3 days penned and they starve",
   "Өдөр хашаанд байлгавал өлсөнө — орой л оруулдаг нь дээр.":
     "They starve if penned by day — better bring them in at evening.",
+  "Өдөр бэлчээрт байлга — 3 хоног хашаанд байвал өлсөж үхнэ.":
+    "Keep them on pasture by day — 3 days penned and they starve.",
+  "Үүр цайлаа! Өчигдөр гаргаагүй. 3 хоног хашаанд байвал өлсөж үхнэ.":
+    "Dawn! You didn't let them out yesterday. 3 days penned and they starve.",
+  "Мал 2 хоног хашаандаа! Маргааш өлсөж үхнэ — E-ээр бэлчээрт гарга.":
+    "Livestock penned 2 days! Tomorrow they starve — E to let them graze.",
+  "−1 мал (3 хоног хашаанд)": "−1 livestock (3 days penned)",
   "Өдөржин хашаанд байлгавал өлсөж үхнэ! E — бэлчээрт гарга.":
     "Kept in the pen all day they'll starve! E — let them out to graze.",
   "Мал хашаандаа өлсөж байна — өглөө бүр бэлчээрт гарга!":
