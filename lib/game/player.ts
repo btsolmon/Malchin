@@ -528,7 +528,7 @@ export function dismountHorse(
   sfx("select");
   if (tie) {
     spawnText(state, pos, "Морь уялаа", "#c8e0ff");
-    setMessage(state, "Морьноос бууж уялаа. H — дахин унах.", 2.5);
+    setMessage(state, "Морьноос бууж уялаа. E — дахин унах.", 2.5);
   } else {
     spawnText(state, pos, "Буулаа", "#e8c56a");
     setMessage(state, "Морьноос буулаа.", 2.2);
@@ -550,39 +550,33 @@ export function hitchHorseOutside(state: GameState): void {
   h.tied = true;
 }
 
-/** H — унах / буух */
-export function tryHorseMount(state: GameState): void {
-  if (!state.input.horseMount) return;
-  if (state.phase !== "playing") {
-    state.input.horseMount = false;
-    return;
-  }
+/** Морь унах / буух. Амжилттай эсвэл мэдэгдэл гаргасан бол true. */
+export function tryToggleHorseMount(state: GameState): boolean {
+  if (state.phase !== "playing") return false;
 
   const player = state.player;
-  state.input.horseMount = false;
-
   if (!player.gear.horse) {
     setMessage(state, "Унах морь алга — авдраас ав.", 2);
-    return;
+    return true;
   }
   if (player.horseHp <= 0) {
     setMessage(state, "Морь үхсэн — дэлгүүрээс шинээр ав.", 2.5);
-    return;
+    return true;
   }
   if (state.world.gerPacked && player.riding) {
     setMessage(state, "Гэр моринд ачсан — эхлээд G-ээр буулга.", 2.5);
-    return;
+    return true;
   }
 
   if (player.riding) {
     dismountHorse(state);
-    return;
+    return true;
   }
 
   const horse = nearMountHorse(state, 56);
   if (!horse) {
     setMessage(state, "Морь ойрхон байх ёстой — гадаа уясан морь руу оч.", 2.5);
-    return;
+    return true;
   }
 
   player.riding = true;
@@ -590,7 +584,15 @@ export function tryHorseMount(state: GameState): void {
   state.world.mountHorse = null;
   sfx("neigh");
   spawnText(state, player.pos, "Уналаа", "#e8c56a");
-  setMessage(state, "Морь уналаа. H — буух.", 2.2);
+  setMessage(state, "Морь уналаа. E — буух.", 2.2);
+  return true;
+}
+
+/** Утасны морины товч */
+export function tryHorseMount(state: GameState): void {
+  if (!state.input.horseMount) return;
+  state.input.horseMount = false;
+  tryToggleHorseMount(state);
 }
 
 export function nearestAliveTree(player: Player, trees: Tree[]): Tree | null {
@@ -667,6 +669,19 @@ export function tryInteract(state: GameState): void {
     state.input.interact = false;
     sfx("door");
     return;
+  }
+
+  // Морь унах / буух
+  if (
+    player.gear.horse &&
+    player.horseHp > 0 &&
+    (player.riding || nearMountHorse(state, 56))
+  ) {
+    if (tryToggleHorseMount(state)) {
+      player.chopCooldown = 0.35;
+      state.input.interact = false;
+      return;
+    }
   }
 
   if (tryCallOpeningLivestock(state)) {
@@ -1669,7 +1684,7 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (!player.riding) {
-    setMessage(state, "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
+    setMessage(state, "Эхлээд E-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
     return;
   }
   if (world.flockOut || world.cattleOut) {

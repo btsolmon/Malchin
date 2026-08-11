@@ -318,7 +318,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           onPointerDown={pulse("horseMount")}
           aria-label="Horse"
         >
-          <TouchGlyph icon="horse" size={26} letter="H" />
+          <TouchGlyph icon="horse" size={26} letter="E" />
         </button>
         <button
           type="button"

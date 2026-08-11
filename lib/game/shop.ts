@@ -305,7 +305,7 @@ export function buyItem(state: GameState, idx: number): void {
     state.world.mountHorse = null;
     setMessage(
       state,
-      "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. H — бууж уях.",
+      "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. E — бууж уях.",
       3.5,
     );
     return;

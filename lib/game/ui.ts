@@ -2535,7 +2535,6 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["B", t("controls.fence")],
     ["N", t("controls.herd")],
     ["G", t("controls.packGer")],
-    ["H", t("controls.horse")],
     ["Tab", t("controls.inventory")],
   ];
 
@@ -2936,16 +2935,6 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ly + 14,
   );
 
-  ctx.fillStyle = "#d8c898";
-  ctx.font = "10px 'Courier New', monospace";
-  ctx.fillText(
-    `${t("hud.wool")}${player.inventory.wool} ${t("hud.cashmere")}${player.inventory.cashmere} ${t("hud.milk")}${player.inventory.milk}`,
-    barX,
-    ly + 28,
-  );
-  ctx.fillStyle = "#a8c8e8";
-  ctx.fillText(`${t("hud.trough")} ${Math.floor(world.feeder.hay)}`, barX, ly + 42);
-
   const nearFence = nearestFence(player.pos, world.fences, 64);
   if (nearFence) {
     const tier = nearFence.tier;
@@ -2958,7 +2947,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.fillText(
       `${nearFence.isGate ? `${t("hud.gate")} ` : ""}${tr(FENCE_TIER_SHORT[tier])} ${hpPct}%`,
       barX,
-      ly + 70,
+      ly + 28,
     );
   }
 

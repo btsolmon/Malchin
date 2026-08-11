@@ -748,7 +748,7 @@ export interface InputState {
   herd: boolean;
   /** G — гэр хураах / буулгах (нүүдэл) */
   migrate: boolean;
-  /** H — морь унах / буух / уях */
+  /** Утасны морины товч — унах / буух / уях */
   horseMount: boolean;
   skill1: boolean;
   skill2: boolean;

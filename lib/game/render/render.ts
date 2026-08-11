@@ -980,7 +980,7 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "E — Гэрт орох · H — бууж уях · G — моринд ачих"
+        ? "E — Гэрт орох / бууж уях · G — моринд ачих"
         : "E — Гэрт орох · G — моринд ачих";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#ffe9a8";
@@ -1082,8 +1082,8 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "H — морьноос буух"
-        : "H — морь унах";
+        ? "E — морьноос буух"
+        : "E — морь унах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);
