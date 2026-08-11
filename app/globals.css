@@ -229,6 +229,14 @@ body {
   padding: 0;
 }
 
+.touch-glyph-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
 .touch-glyph {
   display: block;
   pointer-events: none;
@@ -239,6 +247,24 @@ body {
   font-size: 15px;
   font-weight: 800;
   color: #f2e8d5;
+}
+
+.touch-key-badge {
+  position: absolute;
+  right: -7px;
+  bottom: -6px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: rgba(10, 8, 6, 0.88);
+  border: 1px solid rgba(232, 197, 106, 0.7);
+  color: #e8c56a;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 12px;
+  text-align: center;
+  letter-spacing: 0.02em;
 }
 
 .touch-btn:active {

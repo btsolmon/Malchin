@@ -28,20 +28,26 @@ function TouchGlyph({
   size?: number;
   letter?: string;
 }) {
-  if (icon) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        className="touch-glyph"
-        src={gameIconUrl(icon)}
-        alt=""
-        width={size}
-        height={size}
-        draggable={false}
-      />
-    );
-  }
-  return <span className="touch-glyph-letter">{letter}</span>;
+  return (
+    <span className="touch-glyph-wrap">
+      {icon ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          className="touch-glyph"
+          src={gameIconUrl(icon)}
+          alt=""
+          width={size}
+          height={size}
+          draggable={false}
+        />
+      ) : (
+        <span className="touch-glyph-letter">{letter}</span>
+      )}
+      {icon && letter ? (
+        <span className="touch-key-badge">{letter}</span>
+      ) : null}
+    </span>
+  );
 }
 
 function isTouchDevice(): boolean {
@@ -316,9 +322,9 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           type="button"
           className="touch-btn touch-btn-horse"
           onPointerDown={pulse("horseMount")}
-          aria-label="Horse"
+          aria-label="Horse H"
         >
-          <TouchGlyph icon="horse" size={26} letter="E" />
+          <TouchGlyph icon="horse" size={26} letter="H" />
         </button>
         <button
           type="button"

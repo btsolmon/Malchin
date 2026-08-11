@@ -2597,6 +2597,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["F", t("controls.fire")],
     ["B", t("controls.fence")],
     ["N", t("controls.herd")],
+    ["H", t("controls.horse")],
     ["G", t("controls.packGer")],
     ["Tab", t("controls.inventory")],
   ];
