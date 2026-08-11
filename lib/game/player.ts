@@ -528,7 +528,7 @@ export function dismountHorse(
   sfx("select");
   if (tie) {
     spawnText(state, pos, "Морь уялаа", "#c8e0ff");
-    setMessage(state, "Морьноос бууж уялаа. E — дахин унах.", 2.5);
+    setMessage(state, "Морьноос бууж уялаа. H — дахин унах.", 2.5);
   } else {
     spawnText(state, pos, "Буулаа", "#e8c56a");
     setMessage(state, "Морьноос буулаа.", 2.2);
@@ -584,7 +584,7 @@ export function tryToggleHorseMount(state: GameState): boolean {
   state.world.mountHorse = null;
   sfx("neigh");
   spawnText(state, player.pos, "Уналаа", "#e8c56a");
-  setMessage(state, "Морь уналаа. E — буух.", 2.2);
+  setMessage(state, "Морь уналаа. H — буух.", 2.2);
   return true;
 }
 
@@ -669,19 +669,6 @@ export function tryInteract(state: GameState): void {
     state.input.interact = false;
     sfx("door");
     return;
-  }
-
-  // Морь унах / буух
-  if (
-    player.gear.horse &&
-    player.horseHp > 0 &&
-    (player.riding || nearMountHorse(state, 56))
-  ) {
-    if (tryToggleHorseMount(state)) {
-      player.chopCooldown = 0.35;
-      state.input.interact = false;
-      return;
-    }
   }
 
   if (tryCallOpeningLivestock(state)) {
@@ -1684,7 +1671,7 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (!player.riding) {
-    setMessage(state, "Эхлээд E-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
+    setMessage(state, "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
     return;
   }
   if (world.flockOut || world.cattleOut) {

@@ -582,6 +582,9 @@ export function bindInput(
       case "KeyG":
         if (pressed) input.migrate = true;
         break;
+      case "KeyH":
+        if (pressed) input.horseMount = true;
+        break;
       case "Digit1":
       case "Numpad1":
         if (pressed) input.skill1 = true;

@@ -1082,8 +1082,8 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "E — морьноос буух"
-        : "E — морь унах";
+        ? "H — морьноос буух"
+        : "H — морь унах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);

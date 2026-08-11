@@ -96,6 +96,8 @@ export const EN_GAME: Record<string, string> = {
   "G — Гэр буулгах (мориноос)": "G — Unload ger (from horse)",
   "E — морь унах": "E — mount horse",
   "E — морьноос буух": "E — dismount horse",
+  "H — морь унах": "H — mount horse",
+  "H — морьноос буух": "H — dismount horse",
   "J — ТӨГСГӨЛ": "J — FINISH",
   "J / Attack": "J / Attack",
   "J — Хаалга нураах": "J — Tear down gate",
@@ -345,6 +347,7 @@ export const EN_GAME: Record<string, string> = {
   "Морь ойрхон байх ёстой — гадаа уясан морь руу оч.":
     "A horse must be near — go to the one hitched outside.",
   "Морь уналаа. E — буух.": "Mounted up. E — dismount.",
+  "Морь уналаа. H — буух.": "Mounted up. H — dismount.",
   "Морь уялаа": "Horse hitched",
   "Морь хамгаалав": "The horse took it",
   "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.":
@@ -356,6 +359,8 @@ export const EN_GAME: Record<string, string> = {
     "The horse died and the ger came down! It stands here — buy another and move.",
   "Морьноос бууж уялаа. E — дахин унах.":
     "Dismounted and hitched. E — mount again.",
+  "Морьноос бууж уялаа. H — дахин унах.":
+    "Dismounted and hitched. H — mount again.",
   "Морьноос буулаа.": "Off the horse.",
   Мянганнаст: "Myanganast",
   "НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС": "TÖMÖR SHULMAS OF EIGHTY-NINE SPELLS",
@@ -483,6 +488,8 @@ export const EN_GAME: Record<string, string> = {
   "Унах морь": "Riding horse",
   "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. E — бууж уях.":
     "Got a riding horse! A hitching line stands west of the ger. E — dismount, hitch.",
+  "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. H — бууж уях.":
+    "Got a riding horse! A hitching line stands west of the ger. H — dismount, hitch.",
   "Унах морь алга — авдраас ав.": "No riding horse — get one from the chest.",
   "Унтаж байна…": "Sleeping…",
   "Унтаж байна… Zzz": "Sleeping… Zzz",
@@ -657,6 +664,8 @@ export const EN_GAME: Record<string, string> = {
   "Эсгий зарах": "Sell felt",
   "Эхлээд E-ээр морь уна, дараа нь G дарж гэр ачна.":
     "Mount with E first, then press G to load the ger.",
+  "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.":
+    "Mount with H first, then press G to load the ger.",
   "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.":
     "Pen the livestock first (E at the gate), then G.",
   "Эхний зам цэвэрлэгдлээ. Хараалт хаалганы цаана mini-boss хүлээж байна.":
