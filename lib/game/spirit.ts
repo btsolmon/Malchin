@@ -1,6 +1,6 @@
 // Сүнсний ертөнц — орох / гарах / цаг зогсох / амь (сүнс)
 
-import { sfx } from "./audio";
+import { sfx, startFamilyLifeTheme, stopTumurBossMusic } from "./audio";
 import { spawnText } from "./effects";
 import { ensureParents } from "./parents";
 import { setMessage } from "./utils";
@@ -227,6 +227,9 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
     tumur.active = false;
     tumur.phase = "sealed";
     tumur.phaseTimer = 0;
+  } else if (state.spiritMode === "shulmas") {
+    // Тулаанаас бусад шалтгаанаар гарвал BGM шууд зогсоно
+    stopTumurBossMusic();
   }
 
   state.world.wolves = (state.spiritSavedWolves ?? []).map(cloneWolf);
@@ -274,6 +277,7 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
     };
     state.phase = "playing";
     state.story.activeMainObjective = null;
+    startFamilyLifeTheme();
     setMessage(state, "Хүлээс тасарч, сүнсний манан сарнив.", 2.4);
     return;
   }

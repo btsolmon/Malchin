@@ -1,4 +1,4 @@
-// Хүн 6 — Web Audio: дууны эффект, морин хуурын хөгжим, тохиргоо
+// Хүн 6 — Web Audio: дууны эффект, Хангайн BGM, boss хөгжим, тохиргоо
 
 import { clamp, randRange } from "../game/utils";
 import { VIEW_W } from "../game/types";
@@ -43,6 +43,19 @@ export const audio = {
   footBed: null as HTMLAudioElement | null,
   hoofTimer: 0,
   livestockSfxTimer: 0,
+  /** Үндсэн BGM — Хангайн дуу (A/B crossfade loop) */
+  mainBgmA: null as HTMLAudioElement | null,
+  mainBgmB: null as HTMLAudioElement | null,
+  mainBgmActive: "a" as "a" | "b",
+  mainBgmWatchRaf: 0,
+  mainBgmFadeRaf: 0,
+  mainBgmCrossfading: false,
+  /** Одоогийн үндсэн ая: гаада мээрэн | хангай (гэр бүл) */
+  mainBgmTrack: null as "gaada" | "hangai" | null,
+  /** Төмөр шулмасын boss BGM */
+  tumurBossBgm: null as HTMLAudioElement | null,
+  tumurBossFadeRaf: 0,
+  tumurBossFadeTarget: 0,
 };
 
 export let noiseBuf: AudioBuffer | null = null;
@@ -95,6 +108,8 @@ export function ensureAudio(): void {
 export function setMusicVol(v: number): void {
   audio.musicVol = Math.round(clamp(v, 0, 1) * 100) / 100;
   applyMusicGain();
+  syncMainBgmVolume(true);
+  syncTumurBossBgmVolume();
   saveAudioSettings();
 }
 
@@ -123,6 +138,7 @@ function setMusicDuck(mult: number): void {
   audio.musicDuck = clamp(mult, 0, 1);
   applyMusicGain();
   refreshOpeningAmbientVolumes();
+  syncMainBgmVolume(true);
 }
 
 function applySfxGain(): void {
@@ -523,109 +539,23 @@ export function morinKhuurNote(
 }
 
 export function startMusic(): void {
-  if (!audio.ctx || !audio.musicGain || audio.started) return;
+  if (audio.started) return;
+  ensureAudio();
+  if (!audio.ctx) return;
   audio.started = true;
+  startGaadaTheme();
 
-  // Хоёр утасны дрон — доод D ба A, бага зэрэг detune хийж амьд болгоно
-  for (const [f, det] of [
-    [73.42, 0], // D2
-    [110.0, 2], // A2
-  ] as Array<[number, number]>) {
-    const o = audio.ctx.createOscillator();
-    o.type = "sawtooth";
-    o.frequency.value = f;
-    o.detune.value = det;
-    const lp = audio.ctx.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 320;
-    const g = audio.ctx.createGain();
-    g.gain.value = 0.05;
-    o.connect(lp);
-    lp.connect(g);
-    g.connect(audio.musicGain);
-    o.start();
-  }
-
-  // Аялгуу: алхам алхмаар хөдөлдөг пентатоник фразууд
-  audio.melodyIdx = 7; // G4-ээс эхэлнэ
-  audio.lastFreq = MORIN_SCALE[audio.melodyIdx];
-  audio.nextNote = audio.ctx.currentTime + 0.8;
-
-  const scheduleMelody = (): void => {
-    const ctx = audio.ctx;
-    if (!ctx || !audio.musicGain) return;
-    // Tab нуугдсан үед нот бүү овоол — буцахад чимээгүй flood болно
-    if (typeof document !== "undefined" && document.hidden) {
-      audio.nextNote = Math.max(audio.nextNote, ctx.currentTime + 0.4);
-      return;
-    }
-    if (ctx.state === "suspended") return;
-    // Ая унтарсан бол шинэ нот гаргахгүй (аль хэдийн эхэлсэн нот master gain-ээр чимээгүй)
-    if (audio.musicVol <= 0) {
-      audio.nextNote = Math.max(audio.nextNote, ctx.currentTime + 0.8);
-      return;
-    }
-    // Хоцорсон бол одоогоос дахин эхлүүл (өнгөрсөн envelope = чимээгүй нот)
-    if (audio.nextNote < ctx.currentTime - 0.25) {
-      audio.nextNote = ctx.currentTime + 0.05;
-    }
-    let scheduled = 0;
-    while (audio.nextNote < ctx.currentTime + 1.6 && scheduled < 4) {
-      // Ихэвчлэн зэргэлдээ нот руу, хааяа алгасаж хөдөлнө
-      const r = Math.random();
-      const step =
-        r < 0.55
-          ? Math.random() < 0.5
-            ? -1
-            : 1
-          : r < 0.85
-            ? Math.random() < 0.5
-              ? -2
-              : 2
-            : Math.random() < 0.6
-              ? -3
-              : 3;
-      audio.melodyIdx = Math.round(
-        clamp(audio.melodyIdx + step, 0, MORIN_SCALE.length - 1),
-      );
-      const freq = MORIN_SCALE[audio.melodyIdx];
-
-      // Фразын төгсгөлд урт нот + завсарлага (уртын дууны амьсгаа)
-      const phraseEnd = Math.random() < 0.22;
-      const dur = phraseEnd ? randRange(2.0, 3.2) : randRange(0.8, 1.5);
-      const slideFrom = Math.random() < 0.5 ? audio.lastFreq : undefined;
-
-      morinKhuurNote(
-        ctx,
-        audio.musicGain,
-        audio.nextNote,
-        freq,
-        dur,
-        slideFrom,
-      );
-      audio.lastFreq = freq;
-      audio.nextNote +=
-        dur + (phraseEnd ? randRange(0.7, 1.6) : randRange(0.02, 0.2));
-      scheduled += 1;
-    }
-  };
-
-  audio.musicTimer = window.setInterval(scheduleMelody, 250);
-
-  // Tab буцаж ирэхэд gain + хэмнэл сэргээнэ
   if (typeof document !== "undefined") {
     const onVisibility = (): void => {
       if (document.hidden || !audio.ctx) return;
       if (audio.ctx.state === "suspended") {
         void audio.ctx.resume().then(() => {
           refreshMasterGains();
-          if (audio.ctx) audio.nextNote = audio.ctx.currentTime + 0.1;
-          scheduleMelody();
+          resumeMainBgm();
         });
       } else {
         refreshMasterGains();
-        audio.nextNote = audio.ctx.currentTime + 0.1;
-        scheduleMelody();
+        resumeMainBgm();
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -638,6 +568,8 @@ export function shutdownAudio(): void {
   stopSleepSnore();
   stopCampfireLoop();
   stopRiverAmbience();
+  stopMainBgm();
+  stopTumurBossMusicImmediate();
   if (audio.musicTimer) window.clearInterval(audio.musicTimer);
   audio.musicTimer = 0;
   audio.started = false;
@@ -650,6 +582,378 @@ export function shutdownAudio(): void {
   audio.musicGain = null;
   audio.sfxGain = null;
   noiseBuf = null;
+}
+
+// ---------------------------------------------------------------------------
+// Үндсэн BGM — Гаада мээрэн / Хангай (зөөлөн эхлэл + crossfade loop)
+// ---------------------------------------------------------------------------
+
+const GAADA_BGM_SRC = "/assets/music/gaada-meeren.mp3";
+const HANGAI_BGM_SRC = "/assets/music/hangai-theme.mp3";
+const MAIN_BGM_LEVEL = 0.52;
+/** Эхлэхэд fade-in */
+const MAIN_BGM_INTRO_FADE_SEC = 3.2;
+/** Төгсгөл↔эхлэл давхцуулж loop */
+const MAIN_BGM_CROSSFADE_SEC = 3.5;
+
+function mainBgmTargetVolume(): number {
+  if (audio.musicVol <= 0) return 0;
+  return clamp(
+    audio.musicVol * MAIN_BGM_LEVEL * clamp(audio.musicDuck, 0, 1),
+    0,
+    1,
+  );
+}
+
+function makeMainBgmEl(src: string): HTMLAudioElement {
+  const a = new Audio(src);
+  a.preload = "auto";
+  a.loop = false;
+  a.volume = 0;
+  return a;
+}
+
+function getMainBgmPair(): {
+  active: HTMLAudioElement | null;
+  idle: HTMLAudioElement | null;
+} {
+  const a = audio.mainBgmA;
+  const b = audio.mainBgmB;
+  if (audio.mainBgmActive === "a") return { active: a, idle: b };
+  return { active: b, idle: a };
+}
+
+function cancelMainBgmFade(): void {
+  if (audio.mainBgmFadeRaf && typeof window !== "undefined") {
+    window.cancelAnimationFrame(audio.mainBgmFadeRaf);
+  }
+  audio.mainBgmFadeRaf = 0;
+}
+
+function cancelMainBgmWatch(): void {
+  if (audio.mainBgmWatchRaf && typeof window !== "undefined") {
+    window.cancelAnimationFrame(audio.mainBgmWatchRaf);
+  }
+  audio.mainBgmWatchRaf = 0;
+}
+
+function disposeMainBgmEl(a: HTMLAudioElement | null): void {
+  if (!a) return;
+  a.pause();
+  a.ontimeupdate = null;
+  a.onended = null;
+  a.onerror = null;
+  a.removeAttribute("src");
+  a.load();
+}
+
+function stopMainBgm(): void {
+  cancelMainBgmFade();
+  cancelMainBgmWatch();
+  audio.mainBgmCrossfading = false;
+  disposeMainBgmEl(audio.mainBgmA);
+  disposeMainBgmEl(audio.mainBgmB);
+  audio.mainBgmA = null;
+  audio.mainBgmB = null;
+  audio.mainBgmActive = "a";
+  audio.mainBgmTrack = null;
+}
+
+function syncMainBgmVolume(force = false): void {
+  if (!force && (audio.mainBgmFadeRaf || audio.mainBgmCrossfading)) return;
+  const target = mainBgmTargetVolume();
+  const { active, idle } = getMainBgmPair();
+  if (active) active.volume = target;
+  if (idle && !audio.mainBgmCrossfading) idle.volume = 0;
+}
+
+function fadeMainElTo(
+  el: HTMLAudioElement,
+  target: number,
+  durationSec: number,
+  onDone?: () => void,
+): void {
+  cancelMainBgmFade();
+  const startVol = el.volume;
+  const endVol = clamp(target, 0, 1);
+  if (durationSec <= 0.05) {
+    el.volume = endVol;
+    onDone?.();
+    return;
+  }
+  const t0 =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+  const durationMs = durationSec * 1000;
+  const step = (now: number): void => {
+    const t = clamp((now - t0) / durationMs, 0, 1);
+    const ease = 1 - (1 - t) * (1 - t);
+    el.volume = startVol + (endVol - startVol) * ease;
+    if (t < 1) {
+      audio.mainBgmFadeRaf = window.requestAnimationFrame(step);
+      return;
+    }
+    audio.mainBgmFadeRaf = 0;
+    el.volume = endVol;
+    onDone?.();
+  };
+  audio.mainBgmFadeRaf = window.requestAnimationFrame(step);
+}
+
+function crossfadeMainBgm(
+  from: HTMLAudioElement,
+  to: HTMLAudioElement,
+  durationSec: number,
+): void {
+  cancelMainBgmFade();
+  audio.mainBgmCrossfading = true;
+  const target = mainBgmTargetVolume();
+  to.currentTime = 0;
+  to.volume = 0;
+  void to.play().catch(() => {
+    audio.mainBgmCrossfading = false;
+  });
+
+  const startFrom = from.volume;
+  const t0 =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+  const durationMs = Math.max(200, durationSec * 1000);
+
+  const step = (now: number): void => {
+    const t = clamp((now - t0) / durationMs, 0, 1);
+    // Equal-power-ish soft curve
+    const ease = t * t * (3 - 2 * t);
+    from.volume = startFrom * (1 - ease);
+    to.volume = target * ease;
+    if (t < 1) {
+      audio.mainBgmFadeRaf = window.requestAnimationFrame(step);
+      return;
+    }
+    audio.mainBgmFadeRaf = 0;
+    from.pause();
+    from.currentTime = 0;
+    from.volume = 0;
+    to.volume = target;
+    audio.mainBgmActive = audio.mainBgmActive === "a" ? "b" : "a";
+    audio.mainBgmCrossfading = false;
+  };
+  audio.mainBgmFadeRaf = window.requestAnimationFrame(step);
+}
+
+function watchMainBgmLoop(): void {
+  cancelMainBgmWatch();
+  const tick = (): void => {
+    audio.mainBgmWatchRaf = window.requestAnimationFrame(tick);
+    if (audio.mainBgmCrossfading) return;
+    const { active, idle } = getMainBgmPair();
+    if (!active || !idle) return;
+    if (!Number.isFinite(active.duration) || active.duration < 8) {
+      // Metadata болоогүй / хэт богино — энгийн loop
+      active.loop = true;
+      return;
+    }
+    active.loop = false;
+    const remain = active.duration - active.currentTime;
+    const fade = Math.min(MAIN_BGM_CROSSFADE_SEC, active.duration * 0.22);
+    if (remain <= fade && remain > 0) {
+      crossfadeMainBgm(active, idle, fade);
+    }
+  };
+  audio.mainBgmWatchRaf = window.requestAnimationFrame(tick);
+}
+
+function resumeMainBgm(): void {
+  const { active } = getMainBgmPair();
+  if (!active) return;
+  if (active.paused) void active.play().catch(() => {});
+  syncMainBgmVolume(true);
+}
+
+function startMainBgm(
+  src: string,
+  track: "gaada" | "hangai",
+  introFadeSec = MAIN_BGM_INTRO_FADE_SEC,
+): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (audio.mainBgmTrack === track && audio.mainBgmA) {
+    syncMainBgmVolume(true);
+    resumeMainBgm();
+    return;
+  }
+  stopMainBgm();
+  audio.mainBgmTrack = track;
+  audio.mainBgmA = makeMainBgmEl(src);
+  audio.mainBgmB = makeMainBgmEl(src);
+  audio.mainBgmActive = "a";
+  const a = audio.mainBgmA;
+
+  const begin = (): void => {
+    if (audio.mainBgmA !== a) return;
+    a.volume = 0;
+    void a
+      .play()
+      .then(() => {
+        if (audio.mainBgmA !== a) return;
+        fadeMainElTo(a, mainBgmTargetVolume(), introFadeSec);
+        watchMainBgmLoop();
+      })
+      .catch(() => {
+        // Файл байхгүй / autoplay — чимээгүй үлдээнэ
+      });
+  };
+
+  if (a.readyState >= 2) begin();
+  else a.addEventListener("canplay", begin, { once: true });
+}
+
+/** Тоглоомын үндсэн ая — Гаада мээрэн */
+export function startGaadaTheme(): void {
+  ensureAudio();
+  startMainBgm(GAADA_BGM_SRC, "gaada", MAIN_BGM_INTRO_FADE_SEC);
+}
+
+/**
+ * Аав ээжийг аварч хамт амьдарч эхлэхэд — Хангайн дуу
+ * (үндсэн аяг солиод fade-in + loop)
+ */
+export function startFamilyLifeTheme(): void {
+  ensureAudio();
+  if (!audio.started) audio.started = true;
+  startMainBgm(HANGAI_BGM_SRC, "hangai", 3.6);
+}
+
+// ---------------------------------------------------------------------------
+// Төмөр шулмас boss BGM
+// ---------------------------------------------------------------------------
+
+const TUMUR_BOSS_BGM_SRC = "/assets/music/tumur-shulmas-boss.mp3";
+/** musicVol-той харьцуулсан дээд түвшин */
+const TUMUR_BOSS_BGM_LEVEL = 0.72;
+
+function tumurBossTargetVolume(): number {
+  if (audio.musicVol <= 0) return 0;
+  return clamp(audio.musicVol * TUMUR_BOSS_BGM_LEVEL, 0, 1);
+}
+
+function cancelTumurBossFade(): void {
+  if (audio.tumurBossFadeRaf && typeof window !== "undefined") {
+    window.cancelAnimationFrame(audio.tumurBossFadeRaf);
+  }
+  audio.tumurBossFadeRaf = 0;
+}
+
+function disposeTumurBossBgmEl(a: HTMLAudioElement | null): void {
+  if (!a) return;
+  a.pause();
+  a.onended = null;
+  a.onerror = null;
+  a.removeAttribute("src");
+  a.load();
+}
+
+function stopTumurBossMusicImmediate(): void {
+  cancelTumurBossFade();
+  disposeTumurBossBgmEl(audio.tumurBossBgm);
+  audio.tumurBossBgm = null;
+  audio.tumurBossFadeTarget = 0;
+}
+
+function syncTumurBossBgmVolume(): void {
+  const a = audio.tumurBossBgm;
+  if (!a || audio.tumurBossFadeRaf) return;
+  a.volume = tumurBossTargetVolume();
+}
+
+function fadeTumurBossBgmTo(
+  target: number,
+  durationSec: number,
+  onDone?: () => void,
+): void {
+  const a = audio.tumurBossBgm;
+  if (!a) {
+    onDone?.();
+    return;
+  }
+  cancelTumurBossFade();
+  const startVol = a.volume;
+  const endVol = clamp(target, 0, 1);
+  audio.tumurBossFadeTarget = endVol;
+  if (durationSec <= 0.05) {
+    a.volume = endVol;
+    onDone?.();
+    return;
+  }
+  const t0 =
+    typeof performance !== "undefined" ? performance.now() : Date.now();
+  const durationMs = durationSec * 1000;
+
+  const step = (now: number): void => {
+    if (audio.tumurBossBgm !== a) return;
+    const t = clamp((now - t0) / durationMs, 0, 1);
+    // Зөөлөн ease-out
+    const ease = 1 - (1 - t) * (1 - t);
+    a.volume = startVol + (endVol - startVol) * ease;
+    if (t < 1) {
+      audio.tumurBossFadeRaf = window.requestAnimationFrame(step);
+      return;
+    }
+    audio.tumurBossFadeRaf = 0;
+    a.volume = endVol;
+    onDone?.();
+  };
+  audio.tumurBossFadeRaf = window.requestAnimationFrame(step);
+}
+
+/** Тулаан эхлэхэд — үндсэн BGM duck хийж boss track асаана */
+export function startTumurBossMusic(): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  ensureAudio();
+  stopTumurBossMusicImmediate();
+  // Хангайн ая бараг унтарна
+  setMusicDuck(0.06);
+
+  const a = new Audio(TUMUR_BOSS_BGM_SRC);
+  a.preload = "auto";
+  a.loop = true;
+  a.volume = 0;
+  audio.tumurBossBgm = a;
+
+  const play = (): void => {
+    if (audio.tumurBossBgm !== a) return;
+    void a
+      .play()
+      .then(() => {
+        if (audio.tumurBossBgm !== a) return;
+        fadeTumurBossBgmTo(tumurBossTargetVolume(), 1.1);
+      })
+      .catch(() => {
+        // Autoplay / файл байхгүй — үндсэн BGM сэргээнэ
+        if (audio.tumurBossBgm === a) {
+          stopTumurBossMusicImmediate();
+          setMusicDuck(1);
+        }
+      });
+  };
+
+  if (a.readyState >= 2) play();
+  else a.addEventListener("canplay", play, { once: true });
+}
+
+/** Ялалт / тулаан төгсөхөд зөөлөн fade */
+export function fadeOutTumurBossMusic(durationSec = 3.8): void {
+  const a = audio.tumurBossBgm;
+  if (!a) {
+    setMusicDuck(1);
+    return;
+  }
+  fadeTumurBossBgmTo(0, durationSec, () => {
+    stopTumurBossMusicImmediate();
+    setMusicDuck(1);
+  });
+}
+
+export function stopTumurBossMusic(): void {
+  stopTumurBossMusicImmediate();
+  setMusicDuck(1);
 }
 
 // ---------------------------------------------------------------------------

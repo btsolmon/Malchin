@@ -16,10 +16,13 @@ import type { Fish, FishColor, FishTier, GameState, Vector2 } from "./types";
 import { WORLD_H } from "./types";
 import { clamp, dist, normalize, randRange, setMessage } from "./utils";
 
-const FISH_COUNT = 9;
-const MIN_FISH = 7;
+const FISH_COUNT = 20;
+const MIN_FISH = 16;
 const ATTRACT_RANGE = 170;
 const LOCAL_FISH_RANGE = 220;
+/** Загас хоорондын хамгийн бага зай — бөөгнөрөхөөс сэргийлнэ */
+const SEPARATION_DIST = 56;
+const SEPARATION_STRENGTH = 72;
 
 interface TierStats {
   biteRange: number;
@@ -156,23 +159,33 @@ function sampleRiverPos(y: number): Vector2 {
   };
 }
 
-/**
- * Голын урсгалын дээд (хойд) зах — эндээс орж ирнэ.
- * Доод талаас "төрөх"-ийг болиулна.
- */
-const UPSTREAM_Y_MIN = 24;
-const UPSTREAM_Y_MAX = 38;
-
-function pickUpstreamSpawnY(): number {
-  let y = randRange(UPSTREAM_Y_MIN, UPSTREAM_Y_MAX);
-  // Гатлах газартай давхцвал (ховор) хойд талд үлдээнэ
-  if (isAtRiverFord(y)) {
-    y = Math.min(
-      UPSTREAM_Y_MAX,
-      Math.max(UPSTREAM_Y_MIN, RIVER_FORD_Y - RIVER_FORD_HALF - 20),
-    );
+/** Голын дагуу тархсан байршил — бөөгнөрөхгүй */
+function pickSpreadSpawnY(existing: Fish[]): number {
+  const yMin = 36;
+  const yMax = WORLD_H - 40;
+  let bestY = randRange(yMin, yMax);
+  let bestScore = -1;
+  for (let attempt = 0; attempt < 16; attempt++) {
+    let y = randRange(yMin, yMax);
+    if (isAtRiverFord(y)) {
+      y = clamp(
+        y < RIVER_FORD_Y
+          ? RIVER_FORD_Y - RIVER_FORD_HALF - 24
+          : RIVER_FORD_Y + RIVER_FORD_HALF + 24,
+        yMin,
+        yMax,
+      );
+    }
+    let nearest = Infinity;
+    for (const f of existing) {
+      nearest = Math.min(nearest, Math.abs(f.pos.y - y));
+    }
+    if (nearest > bestScore) {
+      bestScore = nearest;
+      bestY = y;
+    }
   }
-  return clamp(y, UPSTREAM_Y_MIN, UPSTREAM_Y_MAX);
+  return bestY;
 }
 
 function makeFish(
@@ -203,11 +216,26 @@ export function createRiverFish(nextId: () => number): Fish[] {
   const fish: Fish[] = [];
   const colors: FishColor[] = ["blue", "green", "gold"];
   const tiers: FishTier[] = ["easy", "hard", "elite"];
+  const yMin = 40;
+  const yMax = WORLD_H - 48;
+  const span = Math.max(80, yMax - yMin);
   for (let i = 0; i < FISH_COUNT; i++) {
     const color = colors[i % 3]!;
     const tier = tiers[Math.floor(i / 3) % 3]!;
-    // Дээд захнаас бага зэрэг ээлжилж орно — доор төрөхгүй
-    fish.push(makeFish(nextId(), pickUpstreamSpawnY(), color, tier));
+    // Голын дагуу жигд тараана + бага санамсаргүй хөдөлгөөн
+    const slot = (i + 0.5) / FISH_COUNT;
+    let y =
+      yMin +
+      slot * span +
+      randRange(-span / (FISH_COUNT * 2.2), span / (FISH_COUNT * 2.2));
+    if (isAtRiverFord(y)) {
+      y =
+        y < RIVER_FORD_Y
+          ? RIVER_FORD_Y - RIVER_FORD_HALF - 28
+          : RIVER_FORD_Y + RIVER_FORD_HALF + 28;
+    }
+    y = clamp(y, yMin, yMax);
+    fish.push(makeFish(nextId(), y, color, tier));
   }
   return fish;
 }
@@ -226,9 +254,12 @@ function keepInRiver(pos: Vector2): void {
  * Урсгал зөвхөн урагш (өмнөд) тул загас өмнөд зах руу цуглаад тоглогчоос алга болно.
  * Зах руу хүрсэн загасыг голын урсгалын дээд цэгээс дахин оруулна.
  */
-function recycleDownstreamFish(f: Fish): void {
+function recycleDownstreamFish(f: Fish, others: Fish[]): void {
   if (f.pos.y < WORLD_H - 28) return;
-  const pos = sampleRiverPos(pickUpstreamSpawnY());
+  // Доод захнаас гармагц голын дагуу зайтай цэгээс дахин орно
+  const pos = sampleRiverPos(
+    pickSpreadSpawnY(others.filter((o) => o.id !== f.id)),
+  );
   f.pos.x = pos.x;
   f.pos.y = pos.y;
   const flow = riverFlowDir(f.pos.y);
@@ -267,10 +298,12 @@ export function fishMouthPos(fish: Fish): Vector2 {
 }
 
 function spawnFishNear(state: GameState, _preferredY?: number): void {
-  // Локал spawn өмнөд захын үлдэгдэлтэй нийлж хэт олшрохоос сэргийлнэ
-  if (state.world.fish.length >= FISH_COUNT + 3) return;
-  // Шинэ загас зөвхөн урсгалын дээд цэгээс орно
-  state.world.fish.push(makeFish(state.nextEntityId++, pickUpstreamSpawnY()));
+  // Локал spawn хэт олшрохоос сэргийлнэ
+  if (state.world.fish.length >= FISH_COUNT + 2) return;
+  // Голын дагуу зайтай цэгээс орно
+  state.world.fish.push(
+    makeFish(state.nextEntityId++, pickSpreadSpawnY(state.world.fish)),
+  );
 }
 
 function findFishById(worldFish: Fish[], id: number): Fish | null {
@@ -302,6 +335,28 @@ function angleDelta(from: number, to: number): number {
   while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return d;
+}
+
+/** Ойрхон загаснаас холдох — бөөгнөрөхгүй */
+function separationOffset(
+  f: Fish,
+  others: Fish[],
+  ignoreId: number | null,
+): Vector2 {
+  let ax = 0;
+  let ay = 0;
+  for (const o of others) {
+    if (o.id === f.id || o.id === ignoreId) continue;
+    const dx = f.pos.x - o.pos.x;
+    const dy = f.pos.y - o.pos.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.5 || d >= SEPARATION_DIST) continue;
+    const w = (SEPARATION_DIST - d) / SEPARATION_DIST;
+    const force = w * w;
+    ax += (dx / d) * force;
+    ay += (dy / d) * force;
+  }
+  return { x: ax * SEPARATION_STRENGTH, y: ay * SEPARATION_STRENGTH };
 }
 
 /** Хүссэн хурд руу зөөлөн ойртуулна — хог шиг шууд drift биш */
@@ -606,8 +661,22 @@ export function updateFish(state: GameState, dt: number): void {
       turnRate = 9;
     } else {
       const desired = freeSwimDesired(f, flow, side, t, f.spook > 0);
-      steerVel(f, desired.x, desired.y, dt, f.spook > 0 ? 6.5 : steerRate);
+      const sep = separationOffset(f, world.fish, hookedId);
+      steerVel(
+        f,
+        desired.x + sep.x,
+        desired.y + sep.y,
+        dt,
+        f.spook > 0 ? 6.5 : steerRate,
+      );
       turnRate = f.spook > 0 ? 11 : 6.5;
+    }
+
+    // Дэгээгүй үед ч ойрхон загаснаас бага зэрэг холдуулна
+    if (hookedId !== f.id && (f.bite ?? 0) <= 0) {
+      const sep = separationOffset(f, world.fish, hookedId);
+      f.vel.x += sep.x * 0.35 * dt * 8;
+      f.vel.y += sep.y * 0.35 * dt * 8;
     }
 
     f.pos.x += f.vel.x * dt;
@@ -626,7 +695,7 @@ export function updateFish(state: GameState, dt: number): void {
     }
     updateFishHeading(f, dt, turnRate);
     keepInRiver(f.pos);
-    if (hookedId !== f.id) recycleDownstreamFish(f);
+    if (hookedId !== f.id) recycleDownstreamFish(f, world.fish);
   }
 }
 

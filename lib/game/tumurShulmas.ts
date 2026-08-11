@@ -9,7 +9,7 @@ import {
   type TumurShulmasPhase,
   type Vector2,
 } from "./types";
-import { sfx } from "./audio";
+import { fadeOutTumurBossMusic, sfx, startTumurBossMusic } from "./audio";
 import { damagePlayer as damagePastoralPlayer } from "./enemies";
 import {
   spawnImpactBurst,
@@ -336,6 +336,7 @@ function enterDeathPhase(state: GameState): void {
   enterPhase(encounter, "death");
   encounter.needles = [];
   encounter.flash = 1;
+  fadeOutTumurBossMusic(4.2);
   spawnImpactBurst(state, encounter.pos, {
     heavy: true,
     color: "#ef554e",
@@ -971,6 +972,7 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
   resetEncounter(encounter);
   resetBossFeedback(state);
   preparePlayerForArena(state);
+  startTumurBossMusic();
 
   spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
     speed: 175,
@@ -1002,6 +1004,7 @@ export function forceStartTumurShulmasBoss(state: GameState): void {
   resetEncounter(encounter);
   resetBossFeedback(state);
   preparePlayerForArena(state);
+  startTumurBossMusic();
 
   spawnParticles(state, encounter.arenaCenter, 44, "#d63f39", {
     speed: 175,

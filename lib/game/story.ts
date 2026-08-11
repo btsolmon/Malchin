@@ -23,6 +23,8 @@ import {
   updateOpeningAmbient,
   stopOpeningAmbient,
   openingAmbientForVignette,
+  fadeOutTumurBossMusic,
+  startFamilyLifeTheme,
 } from "./audio";
 import { beginFamilyReunionDialogue } from "./elder";
 import { spawnParticles, spawnText } from "./effects";
@@ -2992,6 +2994,7 @@ export function updateMilestone8(state: GameState, dt: number): void {
       gravity: -18,
     });
     sfx("win");
+    startFamilyLifeTheme();
   }
 
   if (story.familyReunionEffectRemaining > 0) {
@@ -3682,9 +3685,11 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     tumur.hp = 0;
     tumur.defeated = true;
     tumur.active = false;
+    tumur.phase = "sealed";
     state.spiritCleared = true;
     story.milestone7Completed = true;
     story.activeMainObjective = "returnFromSpirit";
+    fadeOutTumurBossMusic(2.8);
     setMessage(state, "CHEAT: Төмөр шулмасыг дарлаа.", 2.5);
     return;
   }
@@ -4100,6 +4105,7 @@ export function startFamilyLifeRun(
     gravity: -14,
   });
   sfx("win");
+  startFamilyLifeTheme();
   setMessage(
     state,
     options.cheat

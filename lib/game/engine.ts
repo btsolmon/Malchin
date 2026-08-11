@@ -49,6 +49,7 @@ import {
   sfx,
   shutdownAudio,
   startMusic,
+  startFamilyLifeTheme,
   updateRiverAmbience,
   tickHoofsteps,
   tickLivestockVocal,
@@ -1313,6 +1314,7 @@ export function mountHerderGame(
         state = loaded;
         lastElderKey = "";
         options.onElderUi?.({ open: false });
+        if (state.parentsReturned) startFamilyLifeTheme();
       } else {
         // Хадгалалт эвдэрсэн — цэс дээр "Үргэлжлүүлэх" харагдахаа болино
         clearSave();
