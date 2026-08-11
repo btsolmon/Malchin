@@ -196,6 +196,10 @@ function traceSmoothPath(
   if (points.length < 2) return;
   ctx.beginPath();
   ctx.moveTo(points[0].x, points[0].y);
+  if (points.length === 2) {
+    ctx.lineTo(points[1].x, points[1].y);
+    return;
+  }
   for (let i = 1; i < points.length - 1; i++) {
     const current = points[i];
     const next = points[i + 1];
@@ -210,34 +214,103 @@ function traceSmoothPath(
   ctx.lineTo(last.x, last.y);
 }
 
+/** A↔B хооронд дугуй муруйсан, жигд бус хөлний мөр цэгүүд */
+function buildMeanderPath(
+  from: PathPoint,
+  to: PathPoint,
+  seed: number,
+  steps: number,
+  sway: number,
+): PathPoint[] {
+  const pts: PathPoint[] = [from];
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    // Илүү бодит: эхлэл/төгсгөлд муруй бага, дунд хэсэгт илүү
+    const envelope = Math.sin(t * Math.PI);
+    const h1 = terrainHash(i * 3, seed % 97, seed + 11) - 0.5;
+    const h2 = terrainHash(i * 7, (seed * 3) % 91, seed + 29) - 0.5;
+    const h3 = terrainHash(i * 13, seed % 53, seed + 47) - 0.5;
+    const offset =
+      (h1 * 1.1 + h2 * 0.55 + Math.sin(t * 9.2 + seed) * 0.2 * h3) *
+      sway *
+      envelope;
+    pts.push({
+      x: from.x + dx * t + nx * offset,
+      y: from.y + dy * t + ny * offset,
+    });
+  }
+  pts.push(to);
+  return pts;
+}
+
+/** Элэгдсэн хөлийн мөр — нарийн, зөөлөн ирмэг, жигд бус өргөн */
 function drawPath(
   ctx: CanvasRenderingContext2D,
   points: PathPoint[],
   winter: boolean,
   width: number,
+  seed: number,
 ): void {
+  if (points.length < 2) return;
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
+  // Зөөлөн сүүдэр / элэгдсэн хөрс — илүү ууссан
   traceSmoothPath(ctx, points);
-  ctx.strokeStyle = winter ? "rgba(92,82,66,0.19)" : "rgba(66,48,30,0.2)";
-  ctx.lineWidth = width + 13;
+  ctx.strokeStyle = winter ? "rgba(70,62,48,0.07)" : "rgba(48,34,20,0.08)";
+  ctx.lineWidth = width + 14;
   ctx.stroke();
 
+  // Гол шороо
   traceSmoothPath(ctx, points);
-  ctx.strokeStyle = winter ? "rgba(150,138,115,0.44)" : "rgba(133,101,63,0.5)";
-  ctx.lineWidth = width + 5;
+  ctx.strokeStyle = winter ? "rgba(138,126,102,0.22)" : "rgba(118,88,55,0.24)";
+  ctx.lineWidth = width + 4;
   ctx.stroke();
 
+  // Гэрэлтэй төв мөр — арай нарийн
   traceSmoothPath(ctx, points);
-  ctx.strokeStyle = winter ? "rgba(174,164,141,0.3)" : "rgba(164,132,85,0.34)";
-  ctx.lineWidth = width;
+  ctx.strokeStyle = winter ? "rgba(168,156,130,0.16)" : "rgba(154,120,74,0.18)";
+  ctx.lineWidth = width * 0.5;
   ctx.stroke();
+
+  // Жигд бус толбо — хөлний мөр шиг элэгдэл
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i];
+    const prev = points[i - 1];
+    const next = points[i + 1];
+    const tx = next.x - prev.x;
+    const ty = next.y - prev.y;
+    const tl = Math.hypot(tx, ty) || 1;
+    const px = -ty / tl;
+    const py = tx / tl;
+    const n = 1 + Math.floor(terrainHash(i, 5, seed) * 2);
+    for (let k = 0; k < n; k++) {
+      const side = terrainHash(i, k + 2, seed + 7) > 0.5 ? 1 : -1;
+      const along = (terrainHash(i, k + 9, seed + 13) - 0.5) * 10;
+      const off = (0.2 + terrainHash(i, k + 4, seed) * 0.55) * width * side;
+      const rx = 2.2 + terrainHash(i, k + 6, seed + 3) * 3.5;
+      const ry = rx * (0.45 + terrainHash(i, k + 8, seed + 5) * 0.35);
+      const ox = p.x + px * off + (tx / tl) * along;
+      const oy = p.y + py * off + (ty / tl) * along;
+      ctx.fillStyle = winter
+        ? `rgba(120,108,85,${0.04 + terrainHash(i, k, seed) * 0.06})`
+        : `rgba(90,65,38,${0.05 + terrainHash(i, k, seed) * 0.07})`;
+      ctx.beginPath();
+      ctx.ellipse(ox, oy, rx, ry, Math.atan2(ty, tx), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   ctx.restore();
 }
 
-/** Camp, өвгөний гэр, ford, зүүн route-ийг холбосон permanent шороон зам. */
+/** Camp → өвгөн / гол — байгалийн элэгдсэн хөлийн мөр (голын цаана замгүй) */
 function drawWorldPaths(
   ctx: CanvasRenderingContext2D,
   winter: boolean,
@@ -246,43 +319,23 @@ function drawWorldPaths(
   const center = { x: WORLD_W / 2, y: WORLD_H / 2 };
   const elder = { x: center.x + 320, y: center.y + 210 };
   const fordX = riverCenterX(RIVER_FORD_Y);
-  const bend = (terrainHash(3, 7, seed + 401) - 0.5) * 55;
 
-  drawPath(
-    ctx,
-    [
-      { x: center.x + 45, y: center.y + 35 },
-      { x: center.x + 150, y: center.y + 80 + bend },
-      { x: elder.x - 80, y: elder.y - 35 },
-      elder,
-    ],
-    winter,
-    18,
-  );
+  // Бууцнаас салгах — өөр чиглэлд
+  const leaveElder = { x: center.x + 70, y: center.y + 55 };
+  const leaveRiver = { x: center.x + 85, y: center.y - 12 };
+  const nearElder = { x: elder.x - 28, y: elder.y - 12 };
+  // Голын зах хүртэл — усанд/цаана орохгүй
+  const riverBank = {
+    x: fordX - riverHalfWidth(RIVER_FORD_Y) - 8,
+    y: RIVER_FORD_Y + 4,
+  };
 
-  drawPath(
-    ctx,
-    [
-      { x: center.x + 25, y: center.y - 5 },
-      { x: center.x + 150, y: center.y - 20 },
-      { x: fordX - 115, y: RIVER_FORD_Y - 18 },
-      { x: fordX + 100, y: RIVER_FORD_Y + 8 },
-    ],
-    winter,
-    20,
-  );
+  const elderPath = buildMeanderPath(leaveElder, nearElder, seed + 401, 9, 48);
+  elderPath.push(elder);
+  drawPath(ctx, elderPath, winter, 9, seed + 11);
 
-  drawPath(
-    ctx,
-    [
-      { x: fordX + 75, y: RIVER_FORD_Y + 18 },
-      { x: fordX + 155, y: RIVER_FORD_Y + 120 },
-      { x: WORLD_W - 180, y: WORLD_H - 290 },
-      { x: WORLD_W - 145, y: WORLD_H - 160 },
-    ],
-    winter,
-    16,
-  );
+  const riverPath = buildMeanderPath(leaveRiver, riverBank, seed + 709, 12, 62);
+  drawPath(ctx, riverPath, winter, 10, seed + 23);
 }
 
 function drawGrassBlade(

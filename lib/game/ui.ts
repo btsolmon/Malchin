@@ -511,9 +511,9 @@ export function gerLayout(): {
     chestC,
     // Хаалга — дэлгэцийн доод (урд)
     door: { x: 390, y: 488, w: 180, h: 48, label: "" },
-    // Ор — өргөн нарийн, урт (хоймор↔хаалга чиглэл) илүү
-    bedL: { x: 52, y: 298, w: 132, h: 112, label: "" },
-    bedR: { x: 776, y: 298, w: 132, h: 112, label: "" },
+    // Ор — хана дагуу, гэр доторх хэвээр
+    bedL: { x: 48, y: 278, w: 128, h: 148, label: "" },
+    bedR: { x: 784, y: 278, w: 128, h: 148, label: "" },
     stove,
     woodBox,
     artHorse: { x: 145, y: 178, w: 110, h: 76, label: "" },
@@ -941,8 +941,21 @@ export function updateGer(state: GameState, dt: number): void {
       setMessage(state, "Саяхан унтсан шүү дээ.", 2);
       sfx("move");
     } else {
-      const bed = prox.nearBedL ? lay.bedL : lay.bedR;
-      state.gerSleepBed = prox.nearBedL ? "L" : "R";
+      // Ойр орныг сонго (хоёр орны зааг дээр зүүнээ давуулахгүй)
+      const cL = {
+        x: lay.bedL.x + lay.bedL.w / 2,
+        y: lay.bedL.y + lay.bedL.h / 2,
+      };
+      const cR = {
+        x: lay.bedR.x + lay.bedR.w / 2,
+        y: lay.bedR.y + lay.bedR.h / 2,
+      };
+      const dL = Math.hypot(state.gerPlayer.x - cL.x, state.gerPlayer.y - cL.y);
+      const dR = Math.hypot(state.gerPlayer.x - cR.x, state.gerPlayer.y - cR.y);
+      const useLeft =
+        prox.nearBedL && (!prox.nearBedR || dL <= dR);
+      const bed = useLeft ? lay.bedL : lay.bedR;
+      state.gerSleepBed = useLeft ? "L" : "R";
       state.gerSleepTimer = 5;
       state.gerPlayer.x = bed.x + bed.w / 2;
       state.gerPlayer.y = bed.y + bed.h * 0.38;
@@ -1270,6 +1283,10 @@ function drawPortraitColdFrost(
   ctx.restore();
 }
 
+/**
+ * HUD хэмжүүр.
+ * @param coveredLeft портретын ард нуугдсан зүүн өргөн — ил гарсан хэсэг = бүтэн 100%
+ */
 function drawHudMeter(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -1278,6 +1295,7 @@ function drawHudMeter(
   height: number,
   ratio: number,
   color: string,
+  coveredLeft = 0,
 ): void {
   const cut = Math.min(6, height / 2 + 1);
   const meterPath = (meterWidth: number): void => {
@@ -1301,8 +1319,13 @@ function drawHudMeter(
   ctx.fillStyle = "#25191b";
   ctx.fill();
 
-  const fillWidth = Math.max(0, width * clamp(ratio, 0, 1));
-  if (fillWidth > 1) {
+  // Ил гарсан өргөн = бүтэн хэмжүүр; дүүргэлт зөвхөн тэндээс
+  const hidden = clamp(coveredLeft, 0, Math.max(0, width - 2));
+  const visibleW = Math.max(1, width - hidden);
+  const r = clamp(ratio, 0, 1);
+  // 0% → ил хэсэг хоосон; 100% → ил хэсэг дүүрэн (+ нуугдсан хэсгийг ч бүрэн дүүргэнэ)
+  const fillWidth = hidden + visibleW * r;
+  if (fillWidth > 1 && r > 0.001) {
     ctx.save();
     meterPath(width);
     ctx.clip();
@@ -2594,6 +2617,7 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["1 / 2", t("controls.weapon")],
     ["E", t("controls.interact")],
     ["Q", t("controls.eat")],
+    ["R", t("controls.rashaan")],
     ["F", t("controls.fire")],
     ["B", t("controls.fence")],
     ["N", t("controls.herd")],
@@ -2683,6 +2707,58 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
   drawBackHint(ctx, 420);
 }
 
+/** 6 салбартай цасан ширхэг */
+function drawSnowflake(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  rot: number,
+): void {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const arm = size;
+  ctx.lineWidth = Math.max(0.7, size * 0.14);
+  for (let a = 0; a < 6; a++) {
+    const ang = (a * Math.PI) / 3;
+    const cos = Math.cos(ang);
+    const sin = Math.sin(ang);
+    // Гол салбар
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(cos * arm, sin * arm);
+    ctx.stroke();
+    // Хоёр жижиг мөчир
+    const bx = cos * arm * 0.55;
+    const by = sin * arm * 0.55;
+    const px = -sin;
+    const py = cos;
+    const twig = arm * 0.32;
+    ctx.beginPath();
+    ctx.moveTo(bx + px * twig, by + py * twig);
+    ctx.lineTo(bx, by);
+    ctx.lineTo(bx - px * twig, by - py * twig);
+    ctx.stroke();
+    // Гадна жижиг V
+    const bx2 = cos * arm * 0.82;
+    const by2 = sin * arm * 0.82;
+    const twig2 = arm * 0.18;
+    ctx.beginPath();
+    ctx.moveTo(bx2 + px * twig2, by2 + py * twig2);
+    ctx.lineTo(bx2, by2);
+    ctx.lineTo(bx2 - px * twig2, by2 - py * twig2);
+    ctx.stroke();
+  }
+  // Төв цэг
+  ctx.beginPath();
+  ctx.arc(0, 0, Math.max(0.6, size * 0.12), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawBannerAlert(
   ctx: CanvasRenderingContext2D,
   state: GameState,
@@ -2699,103 +2775,152 @@ function drawBannerAlert(
 
   const duration = Math.max(0.1, alert.duration);
   const elapsed = duration - alert.timer;
-  const fadeIn = clamp(elapsed / 0.18, 0, 1);
-  const fadeOut = clamp(alert.timer / 0.5, 0, 1);
-  const alpha = fadeIn * fadeOut;
+  const fadeIn = clamp(elapsed / 0.28, 0, 1);
+  const fadeOut = clamp(alert.timer / 0.55, 0, 1);
+  const ease = (t: number) => t * t * (3 - 2 * t);
+  const alpha = ease(fadeIn) * ease(fadeOut);
   if (alpha <= 0.01) return;
 
-  const pulse = 0.92 + Math.sin(state.world.elapsed * 6) * 0.08;
   const isHunger = alert.kind === "hunger";
   const isCold = alert.kind === "cold";
   const isDanger = alert.kind === "danger";
   const isWolf = alert.kind === "wolf";
   const isThief = alert.kind === "thief";
   const isBear = alert.kind === "bear";
-  const fill = isCold
-    ? "#b8e4ff"
-    : isHunger
-      ? "#ffe566"
-      : isWolf
-        ? "#d0d2d6"
-        : isThief
-          ? "#d4a0ff"
-          : isBear
-            ? "#d4a574"
-            : isDanger
-              ? "#ffb080"
-              : "#ff8a8a";
-  const tint = isCold
-    ? "rgba(6,24,48,1)"
-    : isHunger
-      ? "rgba(72,28,4,1)"
-      : isWolf
-        ? "rgba(22,24,28,1)"
-        : isThief
-          ? "rgba(36,8,48,1)"
-          : isBear
-            ? "rgba(42,24,10,1)"
-            : isDanger
-              ? "rgba(70,18,8,1)"
-              : "rgba(70,8,8,1)";
-  const edge = isCold
-    ? "rgba(140,210,255,1)"
-    : isHunger
-      ? "rgba(255,210,70,1)"
-      : isWolf
-        ? "rgba(170,175,180,1)"
-        : isThief
-          ? "rgba(170,80,230,1)"
-          : isBear
-            ? "rgba(160,110,55,1)"
-            : "rgba(255,90,90,1)";
-  // Өлсгөлөн/даарах — илүү тод; дайсан анхааруулга бага зэрэг зөөлөн
   const softAlert = isHunger || isCold;
-  const tintA = softAlert ? 0.4 : 0.22;
-  const edgeA = softAlert ? 0.62 : 0.35;
+
+  const titleColor = isCold
+    ? "#dceef8"
+    : isHunger
+      ? "#ffe8a8"
+      : isWolf
+        ? "#eef0f2"
+        : isThief
+          ? "#f0e0ff"
+          : isBear
+            ? "#ffe8c8"
+            : "#ffd8d0";
+  const flakeRgb = isCold
+    ? "220,240,255"
+    : isHunger
+      ? "255,240,200"
+      : isThief
+        ? "240,220,255"
+        : isBear
+          ? "255,235,210"
+          : isDanger
+            ? "255,220,215"
+            : "235,240,245";
+
+  const breath = 0.75 + 0.25 * (0.5 + 0.5 * Math.sin(state.world.elapsed * 2.4));
+  const t = state.world.elapsed;
+  // Давхар цэнхэр — өөр фазын анивчал
+  const pulseA = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 3.1));
+  const pulseB = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 3.1 + Math.PI * 0.7));
 
   ctx.save();
-  ctx.globalAlpha = alpha * tintA * pulse;
-  ctx.fillStyle = tint;
-  ctx.fillRect(0, 0, VIEW_W, VIEW_H);
 
-  const border = 14 + Math.sin(state.world.elapsed * 7) * 2;
-  ctx.globalAlpha = alpha * edgeA * pulse;
-  ctx.fillStyle = edge;
-  ctx.fillRect(0, 0, VIEW_W, border);
-  ctx.fillRect(0, VIEW_H - border, VIEW_W, border);
-  ctx.fillRect(0, 0, border, VIEW_H);
-  ctx.fillRect(VIEW_W - border, 0, border, VIEW_H);
+  // —— Давхар цэнхэр уусалт (ирмэг) ——
+  const washBand = softAlert ? 100 : 78;
+  const drawBlueWash = (
+    rgb: string,
+    strength: number,
+    bandW: number,
+  ) => {
+    const draw = (
+      x0: number,
+      y0: number,
+      x1: number,
+      y1: number,
+      rect: [number, number, number, number],
+    ) => {
+      const g = ctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, `rgba(${rgb},${strength})`);
+      g.addColorStop(0.4, `rgba(${rgb},${strength * 0.45})`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(...rect);
+    };
+    draw(0, 0, 0, bandW, [0, 0, VIEW_W, bandW]);
+    draw(0, VIEW_H, 0, VIEW_H - bandW, [0, VIEW_H - bandW, VIEW_W, bandW]);
+    draw(0, 0, bandW, 0, [0, 0, bandW, VIEW_H]);
+    draw(VIEW_W, 0, VIEW_W - bandW, 0, [VIEW_W - bandW, 0, bandW, VIEW_H]);
+  };
+
+  ctx.globalAlpha = 1;
+  // Гүн цэнхэр (гадна)
+  drawBlueWash("40,110,180", alpha * pulseA * (softAlert ? 0.4 : 0.26), washBand);
+  // Цайвар цэнхэр (дотоод)
+  drawBlueWash(
+    "140,210,255",
+    alpha * pulseB * (softAlert ? 0.34 : 0.22),
+    washBand * 0.55,
+  );
+
+  // —— Ирмэгийг 6 салбартай цасан ширхэгээр тойруулна ——
+  const band = softAlert ? 64 : 54;
+  const flakeCount = softAlert ? 36 : 28;
+  for (let i = 0; i < flakeCount; i++) {
+    const side = i % 4;
+    const along = (i * 0.6180339887) % 1;
+    const depth = (i * 0.3819660113 + 0.17) % 1;
+    const drift = t * (8 + (i % 5) * 2.2) + i * 1.3;
+    const wobble = Math.sin(t * 1.5 + i * 0.85) * 5;
+    const spin = t * (0.4 + (i % 4) * 0.15) + i;
+
+    let x = 0;
+    let y = 0;
+    if (side === 0) {
+      x = along * VIEW_W + wobble;
+      y = depth * band + (drift % 12) * 0.35;
+    } else if (side === 1) {
+      x = along * VIEW_W - wobble;
+      y = VIEW_H - depth * band - (drift % 12) * 0.3;
+    } else if (side === 2) {
+      x = depth * band + (drift % 10) * 0.25;
+      y = along * VIEW_H + wobble;
+    } else {
+      x = VIEW_W - depth * band - (drift % 10) * 0.25;
+      y = along * VIEW_H - wobble;
+    }
+
+    const fade = (1 - depth) * (1 - depth);
+    const twinkle = 0.6 + 0.4 * Math.sin(t * 2.6 + i * 1.1);
+    const size = 3.2 + (i % 4) * 1.4 + fade * 2.2;
+    ctx.globalAlpha =
+      alpha * breath * fade * twinkle * (softAlert ? 0.9 : 0.7);
+    ctx.strokeStyle = `rgb(${flakeRgb})`;
+    ctx.fillStyle = `rgb(${flakeRgb})`;
+    drawSnowflake(ctx, x, y, size, spin);
+  }
 
   const text = tr(alert.text);
-  const fontSize = Math.min(72, Math.max(36, VIEW_W * 0.085));
-  ctx.globalAlpha = alpha;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = `900 ${fontSize}px system-ui, sans-serif`;
-  const cx = VIEW_W / 2;
-  const cy = VIEW_H * 0.4;
-  // Текст илүү тод — хар хүрээ
-  ctx.lineWidth = Math.max(4, fontSize * 0.08);
-  ctx.strokeStyle = softAlert
-    ? "rgba(0,0,0,0.75)"
-    : "rgba(0,0,0,0.45)";
-  ctx.strokeText(text, cx, cy);
-  ctx.fillStyle = fill;
-  ctx.fillText(text, cx, cy);
-
-  ctx.font = `700 ${Math.max(16, fontSize * 0.28)}px system-ui, sans-serif`;
-  ctx.fillStyle = softAlert
-    ? "rgba(255,255,255,0.95)"
-    : "rgba(255,255,255,0.82)";
   const sub = isCold
     ? tr("F — гал асаа · гэртээ дулаац")
     : isHunger
       ? tr("Q дарж ид · эсвэл малдаа өвс өг")
       : tr("Бэлэн бай — хамгаал!");
-  ctx.strokeStyle = "rgba(0,0,0,0.55)";
-  ctx.lineWidth = 3;
-  if (softAlert) ctx.strokeText(sub, cx, cy + fontSize * 0.7);
-  ctx.fillText(sub, cx, cy + fontSize * 0.7);
+
+  const cx = VIEW_W / 2;
+  const cy = VIEW_H * 0.22;
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  ctx.font = "600 22px system-ui, sans-serif";
+  ctx.globalAlpha = alpha * 0.5;
+  ctx.fillStyle = "rgba(0,0,0,0.7)";
+  ctx.fillText(text, cx, cy - 7 + 1);
+  ctx.globalAlpha = alpha * (0.9 + 0.1 * breath);
+  ctx.fillStyle = titleColor;
+  ctx.fillText(text, cx, cy - 7);
+
+  ctx.globalAlpha = alpha * 0.75;
+  ctx.font = "500 12px system-ui, sans-serif";
+  ctx.fillStyle = softAlert
+    ? "rgba(255,245,220,0.9)"
+    : "rgba(255,255,255,0.78)";
+  ctx.fillText(sub, cx, cy + 16);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
@@ -2825,6 +2950,11 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   const stackH = barH + (barCount - 1) * barStep;
   const barStartY = portraitY - stackH / 2;
   const iconGap = 12;
+  // Портретын ободны баруун ирмэг хүртэлх хэсэг нуугдсан — ил өргөн = бүтэн хэмжүүр
+  const meterCoveredLeft = Math.max(
+    0,
+    portraitX + portraitRadius + 5 - barX,
+  );
   const meters: Array<{
     width: number;
     ratio: number;
@@ -2858,7 +2988,16 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   ];
   meters.forEach((m, i) => {
     const my = barStartY + barStep * i;
-    drawHudMeter(ctx, barX, my, m.width, barH, m.ratio, m.color);
+    drawHudMeter(
+      ctx,
+      barX,
+      my,
+      m.width,
+      barH,
+      m.ratio,
+      m.color,
+      meterCoveredLeft,
+    );
     // Бар бүрийн баруун үзүүрийн хажууд
     drawHudMeterIcon(ctx, m.icon, barX + m.width + iconGap, my + barH / 2, 13);
   });
@@ -2946,6 +3085,13 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     },
     { key: "B", icon: "fence", active: state.fencePreview },
   ];
+  if (state.spiritPoints > 0) {
+    slots.push({
+      key: "R",
+      icon: "spiritWater",
+      active: false,
+    });
+  }
   const slotSize = 34;
   const slotGap = 4;
   const hotW = slots.length * (slotSize + slotGap) - slotGap + 10;
@@ -3026,26 +3172,34 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     const text = parts.join("  ·  ");
     const onlyThief = world.wolves.length === 0 && world.thieves.length > 0;
     const onlyWolf = world.wolves.length > 0 && world.thieves.length === 0;
-    ctx.font = "bold 13px 'Courier New', monospace";
+    ctx.font = "500 12px 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif";
     const tw = ctx.measureText(text).width;
+    const chipW = tw + 28;
+    const chipH = 22;
+    const chipX = VIEW_W / 2 - chipW / 2;
+    const chipY = pad;
+    const chipBg = ctx.createLinearGradient(chipX, chipY, chipX, chipY + chipH);
+    if (onlyThief) {
+      chipBg.addColorStop(0, "rgba(48,20,58,0.78)");
+      chipBg.addColorStop(1, "rgba(28,10,36,0.62)");
+    } else if (onlyWolf) {
+      chipBg.addColorStop(0, "rgba(36,36,40,0.78)");
+      chipBg.addColorStop(1, "rgba(20,20,24,0.62)");
+    } else {
+      chipBg.addColorStop(0, "rgba(44,22,50,0.78)");
+      chipBg.addColorStop(1, "rgba(26,12,32,0.62)");
+    }
+    ctx.fillStyle = chipBg;
+    roundRectPath(ctx, chipX, chipY, chipW, chipH, 11);
+    ctx.fill();
     ctx.fillStyle = onlyThief
-      ? "rgba(48,12,64,0.88)"
+      ? "#e6d4f5"
       : onlyWolf
-        ? "rgba(32,34,38,0.88)"
-        : "rgba(40,20,48,0.88)";
-    ctx.fillRect(VIEW_W / 2 - tw / 2 - 12, pad, tw + 24, 26);
-    ctx.strokeStyle = onlyThief
-      ? "#a050d8"
-      : onlyWolf
-        ? "#b0b4b8"
-        : "#c080ff";
-    ctx.strokeRect(VIEW_W / 2 - tw / 2 - 12.5, pad + 0.5, tw + 23, 25);
-    ctx.fillStyle = onlyThief
-      ? "#e0b8ff"
-      : onlyWolf
-        ? "#d8dce0"
-        : "#e8d0ff";
-    ctx.fillText(text, VIEW_W / 2 - tw / 2, pad + 18);
+        ? "#dde2e8"
+        : "#eddff5";
+    ctx.textAlign = "center";
+    ctx.fillText(text, VIEW_W / 2, chipY + 15);
+    ctx.textAlign = "left";
   }
 
   if (
@@ -3055,11 +3209,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       state.phase === "spirit" ||
       state.phase === "ger")
   ) {
-    const alpha = clamp(state.messageTimer / 0.4, 0, 1);
-    ctx.font = "13px 'Courier New', monospace";
-    // Төлөвт монголоор хадгалж, зурахдаа орчуулна — хэл солиход шууд өөрчлөгдөнө
+    const alpha = clamp(state.messageTimer / 0.45, 0, 1);
     const message = tr(state.message);
-    const maxToastW = Math.min(VIEW_W - 48, 520);
+    ctx.font = "500 14px 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif";
+    const maxToastW = Math.min(VIEW_W - 200, 440);
     const words = message.split(/\s+/);
     const lines: string[] = [];
     let line = "";
@@ -3079,31 +3232,81 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
       clamped[2] =
         last.length > 2 ? `${last.slice(0, Math.max(1, last.length - 1))}…` : "…";
     }
-    const lineH = 16;
-    const padX = 12;
-    const padY = 8;
-    const boxW =
-      Math.max(...clamped.map((l) => ctx.measureText(l).width), 40) + padX * 2;
-    const boxH = padY * 2 + clamped.length * lineH - 2;
+
+    const lineH = 18;
+    const padX = 22;
+    const padY = 11;
+    const textW = Math.max(
+      ...clamped.map((l) => ctx.measureText(l).width),
+      48,
+    );
+    const boxW = textW + padX * 2;
+    const boxH = padY * 2 + clamped.length * lineH - 4;
     const mx = (VIEW_W - boxW) / 2;
-    const my = VIEW_H - 108 - Math.max(0, (clamped.length - 1) * lineH);
+    const threatChip =
+      world.wolves.length > 0 || world.thieves.length > 0;
+    // Дээд төв — аюулын чип доор (байвал)
+    const my =
+      (threatChip ? pad + 30 : pad + 8) + (1 - alpha) * -8;
+
+    ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = "rgba(12,10,8,0.82)";
-    ctx.fillRect(mx, my, boxW, boxH);
-    ctx.strokeStyle = "rgba(232,197,106,0.45)";
-    ctx.strokeRect(mx + 0.5, my + 0.5, boxW - 1, boxH - 1);
-    ctx.fillStyle = COLORS.hudText;
+
+    // Зөөлөн сүүдэр
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    roundRectPath(ctx, mx + 1, my + 3, boxW, boxH, 14);
+    ctx.fill();
+
+    // Шилнэн / мананлаг суурь — зузаан хайрцаг биш
+    const bg = ctx.createLinearGradient(mx, my, mx, my + boxH);
+    bg.addColorStop(0, "rgba(28,22,16,0.72)");
+    bg.addColorStop(1, "rgba(16,12,10,0.58)");
+    ctx.fillStyle = bg;
+    roundRectPath(ctx, mx, my, boxW, boxH, 14);
+    ctx.fill();
+
+    // Дээд нарийн гэрэл
+    ctx.strokeStyle = "rgba(255,236,200,0.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(mx + 16, my + 1);
+    ctx.lineTo(mx + boxW - 16, my + 1);
+    ctx.stroke();
+
+    // Голд жижиг өргөлт
+    const accentY = my + boxH - 1;
+    const accentHalf = Math.min(56, boxW * 0.28);
+    const accent = ctx.createLinearGradient(
+      VIEW_W / 2 - accentHalf,
+      accentY,
+      VIEW_W / 2 + accentHalf,
+      accentY,
+    );
+    accent.addColorStop(0, "rgba(232,197,106,0)");
+    accent.addColorStop(0.5, "rgba(232,197,106,0.55)");
+    accent.addColorStop(1, "rgba(232,197,106,0)");
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(VIEW_W / 2 - accentHalf, accentY);
+    ctx.lineTo(VIEW_W / 2 + accentHalf, accentY);
+    ctx.stroke();
+
+    ctx.fillStyle = "#f3ead8";
     ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
     clamped.forEach((l, i) => {
-      ctx.fillText(l, VIEW_W / 2, my + padY + 11 + i * lineH);
+      ctx.fillText(l, VIEW_W / 2, my + padY + 13 + i * lineH);
     });
     ctx.textAlign = "left";
-    ctx.globalAlpha = 1;
+    ctx.textBaseline = "alphabetic";
+    ctx.restore();
   }
 
-  drawBannerAlert(ctx, state);
-
   drawInventoryPanel(ctx, state);
+
+  // Анхааруулга — бусад HUD-ын дээр
+  drawBannerAlert(ctx, state);
 
   if (state.phase === "paused") {
     ctx.fillStyle = "rgba(0,0,0,0.55)";

@@ -107,6 +107,9 @@ export const EN_DIALOGUE: Record<string, string> = {
   "Өвгөн талын харанхуйд чимээгүйхэн одов.":
     "The elder went off silently into the darkness of the steppe.",
 
+  "Харин тэр овоон дээр шилэн лонхтой рашаан үлдээнэ. Гурван балга л байна. R дарж нэг балгавал амьны үзүүлэлт бүрэн дүүрнэ. Могойг дарсны дараа Шидэт харваач, Шулмасын зарц, Талын харагч гэсэн үлдсэн гурав босно.":
+    "On that ovoo I will leave a glass bottle of sacred spring water. Only three sips. Press R — one sip fills your health bar completely. After you crush the snake, the Magic Archer, Demon's Servant, and Steppe Seer will rise.",
+
   // Гэр бүл эргэн нэгдэв
   "Хүү минь... голомтын чинь гал биднийг харанхуйн дундаас замчилж ирлээ.":
     "My boy... the fire of your hearth guided us out of the darkness.",

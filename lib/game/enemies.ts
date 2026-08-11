@@ -5,6 +5,7 @@ import {
   FENCE_CONTACT_DPS,
   FENCE_KNOCKBACK,
   PASTURE_RADIUS,
+  WOLF_CORPSE_DURATION,
   WORLD_H,
   WORLD_W,
   type FenceTier,
@@ -165,6 +166,7 @@ export function spawnWolf(
     flash: 0,
     face: 1,
     alive: true,
+    deathTimer: 0,
     posture: bear ? 140 : 60,
     maxPosture: bear ? 140 : 60,
     postureRegenDelay: 0,
@@ -698,6 +700,7 @@ export function updateWolves(
       if (before > 0 && wolf.hp <= 0) {
         wolf.hp = 0;
         wolf.alive = false;
+        wolf.deathTimer = WOLF_CORPSE_DURATION;
         sfx("kill");
         const bear = wolf.kind === "bear";
         const score = bear ? 60 : 25;
@@ -717,8 +720,10 @@ export function updateWolves(
     }
   }
 
-  // Үхсэн сэгийг шууд арилгана (story wolf орно)
-  state.world.wolves = state.world.wolves.filter((wolf) => wolf.alive);
+  // Амьд эсвэл сэгний хугацаа дуусаагүй л бол үлдэнэ
+  state.world.wolves = state.world.wolves.filter(
+    (wolf) => wolf.alive || wolf.deathTimer > 0,
+  );
 }
 
 export function updateThieves(state: GameState, dt: number): void {

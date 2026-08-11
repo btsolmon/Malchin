@@ -30,54 +30,63 @@ export function restoreSpiritVisitSnapshot(state: GameState): void {
   state.spiritVisitSnapshot = null;
 }
 
-/** 1 балга = 1 амь: шилэн уснаас зарцуулж дахин амилах */
-export function trySpendSpiritLife(state: GameState): boolean {
-  if (state.spiritPoints < 1) return false;
-  state.spiritPoints -= 1;
+/**
+ * R — рашаан балгах.
+ * 1 балга = бүтэн амьны үзүүлэлт. Лонхонд 3 балга.
+ */
+export function tryDrinkSpiritWater(state: GameState): boolean {
+  if (!state.input.drinkSpirit) return false;
+  state.input.drinkSpirit = false;
+
+  if (state.phase !== "spirit" && state.phase !== "playing") return false;
+  if (state.spiritPoints < 1) {
+    if (state.story.spiritOvooSoulCollected) {
+      setMessage(state, "Рашаан дууссан.", 1.8);
+      sfx("move");
+    }
+    return false;
+  }
+
   const p = state.player;
-  p.vitals.health = Math.max(40, Math.floor(p.vitals.maxHealth * 0.55));
+  if (p.vitals.health >= p.vitals.maxHealth - 0.5) {
+    setMessage(state, "Амь бүрэн — рашаан хэрэггүй.", 1.6);
+    sfx("move");
+    return false;
+  }
+
+  state.spiritPoints -= 1;
+  p.vitals.health = p.vitals.maxHealth;
   p.vitals.warmth = Math.max(p.vitals.warmth, 55);
   p.vitals.hunger = Math.max(p.vitals.hunger, 45);
-  p.invuln = 2.2;
-  state.fx.hurtFlash = 0.6;
+  p.invuln = Math.max(p.invuln, 0.35);
   const left = state.spiritPoints;
   spawnText(
     state,
     p.pos,
-    left > 0 ? `−1 балга · үлдсэн ${left}` : "−1 балга · дууссан",
+    left > 0 ? `Рашаан · үлдсэн ${left}` : "Рашаан · дууссан",
     "#7ec8ff",
   );
   setMessage(
     state,
     left > 0
-      ? `Шилэн уснаас балгав — амиллаа. Үлдсэн балга: ${left}`
-      : "Сүүлийн балгаа уув — амиллаа.",
-    3,
+      ? `Рашаан балгав — амь дүүрэн. Үлдсэн: ${left}`
+      : "Сүүлийн рашаанаа уув — амь дүүрэн. Лонх хоосорлоо.",
+    2.8,
   );
   sfx("buy");
   return true;
 }
 
-/** Эрүүл мэнд 0 болсон үед: сүнс байвал амилна, үгүй бол lost */
+/** Эрүүл мэнд 0 болсон үед тоглоом дуусна (рашаан автоматаар нөхөхгүй) */
 export function handlePlayerDeath(state: GameState, reason: string): void {
   if (state.godMode) {
     state.player.vitals.health = state.player.vitals.maxHealth;
     return;
   }
   if (state.phase !== "playing" && state.phase !== "spirit") return;
-  if (trySpendSpiritLife(state)) return;
-
-  if (state.phase === "spirit") {
-    exitSpiritWorld(state, "Шилэн ус дууссан… бодит ертөнц рүү буцлаа.");
-    state.player.vitals.health = Math.max(
-      20,
-      Math.floor(state.player.vitals.maxHealth * 0.35),
-    );
-    return;
-  }
 
   state.phase = "lost";
-  setMessage(state, reason, 99);
+  setMessage(state, reason || "Амиа алдлаа…", 99);
 }
 
 function stashRealWorldThreats(state: GameState): void {

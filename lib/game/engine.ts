@@ -55,6 +55,7 @@ import {
   tickHoofsteps,
   tickLivestockVocal,
   syncCampfireLoop,
+  syncWeatherStormAmbience,
 } from "../game/audio";
 import {
   beginElderLevelUp,
@@ -134,7 +135,7 @@ import {
   advanceElderCultureQuiz,
   submitElderCultureAnswer,
 } from "./elderQuiz";
-import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
+import { exitSpiritWorld, tryDrinkSpiritWater, updateSpiritWorld } from "./spirit";
 import { pullFlockToPen } from "./daycycle";
 import {
   createInitialStoryState,
@@ -573,6 +574,9 @@ export function bindInput(
       case "KeyQ":
         if (pressed) input.eat = true;
         break;
+      case "KeyR":
+        if (pressed) input.drinkSpirit = true;
+        break;
       case "Slash":
         if (pressed) input.debugCheats = true;
         break;
@@ -686,6 +690,7 @@ function updatePlayingWorldAudio(state: GameState, dt: number): void {
   const outdoorBurning =
     fire.placed && (fire.lit || fire.igniting > 0);
   syncCampfireLoop(outdoorBurning);
+  syncWeatherStormAmbience(world.weather === "storm", false);
 }
 
 export function update(state: GameState, dt: number): void {
@@ -694,7 +699,10 @@ export function update(state: GameState, dt: number): void {
   if (state.phase !== "playing") {
     updateRiverAmbience(0);
     tickHoofsteps(0, false, false);
-    if (state.phase !== "ger") syncCampfireLoop(false);
+    if (state.phase !== "ger") {
+      syncCampfireLoop(false);
+      syncWeatherStormAmbience(false);
+    }
   }
 
   // Меню ба пауз
@@ -717,6 +725,8 @@ export function update(state: GameState, dt: number): void {
     const outdoorBurning =
       fire.placed && (fire.lit || fire.igniting > 0);
     syncCampfireLoop(state.gerStoveLit || outdoorBurning);
+    // Гэрт байхад бороо нам дуугарна
+    syncWeatherStormAmbience(state.world.weather === "storm", true);
     state.fencePreview = false;
   } else if (state.phase === "elder") {
     // React ElderModal хариуцна — P/Esc дарвал хаана
@@ -864,6 +874,7 @@ export function update(state: GameState, dt: number): void {
           !openingMilestoneActive && tryInteractFirstRoute(state);
         if (!usedRouteInteraction) tryInteract(state);
         tryEatBerry(state);
+        tryDrinkSpiritWater(state);
         tryHorseMount(state);
         tryMigrateGer(state);
       }
@@ -874,6 +885,7 @@ export function update(state: GameState, dt: number): void {
       updateRiverAmbience(0);
       const fire = state.world.campfire;
       syncCampfireLoop(fire.placed && (fire.lit || fire.igniting > 0));
+      syncWeatherStormAmbience(state.world.weather === "storm", false);
       state.input.attack = false;
       state.input.attackPressed = false;
       state.input.parry = false;
@@ -922,6 +934,7 @@ export function update(state: GameState, dt: number): void {
     if (state.phase === "spirit") {
       updateCombat(state, dt);
       updatePlayerMovement(state, dt);
+      tryDrinkSpiritWater(state);
       const usedRouteInteraction = tryInteractFirstRoute(state);
       if (!usedRouteInteraction) {
         if (tryCollectSpiritOvooSoul(state)) {
@@ -993,6 +1006,7 @@ export function update(state: GameState, dt: number): void {
   // Нэг удаагийн үйлдлийн товчнуудыг frame бүрийн төгсгөлд цэвэрлэнэ
   state.input.interact = false;
   state.input.eat = false;
+  state.input.drinkSpirit = false;
   state.input.lightFire = false;
   state.input.buildFence = false;
   state.input.debugCheats = false;
@@ -1113,9 +1127,9 @@ export function mountHerderGame(
 
   // Түр хөгжүүлэлтийн shortcut:
   // . — одоогийн story үеийг алгасана
-  // ; — сүнс (ус+буцах; буцахад материал хураагдана)
+  // ; — сүнс (рашаан+буцах; буцахад материал хураагдана)
   // ' — шулмасыг дийлээд аав ээжтэй амьдрах үе рүү шууд орно
-  // , — зэвсэг + ус 3 амь (орохгүй)
+  // , — зэвсэг + рашаан 3 балга (орохгүй)
   const onStoryCheatKeyDown = (event: KeyboardEvent): void => {
     if (event.repeat) return;
     if (event.code === "Comma") {

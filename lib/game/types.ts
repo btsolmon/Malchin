@@ -226,7 +226,7 @@ export const CAMPFIRE_WOOD_COST = 3;
 export const SPIRIT_OVOO_STONE_COST = 5;
 /** Хар могойг дарахад шаардлагатай чулуу (хүний ертөнцөд бэлдэнэ) */
 export const SNAKE_CRUSH_STONE_COST = 100;
-/** Хоёр дахь зорчилт — овооны шилэн усны балга (= нэмэлт амь) */
+/** Хоёр дахь зорчилт — овооны шилэн рашааны балга (1 балга = бүтэн амь) */
 export const SPIRIT_WATER_SIPS = 3;
 
 /** Хашааны шат: 1 модон · 2 өргөстэй · 3 цахилгаан/чулуун */
@@ -406,6 +406,11 @@ export interface FishingHookState {
   tier: FishTier;
 }
 
+/** Чоно/баавгайн сэг дэлгэц дээр үлдэх хугацаа (сек) */
+export const WOLF_CORPSE_DURATION = 10;
+/** Сэг арилахын өмнөх fade (сек) */
+export const WOLF_CORPSE_FADE = 2.5;
+
 export interface Wolf {
   id: number;
   /** Чоно эсвэл баавгай — баавгай 2 дахин их амь, хүчтэй */
@@ -426,6 +431,8 @@ export interface Wolf {
   /** Тогтвортой харах чиг */
   face: 1 | -1;
   alive: boolean;
+  /** Үхсний дараа сэг үлдэх үлдсэн хугацаа (сек); 0 = арилсан */
+  deathTimer: number;
   /** Тулааны posture / фаз */
   posture: number;
   maxPosture: number;
@@ -740,6 +747,8 @@ export interface InputState {
   /** B — хашаа барих / шинэчлэх */
   buildFence: boolean;
   eat: boolean;
+  /** R — сүнсний рашаан балгах (1 балга = бүтэн амь) */
+  drinkSpirit: boolean;
   /** Debug — / дарж үхэшгүй + мод/зоос хязгааргүй */
   debugCheats: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
@@ -1068,7 +1077,7 @@ export interface GameState {
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
   combatDodgeActive: boolean;
   nextEntityId: number;
-  /** Шилэн усны балга = нэмэлт амь (1 балга = 1 дахин амилах) */
+  /** Шилэн лонхны рашаан — балганы тоо (R — уух, 1 балга = бүтэн амь) */
   spiritPoints: number;
   /**
    * Сүнс рүү орохын өмнөх нөөц (тагнах/cheat).

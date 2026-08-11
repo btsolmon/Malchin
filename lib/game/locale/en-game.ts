@@ -160,6 +160,8 @@ export const EN_GAME: Record<string, string> = {
     "The pasture grass is gone! Pack the ger (G) and move on, or use the trough.",
   "Бэлчээрт үлдсэн малыг чоно идэв! Хашаанд оруул!":
     "Wolves took the livestock left on pasture! Get them in the pen!",
+  "Бэлчээрт үлдсэн малыг чоно идэв! Орой бүр хашаанд оруул!":
+    "Wolves took livestock left on pasture! Bring them in every evening!",
   "Бүх мал үгүй болов… Ялагдлаа.": "Every head is gone… You have lost.",
   В: "C",
   Г: "D",
@@ -366,6 +368,8 @@ export const EN_GAME: Record<string, string> = {
   "НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС": "TÖMÖR SHULMAS OF EIGHTY-NINE SPELLS",
   "Нар жаргаж байна! Малаа хашаанд оруул — чоно ирнэ!":
     "The sun is setting! Pen your livestock — the wolves come!",
+  "Нар жаргаж байна! Малаа заавал хашаанд оруул — чоно ирнэ!":
+    "Sunset! You must pen the livestock — wolves are coming!",
   "Нар мандахад зүүн толгодын": "At sunrise, go to the elder's",
   "Нар мандахад зүүн толгодын өвгөний бууцанд оч.":
     "At sunrise, go to the elder's camp in the eastern hills.",
@@ -398,6 +402,10 @@ export const EN_GAME: Record<string, string> = {
     "Evening! Livestock penned. Night is closing in",
   "Орой боллоо! Малаа тууж хашаанд оруул. E — оруулах":
     "Evening! Drive the livestock into the pen. E — bring in",
+  "Орой боллоо! Малаа заавал тууж хашаанд оруул. E — оруулах":
+    "Evening! You must drive the livestock into the pen. E — bring in",
+  "Орой/шөнө мал бэлчээрт гаргах аюултай! Хашаандаа байлга.":
+    "Don't let them out at evening/night — keep them penned!",
   "Орой — мал хашаандаа. Амрах цаг.":
     "Evening — livestock penned. Time to rest.",
   "Сахиулын мөр тасарлаа.": "The guardians' line is broken.",
@@ -651,6 +659,8 @@ export const EN_GAME: Record<string, string> = {
     "Night! Livestock penned. Warm yourself at the fire",
   "Шөнө болов — мал бэлчээрт үлдэв! Аюултай!":
     "Night has come — livestock left on pasture! Dangerous!",
+  "Шөнө боллоо — үлдсэн малыг хашаанд оруул!":
+    "Night! Get the remaining livestock into the pen!",
   "Шөнө дөлөөр хар үүл хуралдан, хар хэрээ гуагалж, хачин муу ёр тал нутгийг нөмрөв.":
     "Deep in the night black clouds gathered, a black raven croaked, and a strange ill omen settled over the steppe.",
   "Эгэлгүй энэ төмөр хуягийг илд жадаар сүлбэшгүй.":
@@ -750,6 +760,16 @@ export const EN_GAME: Record<string, string> = {
     "Day! Gather hay, berries and sheep wool",
   "Өдөр болов — малаа гаргаагүй байна!":
     "Day has come — your livestock are still penned!",
+  "Өдөр болов — малаа гаргаагүй! Өдөржин хашаанд байлгавал өлсөж үхнэ.":
+    "Day has come — livestock still penned! Keep them in all day and they'll starve.",
+  "Өдөр! Мал хашаандаа өлсөнө — E-ээр бэлчээрт гарга":
+    "Day! Livestock starve in the pen — press E to let them graze",
+  "Өдөр хашаанд байлгавал өлсөнө — орой л оруулдаг нь дээр.":
+    "They starve if penned by day — better bring them in at evening.",
+  "Өдөржин хашаанд байлгавал өлсөж үхнэ! E — бэлчээрт гарга.":
+    "Kept in the pen all day they'll starve! E — let them out to graze.",
+  "Мал хашаандаа өлсөж байна — өглөө бүр бэлчээрт гарга!":
+    "Livestock starving in the pen — let them out every morning!",
   "Өлсгөлөн 40%-иар удаан унана": "Hunger falls 40% slower",
   "Өлсөж үхлээ…": "You starved…",
   "ӨЛСӨЖ БАЙНА! ХООЛ ИД!": "STARVING! EAT FOOD!",
@@ -765,7 +785,16 @@ export const EN_GAME: Record<string, string> = {
   "өвгөний бууцанд оч.": "camp in the eastern hills.",
   "← Үндсэн цэс": "← Main menu",
   "−1 мал (шөнийн дайралт)": "−1 livestock (night raid)",
+  "−1 мал (хашаанд өлсөв)": "−1 livestock (starved in pen)",
   "−1 мал (өвсгүй)": "−1 livestock (no hay)",
   "−1 мал (өлсгөлөн)": "−1 livestock (hunger)",
   "−1 сүнс · амиллаа": "−1 spirit · revived",
+  "E — Рашаан авах · дараа нь буцах": "E — Take sacred water · then return",
+  "E — Рашаан авах (3 балга · R — уух)": "E — Take sacred water (3 sips · R to drink)",
+  "R — Рашаан уух (бүтэн амь)": "R — Drink sacred water (full health)",
+  "E — Рашаан авах": "E — Take sacred water",
+  "Рашаан дууссан.": "The sacred water is gone.",
+  "Амь бүрэн — рашаан хэрэггүй.": "Health is full — no need for sacred water.",
+  "Рашаан · дууссан": "Sacred water · empty",
+  "Сүүлийн рашаанаа уув — амь дүүрэн. Лонх хоосорлоо.": "Last sip of sacred water — health full. Bottle empty.",
 };

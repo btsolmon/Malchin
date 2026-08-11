@@ -17,11 +17,19 @@ import {
   type Vector2,
   type WorldStone,
   Wolf,
+  WOLF_CORPSE_FADE,
 } from "../types";
 import { clamp, roundRectPath } from "../utils";
 
 /** Хашааны хагас урт — хөрш сегментийн шон/үзүүр нийлнэ */
 const FENCE_HALF = FENCE_GRID / 2;
+
+function wolfCorpseAlpha(wolf: Wolf): number {
+  const t = Number.isFinite(wolf.deathTimer) ? wolf.deathTimer : 0;
+  if (t <= 0) return 0;
+  if (t >= WOLF_CORPSE_FADE) return 1;
+  return clamp(t / WOLF_CORPSE_FADE, 0, 1);
+}
 
 export function drawShadow(
   ctx: CanvasRenderingContext2D,
@@ -2214,16 +2222,84 @@ export function drawWolf(
   time: number,
   showCombatFeedback = true,
 ): void {
-  if (!wolf.alive) {
-    // Сэг зурахгүй — шууд арилна
-    return;
-  }
-
   const x = wolf.pos.x - cam.x;
   const y = wolf.pos.y - cam.y;
   const flip = wolf.face;
   const run = Math.sin(time * 14 + wolf.id) * 3;
   const s = wolf.scale;
+
+  if (!wolf.alive) {
+    const alpha = wolfCorpseAlpha(wolf);
+    if (alpha <= 0) return;
+    // Үхсэн чоно — хажуу тийш унасан сэг; хэсэг хугацааны дараа fade
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawShadow(ctx, x + 2 * flip * s, y + 8 * s, 18 * s, 5 * s);
+
+    ctx.translate(x, y + 4 * s);
+    ctx.scale(s, s);
+    ctx.rotate(-0.16 * flip);
+
+    ctx.strokeStyle = "#35363a";
+    ctx.lineWidth = 2.8;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-7, 3);
+    ctx.lineTo(-12, 7);
+    ctx.lineTo(-8, 9);
+    ctx.moveTo(1, 4);
+    ctx.lineTo(6, 8);
+    ctx.lineTo(10, 7);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#424348";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-13 * flip, 0);
+    ctx.quadraticCurveTo(-18 * flip, 4, -22 * flip, 5);
+    ctx.stroke();
+
+    const deadBody = ctx.createLinearGradient(0, -7, 0, 7);
+    deadBody.addColorStop(0, "#575960");
+    deadBody.addColorStop(1, "#34353a");
+    ctx.fillStyle = deadBody;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 15.5, 7.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const hx = 13 * flip;
+    ctx.fillStyle = "#484a50";
+    ctx.beginPath();
+    ctx.ellipse(hx, 1, 7, 5.7, 0.12 * flip, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#38393e";
+    ctx.beginPath();
+    ctx.ellipse(hx + 5 * flip, 2.2, 4, 2.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#34353a";
+    ctx.beginPath();
+    ctx.moveTo(hx - 2 * flip, -3);
+    ctx.lineTo(hx - 1 * flip, -8);
+    ctx.lineTo(hx + 2 * flip, -4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = "#17181a";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(hx + 0.5 * flip, -0.6);
+    ctx.lineTo(hx + 4 * flip, -0.2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#18191b";
+    ctx.beginPath();
+    ctx.arc(hx + 8.3 * flip, 2, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+    return;
+  }
 
   drawShadow(ctx, x, y + 9 * s, 15 * s, 5 * s);
 
@@ -2336,16 +2412,59 @@ export function drawBear(
   cam: Camera,
   time: number,
 ): void {
-  if (!bear.alive) {
-    // Сэг зурахгүй — шууд арилна
-    return;
-  }
-
   const x = bear.pos.x - cam.x;
   const y = bear.pos.y - cam.y;
   const flip = bear.face;
   const lumber = Math.sin(time * 8 + bear.id) * 2.5;
   const s = bear.scale;
+
+  if (!bear.alive) {
+    const alpha = wolfCorpseAlpha(bear);
+    if (alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    drawShadow(ctx, x + 2 * flip * s, y + 10 * s, 22 * s, 6 * s);
+    ctx.translate(x, y + 5 * s);
+    ctx.scale(s, s);
+    ctx.rotate(-0.14 * flip);
+
+    ctx.strokeStyle = "#3a2814";
+    ctx.lineWidth = 4.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-8, 3);
+    ctx.lineTo(-14, 8);
+    ctx.lineTo(-9, 10);
+    ctx.moveTo(3, 4);
+    ctx.lineTo(9, 9);
+    ctx.lineTo(13, 8);
+    ctx.stroke();
+
+    const deadBody = ctx.createLinearGradient(0, -10, 0, 8);
+    deadBody.addColorStop(0, "#5a4024");
+    deadBody.addColorStop(1, "#352414");
+    ctx.fillStyle = deadBody;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 17, 10, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const hx = 14 * flip;
+    ctx.fillStyle = "#4a3420";
+    ctx.beginPath();
+    ctx.ellipse(hx, 1, 8, 6.5, 0.1 * flip, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#6a5030";
+    ctx.beginPath();
+    ctx.ellipse(hx + 5 * flip, 2.5, 4.2, 2.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1a120a";
+    ctx.beginPath();
+    ctx.ellipse(hx + 8.5 * flip, 2.2, 1.8, 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+    return;
+  }
 
   drawShadow(ctx, x, y + 11 * s, 18 * s, 6 * s);
 

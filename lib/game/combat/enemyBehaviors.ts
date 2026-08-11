@@ -3,6 +3,7 @@
 import {
   LIVESTOCK_MN,
   PASTURE_RADIUS,
+  WOLF_CORPSE_DURATION,
   WORLD_H,
   WORLD_W,
   type GameState,
@@ -174,6 +175,7 @@ export function spawnWolf(
     flash: 0,
     face: 1,
     alive: true,
+    deathTimer: 0,
   };
   if (options.id !== undefined) {
     state.nextEntityId = Math.max(state.nextEntityId, options.id + 1);
@@ -1649,10 +1651,16 @@ export function updateWolves(
   if (!Number.isFinite(dt) || dt <= 0) return;
 
   for (const rawWolf of wolves) {
-    if (
-      !rawWolf.alive ||
-      (onlyWolfId !== undefined && rawWolf.id !== onlyWolfId)
-    ) {
+    // Үхсэн сэг — хэсэг хугацаанд үлдээд арилна
+    if (!rawWolf.alive) {
+      if (!Number.isFinite(rawWolf.deathTimer)) {
+        rawWolf.deathTimer = WOLF_CORPSE_DURATION;
+      }
+      rawWolf.deathTimer = Math.max(0, rawWolf.deathTimer - dt);
+      continue;
+    }
+
+    if (onlyWolfId !== undefined && rawWolf.id !== onlyWolfId) {
       continue;
     }
 
@@ -1678,8 +1686,10 @@ export function updateWolves(
     updateNormalWolfChasing(state, wolf, dt);
   }
 
-  // Үхсэн чоно/баавгайн сэгийг шууд арилгана (story wolf орно)
-  state.world.wolves = wolves.filter((wolf) => wolf.alive);
+  // Амьд эсвэл сэгний хугацаа дуусаагүй л бол үлдэнэ
+  state.world.wolves = wolves.filter(
+    (wolf) => wolf.alive || wolf.deathTimer > 0,
+  );
 }
 
 export function updateThieves(state: GameState, dt: number): void {

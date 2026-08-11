@@ -1,6 +1,7 @@
 import {
   VIEW_H,
   VIEW_W,
+  WOLF_CORPSE_DURATION,
   WORLD_H,
   WORLD_W,
   type AttackVariant,
@@ -1276,6 +1277,7 @@ export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
   if (storyProtected) {
     wolf.hp = Math.max(1, wolf.hp);
     wolf.alive = true;
+    wolf.deathTimer = 0;
     return;
   }
 
@@ -1289,6 +1291,7 @@ export function damageWolf(state: GameState, wolf: Wolf, dmg: number): void {
     const score = bear ? 60 : 25;
     const xp = bear ? 45 : 22;
     wolf.alive = false;
+    wolf.deathTimer = WOLF_CORPSE_DURATION;
     if (isOpeningStoryWolf) state.story.storyWolfDefeated = true;
     sfx(bear ? "kill" : "wolfDeath");
     state.score += score;

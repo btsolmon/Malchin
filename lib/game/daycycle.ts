@@ -177,6 +177,9 @@ export function dayPhaseHint(
       : "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга";
   }
   if (phase === "day") {
+    if (!flockOut) {
+      return "Өдөр! Мал хашаандаа өлсөнө — E-ээр бэлчээрт гарга";
+    }
     if (season === "summer") return "Өдөр боллоо! Өвс, жимс, хоньны ноос түү";
     if (season === "autumn") return "Өдөр боллоо! Түлээ нөөцөл, хашаагаа хүчитгэ";
     if (season === "spring") return "Өдөр боллоо! Ноолуур түү, хурга/ишиг дулаан байлга";
@@ -184,7 +187,7 @@ export function dayPhaseHint(
   }
   if (phase === "evening") {
     return flockOut
-      ? "Орой боллоо! Малаа тууж хашаанд оруул. E — оруулах"
+      ? "Орой боллоо! Малаа заавал тууж хашаанд оруул. E — оруулах"
       : "Орой боллоо! Мал хашаандаа. Шөнө ойртож байна";
   }
   return flockOut
@@ -216,13 +219,18 @@ export function updateDayPhaseTransitions(state: GameState): void {
     );
   } else if (phase === "day" && prev === "dawn") {
     if (!world.flockOut && !world.cattleOut) {
-      setMessage(state, "Өдөр болов — малаа гаргаагүй байна!", 3);
+      setMessage(
+        state,
+        "Өдөр болов — малаа гаргаагүй! Өдөржин хашаанд байлгавал өлсөж үхнэ.",
+        4,
+      );
+      sfx("alert");
     }
   } else if (phase === "evening") {
     if (world.flockOut || world.cattleOut) {
       setMessage(
         state,
-        "Нар жаргаж байна! Малаа хашаанд оруул — чоно ирнэ!",
+        "Нар жаргаж байна! Малаа заавал хашаанд оруул — чоно ирнэ!",
         4.5,
       );
       sfx("alert");
@@ -240,6 +248,13 @@ export function updateDayPhaseTransitions(state: GameState): void {
         4,
       );
       sfx("alert");
+    } else if (world.flockOut || world.cattleOut) {
+      // Гадаа гэж тооцогдож байгаа ч ихэнх нь орсон — оруулахыг сануул
+      setMessage(
+        state,
+        "Шөнө боллоо — үлдсэн малыг хашаанд оруул!",
+        3,
+      );
     }
   }
 }
@@ -281,7 +296,19 @@ export function tryToggleFlockPen(state: GameState): boolean {
 
   const isCattle = pen === "cattle";
   const currentlyOut = isCattle ? world.cattleOut : world.flockOut;
+  const phase = world.dayPhase;
+
   if (!currentlyOut) {
+    // Орой/шөнө гаргахыг хориглоно — заавал хашаанд байлга
+    if (phase === "evening" || phase === "night") {
+      setMessage(
+        state,
+        "Орой/шөнө мал бэлчээрт гаргах аюултай! Хашаандаа байлга.",
+        2.8,
+      );
+      sfx("move");
+      return true;
+    }
     if (isCattle) {
       world.cattleOut = true;
       world.cattleBreach = null;
@@ -318,9 +345,11 @@ export function tryToggleFlockPen(state: GameState): boolean {
   );
   setMessage(
     state,
-    isCattle
-      ? "Үхэр хаалгаар хашаандаа орж байна."
-      : "Хонь/ямаа хаалгаар хашаандаа орж байна.",
+    phase === "dawn" || phase === "day"
+      ? "Өдөр хашаанд байлгавал өлсөнө — орой л оруулдаг нь дээр."
+      : isCattle
+        ? "Үхэр хаалгаар хашаандаа орж байна."
+        : "Хонь/ямаа хаалгаар хашаандаа орж байна.",
     3,
   );
   return true;
@@ -448,7 +477,7 @@ export function updateOutdoorNightRisk(state: GameState, dt: number): void {
   if (phase !== "evening" && phase !== "night") return;
 
   world.outdoorRiskAcc += dt;
-  const interval = phase === "night" ? 7 : 12;
+  const interval = phase === "night" ? 5.5 : 9;
   if (world.outdoorRiskAcc < interval) return;
   world.outdoorRiskAcc = 0;
 
@@ -466,9 +495,7 @@ export function updateOutdoorNightRisk(state: GameState, dt: number): void {
     return;
   }
 
-  const chance = phase === "night" ? 0.55 : 0.28;
-  if (Math.random() > chance) return;
-
+  const chance = phase === "night" ? 0.7 : 0.4;
   if (Math.random() > chance) return;
 
   const victim = outside[Math.floor(Math.random() * outside.length)];
@@ -478,7 +505,7 @@ export function updateOutdoorNightRisk(state: GameState, dt: number): void {
   killHerdVisual(state, victim);
   setMessage(
     state,
-    "Бэлчээрт үлдсэн малыг чоно идэв! Хашаанд оруул!",
+    "Бэлчээрт үлдсэн малыг чоно идэв! Орой бүр хашаанд оруул!",
     3.5,
   );
   sfx("baa");

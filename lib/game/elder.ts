@@ -211,7 +211,7 @@ export const POST_SPIRIT_SCOUT_DIALOGUE: ElderDialogue = {
     },
     {
       speaker: "elder",
-      text: "Харин тэр овоон дээр шилэн лонхтой ус үлдээнэ. Гурван балга л ус байгаа. Нэг балга нэг амь. Могойг дарсны дараа Шидэт харваач, Шулмасын зарц, Талын харагч гэсэн үлдсэн гурав босно.",
+      text: "Харин тэр овоон дээр шилэн лонхтой рашаан үлдээнэ. Гурван балга л байна. R дарж нэг балгавал амьны үзүүлэлт бүрэн дүүрнэ. Могойг дарсны дараа Шидэт харваач, Шулмасын зарц, Талын харагч гэсэн үлдсэн гурав босно.",
     },
     {
       speaker: "elder",
@@ -707,6 +707,7 @@ function completeFirstNightElderDialogue(state: GameState): void {
 
   if (wolf) {
     wolf.alive = true;
+    wolf.deathTimer = 0;
     wolf.hp = Math.max(1, wolf.hp);
     wolf.vel.x = 0;
     wolf.vel.y = 0;

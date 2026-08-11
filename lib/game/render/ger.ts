@@ -42,15 +42,14 @@ export function drawSleepingHerder(
 ): void {
   const left = state.gerSleepBed === "L";
   const bed = left ? gerLayout().bedL : gerLayout().bedR;
-  // Дэр орны хойд (хана) талд — толгой дээд рүү
-  const cx = bed.x + bed.w / 2;
-  const cy = bed.y + bed.h * 0.48;
+  // Дэр орны хойд (хана) талд — толгой дээд рүү; бага зэрэг өрөө тийш
+  const cx = left ? bed.x + bed.w * 0.58 : bed.x + bed.w * 0.42;
+  const cy = bed.y + bed.h * 0.46;
   const breath = Math.sin(time * 2.2) * 0.6;
 
   const sleeper: Player = {
     ...state.player,
     pos: { x: 0, y: breath * 0.15 },
-    // Ханан дэр рүү харсан (босоо хэвтэнэ — хөндлөн биш)
     facing: { x: 0, y: -1 },
     moving: false,
     riding: false,
@@ -61,23 +60,54 @@ export function drawSleepingHerder(
 
   ctx.save();
   ctx.translate(cx, cy + 2);
-  // Орны гудас дээр босоо чиглэлд (толгой дэр рүү)
   ctx.scale(scale * 0.52, scale * 0.52);
   drawPlayer(ctx, sleeper, { x: 0, y: 0 }, time, false, 0, true);
   ctx.restore();
+  // Zzz-ийг vignette-ийн дараа зурна (drawGerSleepZzz)
+}
 
+/** Унтах үеийн Zzz — орны аль талд ч харагдана */
+function drawSleepZzz(
+  ctx: CanvasRenderingContext2D,
+  originX: number,
+  originY: number,
+  time: number,
+  side: 1 | -1 = 1,
+): void {
   for (let i = 0; i < 3; i++) {
-    const phase = (time * 0.7 + i * 0.85) % 1;
-    const zx = cx + Math.sin(time + i) * 3;
-    const zy = cy - 18 - phase * 28;
-    ctx.globalAlpha = (1 - phase) * 0.9;
-    ctx.fillStyle = "#d8e8ff";
-    ctx.font = `${11 + i * 3}px system-ui, sans-serif`;
+    const phase = (time * 0.75 + i * 0.9) % 1;
+    const zx = originX + side * (6 + phase * 14) + Math.sin(time * 1.4 + i) * 2;
+    const zy = originY - phase * 32;
+    const alpha = (1 - phase) * 0.95;
+    const size = 12 + i * 4 + phase * 4;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `700 ${size}px system-ui, sans-serif`;
     ctx.textAlign = "center";
+    ctx.strokeStyle = "rgba(20,12,8,0.75)";
+    ctx.lineWidth = 3;
+    ctx.strokeText("z", zx, zy);
+    ctx.fillStyle = "#e8f2ff";
     ctx.fillText("z", zx, zy);
+    ctx.restore();
   }
   ctx.globalAlpha = 1;
   ctx.textAlign = "left";
+}
+
+/** Унтах Zzz — vignette-ийн дараа дуудагдана */
+function drawGerSleepZzz(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  time: number,
+): void {
+  if (state.gerSleepTimer <= 0 || !state.gerSleepBed) return;
+  const left = state.gerSleepBed === "L";
+  const bed = left ? gerLayout().bedL : gerLayout().bedR;
+  const cx = left ? bed.x + bed.w * 0.58 : bed.x + bed.w * 0.42;
+  const cy = bed.y + bed.h * 0.46;
+  const zSide: 1 | -1 = left ? 1 : -1;
+  drawSleepZzz(ctx, cx + zSide * 10, cy - 14, time, zSide);
 }
 
 /** Унтах үед нүдний хэлбэрээр аажмаар хаагдаж харанхуй болно */
@@ -466,7 +496,81 @@ function lobedMedallionPath(
   ctx.closePath();
 }
 
-/** Хаалганаас харсан хажуугийн ор — жижиг улбар шар хүрээ */
+/** Орны самбар дээрх ногоон/алтан хээ — авдартай ижил хэв */
+function drawBedPanelOrnament(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  pw: number,
+  ph: number,
+): void {
+  const teal = "#1a4840";
+  const gold = "#d4a84a";
+  const accent = "#c86838";
+  roundRectPath(ctx, px, py, pw, ph, 2);
+  ctx.fillStyle = teal;
+  ctx.fill();
+  ctx.strokeStyle = gold;
+  ctx.lineWidth = 1;
+  roundRectPath(ctx, px + 1.2, py + 1.2, pw - 2.4, ph - 2.4, 1.5);
+  ctx.stroke();
+
+  const mx = px + pw / 2;
+  const my = py + ph / 2;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = 1.2;
+  ctx.lineCap = "round";
+  // Жижиг өлзий / гогцоо
+  const s = Math.min(pw, ph) * 0.28;
+  ctx.beginPath();
+  ctx.moveTo(mx - s, my);
+  ctx.quadraticCurveTo(mx - s * 0.2, my - s, mx, my - s * 0.35);
+  ctx.quadraticCurveTo(mx + s * 0.2, my - s, mx + s, my);
+  ctx.quadraticCurveTo(mx + s * 0.2, my + s, mx, my + s * 0.35);
+  ctx.quadraticCurveTo(mx - s * 0.2, my + s, mx - s, my);
+  ctx.stroke();
+  ctx.fillStyle = gold;
+  ctx.beginPath();
+  ctx.arc(mx, my, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/** Гудасны төв — хана торны хээ */
+function drawBedBlanketMotif(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+): void {
+  const s = size;
+  ctx.strokeStyle = "#4a3020";
+  ctx.lineWidth = Math.max(1.8, s * 0.12);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  // # / тор хэлбэртэй
+  const half = s * 0.42;
+  ctx.beginPath();
+  ctx.moveTo(cx - half, cy - half * 0.35);
+  ctx.lineTo(cx + half, cy - half * 0.35);
+  ctx.moveTo(cx - half, cy);
+  ctx.lineTo(cx + half, cy);
+  ctx.moveTo(cx - half, cy + half * 0.35);
+  ctx.lineTo(cx + half, cy + half * 0.35);
+  ctx.moveTo(cx - half * 0.35, cy - half);
+  ctx.lineTo(cx - half * 0.35, cy + half);
+  ctx.moveTo(cx + half * 0.35, cy - half);
+  ctx.lineTo(cx + half * 0.35, cy + half);
+  ctx.stroke();
+  // Гадна дөрвөлжин
+  ctx.lineWidth = Math.max(1.2, s * 0.07);
+  roundRectPath(ctx, cx - half, cy - half, half * 2, half * 2, 2);
+  ctx.stroke();
+}
+
+/**
+ * Хаалганаас харсан хажуугийн ор —
+ * гэр доторх авдар/баганын өнгө, хэвээр canvas дээр зурна (спрайт биш).
+ */
 function drawGerSideBed(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -475,42 +579,45 @@ function drawGerSideBed(
   h: number,
   side: -1 | 1,
 ): void {
-  const orange = "#e85828";
-  const orangeDeep = "#c04018";
-  const orangeLite = "#f87840";
-  const cream = "#f2e6c8";
-  const creamDeep = "#e0d0a8";
-  const woodLine = "#8a3010";
+  // Авдар / баганатай ижил дулаан мод
+  const wood = "#a84828";
+  const woodDeep = "#7a3018";
+  const woodLite = "#c86038";
+  const cream = "#efe4c8";
+  const creamDeep = "#dcc8a4";
+  const blue = "#1a3858";
+  const purple = "#4a2850";
+  const pillowRed = "#a82820";
+  const pillowDeep = "#701810";
 
-  // Бага перспектив — хана дагуу намхан ор
-  const frontY = y + h - 4;
-  const backY = y + 4;
+  const frontY = y + h - 6;
+  const backY = y + 6;
   const insetFront = 3;
-  const insetBack = 10;
+  const insetBack = 14;
   const frontL = x + (side < 0 ? insetFront : insetBack);
   const frontR = x + w - (side < 0 ? insetBack : insetFront);
-  const backL = x + (side < 0 ? insetBack : insetBack + 4);
-  const backR = x + w - (side < 0 ? insetBack + 4 : insetBack);
+  const backL = x + (side < 0 ? insetBack + 2 : insetBack + 6);
+  const backR = x + w - (side < 0 ? insetBack + 6 : insetBack + 2);
 
-  // Сүүдэр
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  // Шалны сүүдэр — зөөлөн, шалтай ууссан
+  ctx.fillStyle = "rgba(40,20,10,0.28)";
   ctx.beginPath();
   ctx.ellipse(
     (frontL + frontR) / 2,
-    frontY + 4,
-    (frontR - frontL) * 0.46,
-    6,
+    frontY + 6,
+    (frontR - frontL) * 0.48,
+    7,
     0,
     0,
     Math.PI * 2,
   );
   ctx.fill();
 
-  // Орны суурь
+  // Модон суурь
   const frameGrad = ctx.createLinearGradient(x, backY, x, frontY);
-  frameGrad.addColorStop(0, orangeLite);
-  frameGrad.addColorStop(0.55, orange);
-  frameGrad.addColorStop(1, orangeDeep);
+  frameGrad.addColorStop(0, woodLite);
+  frameGrad.addColorStop(0.45, wood);
+  frameGrad.addColorStop(1, woodDeep);
   ctx.fillStyle = frameGrad;
   ctx.beginPath();
   ctx.moveTo(frontL - 3, frontY);
@@ -519,13 +626,24 @@ function drawGerSideBed(
   ctx.lineTo(backL - 2, backY);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = woodLine;
-  ctx.lineWidth = 1.2;
+  ctx.strokeStyle = "#5a2010";
+  ctx.lineWidth = 1.3;
   ctx.stroke();
 
-  // Урд хашлага — намхан
-  const faceH = 11;
-  ctx.fillStyle = orangeDeep;
+  // Гүний ирмэг
+  ctx.strokeStyle = "rgba(40,16,8,0.35)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(frontL + 5, frontY - 3);
+  ctx.lineTo(frontR - 5, frontY - 3);
+  ctx.lineTo(backR - 3, backY + 7);
+  ctx.lineTo(backL + 3, backY + 7);
+  ctx.closePath();
+  ctx.stroke();
+
+  // Урд хашлага + хээ
+  const faceH = 13;
+  ctx.fillStyle = woodDeep;
   ctx.beginPath();
   ctx.moveTo(frontL - 3, frontY);
   ctx.lineTo(frontR + 3, frontY);
@@ -533,35 +651,97 @@ function drawGerSideBed(
   ctx.lineTo(frontL - 2, frontY + faceH);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = woodLine;
+  ctx.strokeStyle = "#4a1808";
   ctx.lineWidth = 1;
   ctx.stroke();
-  ctx.strokeStyle = "rgba(255,220,160,0.5)";
-  ctx.lineWidth = 1;
-  const midFace = frontY + faceH * 0.45;
-  ctx.beginPath();
-  ctx.moveTo(frontL + 6, midFace);
-  ctx.quadraticCurveTo((frontL + frontR) / 2, midFace - 3, frontR - 6, midFace);
-  ctx.stroke();
+  drawBedPanelOrnament(
+    ctx,
+    frontL + 8,
+    frontY + 2.5,
+    frontR - frontL - 16,
+    faceH - 5,
+  );
+
+  // Өрөө рүү харсан хажуу самбар
+  const sideW = 10;
+  const sideX = side < 0 ? frontR - 1 : frontL - sideW + 1;
+  const sideTop = backY + 12;
+  const sideBot = frontY - 1;
+  ctx.fillStyle = side < 0 ? woodLite : woodDeep;
+  ctx.fillRect(sideX, sideTop, sideW, sideBot - sideTop);
+  ctx.strokeStyle = "#4a1808";
+  ctx.lineWidth = 0.9;
+  ctx.strokeRect(sideX, sideTop, sideW, sideBot - sideTop);
+  const motifH = (sideBot - sideTop - 8) / 3;
+  for (let i = 0; i < 3; i++) {
+    drawBedPanelOrnament(
+      ctx,
+      sideX + 1.5,
+      sideTop + 3 + i * (motifH + 1.5),
+      sideW - 3,
+      motifH,
+    );
+  }
 
   // Хөл
-  for (const fx of [frontL + 8, frontR - 8]) {
-    ctx.fillStyle = orangeDeep;
-    roundRectPath(ctx, fx - 2.5, frontY + faceH - 1, 5, 7, 1);
+  for (const fx of [frontL + 7, frontR - 7]) {
+    ctx.fillStyle = woodDeep;
+    roundRectPath(ctx, fx - 3, frontY + faceH - 1, 6, 7, 1);
     ctx.fill();
   }
 
-  // Гудас
-  const matL = frontL + 3;
-  const matR = frontR - 3;
-  const matBackL = backL + 4;
-  const matBackR = backR - 4;
-  const matFront = frontY - 3;
-  const matBack = backY + 8;
+  // Нил ягаан доод давхарга (толгой)
+  const underL = frontL + 5;
+  const underR = frontR - 5;
+  const underBackL = backL + 4;
+  const underBackR = backR - 4;
+  ctx.fillStyle = purple;
+  ctx.beginPath();
+  ctx.moveTo(underL + 2, frontY - 5);
+  ctx.lineTo(underR - 2, frontY - 5);
+  ctx.lineTo(underBackR, backY + 8);
+  ctx.lineTo(underBackL, backY + 8);
+  ctx.closePath();
+  ctx.fill();
+
+  // Цэнхэр хээтэй даавуу — толгойн тал
+  const blueFront = backY + 28;
+  const blueBack = backY + 8;
+  ctx.fillStyle = blue;
+  ctx.beginPath();
+  ctx.moveTo(underL + 3, blueFront);
+  ctx.lineTo(underR - 3, blueFront);
+  ctx.lineTo(underBackR - 1, blueBack);
+  ctx.lineTo(underBackL + 1, blueBack);
+  ctx.closePath();
+  ctx.fill();
+  // Алтан жижиг хээ
+  ctx.fillStyle = "rgba(212,168,74,0.75)";
+  const blueMidX = (underL + underR) / 2;
+  for (let i = -1; i <= 1; i++) {
+    const ox = blueMidX + i * ((underR - underL) * 0.22);
+    const oy = (blueFront + blueBack) / 2;
+    ctx.beginPath();
+    ctx.arc(ox, oy, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(240,210,140,0.7)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.arc(ox, oy, 1.6, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Цагаан эсгий / хонины арьс
+  const matL = underL + 2;
+  const matR = underR - 2;
+  const matBackL = underBackL + 2;
+  const matBackR = underBackR - 2;
+  const matFront = frontY - 5;
+  const matBack = blueFront - 1;
   const matGrad = ctx.createLinearGradient(0, matBack, 0, matFront);
   matGrad.addColorStop(0, creamDeep);
-  matGrad.addColorStop(0.55, cream);
-  matGrad.addColorStop(1, "#faf3dc");
+  matGrad.addColorStop(0.5, cream);
+  matGrad.addColorStop(1, "#f7f0dc");
   ctx.fillStyle = matGrad;
   ctx.beginPath();
   ctx.moveTo(matL, matFront);
@@ -570,28 +750,93 @@ function drawGerSideBed(
   ctx.lineTo(matBackL, matBack);
   ctx.closePath();
   ctx.fill();
-  ctx.strokeStyle = "rgba(160,130,80,0.3)";
+  ctx.strokeStyle = "rgba(140,110,70,0.28)";
   ctx.lineWidth = 0.9;
   ctx.stroke();
 
-  // Дэр — хоймор/хана тал
-  const pillowW = (matBackR - matBackL) * 0.7;
-  const pillowCx = (matBackL + matBackR) / 2;
-  const pillowY = matBack + 2;
-  const pillowH = 10;
-  ctx.fillStyle = "rgba(0,0,0,0.1)";
+  // Эсгийн зөөлөн сүүдэр (ирмэг)
+  ctx.strokeStyle = "rgba(180,150,100,0.25)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.ellipse(pillowCx, pillowY + pillowH * 0.7, pillowW * 0.45, 3.5, 0, 0, Math.PI * 2);
+  ctx.moveTo(matL + 3, matFront - 1);
+  ctx.lineTo(matR - 3, matFront - 1);
+  ctx.stroke();
+
+  // Төв хээ
+  const rugCx = (matL + matR + matBackL + matBackR) / 4;
+  const rugCy = (matFront + matBack) * 0.5 + 2;
+  drawBedBlanketMotif(ctx, rugCx, rugCy, Math.min(28, (matR - matL) * 0.28));
+
+  // Цилиндр дэр — улаан төгсгөл, цагаан төв, улаан хүрд
+  const pillowW = (matBackR - matBackL) * 0.82;
+  const pillowCx = (matBackL + matBackR) / 2;
+  const pillowY = matBack - 4;
+  const pillowH = 14;
+  ctx.fillStyle = "rgba(0,0,0,0.16)";
+  ctx.beginPath();
+  ctx.ellipse(
+    pillowCx,
+    pillowY + pillowH * 0.9,
+    pillowW * 0.46,
+    3.2,
+    0,
+    0,
+    Math.PI * 2,
+  );
   ctx.fill();
+
+  // Төгсгөлүүд
+  const endW = pillowW * 0.16;
+  ctx.fillStyle = pillowDeep;
+  roundRectPath(ctx, pillowCx - pillowW / 2, pillowY, endW, pillowH, 5);
+  ctx.fill();
+  roundRectPath(ctx, pillowCx + pillowW / 2 - endW, pillowY, endW, pillowH, 5);
+  ctx.fill();
+
+  // Цагаан төв
+  const midX = pillowCx - pillowW / 2 + endW - 1;
+  const midW = pillowW - endW * 2 + 2;
   const pilGrad = ctx.createLinearGradient(0, pillowY, 0, pillowY + pillowH);
-  pilGrad.addColorStop(0, "#fff8e8");
-  pilGrad.addColorStop(1, "#e8d8b8");
+  pilGrad.addColorStop(0, "#fff8ec");
+  pilGrad.addColorStop(1, "#e8d8c0");
   ctx.fillStyle = pilGrad;
-  roundRectPath(ctx, pillowCx - pillowW / 2, pillowY, pillowW, pillowH, 4);
+  roundRectPath(ctx, midX, pillowY, midW, pillowH, 4);
   ctx.fill();
   ctx.strokeStyle = "#c8b090";
+  ctx.lineWidth = 0.8;
+  roundRectPath(ctx, midX, pillowY, midW, pillowH, 4);
+  ctx.stroke();
+
+  // Улаан хүрд тэмдэг
+  const wx = pillowCx;
+  const wy = pillowY + pillowH / 2;
+  ctx.fillStyle = pillowRed;
+  ctx.beginPath();
+  ctx.arc(wx, wy, 4.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#ffe0a8";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(wx, wy, 3, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#ffe0a8";
   ctx.lineWidth = 0.9;
-  roundRectPath(ctx, pillowCx - pillowW / 2, pillowY, pillowW, pillowH, 4);
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(wx + Math.cos(a) * 1.2, wy + Math.sin(a) * 1.2);
+    ctx.lineTo(wx + Math.cos(a) * 3.8, wy + Math.sin(a) * 3.8);
+    ctx.stroke();
+  }
+
+  // Төгсгөлийн цагираг
+  ctx.strokeStyle = "rgba(255,200,160,0.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pillowCx - pillowW / 2 + endW, pillowY + 3);
+  ctx.lineTo(pillowCx - pillowW / 2 + endW, pillowY + pillowH - 3);
+  ctx.moveTo(pillowCx + pillowW / 2 - endW, pillowY + 3);
+  ctx.lineTo(pillowCx + pillowW / 2 - endW, pillowY + pillowH - 3);
   ctx.stroke();
 }
 
@@ -1893,6 +2138,9 @@ export function drawGerInterior(
   if (state.shopOpen) drawChest(ctx, state);
   if (state.craftOpen) drawCraft(ctx, state);
   if (state.gerArtZoom) drawGerArtZoom(ctx, state.gerArtZoom);
+
+  // Zzz — vignette-ийн дээр, зовхины өмнө (хоёр ор дээр ч харагдана)
+  drawGerSleepZzz(ctx, state, time);
 
   // Унтах — нүд аниж харанхуй (хамгийн дээр)
   if (state.gerSleepTimer > 0) {

@@ -310,10 +310,13 @@ function tryAdvanceHelperWave(state: GameState): void {
     route.helperWave = 2;
     // Халуун шар туяа арилга — сүнсний хөх бүүдгэр рүү буцна
     state.player.vitals.warmth = Math.min(state.player.vitals.warmth, 55);
+    const scoutTrip = state.story.spiritAllowReturn === true;
     spawnHelperWave(
       state,
       [buildSnakeSlot(spawn)],
-      "Зургаан нар унтарлаа. Хар могой гарч ирлээ — унагаад чулуугаар дар!",
+      scoutTrip
+        ? "Зургаан нар унтарлаа. Хар могой гарч ирлээ — тагнаад чулуун овоогоор буц."
+        : "Зургаан нар унтарлаа. Хар могой гарч ирлээ — унагаад чулуугаар дар!",
     );
     return;
   }
@@ -800,8 +803,9 @@ export function damageRouteEnemy(
   });
   if (enemy.hp > 0) return;
 
-  // Хар могой — унасны дараа чулуугаар дарна
+  // Хар могой — унасны дараа чулуугаар дарна (тагнах зорчилтод чулуугүй)
   if (enemy.kind === "harMogoi") {
+    const scoutTrip = state.story.spiritAllowReturn === true;
     enemy.hp = 0;
     enemy.alive = true;
     enemy.awaitingCrush = true;
@@ -812,7 +816,9 @@ export function damageRouteEnemy(
     enemy.vel = { x: 0, y: 0 };
     setMessage(
       state,
-      `Могой унав! Ойртоод E дар — ${SNAKE_CRUSH_STONE_COST} чулуугаар дар.`,
+      scoutTrip
+        ? "Могой унав. Энэ удаа чулуугүй — тагнаад хар мөрийн чулуун овоогоор буц."
+        : `Могой унав! Ойртоод E дар — ${SNAKE_CRUSH_STONE_COST} чулуугаар дар.`,
       5,
     );
     sfx("levelup");
@@ -923,22 +929,34 @@ export function tryCrushHarMogoi(state: GameState): boolean {
   );
   if (!snake) return false;
 
-  // Унасан могой байхад E-г овоо буцаах бүү хулгайлаарай
-  state.input.interact = false;
-
+  // Зөвхөн могой ойрхон үед E авна — хол байхад овоогоор буцахыг бүү хулгайл
   const reach = snake.radius + 96;
   if (dist(state.player.pos, snake.pos) > reach) {
-    setMessage(state, "Могой руу ойртоод E дар — чулуугаар дар.", 2.6);
-    sfx("move");
-    return true;
+    return false;
   }
 
+  state.input.interact = false;
+
+  const scoutTrip = state.story.spiritAllowReturn === true;
   const stones = state.player.inventory.stone ?? 0;
   if (stones < SNAKE_CRUSH_STONE_COST) {
     setMessage(
       state,
-      `Чулуу дутуу: ${stones}/${SNAKE_CRUSH_STONE_COST}. Хүний ертөнцөд түүж бэлд.`,
-      3.5,
+      scoutTrip
+        ? "Энэ удаа чулуугүй. Тагнаад хар мөрийн чулуун овоогоор буц."
+        : `Чулуу дутуу: ${stones}/${SNAKE_CRUSH_STONE_COST}. Хүний ертөнцөд түүж бэлд.`,
+      scoutTrip ? 4 : 3.5,
+    );
+    sfx("move");
+    return true;
+  }
+
+  // Тагнах зорчилт — чулуу хангалттай байсан ч дарах албагүй; дараагийн давалгаа бүү нээ
+  if (scoutTrip) {
+    setMessage(
+      state,
+      "Тагнах зорчилт — могойг бүү дар. Хар мөрийн чулуун овоогоор буц.",
+      4,
     );
     sfx("move");
     return true;
@@ -1723,7 +1741,9 @@ export function updateFirstRoute(state: GameState, dt: number): void {
       } else if (enemy.kind === "harMogoi") {
         setMessage(
           state,
-          "Хар могой мөлхөж ирлээ. Унагасны дараа чулуугаар дар.",
+          state.story.spiritAllowReturn
+            ? "Хар могой мөлхөж ирлээ. Тагнаад хар мөрийн чулуун овоогоор буц."
+            : "Хар могой мөлхөж ирлээ. Унагасны дараа чулуугаар дар.",
           2.2,
         );
       } else {
@@ -1943,6 +1963,7 @@ function drawEnemyHealthBars(
   x: number,
   y: number,
   stoneCount = 0,
+  scoutTrip = false,
 ): void {
   if (enemy.kind === "shulmasynBaatar") return;
   // Нар — HP/шар зураас тэнгэрт бүү зур
@@ -1977,9 +1998,12 @@ function drawEnemyHealthBars(
 
   if (enemy.kind === "harMogoi") {
     const have = Math.max(0, Math.floor(stoneCount));
-    const hint = enemy.awaitingCrush
-      ? `E · ${have}/${SNAKE_CRUSH_STONE_COST} чулуу`
-      : `${have}/${SNAKE_CRUSH_STONE_COST} чулуу`;
+    const hint =
+      scoutTrip && enemy.awaitingCrush
+        ? "Тагнаад буц"
+        : enemy.awaitingCrush
+          ? `E · ${have}/${SNAKE_CRUSH_STONE_COST} чулуу`
+          : `${have}/${SNAKE_CRUSH_STONE_COST} чулуу`;
     const tipY = y + (showPosture ? 22 : 16);
     ctx.textAlign = "center";
     ctx.font = "600 10px system-ui, sans-serif";
@@ -1987,7 +2011,7 @@ function drawEnemyHealthBars(
     ctx.lineWidth = 3;
     ctx.strokeText(hint, x, tipY);
     ctx.fillStyle =
-      have >= SNAKE_CRUSH_STONE_COST ? "#e8d4a0" : "#d8c8b0";
+      scoutTrip || have >= SNAKE_CRUSH_STONE_COST ? "#e8d4a0" : "#d8c8b0";
     ctx.fillText(hint, x, tipY);
     ctx.textAlign = "left";
   }
@@ -2049,6 +2073,7 @@ export function drawRouteEnemy(
   cam: Camera,
   time: number,
   stoneCount = 0,
+  scoutTrip = false,
 ): void {
   // Зургаан нар — тэнгэрийн overlay (drawSixSunsSky)
   if (enemy.kind === "zurgaanNar") return;
@@ -2126,7 +2151,7 @@ export function drawRouteEnemy(
   drawRouteTelegraph(ctx, enemy, x, y, time);
   const barY =
     y - enemy.radius - (enemy.kind === "harMogoi" ? 56 : 35);
-  drawEnemyHealthBars(ctx, enemy, x, barY, stoneCount);
+  drawEnemyHealthBars(ctx, enemy, x, barY, stoneCount, scoutTrip);
   if (
     enemy.engaged &&
     enemy.kind !== "shulmasynBaatar" &&

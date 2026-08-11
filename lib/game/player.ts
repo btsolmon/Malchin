@@ -1387,7 +1387,8 @@ export function updateSurvival(state: GameState, dt: number): void {
     player.vitals.maxWarmth > 0
       ? player.vitals.warmth / player.vitals.maxWarmth
       : 1;
-  if (warmthRatio <= 0.2 && state.phase === "playing") {
+  // 70% дууссан (үлдсэн ≤30%) — анхааруулга; хохирол ≤20%-д эхэлнэ
+  if (warmthRatio <= 0.3 && state.phase === "playing") {
     if (
       !state.bannerAlert ||
       state.bannerAlert.kind !== "cold" ||
@@ -1433,7 +1434,7 @@ export function updateSurvival(state: GameState, dt: number): void {
     player.vitals.maxHunger > 0
       ? player.vitals.hunger / player.vitals.maxHunger
       : 1;
-  if (hungerRatio <= 0.25 && state.phase === "playing") {
+  if (hungerRatio <= 0.3 && state.phase === "playing") {
     const hungerText =
       hungerRatio <= 0
         ? "ӨЛСӨЖ ҮХЭХ ГЭЖ БАЙНА!"
@@ -1552,8 +1553,12 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
     return;
   }
 
-  // Зун/намар/хавар — мал бэлчээрт өөрөө иднэ
-  if (world.flockOut && grazePerSec > 0) {
+  // Зун/намар/хавар — өдөр бэлчээрт гаргаж идүүлнэ; өдөржин хашаанд = өлсөнө
+  const anyOut = world.flockOut || world.cattleOut;
+  const grazingHours =
+    world.dayPhase === "dawn" || world.dayPhase === "day";
+
+  if (anyOut && grazePerSec > 0) {
     if (world.pastureGrass > 0.05) {
       const ate = Math.min(world.pastureGrass, grazePerSec * dt);
       world.pastureGrass = Math.max(0, world.pastureGrass - ate);
@@ -1599,14 +1604,62 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
         }
       }
     }
+  } else if (grazingHours) {
+    // Өдөржин хашаанд — тэвш бүрэн аврахгүй, бэлчээрт гаргах ёстой
+    if (feeder.hay > 0) {
+      const snack = Math.min(feeder.hay, needPerSec * 0.12 * dt);
+      feeder.hay -= snack;
+    }
+    const drain = world.dayPhase === "day" ? 3.2 : 1.4;
+    flock.hunger = clamp(flock.hunger - drain * dt, 0, 100);
+    if (flock.hunger < 55) {
+      flock.starveAcc += dt;
+      const interval =
+        world.dayPhase === "day"
+          ? clamp(10 - flock.total * 0.015, 6, 10)
+          : 14;
+      if (flock.starveAcc >= interval && flock.hunger < 40) {
+        flock.starveAcc = 0;
+        const lost = loseSheep(state, 1);
+        if (lost > 0) {
+          spawnText(
+            state,
+            pastureCenter(world),
+            "−1 мал (хашаанд өлсөв)",
+            "#ff9080",
+          );
+          sfx("baa");
+          setBannerAlert(state, "МАЛ ӨЛСӨЖ ҮХЭЖ БАЙНА!", 4.2, "danger");
+          setMessage(
+            state,
+            "Өдөржин хашаанд байлгавал өлсөж үхнэ! E — бэлчээрт гарга.",
+            4,
+          );
+        }
+      } else if (
+        flock.starveAcc >= 4 &&
+        flock.hunger < 50 &&
+        (state.messageTimer <= 0 ||
+          state.bannerAlert?.kind !== "hunger")
+      ) {
+        setBannerAlert(state, "МАЛ ӨЛСӨЖ БАЙНА!", 3.2, "hunger");
+        setMessage(
+          state,
+          "Мал хашаандаа өлсөж байна — өглөө бүр бэлчээрт гарга!",
+          3,
+        );
+      }
+    } else {
+      flock.starveAcc = Math.max(0, flock.starveAcc - dt * 0.5);
+    }
   } else {
-    // Хашаанд — тэвшээс бага зэрэг, бэлчээр идэхгүй
+    // Орой/шөнө хашаанд — тэвшээр тэжээж амраана
     if (feeder.hay > 0) {
       const snack = Math.min(feeder.hay, needPerSec * 0.5 * dt);
       feeder.hay -= snack;
       flock.hunger = clamp(flock.hunger + 4 * dt, 0, 100);
     } else {
-      flock.hunger = clamp(flock.hunger - 0.8 * dt, 0, 100);
+      flock.hunger = clamp(flock.hunger - 0.5 * dt, 0, 100);
     }
     flock.starveAcc = 0;
   }

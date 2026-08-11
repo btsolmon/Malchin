@@ -663,6 +663,7 @@ export function render(
     });
   }
   for (const wolf of world.wolves) {
+    if (!wolf.alive && wolf.deathTimer <= 0) continue;
     addDrawable("wolf", {
       y: wolf.pos.y,
       key: 2000 + wolf.id,
@@ -701,6 +702,7 @@ export function render(
           cam,
           time,
           state.player.inventory.stone,
+          state.story.spiritAllowReturn,
         ),
     });
   }
@@ -903,7 +905,7 @@ export function render(
           !state.story.spiritOvooSoulCollected &&
           state.story.spiritOvooSoulActive;
         tip = wantWater
-          ? "E — Ус авах · дараа нь буцах"
+          ? "E — Рашаан авах · дараа нь буцах"
           : "E — Чулуун овоогоор хүний ертөнц рүү буц";
         tipPos = state.story.stormTracePos ?? state.player.pos;
       } else if (
@@ -913,8 +915,13 @@ export function render(
         state.story.stormTracePos &&
         dist(state.player.pos, state.story.stormTracePos) < 70
       ) {
-        tip = "E — Шилэн ус авах (3 амь)";
+        tip = "E — Рашаан авах (3 балга · R — уух)";
         tipPos = state.story.stormTracePos;
+      } else if (
+        state.spiritPoints > 0 &&
+        state.player.vitals.health < state.player.vitals.maxHealth * 0.55
+      ) {
+        tip = "R — Рашаан уух (бүтэн амь)";
       } else if (world.tumurShulmas.active) {
         tip = "Төмөр шулмастай тулаан · дуустал гарахгүй";
       }

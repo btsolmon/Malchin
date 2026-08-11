@@ -36,6 +36,9 @@ export const audio = {
   sleepSnore: null as HTMLAudioElement | null,
   /** Гал / зуух шатах loop */
   fireBed: null as HTMLAudioElement | null,
+  /** Тоглоомын бороо+аянга (storm) */
+  weatherStormBed: null as HTMLAudioElement | null,
+  weatherStormVol: 0,
   /** Дэлхийн ambient */
   riverBed: null as HTMLAudioElement | null,
   riverLevel: 0,
@@ -120,6 +123,7 @@ export function setSfxVol(v: number): void {
   if (audio.fireBed && !audio.fireBed.paused) {
     audio.fireBed.volume = clamp(audio.sfxVol * CAMPFIRE_LOOP_VOL, 0, 1);
   }
+  refreshWeatherStormVolume();
   saveAudioSettings();
 }
 
@@ -567,6 +571,7 @@ export function shutdownAudio(): void {
   stopOpeningAmbient();
   stopSleepSnore();
   stopCampfireLoop();
+  stopWeatherStormAmbience();
   stopRiverAmbience();
   stopMainBgm();
   stopTumurBossMusicImmediate();
@@ -1123,6 +1128,60 @@ export function syncCampfireLoop(burning: boolean): void {
 }
 
 // ---------------------------------------------------------------------------
+// Цаг агаар — бороо + аянга (storm)
+// ---------------------------------------------------------------------------
+
+const WEATHER_STORM_SRC = "/assets/ambient/thunder-rain.mp3";
+const WEATHER_STORM_VOL = 0.48;
+
+function refreshWeatherStormVolume(): void {
+  if (!audio.weatherStormBed) return;
+  if (audio.sfxVol <= 0 || audio.weatherStormVol <= 0) {
+    audio.weatherStormBed.volume = 0;
+    return;
+  }
+  audio.weatherStormBed.volume = clamp(
+    audio.sfxVol * WEATHER_STORM_VOL * audio.weatherStormVol,
+    0,
+    1,
+  );
+}
+
+export function stopWeatherStormAmbience(): void {
+  audio.weatherStormVol = 0;
+  if (!audio.weatherStormBed) return;
+  disposeHtmlAudio(audio.weatherStormBed);
+  audio.weatherStormBed = null;
+}
+
+/**
+ * Бороо (storm) үед аянга+борооны loop.
+ * @param active true = storm
+ * @param indoors гэрт байвал бага зэрэг нам
+ */
+export function syncWeatherStormAmbience(
+  active: boolean,
+  indoors = false,
+): void {
+  if (typeof window === "undefined" || typeof Audio === "undefined") return;
+  if (!active || audio.sfxVol <= 0) {
+    stopWeatherStormAmbience();
+    return;
+  }
+  ensureAudio();
+  audio.weatherStormVol = indoors ? 0.35 : 1;
+  if (!audio.weatherStormBed) {
+    audio.weatherStormBed = makeLoopBed(WEATHER_STORM_SRC);
+  }
+  refreshWeatherStormVolume();
+  if (audio.weatherStormBed.paused) {
+    void audio.weatherStormBed.play().catch(() => {
+      stopWeatherStormAmbience();
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Унтах — хурхирах
 // ---------------------------------------------------------------------------
 
@@ -1135,7 +1194,7 @@ export function startSleepSnore(): void {
   stopSleepSnore();
   const a = new Audio(SLEEP_SNORE_SRC);
   a.preload = "auto";
-  a.loop = false;
+  a.loop = true;
   a.volume = clamp(audio.sfxVol * (SAMPLE_VOL.snore ?? 0.55), 0, 1);
   audio.sleepSnore = a;
   void a.play().catch(() => {

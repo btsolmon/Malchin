@@ -6,6 +6,7 @@ import {
   SPIRIT_WATER_SIPS,
   VIEW_H,
   VIEW_W,
+  WOLF_CORPSE_DURATION,
   WORLD_H,
   WORLD_W,
   type Camera,
@@ -2289,6 +2290,7 @@ function ensureStoryWolf(state: GameState): Wolf | null {
 
   story.storyWolfSpawned = true;
   wolf.alive = true;
+  wolf.deathTimer = 0;
   wolf.hp = Math.max(1, wolf.hp);
   return wolf;
 }
@@ -2781,7 +2783,7 @@ export function nearSpiritOvooSite(state: GameState): boolean {
   );
 }
 
-/** Хоёр дахь зорчилт — овооны шилэн ус авах (3 балга = 3 амь) */
+/** Хоёр дахь зорчилт — овооны шилэн рашаан авах (3 балга) */
 export function tryCollectSpiritOvooSoul(state: GameState): boolean {
   if (!state.input.interact || state.phase !== "spirit") return false;
   if (state.story.spiritOvooSoulCollected) return false;
@@ -2798,15 +2800,15 @@ export function tryCollectSpiritOvooSoul(state: GameState): boolean {
   spawnText(
     state,
     { x: pos.x, y: pos.y - 40 },
-    `+${SPIRIT_WATER_SIPS} амь`,
+    `+${SPIRIT_WATER_SIPS} рашаан`,
     "#a8d4ff",
   );
   const canReturn = state.story.spiritAllowReturn;
   setMessage(
     state,
     canReturn
-      ? `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} амь. (Cheat: дараа E — буцах)`
-      : `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} амь. Овоо сүүдэрлэг болов — дахин ашиглах боломжгүй.`,
+      ? `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} балга рашаан. R — уух. (Cheat: дараа E — буцах)`
+      : `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} балга рашаан. R дарж уу. Овоо сүүдэрлэг болов — дахин ашиглах боломжгүй.`,
     5,
   );
   sfx("buy");
@@ -3086,9 +3088,9 @@ export function drawStormTrace(
       ctx.font = "600 10px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 2.5;
-      ctx.strokeText("E — Ус авах", x, y - 28);
+      ctx.strokeText("E — Рашаан авах", x, y - 28);
       ctx.fillStyle = "#c8e4ff";
-      ctx.fillText("E — Ус авах", x, y - 28);
+      ctx.fillText("E — Рашаан авах", x, y - 28);
       ctx.textAlign = "left";
     }
     ctx.restore();
@@ -3115,9 +3117,9 @@ export function drawStormTrace(
       ctx.font = "600 10px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 2.5;
-      ctx.strokeText("E — Ус авах", x, y - 28);
+      ctx.strokeText("E — Рашаан авах", x, y - 28);
       ctx.fillStyle = "#c8e4ff";
-      ctx.fillText("E — Ус авах", x, y - 28);
+      ctx.fillText("E — Рашаан авах", x, y - 28);
       ctx.textAlign = "left";
     }
     ctx.restore();
@@ -3232,7 +3234,7 @@ function drawSpiritWaterBottle(
   ctx.lineWidth = 1.4;
   ctx.stroke();
 
-  // Ус
+  // Рашаан
   const waterTop = 2 + Math.sin(time * 3.1) * 0.6;
   ctx.fillStyle = "rgba(50,140,230,0.85)";
   ctx.beginPath();
@@ -3499,6 +3501,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
       completeUnknownOldManGuidance(state, wolf);
       wolf.hp = 0;
       wolf.alive = false;
+      wolf.deathTimer = WOLF_CORPSE_DURATION;
       wolf.vel.x = 0;
       wolf.vel.y = 0;
     } else {
@@ -3530,6 +3533,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     if (wolf) {
       wolf.hp = 0;
       wolf.alive = false;
+      wolf.deathTimer = WOLF_CORPSE_DURATION;
       wolf.vel.x = 0;
       wolf.vel.y = 0;
     }
@@ -3757,7 +3761,7 @@ export function debugGrantSpiritCombatGear(
   setMessage(
     state,
     opts.withWater
-      ? `CHEAT: Нум · сум 80 · чулуу ${SNAKE_CRUSH_STONE_COST} · ус ${SPIRIT_WATER_SIPS}.`
+      ? `CHEAT: Нум · сум 80 · чулуу ${SNAKE_CRUSH_STONE_COST} · рашаан ${SPIRIT_WATER_SIPS}.`
       : `CHEAT: Нум · сум 80 · чулуу ${SNAKE_CRUSH_STONE_COST}.`,
     3,
   );
@@ -3908,7 +3912,7 @@ export function debugJumpToSpiritWorld(state: GameState): void {
   sfx("howl");
   setMessage(
     state,
-    `CHEAT: Ус ав (${SPIRIT_WATER_SIPS} амь) · E буцах үед зэвсэг/материал хураагдана.`,
+    `CHEAT: Рашаан ав (${SPIRIT_WATER_SIPS} балга) · R — уух · E буцах үед зэвсэг/материал хураагдана.`,
     4.5,
   );
 }
@@ -4019,6 +4023,7 @@ export function startFamilyLifeRun(
     if (story.storyWolfId !== null && wolf.id === story.storyWolfId) {
       wolf.hp = 0;
       wolf.alive = false;
+      wolf.deathTimer = 0;
       wolf.vel.x = 0;
       wolf.vel.y = 0;
     }
