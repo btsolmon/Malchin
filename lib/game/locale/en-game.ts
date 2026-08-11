@@ -310,8 +310,8 @@ export const EN_GAME: Record<string, string> = {
   "Мал өлсөж үхэж байна! Тэвшид өвс хий!":
     "The livestock are starving! Put hay in the trough!",
   "Малаа эрж ол": "Find your livestock",
-  "Малчин survival тоглоом": "Nomad — Mongolian herder survival",
-  "Малчин — Survival": "Nomad — Survival",
+  "Нүүдэлчин survival тоглоом": "Nomad — Mongolian herder survival",
+  "Нүүдэлчин — Survival": "Nomad — Survival",
   "Мод/түлээ нэг цохилтоор унагана": "Fells trees and firewood in one hit",
   "Бутны бүх жимсийг нэг даралтаар түүнэ":
     "Picks every berry on a bush in one press",

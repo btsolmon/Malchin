@@ -2288,15 +2288,77 @@ function drawItemIconWell(
   drawGameIcon(ctx, icon, cx, cy, size * 0.72);
 }
 
+function menuDisplayFamily(): string {
+  if (typeof document === "undefined") return "Georgia, serif";
+  const loaded = getComputedStyle(document.documentElement)
+    .getPropertyValue("--font-display")
+    .trim();
+  return loaded ? `${loaded}, Georgia, serif` : "Georgia, serif";
+}
+
+function ensureMenuDisplayFont(): void {
+  if (typeof document === "undefined" || !document.fonts) return;
+  const family = getComputedStyle(document.documentElement)
+    .getPropertyValue("--font-display")
+    .trim();
+  if (!family) return;
+  void document.fonts.load(`72px ${family}`);
+}
+
 export function drawMenuTitle(
   ctx: CanvasRenderingContext2D,
   title: string,
 ): void {
+  ensureMenuDisplayFont();
   ctx.textAlign = "center";
   ctx.fillStyle = "#e8c56a";
-  ctx.font = "bold 34px system-ui, sans-serif";
+  ctx.font = `34px ${menuDisplayFamily()}`;
   ctx.fillText(title, VIEW_W / 2, 150);
   ctx.textAlign = "left";
+}
+
+function drawMainMenuLogo(
+  ctx: CanvasRenderingContext2D,
+  title: string,
+): void {
+  ensureMenuDisplayFont();
+  const x = VIEW_W / 2;
+  const y = 172;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `72px ${menuDisplayFamily()}`;
+  ctx.letterSpacing = "5px";
+
+  ctx.shadowColor = "rgba(232, 197, 106, 0.55)";
+  ctx.shadowBlur = 22;
+  ctx.fillStyle = "#f3dd9a";
+  ctx.fillText(title, x, y);
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#e8c56a";
+  ctx.fillText(title, x, y);
+
+  ctx.fillStyle = "rgba(255, 248, 220, 0.38)";
+  ctx.fillText(title, x, y - 0.7);
+
+  const tw = ctx.measureText(title).width;
+  const lineY = y + 14;
+  const gap = 16;
+  ctx.strokeStyle = "rgba(232, 197, 106, 0.55)";
+  ctx.lineWidth = 1.2;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - tw / 2 - 8, lineY);
+  ctx.lineTo(x - gap, lineY);
+  ctx.moveTo(x + gap, lineY);
+  ctx.lineTo(x + tw / 2 + 8, lineY);
+  ctx.stroke();
+  ctx.fillStyle = "#e8c56a";
+  ctx.beginPath();
+  ctx.arc(x, lineY, 2.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 export function drawBackHint(ctx: CanvasRenderingContext2D, y: number): void {
@@ -2314,13 +2376,14 @@ export function drawMenuMain(
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
   ctx.font = "600 13px system-ui, sans-serif";
-  ctx.fillText(t("menu.eyebrow"), VIEW_W / 2, 106);
-  ctx.fillStyle = "#e8c56a";
-  ctx.font = "bold 58px system-ui, sans-serif";
-  ctx.fillText(t("menu.title"), VIEW_W / 2, 166);
+  ctx.letterSpacing = "5px";
+  ctx.fillText(t("menu.eyebrow"), VIEW_W / 2, 98);
+  ctx.letterSpacing = "0px";
+  drawMainMenuLogo(ctx, t("menu.title"));
+  ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudText;
   ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText(t("menu.subtitle"), VIEW_W / 2, 200);
+  ctx.fillText(t("menu.subtitle"), VIEW_W / 2, 214);
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();

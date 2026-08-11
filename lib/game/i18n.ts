@@ -11,7 +11,7 @@ export const LANG_KEY = "malchin-lang";
 
 const MN = {
   "menu.eyebrow": "АМЬД ҮЛД",
-  "menu.title": "НҮҮДЭЛЧИН",
+  "menu.title": "Нүүдэлчин",
   "menu.subtitle": "Хязгаар үгүй тал",
   "menu.play": "Тоглох",
   "menu.continue": "Үргэлжлүүлэх",
@@ -135,7 +135,7 @@ export type StringKey = keyof typeof MN;
 
 const EN: Record<StringKey, string> = {
   "menu.eyebrow": "SURVIVE",
-  "menu.title": "NOMAD",
+  "menu.title": "Nomad",
   "menu.subtitle": "The boundless steppe",
   "menu.play": "Play",
   "menu.continue": "Continue",

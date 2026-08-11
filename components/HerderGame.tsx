@@ -73,7 +73,7 @@ export default function HerderGame() {
       <canvas
         ref={canvasRef}
         className="herder-stage"
-        aria-label={tr("Малчин survival тоглоом")}
+        aria-label={tr("Нүүдэлчин survival тоглоом")}
       />
       {elderUi?.activeDialogue ? (
         <ElderDialogueModal

@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Bebas_Neue, Share_Tech_Mono } from "next/font/google";
+import { Share_Tech_Mono, Yeseva_One } from "next/font/google";
 import "./globals.css";
 
-const display = Bebas_Neue({
+const display = Yeseva_One({
   weight: "400",
-  subsets: ["latin"],
+  subsets: ["cyrillic", "latin"],
   variable: "--font-display",
 });
 
@@ -14,16 +14,16 @@ const mono = Share_Tech_Mono({
   variable: "--font-mono-body",
 });
 
-const siteTitle = "Малчин / Nomad";
+const siteTitle = "Нүүдэлчин / Nomad";
 const siteDescription =
   "Монгол нүүдэлчний survival тоглоом. Сүргээ хамгаал, өвгөнөөс сур, Төмөр шулмасыг дийлээд гэр бүлээ буцааж ав. A Mongolian herder survival game in the browser.";
 
 export const metadata: Metadata = {
   title: siteTitle,
   description: siteDescription,
-  applicationName: "Малчин",
+  applicationName: "Нүүдэлчин",
   keywords: [
-    "Малчин",
+    "Нүүдэлчин",
     "Nomad",
     "Mongolia",
     "survival",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "mn_MN",
     alternateLocale: ["en_US"],
-    siteName: "Малчин",
+    siteName: "Нүүдэлчин",
   },
   twitter: {
     card: "summary",
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Малчин",
+    title: "Нүүдэлчин",
     statusBarStyle: "black-translucent",
   },
   formatDetection: {

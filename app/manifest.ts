@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Малчин / Nomad",
-    short_name: "Малчин",
+    name: "Нүүдэлчин / Nomad",
+    short_name: "Нүүдэлчин",
     description:
       "Монгол нүүдэлчний survival тоглоом. Сүргээ хамгаал, өвгөнөөс сур.",
     start_url: "/",
