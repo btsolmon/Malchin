@@ -25,6 +25,7 @@ import {
   openingAmbientForVignette,
   fadeOutTumurBossMusic,
   startFamilyLifeTheme,
+  startGaadaTheme,
 } from "./audio";
 import { beginFamilyReunionDialogue } from "./elder";
 import { spawnParticles, spawnText } from "./effects";
@@ -1537,6 +1538,9 @@ function startHearthQuest(state: GameState): void {
 }
 
 export function beginOpeningSequence(state: GameState): void {
+  // Шинэ түүх — Хангай биш Гаада мээрэн
+  startGaadaTheme();
+
   if (state.story.introCompleted) {
     state.phase = "playing";
     if (!state.story.hearthQuestStarted) startHearthQuest(state);

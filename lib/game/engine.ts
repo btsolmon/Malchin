@@ -50,6 +50,7 @@ import {
   shutdownAudio,
   startMusic,
   startFamilyLifeTheme,
+  startGaadaTheme,
   updateRiverAmbience,
   tickHoofsteps,
   tickLivestockVocal,
@@ -1306,6 +1307,7 @@ export function mountHerderGame(
       lastElderKey = "";
       autosaveIn = AUTOSAVE_INTERVAL;
       options.onElderUi?.({ open: false });
+      startGaadaTheme();
     }
 
     if (state.requestLoad) {
@@ -1315,6 +1317,7 @@ export function mountHerderGame(
         lastElderKey = "";
         options.onElderUi?.({ open: false });
         if (state.parentsReturned) startFamilyLifeTheme();
+        else startGaadaTheme();
       } else {
         // Хадгалалт эвдэрсэн — цэс дээр "Үргэлжлүүлэх" харагдахаа болино
         clearSave();
