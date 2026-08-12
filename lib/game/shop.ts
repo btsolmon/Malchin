@@ -295,7 +295,7 @@ export function buyItem(state: GameState, idx: number): void {
   }
   if (item.id === "bow") {
     state.player.inventory.arrows += 6;
-    setMessage(state, "Нум авлаа! +6 сум. Урлалаар дахин хийж болно.", 3.5);
+    setMessage(state, "Нум авлаа! +6 сум. Богцоос нумаа сонгоод J-ээр харва.", 3.5);
     return;
   }
   if (item.id === "horse") {
@@ -305,7 +305,7 @@ export function buyItem(state: GameState, idx: number): void {
     state.world.mountHorse = null;
     setMessage(
       state,
-      "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. K — бууж уях.",
+      "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. F — бууж уях.",
       3.5,
     );
     return;

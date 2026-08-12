@@ -5,6 +5,35 @@
 
 import { neutralInput } from "./utils";
 import type { GameState } from "./types";
+import { createDefaultHotbar, HOTBAR_SIZE, type HotbarItemId } from "./hotbar";
+
+const HOTBAR_IDS = new Set<HotbarItemId | null>([
+  "melee",
+  "bow",
+  "fence",
+  "stone",
+  "berry",
+  "fish",
+  "aaruul",
+  "milk",
+  "spiritWater",
+  null,
+]);
+
+function normalizeHotbar(
+  raw: unknown,
+  hasBow = false,
+): Array<HotbarItemId | null> {
+  if (!Array.isArray(raw) || raw.length !== HOTBAR_SIZE) {
+    return createDefaultHotbar();
+  }
+  return raw.map((id) => {
+    if (!HOTBAR_IDS.has(id as HotbarItemId | null)) return null;
+    const item = id as HotbarItemId | null;
+    if (item === "bow" && !hasBow) return null;
+    return item;
+  });
+}
 
 export const SAVE_KEY = "malchin-save";
 
@@ -106,7 +135,11 @@ export function loadGame(): GameState | null {
     ...envelope.state,
     player: {
       ...envelope.state.player,
-      tool: envelope.state.player.tool ?? "melee",
+      tool: envelope.state.player.tool === "bow"
+        ? "melee"
+        : (envelope.state.player.tool ?? "melee"),
+      bowCharge: 0,
+      bowChargeLock: false,
       gear: {
         dog: !!gear?.dog,
         horse: !!gear?.horse,
@@ -121,6 +154,12 @@ export function loadGame(): GameState | null {
     fishingHook: null,
     horseLasso: null,
     bannerAlert: null,
+    hotbar: normalizeHotbar(
+      envelope.state.hotbar,
+      !!envelope.state.player.gear?.bow,
+    ),
+    hotbarSelected: envelope.state.hotbarSelected ?? 0,
+    hotbarInvIndex: 0,
     herdVictoryShown: envelope.state.herdVictoryShown ?? false,
     winReason: envelope.state.winReason ?? null,
     world: {

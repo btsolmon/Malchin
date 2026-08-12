@@ -60,7 +60,8 @@ export function drawSleepingHerder(
 
   ctx.save();
   ctx.translate(cx, cy + 2);
-  ctx.scale(scale * 0.52, scale * 0.52);
+  // Гэр дотор алхахтай ижил томруулалт — ор дээр жижгэрүүлэхгүй
+  ctx.scale(scale, scale);
   drawPlayer(ctx, sleeper, { x: 0, y: 0 }, time, false, 0, true);
   ctx.restore();
   // Zzz-ийг vignette-ийн дараа зурна (drawGerSleepZzz)

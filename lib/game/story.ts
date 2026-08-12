@@ -144,10 +144,10 @@ export const OBSERVE_WOLF_QUEST = {
 export const PARRY_STORY_WOLF_QUEST = {
   title: "Дайралтыг сөр",
   description:
-    "Улаан туяа цахих мөчид Shift дарж, дайралтыг нь няцаа.",
+    "Улаан туяа цахих мөчид Space дарж, дайралтыг нь няцаа.",
   panelLines: [
     "Улаан туяа цахих мөчид",
-    "Shift дарж няцаа.",
+    "Space дарж няцаа.",
   ],
 } as const;
 
@@ -2807,8 +2807,8 @@ export function tryCollectSpiritOvooSoul(state: GameState): boolean {
   setMessage(
     state,
     canReturn
-      ? `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} балга рашаан. R — уух. (Cheat: дараа E — буцах)`
-      : `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} балга рашаан. R дарж уу. Овоо сүүдэрлэг болов — дахин ашиглах боломжгүй.`,
+      ? `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} балга рашаан. Q — сонгож уу. (Cheat: дараа E — буцах)`
+      : `Шилэн лонх авсан — ${SPIRIT_WATER_SIPS} балга рашаан. Q дарж сонгоод уу. Овоо сүүдэрлэг болов — дахин ашиглах боломжгүй.`,
     5,
   );
   sfx("buy");
@@ -3912,7 +3912,7 @@ export function debugJumpToSpiritWorld(state: GameState): void {
   sfx("howl");
   setMessage(
     state,
-    `CHEAT: Рашаан ав (${SPIRIT_WATER_SIPS} балга) · R — уух · E буцах үед зэвсэг/материал хураагдана.`,
+    `CHEAT: Рашаан ав (${SPIRIT_WATER_SIPS} балга) · Q — сонгож уу · E буцах үед зэвсэг/материал хураагдана.`,
     4.5,
   );
 }

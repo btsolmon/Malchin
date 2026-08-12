@@ -25,6 +25,13 @@ import {
 } from "../game/utils";
 import { audio, setMusicVol, setSfxVol, sfx, startSleepSnore, stopSleepSnore } from "../game/audio";
 import { maybeLevelUp } from "../game/player";
+import {
+  getHotbarLayout,
+  getInventoryCatalogLayout,
+  hotbarCount,
+  hotbarIcon,
+  HOTBAR_SIZE,
+} from "./hotbar";
 import { advanceToMorning } from "../game/daycycle";
 import { getLang, langLabel, setLang, t, tr, trFormat } from "./i18n";
 import { hasAnyRecord, hasCompletedStory, loadRecords } from "./records";
@@ -1787,9 +1794,12 @@ function drawHotSlot(
   x: number,
   y: number,
   size: number,
-  key: string,
+  /** Доод баруун — stack тоо (хоосон бол null) */
+  stack: string | null,
   icon: GameIconId,
-  active = false,
+  active: boolean,
+  /** Дээд зүүн — нүхний дугаар */
+  slotNum?: string,
 ): void {
   const r = 6;
   // Гадна хүрээ
@@ -1824,11 +1834,26 @@ function drawHotSlot(
     ctx.stroke();
   }
 
-  drawGameIcon(ctx, icon, x + size / 2, y + size * 0.4, size * 0.66);
-  ctx.font = "bold 9px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillStyle = active ? "#ffe090" : "#e8c56a";
-  ctx.fillText(key, x + size / 2, y + size - 4);
+  if (icon !== "empty") {
+    drawGameIcon(ctx, icon, x + size / 2, y + size * 0.48, size * 0.62);
+  }
+
+  if (slotNum) {
+    ctx.font = "bold 9px system-ui, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillStyle = active ? "rgba(255,224,144,0.9)" : "rgba(180,160,120,0.7)";
+    ctx.fillText(slotNum, x + 5, y + 11);
+  }
+
+  if (stack) {
+    ctx.font = "bold 10px system-ui, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#fff8e0";
+    ctx.strokeStyle = "rgba(0,0,0,0.65)";
+    ctx.lineWidth = 2.5;
+    ctx.strokeText(stack, x + size - 4, y + size - 5);
+    ctx.fillText(stack, x + size - 4, y + size - 5);
+  }
   ctx.textAlign = "left";
 }
 
@@ -1845,71 +1870,120 @@ function drawInventoryPanel(
     return;
   }
 
-  const { player } = state;
-  const inv = player.inventory;
-  const items: Array<{ icon: GameIconId; label: string; val: string }> = [
-    {
-      icon: "wood",
-      label: t("inv.wood"),
-      val: state.unlimitedWood ? "∞" : String(inv.wood),
-    },
-    { icon: "stone", label: t("inv.stone"), val: String(inv.stone) },
-    { icon: "arrow", label: t("inv.arrows"), val: String(inv.arrows) },
-    { icon: "berry", label: t("inv.berries"), val: String(inv.berries) },
-    { icon: "fish", label: t("inv.fish"), val: String(inv.fish) },
-    { icon: "hay", label: t("inv.hay"), val: String(inv.hay) },
-    { icon: "wool", label: t("inv.wool"), val: String(inv.wool) },
-    { icon: "cashmere", label: t("inv.cashmere"), val: String(inv.cashmere) },
-    { icon: "milk", label: t("inv.milk"), val: String(inv.milk) },
-    { icon: "felt", label: t("inv.felt"), val: String(inv.felt) },
-    { icon: "aaruul", label: t("inv.aaruul"), val: String(inv.aaruul) },
-  ];
-  if (state.story.spiritOvooSoulCollected || state.spiritPoints > 0) {
-    items.push({
-      icon: "spiritWater",
-      label: t("inv.spiritWater"),
-      val: String(state.spiritPoints),
-    });
-  }
+  const inv = getInventoryCatalogLayout(state);
+  const {
+    catalog,
+    px,
+    py,
+    panelW,
+    panelH,
+    cols,
+    cell,
+    gapX,
+    gapY,
+    padX,
+    padTop,
+  } = inv;
 
-  const cols = 4;
-  const cell = 68;
-  const gapX = 12;
-  const gapY = 26;
-  const padX = 22;
-  const padTop = 52;
-  const padBot = 36;
-  const rows = Math.ceil(items.length / cols);
-  const panelW = padX * 2 + cols * cell + (cols - 1) * gapX;
-  const panelH = padTop + rows * cell + (rows - 1) * gapY + padBot;
-  const px = (VIEW_W - panelW) / 2;
-  const py = (VIEW_H - panelH) / 2 - 12;
-
-  ctx.fillStyle = "rgba(0,0,0,0.32)";
+  ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-
   drawFrostedGlassPanel(ctx, px, py, panelW, panelH, 12);
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#e8c56a";
-  ctx.font = "bold 16px system-ui, sans-serif";
-  ctx.fillText(t("hud.inventory"), VIEW_W / 2, py + 28);
+  ensureMenuDisplayFont();
+  drawGoldGlowText(
+    ctx,
+    t("hud.bag"),
+    VIEW_W / 2,
+    py + 26,
+    `18px ${menuDisplayFamily()}`,
+    { blur: 12 },
+  );
   ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "11px 'Courier New', monospace";
-  ctx.fillText(t("hud.inventoryHint"), VIEW_W / 2, py + panelH - 14);
+  ctx.font = `11px ${menuUiFamily()}`;
+  ctx.fillText(t("hud.bagHint"), VIEW_W / 2, py + panelH - 14);
 
-  items.forEach((it, i) => {
+  if (catalog.length === 0) {
+    ctx.fillStyle = "#a89880";
+    ctx.font = `13px ${menuUiFamily()}`;
+    ctx.fillText(t("hotbar.invEmpty"), VIEW_W / 2, py + panelH / 2);
+    ctx.textAlign = "left";
+    return;
+  }
+
+  catalog.forEach((it, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
     const x = px + padX + col * (cell + gapX);
     const y = py + padTop + row * (cell + gapY);
-    drawHotSlot(ctx, x, y, cell, it.val, it.icon, false);
-    ctx.fillStyle = "#d8c898";
-    ctx.font = "10px system-ui, sans-serif";
+    const active = i === state.hotbarInvIndex;
+    const stack = it.count === null ? null : String(it.count);
+    drawHotSlot(ctx, x, y, cell, stack, it.icon, active);
+    ctx.fillStyle = active
+      ? it.assignable
+        ? "#ffe090"
+        : "#c8b890"
+      : "#d8c898";
+    ctx.font = "9px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(it.label, x + cell / 2, y + cell + 12);
   });
   ctx.textAlign = "left";
+}
+
+function drawItemHotbar(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+): void {
+  const lay = getHotbarLayout();
+  const { slot: slotSize, gap: slotGap } = lay;
+
+  // Minecraft шиг харанхуй хүрээ
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  roundRectPath(ctx, lay.x - 3, lay.y - 3, lay.w + 6, lay.h + 6, 8);
+  ctx.fill();
+  drawWoodFrame(ctx, lay.x, lay.y, lay.w, lay.h, 5);
+  ctx.fillStyle = "#120e0a";
+  ctx.fillRect(lay.x + 2, lay.y + 2, lay.w - 4, lay.h - 4);
+
+  for (let i = 0; i < HOTBAR_SIZE; i++) {
+    const id = state.hotbar[i] ?? null;
+    const x = lay.x + 6 + i * (slotSize + slotGap);
+    const y = lay.y + 6;
+    const active = i === state.hotbarSelected;
+    const icon = hotbarIcon(id, state.player.hasSkySword);
+    const count = hotbarCount(state, id);
+    const stack = count !== null ? String(count) : null;
+
+    if (!id) {
+      const r = 6;
+      const rim = ctx.createLinearGradient(x, y, x, y + slotSize);
+      rim.addColorStop(0, active ? "#a08040" : "#5a4030");
+      rim.addColorStop(1, active ? "#6a4820" : "#2a1c14");
+      ctx.fillStyle = rim;
+      roundRectPath(ctx, x, y, slotSize, slotSize, r);
+      ctx.fill();
+      ctx.fillStyle = "#0a0806";
+      roundRectPath(ctx, x + 2.5, y + 2.5, slotSize - 5, slotSize - 5, r - 2);
+      ctx.fill();
+      if (active) {
+        ctx.strokeStyle = "rgba(255,220,120,0.95)";
+        ctx.lineWidth = 2;
+        roundRectPath(ctx, x + 1, y + 1, slotSize - 2, slotSize - 2, r - 1);
+        ctx.stroke();
+      }
+      ctx.font = "bold 9px system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillStyle = active
+        ? "rgba(255,224,144,0.85)"
+        : "rgba(100,88,70,0.75)";
+      ctx.fillText(String(i + 1), x + 5, y + 11);
+      continue;
+    }
+
+    drawHotSlot(ctx, x, y, slotSize, stack, icon, active, String(i + 1));
+  }
+
 }
 
 /** Hex өнгийг гэрэлтүүлэх/бараанруулах */
@@ -2278,7 +2352,7 @@ export function drawUiButton(
   ctx.stroke();
 
   ctx.fillStyle = selected ? "#ffe9a0" : COLORS.hudText;
-  ctx.font = "600 17px system-ui, sans-serif";
+  ctx.font = `700 17px ${menuUiFamily()}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2 + 0.5);
@@ -2319,6 +2393,16 @@ function menuDisplayFamily(): string {
   return loaded ? `${loaded}, Georgia, serif` : "Georgia, serif";
 }
 
+function menuUiFamily(): string {
+  if (typeof document === "undefined") return "Georgia, serif";
+  const loaded = getComputedStyle(document.documentElement)
+    .getPropertyValue("--font-mono-body")
+    .trim();
+  return loaded
+    ? `${loaded}, Georgia, "Times New Roman", serif`
+    : 'Georgia, "Times New Roman", serif';
+}
+
 function ensureMenuDisplayFont(): void {
   if (typeof document === "undefined" || !document.fonts) return;
   const family = getComputedStyle(document.documentElement)
@@ -2326,6 +2410,35 @@ function ensureMenuDisplayFont(): void {
     .trim();
   if (!family) return;
   void document.fonts.load(`72px ${family}`);
+  void document.fonts.load(`42px ${family}`);
+  void document.fonts.load(`34px ${family}`);
+  void document.fonts.load(`15px ${family}`);
+  void document.fonts.load(`13px ${family}`);
+}
+
+/** Шар гэрлийн glow — лого/нүүрний бичигтэй ижил мэдрэмж */
+function drawGoldGlowText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  font: string,
+  opts?: { letterSpacing?: string; blur?: number },
+): void {
+  ctx.save();
+  ctx.font = font;
+  if (opts?.letterSpacing) ctx.letterSpacing = opts.letterSpacing;
+  const blur = opts?.blur ?? 18;
+  ctx.shadowColor = "rgba(232, 197, 106, 0.55)";
+  ctx.shadowBlur = blur;
+  ctx.fillStyle = "#f3dd9a";
+  ctx.fillText(text, x, y);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#e8c56a";
+  ctx.fillText(text, x, y);
+  ctx.fillStyle = "rgba(255, 248, 220, 0.38)";
+  ctx.fillText(text, x, y - 0.6);
+  ctx.restore();
 }
 
 export function drawMenuTitle(
@@ -2334,9 +2447,14 @@ export function drawMenuTitle(
 ): void {
   ensureMenuDisplayFont();
   ctx.textAlign = "center";
-  ctx.fillStyle = "#e8c56a";
-  ctx.font = `34px ${menuDisplayFamily()}`;
-  ctx.fillText(title, VIEW_W / 2, 150);
+  drawGoldGlowText(
+    ctx,
+    title,
+    VIEW_W / 2,
+    150,
+    `34px ${menuDisplayFamily()}`,
+    { blur: 16 },
+  );
   ctx.textAlign = "left";
 }
 
@@ -2350,21 +2468,13 @@ function drawMainMenuLogo(
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
+  drawGoldGlowText(ctx, title, x, y, `72px ${menuDisplayFamily()}`, {
+    letterSpacing: "5px",
+    blur: 22,
+  });
+
   ctx.font = `72px ${menuDisplayFamily()}`;
   ctx.letterSpacing = "5px";
-
-  ctx.shadowColor = "rgba(232, 197, 106, 0.55)";
-  ctx.shadowBlur = 22;
-  ctx.fillStyle = "#f3dd9a";
-  ctx.fillText(title, x, y);
-
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = "#e8c56a";
-  ctx.fillText(title, x, y);
-
-  ctx.fillStyle = "rgba(255, 248, 220, 0.38)";
-  ctx.fillText(title, x, y - 0.7);
-
   const tw = ctx.measureText(title).width;
   const lineY = y + 14;
   const gap = 16;
@@ -2387,7 +2497,7 @@ function drawMainMenuLogo(
 export function drawBackHint(ctx: CanvasRenderingContext2D, y: number): void {
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "13px system-ui, sans-serif";
+  ctx.font = `13px ${menuUiFamily()}`;
   ctx.fillText(t("common.backHint"), VIEW_W / 2, y);
   ctx.textAlign = "left";
 }
@@ -2396,17 +2506,27 @@ export function drawMenuMain(
   ctx: CanvasRenderingContext2D,
   state: GameState,
 ): void {
+  ensureMenuDisplayFont();
   ctx.textAlign = "center";
-  ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "600 13px system-ui, sans-serif";
-  ctx.letterSpacing = "5px";
-  ctx.fillText(t("menu.eyebrow"), VIEW_W / 2, 98);
-  ctx.letterSpacing = "0px";
+  ctx.textBaseline = "alphabetic";
+  drawGoldGlowText(
+    ctx,
+    t("menu.eyebrow"),
+    VIEW_W / 2,
+    98,
+    `13px ${menuDisplayFamily()}`,
+    { letterSpacing: "6px", blur: 12 },
+  );
   drawMainMenuLogo(ctx, t("menu.title"));
   ctx.textAlign = "center";
-  ctx.fillStyle = COLORS.hudText;
-  ctx.font = "15px system-ui, sans-serif";
-  ctx.fillText(t("menu.subtitle"), VIEW_W / 2, 214);
+  drawGoldGlowText(
+    ctx,
+    t("menu.subtitle"),
+    VIEW_W / 2,
+    214,
+    `16px ${menuDisplayFamily()}`,
+    { blur: 14 },
+  );
   ctx.textAlign = "left";
 
   const btns = mainMenuButtons();
@@ -2422,7 +2542,7 @@ export function drawMenuStoryChoice(
   drawMenuTitle(ctx, t("menu.storyChoiceTitle"));
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "14px system-ui, sans-serif";
+  ctx.font = `14px ${menuUiFamily()}`;
   ctx.fillText(t("menu.storyChoiceHint"), VIEW_W / 2, 210);
   ctx.textAlign = "left";
 
@@ -2481,18 +2601,18 @@ function drawRecordsPanel(ctx: CanvasRenderingContext2D): void {
 
   ctx.textAlign = "left";
   ctx.fillStyle = COLORS.hudAccent;
-  ctx.font = "600 12px system-ui, sans-serif";
+  ctx.font = `700 12px ${menuUiFamily()}`;
   ctx.fillText(t("records.title"), x + 14, y + 22);
 
   rows.forEach(([label, value], i) => {
     const ly = y + 44 + i * 20;
     ctx.textAlign = "left";
     ctx.fillStyle = COLORS.hudMuted;
-    ctx.font = "12px system-ui, sans-serif";
+    ctx.font = `12px ${menuUiFamily()}`;
     ctx.fillText(label, x + 14, ly);
     ctx.textAlign = "right";
     ctx.fillStyle = COLORS.hudText;
-    ctx.font = "600 12px system-ui, sans-serif";
+    ctx.font = `700 12px ${menuUiFamily()}`;
     ctx.fillText(String(value), x + w - 14, ly);
   });
   ctx.textAlign = "left";
@@ -2532,8 +2652,8 @@ export function drawMenuSettings(
     ctx.textAlign = "right";
     ctx.fillStyle = sel ? "#e8c56a" : COLORS.hudText;
     ctx.font = sel
-      ? "600 15px system-ui, sans-serif"
-      : "15px system-ui, sans-serif";
+      ? `700 15px ${menuUiFamily()}`
+      : `15px ${menuUiFamily()}`;
     ctx.fillText(row.label, row.bar.x - 22, cy + 5);
     ctx.textAlign = "left";
 
@@ -2559,7 +2679,7 @@ export function drawMenuSettings(
     ctx.stroke();
 
     ctx.fillStyle = COLORS.hudText;
-    ctx.font = "600 14px system-ui, sans-serif";
+    ctx.font = `700 14px ${menuUiFamily()}`;
     ctx.fillText(
       `${Math.round(vols[i] * 100)}%`,
       row.bar.x + row.bar.w + 16,
@@ -2573,8 +2693,8 @@ export function drawMenuSettings(
   ctx.textAlign = "right";
   ctx.fillStyle = langSel ? "#e8c56a" : COLORS.hudText;
   ctx.font = langSel
-    ? "600 15px system-ui, sans-serif"
-    : "15px system-ui, sans-serif";
+    ? `700 15px ${menuUiFamily()}`
+    : `15px ${menuUiFamily()}`;
   ctx.fillText(lay.language.label, lb.x - 22, lb.y + lb.h / 2 + 5);
   ctx.textAlign = "left";
 
@@ -2588,7 +2708,7 @@ export function drawMenuSettings(
 
   ctx.textAlign = "center";
   ctx.fillStyle = langSel ? "#e8c56a" : COLORS.hudText;
-  ctx.font = "600 14px system-ui, sans-serif";
+  ctx.font = `700 14px ${menuUiFamily()}`;
   ctx.fillText(`‹ ${lb.label} ›`, lb.x + lb.w / 2, lb.y + lb.h / 2 + 5);
   ctx.textAlign = "left";
 
@@ -2596,33 +2716,39 @@ export function drawMenuSettings(
 
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudMuted;
-  ctx.font = "13px system-ui, sans-serif";
+  ctx.font = `13px ${menuUiFamily()}`;
   ctx.fillText(t("settings.hint"), VIEW_W / 2, 470);
   ctx.textAlign = "left";
 }
 
 export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
+  ensureMenuDisplayFont();
   ctx.textAlign = "center";
-  ctx.fillStyle = "#e8c56a";
-  ctx.font = "bold 28px system-ui, sans-serif";
-  ctx.fillText(t("controls.title"), VIEW_W / 2, 72);
+  ctx.textBaseline = "alphabetic";
+  drawGoldGlowText(
+    ctx,
+    t("controls.title"),
+    VIEW_W / 2,
+    72,
+    `28px ${menuDisplayFamily()}`,
+    { blur: 14 },
+  );
   ctx.textAlign = "left";
 
   const lines: Array<[string, string]> = [
     ["WASD", t("controls.walk")],
-    ["1 + J", t("controls.attack")],
-    ["2 + J", t("controls.bow")],
-    ["3 + J", t("controls.fence")],
-    ["Space", t("controls.dodge")],
-    ["Shift", t("controls.parry")],
+    ["1–4", t("controls.weapon")],
+    ["J", t("controls.attack")],
+    ["J", t("controls.bow")],
+    ["Shift", t("controls.dodge")],
+    ["Space", t("controls.parry")],
     ["E", t("controls.interact")],
-    ["K", t("controls.horse")],
+    ["F", t("controls.horse")],
     ["Q", t("controls.eat")],
-    ["R", t("controls.rashaan")],
     ["L", t("controls.fire")],
-    ["H", t("controls.herd")],
-    ["H", t("controls.packGer")],
-    ["Tab", t("controls.inventory")],
+    ["K", t("controls.herd")],
+    ["K", t("controls.packGer")],
+    ["Tab", t("controls.bag")],
   ];
 
   const cols = 2;
@@ -2654,12 +2780,12 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
 
     ctx.textAlign = "right";
     ctx.fillStyle = COLORS.hudAccent;
-    ctx.font = "600 12px system-ui, sans-serif";
+    ctx.font = `700 12px ${menuUiFamily()}`;
     ctx.fillText(key, x0 + keyColW, ly);
 
     ctx.textAlign = "left";
     ctx.fillStyle = COLORS.hudText;
-    ctx.font = "12px system-ui, sans-serif";
+    ctx.font = `12px ${menuUiFamily()}`;
     let text = desc;
     if (ctx.measureText(text).width > descMaxW) {
       while (text.length > 1 && ctx.measureText(`${text}…`).width > descMaxW) {
@@ -2687,7 +2813,7 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
 
   ctx.textAlign = "center";
   ctx.fillStyle = COLORS.hudText;
-  ctx.font = "15px system-ui, sans-serif";
+  ctx.font = `15px ${menuUiFamily()}`;
   ctx.fillText("Pinecone 4A", VIEW_W / 2, 192);
   ctx.textAlign = "left";
 
@@ -2695,11 +2821,11 @@ export function drawMenuCredits(ctx: CanvasRenderingContext2D): void {
     const ly = 236 + i * 30;
     ctx.textAlign = "right";
     ctx.fillStyle = COLORS.hudAccent;
-    ctx.font = "600 14px system-ui, sans-serif";
+    ctx.font = `700 14px ${menuUiFamily()}`;
     ctx.fillText(role, VIEW_W / 2 - 14, ly);
     ctx.textAlign = "left";
     ctx.fillStyle = COLORS.hudText;
-    ctx.font = "14px system-ui, sans-serif";
+    ctx.font = `14px ${menuUiFamily()}`;
     ctx.fillText(name, VIEW_W / 2 + 14, ly);
   });
 
@@ -3191,17 +3317,18 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   }
   drawMainObjectivePanel(ctx, state);
 
-  // —— Доод төв: EXP + hotbar ——
-  const expW = 280;
+  // —— Доод төв: EXP + Minecraft шиг 4 нүх ——
+  const expW = 220;
   const expX = (VIEW_W - expW) / 2;
-  const expY = VIEW_H - 78;
+  const hotLay = getHotbarLayout();
+  const expY = hotLay.y - 18;
   ctx.fillStyle = "#fff";
-  ctx.font = "bold 11px 'Courier New', monospace";
+  ctx.font = "bold 10px 'Courier New', monospace";
   ctx.textAlign = "center";
   ctx.fillText(
     `EXP ${Math.floor(state.xp)} / ${state.xpNext}`,
     VIEW_W / 2,
-    expY - 4,
+    expY - 3,
   );
   ctx.textAlign = "left";
   drawRpgBar(
@@ -3209,68 +3336,15 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     expX,
     expY,
     expW,
-    10,
+    8,
     clamp(state.xp / state.xpNext, 0, 1),
     "#e8c040",
     "",
   );
 
-  const slots: Array<{ key: string; icon: GameIconId; active: boolean }> = [
-    {
-      key: "1",
-      icon: "punch",
-      active: (player.tool ?? "melee") === "melee",
-    },
-    {
-      key: "2",
-      icon: player.gear.bow ? "bow" : "empty",
-      active: player.tool === "bow",
-    },
-    {
-      key: "3",
-      icon: "fence",
-      active: player.tool === "fence" || state.fencePreview,
-    },
-    { key: "J", icon: "hand", active: player.combatPhase !== "idle" },
-    { key: "␣", icon: "dodge", active: player.dodgePhase !== "idle" },
-    { key: "⇧", icon: "shield", active: player.parryPhase !== "idle" },
-    { key: "K", icon: "horse", active: player.riding },
-    {
-      key: "L",
-      icon: "fire",
-      active: world.campfire.lit || world.campfire.igniting > 0,
-    },
-    { key: "E", icon: "hand", active: false },
-    { key: "Q", icon: "berry", active: false },
-  ];
-  if (state.spiritPoints > 0) {
-    slots.push({
-      key: "R",
-      icon: "spiritWater",
-      active: false,
-    });
-  }
-  const slotSize = 34;
-  const slotGap = 4;
-  const hotW = slots.length * (slotSize + slotGap) - slotGap + 10;
-  const hotX = (VIEW_W - hotW) / 2;
-  const hotY = VIEW_H - 58;
-  drawWoodFrame(ctx, hotX, hotY, hotW, slotSize + 8, 4);
-  ctx.fillStyle = "#2a1c12";
-  ctx.fillRect(hotX, hotY, hotW, slotSize + 8);
-  slots.forEach((s, i) => {
-    drawHotSlot(
-      ctx,
-      hotX + 5 + i * (slotSize + slotGap),
-      hotY + 4,
-      slotSize,
-      s.key,
-      s.icon,
-      s.active,
-    );
-  });
+  drawItemHotbar(ctx, state);
 
-  // Нөөц — зөвхөн Tab авдарт (баруун доод мөр байхгүй)
+  // Нөөц — зөвхөн Tab богцод (баруун доод мөр байхгүй)
   let lx = barX;
   const ly = portraitY + portraitRadius + 26;
   if (player.gear.horse) {
@@ -3461,10 +3535,10 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     ctx.restore();
   }
 
-  drawInventoryPanel(ctx, state);
 
   // Анхааруулга — бусад HUD-ын дээр
   drawBannerAlert(ctx, state);
+  drawInventoryPanel(ctx, state);
 
   if (state.phase === "paused") {
     ctx.fillStyle = "rgba(0,0,0,0.55)";
@@ -3475,10 +3549,17 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     } else if (state.menuScreen === "controls") {
       drawMenuControls(ctx);
     } else {
+      ensureMenuDisplayFont();
       ctx.textAlign = "center";
-      ctx.fillStyle = "#e8c56a";
-      ctx.font = "bold 40px system-ui, sans-serif";
-      ctx.fillText(t("pause.title"), VIEW_W / 2, VIEW_H / 2 - 110);
+      ctx.textBaseline = "alphabetic";
+      drawGoldGlowText(
+        ctx,
+        t("pause.title"),
+        VIEW_W / 2,
+        VIEW_H / 2 - 110,
+        `42px ${menuDisplayFamily()}`,
+        { letterSpacing: "4px", blur: 20 },
+      );
       ctx.textAlign = "left";
 
       const btns = pauseMenuButtons();
@@ -3486,7 +3567,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
 
       ctx.textAlign = "center";
       ctx.fillStyle = COLORS.hudMuted;
-      ctx.font = "13px system-ui, sans-serif";
+      ctx.font = `14px ${menuUiFamily()}`;
       ctx.fillText(
         t("pause.hint"),
         VIEW_W / 2,
@@ -3614,9 +3695,15 @@ export function drawChest(
   ctx.stroke();
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#e8c56a";
-  ctx.font = "bold 24px system-ui, sans-serif";
-  ctx.fillText(t("chest.title"), VIEW_W / 2, panel.y + 40);
+  ensureMenuDisplayFont();
+  drawGoldGlowText(
+    ctx,
+    t("chest.title"),
+    VIEW_W / 2,
+    panel.y + 40,
+    `24px ${menuDisplayFamily()}`,
+    { blur: 14 },
+  );
   ctx.textAlign = "left";
 
   rows.forEach((r, i) => {
@@ -3696,9 +3783,15 @@ export function drawCraft(
   ctx.stroke();
 
   ctx.textAlign = "center";
-  ctx.fillStyle = "#e8c56a";
-  ctx.font = "bold 22px system-ui, sans-serif";
-  ctx.fillText(t("craft.title"), VIEW_W / 2, panel.y + 40);
+  ensureMenuDisplayFont();
+  drawGoldGlowText(
+    ctx,
+    t("craft.title"),
+    VIEW_W / 2,
+    panel.y + 40,
+    `22px ${menuDisplayFamily()}`,
+    { blur: 14 },
+  );
   ctx.textAlign = "left";
 
   const inv = state.player.inventory;

@@ -525,11 +525,11 @@ export function dismountHorse(
     : { x: player.pos.x + face * 18, y: player.pos.y + 6 };
 
   player.riding = false;
-  state.world.mountHorse = { pos, face, tied: tie };
+  state.world.mountHorse = { pos, face, tied: tie, flash: 0 };
   sfx("select");
   if (tie) {
     spawnText(state, pos, "Морь уялаа", "#c8e0ff");
-    setMessage(state, "Морьноос бууж уялаа. K — дахин унах.", 2.5);
+    setMessage(state, "Морьноос бууж уялаа. F — дахин унах.", 2.5);
   } else {
     spawnText(state, pos, "Буулаа", "#e8c56a");
     setMessage(state, "Морьноос буулаа.", 2.2);
@@ -565,7 +565,7 @@ export function tryToggleHorseMount(state: GameState): boolean {
     return true;
   }
   if (state.world.gerPacked && player.riding) {
-    setMessage(state, "Гэр моринд ачсан — эхлээд H-ээр буулга.", 2.5);
+    setMessage(state, "Гэр моринд ачсан — эхлээд K-ээр буулга.", 2.5);
     return true;
   }
 
@@ -585,7 +585,7 @@ export function tryToggleHorseMount(state: GameState): boolean {
   state.world.mountHorse = null;
   sfx("neigh");
   spawnText(state, player.pos, "Уналаа", "#e8c56a");
-  setMessage(state, "Морь уналаа. K — буух.", 2.2);
+  setMessage(state, "Морь уналаа. F — буух.", 2.2);
   return true;
 }
 
@@ -862,7 +862,7 @@ export function tryInteract(state: GameState): void {
       setMessage(
         state,
         world.pastureGrass <= 0
-          ? "Бэлчээр хоосон! H-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ."
+          ? "Бэлчээр хоосон! K-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ."
           : "Бэлчээрийн өвс бага.",
         2.5,
       );
@@ -1478,18 +1478,6 @@ export function updateSurvival(state: GameState, dt: number): void {
     }
   }
 
-  const staminaRatio =
-    player.maxStamina > 0 ? player.stamina / player.maxStamina : 1;
-  if (staminaRatio <= 0.3 && state.phase === "playing") {
-    if (
-      !state.bannerAlert ||
-      state.bannerAlert.kind !== "stamina" ||
-      state.bannerAlert.timer < 1.1
-    ) {
-      setBannerAlert(state, "ЯДАРЧ БАЙНА!", 3.2, "stamina");
-    }
-  }
-
   updatePastureAndFlockFeed(state, dt);
   updateNewborns(state, dt);
   if (!state.story.activeMainObjective) {
@@ -1628,7 +1616,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
             setBannerAlert(state, "МАЛ ӨЛСӨЖ БАЙНА!", 3.8, "hunger");
             setMessage(
               state,
-              "Өвс дууссан — мал өлсөж байна! H-ээр нүү эсвэл өвс өг.",
+              "Өвс дууссан — мал өлсөж байна! K-ээр нүү эсвэл өвс өг.",
               3.5,
             );
           }
@@ -1658,7 +1646,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
   }
 }
 
-/** H (эсвэл G) — гэр хураах / шинэ газар буулгах */
+/** K (эсвэл G) — гэр хураах / шинэ газар буулгах */
 export function tryMigrateGer(state: GameState): void {
   if (!state.input.migrate || state.phase !== "playing") return;
   const fromHerdKey = state.input.herd;
@@ -1720,14 +1708,14 @@ export function tryMigrateGer(state: GameState): void {
   }
   if (!player.riding) {
     if (fromHerdKey) return;
-    setMessage(state, "Эхлээд K-ээр морь уна, дараа нь H дарж гэр ачна.", 2.8);
+    setMessage(state, "Эхлээд F-ээр морь уна, дараа нь K дарж гэр ачна.", 2.8);
     return;
   }
   if (world.flockOut || world.cattleOut) {
     if (fromHerdKey) return;
     setMessage(
       state,
-      "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь H.",
+      "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь K.",
       3,
     );
     return;
@@ -1735,7 +1723,7 @@ export function tryMigrateGer(state: GameState): void {
   const ger = gerDoorPos(world);
   if (dist(player.pos, ger) > 90) {
     if (fromHerdKey) return;
-    setMessage(state, "Гэрийнхээ дэргэд зогсоод H дар — моринд ачна.", 2.5);
+    setMessage(state, "Гэрийнхээ дэргэд зогсоод K дар — моринд ачна.", 2.5);
     return;
   }
 
@@ -1749,7 +1737,7 @@ export function tryMigrateGer(state: GameState): void {
   spawnText(state, player.pos, "Гэр → морь", "#e8c56a");
   setMessage(
     state,
-    "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод H дарж буулга.",
+    "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод K дарж буулга.",
     4.5,
   );
 }

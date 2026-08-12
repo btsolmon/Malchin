@@ -23,7 +23,7 @@ body {
   overflow: hidden;
   background: #000;
   color: var(--foreground);
-  font-family: var(--font-mono-body), monospace;
+  font-family: var(--font-mono-body), Georgia, "Times New Roman", serif;
   /* iOS Safari: visualViewport-оор шинэчлэгдэнэ */
   --vvw: 100vw;
   --vvh: 100dvh;

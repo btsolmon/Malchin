@@ -1912,6 +1912,13 @@ export function drawWildHorse(
   ctx.beginPath();
   ctx.arc(x + 23.8 * f, y - 15.8, 0.3, 0, Math.PI * 2);
   ctx.fill();
+
+  if (horse.spooked > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(0.45, horse.spooked * 0.35)})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 2, 22, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /** Голын загас */
@@ -2163,19 +2170,47 @@ function drawEnemyCombatFeedback(
   const stunned = enemy.attackPhase === "stunned";
   if (enemy.attackPhase === "windup" || enemy.attackPhase === "leaping") {
     const grab = enemy.attackKind === "bearGrab";
-    const warningWindow = enemy.kind === "bear" ? 0.3 : 0.3;
+    const warningWindow = 0.3;
     const parryNow = !grab && enemy.attackTimer <= warningWindow;
     const color = grab ? "#d26cff" : parryNow ? "#ff4a42" : "#ffd35a";
+    const glow = grab ? "#e0a0ff" : parryNow ? "#ff8070" : "#ffe08a";
     const pulse = 1 + Math.sin(time * 18) * 0.08;
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
-    ctx.lineWidth = parryNow ? 3 : 2;
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.arc(x, y, (enemy.radius * scale + 9) * pulse, 0, Math.PI * 2);
-    ctx.stroke();
+    const r = (enemy.radius * scale + 9) * pulse;
     const direction = enemy.attackDirection;
+
+    ctx.save();
+
+    // Parry шиг зөөлөн glow
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = parryNow ? 16 : 10;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = parryNow ? 3.5 : 2.4;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.arc(x, y, r + 3, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.shadowBlur = parryNow ? 12 : 7;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = parryNow ? 3 : 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Бүдэг дотор бүрхүүл
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = parryNow ? 0.16 : 0.1;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.92, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Чиглэлийн шугам + glow
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 8;
+    ctx.globalAlpha = 0.85;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = parryNow ? 2.5 : 2;
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(
@@ -2183,6 +2218,10 @@ function drawEnemyCombatFeedback(
       y + direction.y * (enemy.radius * scale + 28),
     );
     ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.95;
     ctx.font = "bold 10px system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.fillText(grab ? "DODGE" : parryNow ? "PARRY" : "!", x, y - 30 * scale);
@@ -2951,7 +2990,7 @@ function drawLegsAndBoots(
 }
 
 /**
- * Space dodge — гүйлтийн поза:
+ * Shift dodge — гүйлтийн поза:
  * нэг хөл өвдөг цээж рүү нугарсан, нөгөө хөл хойш сунасан.
  * cycle: -1..1 (аль хөл урд)
  */
@@ -3895,7 +3934,7 @@ export function drawPlayer(
   drawHerderHairFront(ctx, x, hdy, flip);
 
   const ang = Math.atan2(player.facing.y, player.facing.x);
-  const hasBow = player.gear.bow;
+  const hasBow = player.gear.bow && player.tool === "bow";
   const swordEquipped =
     player.hasSkySword && player.weapon === "skySword";
   const swordSlashing =
@@ -4068,22 +4107,140 @@ export function drawPlayer(
 
   if (lean > 0.02) ctx.restore();
   if (riding) ctx.restore();
+
+  // Нум charge — барьж байхад цагираг дүүрнэ
+  if (player.bowCharge > 0.02 && !player.bowChargeLock) {
+    drawBowChargeRing(ctx, x, y - 4, player.bowCharge, time);
+  }
+
   if (player.parryPhase === "startup" || player.parryPhase === "active") {
-    const angle = Math.atan2(player.facing.y, player.facing.x);
-    ctx.save();
-    ctx.strokeStyle =
-      player.parryPhase === "active" ? "#9de9ff" : "#e8f7ff";
-    ctx.lineWidth = player.parryPhase === "active" ? 4 : 2;
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath();
-    ctx.arc(x, y - 4, 25, angle - 0.9, angle + 0.9);
-    ctx.stroke();
-    ctx.restore();
+    drawParryGuardAnim(ctx, player, x, y - 4, time);
   }
   if (player.dodgePhase === "dodging" || player.dodgePhase === "recovery") {
     drawDodgeWindEffect(ctx, player, cam, time);
   }
   ctx.globalAlpha = 1;
+}
+
+function drawBowChargeRing(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  charge: number,
+  time: number,
+): void {
+  const t = clamp(charge, 0, 1);
+  const r = 22;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.strokeStyle = "rgba(40,28,16,0.55)";
+  ctx.lineWidth = 3.5;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const ready = t >= 0.98;
+  const col = ready ? "#ffe08a" : "#e8a85a";
+  ctx.strokeStyle = col;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.globalAlpha = 0.85 + (ready ? Math.sin(time * 16) * 0.15 : 0);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * t);
+  ctx.stroke();
+
+  if (ready) {
+    ctx.globalAlpha = 0.25 + Math.sin(time * 12) * 0.1;
+    ctx.strokeStyle = "#fff6d0";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 4, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Parry — цэнхэр хамгаалалтын анимэйшн */
+function drawParryGuardAnim(
+  ctx: CanvasRenderingContext2D,
+  player: Player,
+  x: number,
+  y: number,
+  time: number,
+): void {
+  const angle = Math.atan2(player.facing.y, player.facing.x);
+  const active = player.parryPhase === "active";
+  // active ~0.42s — timer буурч байна
+  const life = active ? clamp(1 - player.parryTimer / 0.42, 0, 1) : 0.15;
+  const pulse = 1 + Math.sin(time * 22) * 0.04;
+  const spread = 0.75 + life * 0.35;
+  const baseR = (22 + life * 8) * pulse;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Тэлэгдэх цэнхэр долгион
+  for (let i = 0; i < 3; i++) {
+    const age = (life * 1.2 + i * 0.22) % 1;
+    const rr = baseR * (0.7 + age * 0.85);
+    ctx.globalAlpha = (active ? 0.35 : 0.18) * (1 - age);
+    ctx.strokeStyle = i === 0 ? "#9de9ff" : "#6ec8ff";
+    ctx.lineWidth = 2.2 - age;
+    ctx.beginPath();
+    ctx.arc(0, 0, rr, angle - spread, angle + spread);
+    ctx.stroke();
+  }
+
+  // Гол хамгаалалтын нум — гялтганасан
+  const grad = ctx.createLinearGradient(
+    Math.cos(angle - spread) * baseR,
+    Math.sin(angle - spread) * baseR,
+    Math.cos(angle + spread) * baseR,
+    Math.sin(angle + spread) * baseR,
+  );
+  grad.addColorStop(0, "rgba(180,240,255,0.15)");
+  grad.addColorStop(0.5, active ? "rgba(157,233,255,0.95)" : "rgba(232,247,255,0.7)");
+  grad.addColorStop(1, "rgba(180,240,255,0.15)");
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = active ? 4.5 : 2.5;
+  ctx.lineCap = "round";
+  ctx.globalAlpha = 0.9;
+  ctx.shadowColor = "#7ad8ff";
+  ctx.shadowBlur = active ? 12 : 6;
+  ctx.beginPath();
+  ctx.arc(0, 0, baseR, angle - spread, angle + spread);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Бүдэг дүүргэлт
+  ctx.globalAlpha = active ? 0.14 : 0.08;
+  ctx.fillStyle = "#9de9ff";
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, baseR * 0.92, angle - spread * 0.92, angle + spread * 0.92);
+  ctx.closePath();
+  ctx.fill();
+
+  // Оч / sparkle
+  if (active) {
+    for (let i = 0; i < 5; i++) {
+      const a =
+        angle -
+        spread +
+        ((i + 0.5) / 5) * spread * 2 +
+        Math.sin(time * 18 + i) * 0.08;
+      const sparkR = baseR + Math.sin(time * 14 + i * 1.7) * 3;
+      const sx = Math.cos(a) * sparkR;
+      const sy = Math.sin(a) * sparkR;
+      ctx.globalAlpha = 0.45 + Math.sin(time * 20 + i) * 0.35;
+      ctx.fillStyle = i % 2 === 0 ? "#e8faff" : "#7ad0ff";
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1.4 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
 }
 
 /**
@@ -4783,6 +4940,15 @@ export function drawProjectile(
     ctx.closePath();
     ctx.fill();
     ctx.shadowBlur = 0;
+  } else if (p.kind === "stone") {
+    ctx.fillStyle = "#8a8478";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 4.2, 3.4, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#b0aaa0";
+    ctx.beginPath();
+    ctx.ellipse(-1.2, -1, 1.6, 1.2, 0, 0, Math.PI * 2);
+    ctx.fill();
   } else {
     ctx.strokeStyle = "#c8a060";
     ctx.lineWidth = 2;
@@ -5838,6 +6004,14 @@ export function drawParentNpc(
   ctx.fillStyle = isFather ? "#c8d8f0" : "#f0c8d0";
   ctx.fillText(label, x, y - (isFather ? 32 : 30));
   ctx.textAlign = "left";
+
+  if (parent.hitFlash > 0) {
+    ctx.fillStyle = `rgba(255,255,255,${Math.min(0.55, parent.hitFlash * 3)})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y - 4, isFather ? 16 : 14, isFather ? 22 : 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 

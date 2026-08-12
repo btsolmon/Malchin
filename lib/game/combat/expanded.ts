@@ -6,6 +6,8 @@ import {
   WORLD_W,
   type AttackVariant,
   type GameState,
+  type LivestockKind,
+  type Projectile,
   type RouteEnemy,
   type Thief,
   type Vector2,
@@ -87,6 +89,8 @@ const PARRY_STAMINA_COST = 10;
 const PARRY_STARTUP_SECONDS = 0.02;
 const PARRY_ACTIVE_SECONDS = 0.42;
 const PARRY_RECOVERY_SECONDS = 0.14;
+/** Нум бүрэн charge болох хугацаа (сек) */
+const BOW_CHARGE_SECONDS = 0.62;
 
 const DODGE_STAMINA_COST = 17;
 const DODGE_DURATION_SECONDS = 0.28;
@@ -1047,18 +1051,17 @@ function updateMeleePhases(state: GameState, dt: number): void {
   }
 }
 
-function tryRangedAttack(state: GameState): boolean {
+function fireRangedProjectile(state: GameState): boolean {
   const { player, world } = state;
 
   if (player.combatPhase !== "idle") return false;
   if (player.dodgePhase !== "idle") return false;
   if (player.parryPhase !== "idle") return false;
   if (player.attackCooldown > 0) return false;
-  if (!state.input.shoot) return false;
 
-  const bow = player.gear.bow;
-  // Сүнсний оронд зэвсэггүй ч сүнсний сум харваж болно
-  const spiritBolt = !bow && state.phase === "spirit";
+  const bow = player.gear.bow && player.tool === "bow";
+  const spiritBolt =
+    !player.gear.bow && state.phase === "spirit" && player.tool === "bow";
   if (!bow && !spiritBolt) return false;
 
   if (bow && player.inventory.arrows <= 0) {
@@ -1154,6 +1157,228 @@ function tryRangedAttack(state: GameState): boolean {
   return true;
 }
 
+/** Чулуу шидэх — hotbar-д чулуу сонгоод J */
+function tryThrowStone(state: GameState): boolean {
+  const { player, world } = state;
+  if (player.tool !== "stone") return false;
+  if (player.combatPhase !== "idle") return false;
+  if (player.dodgePhase !== "idle") return false;
+  if (player.parryPhase !== "idle") return false;
+  if (player.attackCooldown > 0) return false;
+  if (player.inventory.stone <= 0) {
+    setMessage(state, "Чулуу алга.", 1.6);
+    return false;
+  }
+
+  player.inventory.stone -= 1;
+  player.attackCooldown = 0.42 * player.cooldownMult;
+  player.attackMelee = false;
+  player.attackAnim = 0.16;
+
+  let dir = safeFacing(player.facing);
+  const range = 160;
+  let bestDistance = range;
+
+  const consider = (pos: Vector2) => {
+    const distance = dist(player.pos, pos);
+    if (distance >= bestDistance || distance < 8) return;
+    bestDistance = distance;
+    dir = normalize({
+      x: pos.x - player.pos.x,
+      y: pos.y - player.pos.y,
+    });
+  };
+
+  for (const wolf of world.wolves) {
+    if (wolf.alive) consider(wolf.pos);
+  }
+  for (const thief of world.thieves) {
+    if (thief.alive) consider(thief.pos);
+  }
+  for (const animal of world.flock.visuals) {
+    consider(animal.pos);
+  }
+  if (world.dog) consider(world.dog.pos);
+  if (world.mountHorse && !player.riding) consider(world.mountHorse.pos);
+  for (const horse of world.wildHorses) {
+    consider(horse.pos);
+  }
+  for (const fish of world.fish) {
+    consider(fish.pos);
+  }
+  if (state.parents) {
+    if (!state.parents.father.insideGer) consider(state.parents.father.pos);
+    if (!state.parents.mother.insideGer) consider(state.parents.mother.pos);
+  }
+
+  dir = safeFacing(dir);
+
+  const speed = 320;
+  world.projectiles.push({
+    pos: {
+      x: player.pos.x + dir.x * 12,
+      y: player.pos.y - 10 + dir.y * 12,
+    },
+    vel: { x: dir.x * speed, y: dir.y * speed },
+    // Нумтай ойролцоо хүч (нум 24)
+    dmg: 22 * player.damageMult,
+    life: range / speed + 0.12,
+    kind: "stone",
+  });
+
+  sfx("stone");
+  spawnParticles(
+    state,
+    { x: player.pos.x + dir.x * 10, y: player.pos.y - 8 },
+    3,
+    "#9a9488",
+    { speed: 50, size: 2 },
+  );
+  return true;
+}
+
+function livestockHitSfx(kind: LivestockKind): void {
+  if (kind === "cattle" || kind === "camel") sfx("moo");
+  else if (kind === "horse") sfx("neigh");
+  else sfx("baa");
+}
+
+/** Чулуу — эцэг эх / нохой / морь / мал руу онох (амь хасдаггүй) */
+function tryStoneBonkFriendly(
+  state: GameState,
+  projectile: Projectile,
+): boolean {
+  if (projectile.kind !== "stone") return false;
+  const { world, player } = state;
+  const pos = projectile.pos;
+
+  const bump = (target: Vector2, vel?: Vector2, strength = 95) => {
+    const away = normalize({
+      x: target.x - pos.x,
+      y: target.y - pos.y,
+    });
+    if (vel) {
+      vel.x += away.x * strength;
+      vel.y += away.y * strength;
+    }
+    spawnParticles(state, target, 5, "#9a9488", { speed: 70, size: 2.4 });
+    sfx("hit");
+  };
+
+  for (const animal of world.flock.visuals) {
+    if (dist(pos, animal.pos) < animal.radius + 8) {
+      animal.flash = 0.28;
+      bump(animal.pos, animal.vel);
+      livestockHitSfx(animal.kind);
+      return true;
+    }
+  }
+
+  const dog = world.dog;
+  if (dog && dist(pos, dog.pos) < 16) {
+    dog.flash = 0.28;
+    bump(dog.pos, dog.vel);
+    sfx("bark");
+    return true;
+  }
+
+  if (state.parents) {
+    for (const parent of [state.parents.father, state.parents.mother]) {
+      if (parent.insideGer) continue;
+      if (dist(pos, parent.pos) < 18) {
+        parent.hitFlash = 0.32;
+        bump(parent.pos);
+        sfx("hurt");
+        return true;
+      }
+    }
+  }
+
+  const mh = world.mountHorse;
+  if (mh && !player.riding && dist(pos, mh.pos) < 22) {
+    mh.flash = 0.28;
+    bump(mh.pos);
+    sfx("neigh");
+    return true;
+  }
+
+  for (const horse of world.wildHorses) {
+    if (dist(pos, horse.pos) < horse.radius + 10) {
+      horse.spooked = Math.max(horse.spooked, 1.4);
+      bump(horse.pos, horse.vel, 120);
+      sfx("neigh");
+      return true;
+    }
+  }
+
+  for (const fish of world.fish) {
+    if (dist(pos, fish.pos) < fish.radius + 8) {
+      fish.spook = Math.max(fish.spook, 1.2);
+      bump(fish.pos, fish.vel, 70);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Hold J (нум) — charge; бүрэн болсон үед харвана.
+ * Суллах хүртэл дахин charge эхлэхгүй.
+ */
+function updateBowCharge(state: GameState, dt: number): boolean {
+  const { player, input } = state;
+  const bow = player.gear.bow && player.tool === "bow";
+  const spiritBolt =
+    !player.gear.bow && state.phase === "spirit" && player.tool === "bow";
+  const canShoot =
+    (bow || spiritBolt) &&
+    player.combatPhase === "idle" &&
+    player.dodgePhase === "idle" &&
+    player.parryPhase === "idle" &&
+    player.attackCooldown <= 0;
+
+  if (!input.shoot) {
+    player.bowCharge = 0;
+    player.bowChargeLock = false;
+    return false;
+  }
+
+  if (!canShoot) {
+    player.bowCharge = 0;
+    return false;
+  }
+
+  if (player.bowChargeLock) {
+    return false;
+  }
+
+  if (bow && player.inventory.arrows <= 0) {
+    setMessage(
+      state,
+      "Сум алга — урлалаар хий (1 мод + 1 чулуу = 2 сум).",
+      2.5,
+    );
+    player.bowCharge = 0;
+    return false;
+  }
+
+  player.bowCharge = Math.min(
+    1,
+    player.bowCharge + dt / BOW_CHARGE_SECONDS,
+  );
+
+  if (player.bowCharge < 1) return false;
+
+  if (fireRangedProjectile(state)) {
+    player.bowCharge = 0;
+    player.bowChargeLock = true;
+    return true;
+  }
+  player.bowCharge = 0;
+  return false;
+}
+
 /**
  * Тулааны таймер — playing ба spirit хоёуланд updateCombat дуудагдана.
  * (updateSurvival зөвхөн playing дээр ажилладаг тул энд байх ёстой —
@@ -1233,7 +1458,7 @@ export function updateCombat(state: GameState, dt: number): void {
 
   if (player.combatPhase !== "idle") return;
 
-  if (tryRangedAttack(state)) return;
+  if (updateBowCharge(state, dt)) return;
 
   // J — ойр хашаа нураах (дайсан ойрхон үед тулаанд өгнө)
   const wantsAttack =
@@ -1250,6 +1475,15 @@ export function updateCombat(state: GameState, dt: number): void {
   }
 
   if (!wantsAttack) return;
+
+  if (player.tool === "stone") {
+    if (tryThrowStone(state)) {
+      buffers.attack = 0;
+      input.attack = false;
+      input.attackPressed = false;
+    }
+    return;
+  }
 
   if (beginMeleeAttack(state)) {
     buffers.attack = 0;
@@ -1368,6 +1602,14 @@ export function damageThief(state: GameState, thief: Thief, dmg: number): void {
 export function updateProjectiles(state: GameState, dt: number): void {
   const { world } = state;
 
+  if (world.mountHorse) {
+    const flash = world.mountHorse.flash ?? 0;
+    if (flash > 0) world.mountHorse.flash = Math.max(0, flash - dt);
+    else if (typeof world.mountHorse.flash !== "number") {
+      world.mountHorse.flash = 0;
+    }
+  }
+
   for (const projectile of world.projectiles) {
     projectile.pos.x += projectile.vel.x * dt;
     projectile.pos.y += projectile.vel.y * dt;
@@ -1428,7 +1670,11 @@ export function updateProjectiles(state: GameState, dt: number): void {
               state,
               enemy,
               projectile.dmg,
-              projectile.kind === "arrow" ? "arrow" : "spiritBolt",
+              projectile.kind === "arrow"
+                ? "arrow"
+                : projectile.kind === "spiritBolt"
+                  ? "spiritBolt"
+                  : "other",
             );
             consumed = true;
             break;
@@ -1441,7 +1687,11 @@ export function updateProjectiles(state: GameState, dt: number): void {
             state,
             enemy,
             projectile.dmg,
-            projectile.kind === "arrow" ? "arrow" : "spiritBolt",
+            projectile.kind === "arrow"
+              ? "arrow"
+              : projectile.kind === "spiritBolt"
+                ? "spiritBolt"
+                : "other",
           );
           consumed = true;
           break;
@@ -1460,6 +1710,10 @@ export function updateProjectiles(state: GameState, dt: number): void {
         damageTumurShulmasFromPlayer(state, projectile.dmg, 10, false);
         consumed = true;
       }
+    }
+
+    if (!consumed && tryStoneBonkFriendly(state, projectile)) {
+      consumed = true;
     }
 
     if (consumed) projectile.life = 0;

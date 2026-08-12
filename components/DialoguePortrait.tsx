@@ -82,6 +82,7 @@ function makeBoyPortrait(): Player {
     attackHitDone: false,
     parryArmed: false,
     weapon: "staff",
+    tool: "melee",
     hasSkySword: false,
     meleePhase: "idle",
     meleeTimer: 0,
@@ -92,6 +93,8 @@ function makeBoyPortrait(): Player {
     dodgeDirection: { x: 1, y: 0 },
     parryPhase: "idle",
     parryTimer: 0,
+    bowCharge: 0,
+    bowChargeLock: false,
   };
 }
 
@@ -111,6 +114,7 @@ function makeParentPortrait(role: "father" | "mother"): ParentNpc {
     insideGer: false,
     attackCooldown: 0,
     attackAnim: 0,
+    hitFlash: 0,
   };
 }
 

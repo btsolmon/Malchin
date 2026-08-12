@@ -766,6 +766,12 @@ export function render(
         const hx = mh.pos.x - cam.x;
         const hy = mh.pos.y - cam.y;
         drawHorse(ctx, hx, hy + 2, mh.face, time, false, false);
+        if ((mh.flash ?? 0) > 0) {
+          ctx.fillStyle = `rgba(255,255,255,${Math.min(0.5, mh.flash * 3)})`;
+          ctx.beginPath();
+          ctx.ellipse(hx, hy, 22, 14, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
         if (mh.tied) {
           // Уяанаас морь руу богино оосор
           const rail = horseHitchRail(world);
@@ -915,13 +921,13 @@ export function render(
         state.story.stormTracePos &&
         dist(state.player.pos, state.story.stormTracePos) < 70
       ) {
-        tip = "E — Рашаан авах (3 балга · R — уух)";
+        tip = "E — Рашаан авах (3 балга · Q — уух)";
         tipPos = state.story.stormTracePos;
       } else if (
         state.spiritPoints > 0 &&
         state.player.vitals.health < state.player.vitals.maxHealth * 0.55
       ) {
-        tip = "R — Рашаан уух (бүтэн амь)";
+        tip = "Q — Рашаан уух (бүтэн амь)";
       } else if (world.tumurShulmas.active) {
         tip = "Төмөр шулмастай тулаан · дуустал гарахгүй";
       }
@@ -959,9 +965,62 @@ export function render(
       ctx.font = "600 12px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      ctx.strokeText("H — Гэр буулгах (мориноос)", tx, ty);
+      ctx.strokeText("K — Гэр буулгах (мориноос)", tx, ty);
       ctx.fillStyle = "#ffe9a8";
-      ctx.fillText("H — Гэр буулгах (мориноос)", tx, ty);
+      ctx.fillText("K — Гэр буулгах (мориноос)", tx, ty);
+      ctx.textAlign = "left";
+    } else if (
+      world.wildHorses.some((h) => dist(state.player.pos, h.pos) < 90) ||
+      !!state.horseLasso
+    ) {
+      const target =
+        state.horseLasso &&
+        world.wildHorses.find((h) => h.id === state.horseLasso!.horseId);
+      const near =
+        target ??
+        world.wildHorses.find((h) => dist(state.player.pos, h.pos) < 90);
+      const tipPos = target
+        ? wildHorseNeckPos(target)
+        : (near?.pos ?? state.player.pos);
+      const tx = tipPos.x - cam.x;
+      const ty = tipPos.y - 28 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 12px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const phase = state.horseLasso?.phase;
+      const tip = !state.player.gear.urga
+        ? "Уураглах — уурга хэрэгтэй"
+        : phase === "pulling"
+          ? "E — ХУРДАН ТАТ! (mash)"
+          : phase === "throwing"
+            ? "Уурга нисэж байна…"
+            : "E — Уураглах";
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle =
+        phase === "pulling"
+          ? "#ffd060"
+          : phase === "throwing"
+            ? "#e8d090"
+            : "#e8c56a";
+      ctx.fillText(tip, tx, ty);
+      if (phase === "pulling" && state.horseLasso) {
+        const bw = 56;
+        const bh = 6;
+        const bx = tx - bw / 2;
+        const by = ty - 16;
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
+        ctx.fillStyle = "#2a1c12";
+        ctx.fillRect(bx, by, bw, bh);
+        const p = clamp(state.horseLasso.progress, 0, 1);
+        ctx.fillStyle = p > 0.7 ? "#7ecf6a" : "#e8c56a";
+        ctx.fillRect(bx, by, bw * p, bh);
+        const tMax = Math.max(0.1, state.horseLasso.timeMax || 4);
+        const tLeft = clamp(state.horseLasso.timeLeft / tMax, 0, 1);
+        ctx.fillStyle = "#ff8080";
+        ctx.fillRect(bx, by + bh + 2, bw * tLeft, 2);
+      }
       ctx.textAlign = "left";
     } else if (
       state.story.activeMainObjective === "restoreHearth" &&
@@ -987,8 +1046,8 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "E — Гэрт орох · K — буух · H — моринд ачих"
-        : "E — Гэрт орох · H — моринд ачих";
+        ? "E — Гэрт орох · F — буух · K — моринд ачих"
+        : "E — Гэрт орох · K — моринд ачих";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#ffe9a8";
       ctx.fillText(tip, tx, ty);
@@ -1014,7 +1073,7 @@ export function render(
     } else if (callableLivestock) {
       const tx = callableLivestock.pos.x - cam.x;
       const ty = callableLivestock.pos.y - 32 - cam.y;
-      const tip = "H — Малаа туу";
+      const tip = "K — Малаа туу";
       ctx.textAlign = "center";
       ctx.font = "600 12px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.75)";
@@ -1089,8 +1148,8 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "K — морьноос буух"
-        : "K — морь унах";
+        ? "F — морьноос буух"
+        : "F — морь унах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);
@@ -1168,58 +1227,6 @@ export function render(
         const stone = nearestGatherableStone(state.player, world.stones);
         const tree = nearestAliveTree(state.player, world.trees);
         if (
-          state.player.gear.urga &&
-          (state.horseLasso ||
-            world.wildHorses.some(
-              (h) => dist(state.player.pos, h.pos) < 82,
-            ))
-        ) {
-          const target =
-            state.horseLasso &&
-            world.wildHorses.find((h) => h.id === state.horseLasso!.horseId);
-          const tipPos = target
-            ? wildHorseNeckPos(target)
-            : state.player.pos;
-          const tx = tipPos.x - cam.x;
-          const ty = tipPos.y - 28 - cam.y;
-          ctx.textAlign = "center";
-          ctx.font = "600 11px system-ui, sans-serif";
-          ctx.strokeStyle = "rgba(0,0,0,0.7)";
-          ctx.lineWidth = 3;
-          const phase = state.horseLasso?.phase;
-          const tip =
-            phase === "pulling"
-              ? "E — ХУРДАН ТАТ! (mash)"
-              : phase === "throwing"
-                ? "Уурга нисэж байна…"
-                : "E — Уургаа хүзүү рүү шид";
-          ctx.strokeText(tip, tx, ty);
-          ctx.fillStyle =
-            phase === "pulling"
-              ? "#ffd060"
-              : phase === "throwing"
-                ? "#e8d090"
-                : "#e8c56a";
-          ctx.fillText(tip, tx, ty);
-          if (phase === "pulling" && state.horseLasso) {
-            const bw = 56;
-            const bh = 6;
-            const bx = tx - bw / 2;
-            const by = ty - 16;
-            ctx.fillStyle = "rgba(0,0,0,0.55)";
-            ctx.fillRect(bx - 1, by - 1, bw + 2, bh + 2);
-            ctx.fillStyle = "#2a1c12";
-            ctx.fillRect(bx, by, bw, bh);
-            const p = clamp(state.horseLasso.progress, 0, 1);
-            ctx.fillStyle = p > 0.7 ? "#7ecf6a" : "#e8c56a";
-            ctx.fillRect(bx, by, bw * p, bh);
-            const tMax = Math.max(0.1, state.horseLasso.timeMax || 4);
-            const tLeft = clamp(state.horseLasso.timeLeft / tMax, 0, 1);
-            ctx.fillStyle = "#ff8080";
-            ctx.fillRect(bx, by + bh + 2, bw * tLeft, 2);
-          }
-          ctx.textAlign = "left";
-        } else if (
           state.player.gear.fishingRod &&
           nearFishingSpot(state.player.pos)
         ) {

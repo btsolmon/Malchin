@@ -29,8 +29,8 @@ export type GearId =
 export type CombatPhase = "idle" | "startup" | "active" | "recovery";
 export type AttackVariant = 0 | 1 | 2;
 export type PlayerWeapon = "staff" | "skySword";
-/** 1 нударга · 2 нум · 3 хашаа — J-ээр хэрэглэнэ */
-export type PlayerTool = "melee" | "bow" | "fence";
+/** 1 — нударга/сэлэм; хашаа; нум; чулуу */
+export type PlayerTool = "melee" | "bow" | "fence" | "stone";
 
 /** 5 хошуу мал */
 export type LivestockKind = "sheep" | "goat" | "cattle" | "horse" | "camel";
@@ -180,6 +180,10 @@ export interface Player {
   dodgeDirection: Vector2;
   parryPhase: "idle" | "startup" | "active" | "recovery";
   parryTimer: number;
+  /** Нум харвах charge (0–1). Бүтэн болж байж сум гардаг */
+  bowCharge: number;
+  /** Харвасны дараа товч суллах хүртэл дахин charge болохгүй */
+  bowChargeLock: boolean;
 }
 
 export interface Tree {
@@ -324,6 +328,8 @@ export interface ParentNpc {
   attackCooldown: number;
   /** Цохилтын анимейшн үлдсэн хугацаа */
   attackAnim: number;
+  /** Чулуу оноход анивчилт (амь алдахгүй) */
+  hitFlash: number;
 }
 
 /** Хуучин нэр — нийцүүлэлт */
@@ -499,13 +505,13 @@ export interface Dog {
   flash: number;
 }
 
-/** Нумны сум / сүнсний сум */
+/** Нумны сум / сүнсний сум / чулуу */
 export interface Projectile {
   pos: Vector2;
   vel: Vector2;
   dmg: number;
   life: number;
-  kind: "arrow" | "spiritBolt";
+  kind: "arrow" | "spiritBolt" | "stone";
 }
 
 export type RouteEnemyKind =
@@ -730,6 +736,8 @@ export interface MountHorse {
   face: 1 | -1;
   /** Гэрийн гадаа уясан */
   tied: boolean;
+  /** Чулуу оноход анивчилт */
+  flash: number;
 }
 
 export interface InputState {
@@ -743,36 +751,36 @@ export interface InputState {
   attackPressed: boolean;
   /** Шинэ combat модульд зориулсан нэг удаагийн dodge оролт. */
   dodge: boolean;
-  /** Space — булт */
+  /** Shift — булт / dash */
   dodgePressed: boolean;
   /** Шинэ combat модульд зориулсан нэг удаагийн parry оролт. */
   parry: boolean;
-  /** Shift — сөрөх (parry) */
+  /** Space — сөрөх (parry) */
   parryPressed: boolean;
-  /** Нум (2 сонгоод J, эсвэл утасны нум) */
+  /** Нум (K, эсвэл утасны нум) */
   shoot: boolean;
   /** L — гал түлэх */
   lightFire: boolean;
   /** 3 сонгоод J — хашаа барих / шинэчлэх */
   buildFence: boolean;
   eat: boolean;
-  /** R — сүнсний рашаан балгах (1 балга = бүтэн амь) */
+  /** Хуучин R — одоо Q цэсээр рашаан ууна */
   drinkSpirit: boolean;
   /** Debug — / дарж үхэшгүй + мод/зоос хязгааргүй */
   debugCheats: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
   debugBoss: boolean;
-  /** H барих — хонь туух */
+  /** K барих — хонь туух */
   herd: boolean;
-  /** H (эсвэл G) — гэр хураах / буулгах (нүүдэл) */
+  /** K (эсвэл G) — гэр хураах / буулгах (нүүдэл) */
   migrate: boolean;
-  /** K — морь унах / буух / уях */
+  /** F — морь унах / буух / уях */
   horseMount: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
   skill4: boolean;
-  /** Enter — меню дэх сонголт; Space тоглоход булт */
+  /** Enter — меню дэх сонголт; Space тоглоход parry */
   confirm: boolean;
   /** P — түр зогсоох */
   pause: boolean;
@@ -1049,6 +1057,22 @@ export interface GameState {
   craftOpen: boolean;
   /** Tab — нөөцийн авдар нээлттэй */
   inventoryOpen: boolean;
+  /** Minecraft шиг 4 нүх — null = хоосон */
+  hotbar: Array<
+    | "melee"
+    | "bow"
+    | "fence"
+    | "stone"
+    | "berry"
+    | "fish"
+    | "aaruul"
+    | "milk"
+    | "spiritWater"
+    | null
+  >;
+  hotbarSelected: number;
+  /** Авдар доторх каталогийн курсор */
+  hotbarInvIndex: number;
   /** Гэрийн ханын зураг томруулж харах */
   gerArtZoom: "horse" | "family" | "tara" | null;
   /** Гэр доторх малчны байрлал (дэлгэцийн координат) */
@@ -1088,7 +1112,7 @@ export interface GameState {
   /** Dodge идэвхтэй — хэвийн хөдөлгөөн алгасна */
   combatDodgeActive: boolean;
   nextEntityId: number;
-  /** Шилэн лонхны рашаан — балганы тоо (R — уух, 1 балга = бүтэн амь) */
+  /** Шилэн лонхны рашаан — балганы тоо (Q — сонгож уух, 1 балга = бүтэн амь) */
   spiritPoints: number;
   /**
    * Сүнс рүү орохын өмнөх нөөц (тагнах/cheat).

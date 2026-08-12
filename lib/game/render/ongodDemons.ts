@@ -643,11 +643,15 @@ export function drawOngodDemon(
   drawOngodWeapon(ctx, style.weapon, flash, enemy.phase, enemy.attackKind);
 
   if (enemy.phase === "windup" && style.weapon !== "bow") {
-    ctx.strokeStyle = `rgba(242,196,90,${0.4 + Math.sin(time * 12) * 0.15})`;
-    ctx.lineWidth = 2;
+    ctx.save();
+    ctx.shadowColor = "#ffd35a";
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = `rgba(242,196,90,${0.45 + Math.sin(time * 12) * 0.15})`;
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.arc(0, bodyY - 4, 38 + scale * 4, -0.7, 0.7);
     ctx.stroke();
+    ctx.restore();
   }
 
   ctx.restore();

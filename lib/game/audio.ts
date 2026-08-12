@@ -854,11 +854,28 @@ export function startFamilyLifeTheme(): void {
   startMainBgm(HANGAI_BGM_SRC, "hangai", 3.6);
 }
 
-/** Төлөвөөс зөв аяг барина — шинэ тоглоом / үе давах / load */
+/** Төлөвөөс зөв аяг барина — шинэ тоглоом / үе давах / cheat / load */
 export function syncStoryMusic(state: {
   parentsReturned: boolean;
   story: { milestone8Started?: boolean; milestone8Completed?: boolean };
+  world: { tumurShulmas: { active: boolean; defeated: boolean } };
 }): void {
+  const bossFight =
+    state.world.tumurShulmas.active && !state.world.tumurShulmas.defeated;
+
+  if (bossFight) {
+    startTumurBossMusic();
+    return;
+  }
+
+  const fadingBossOut =
+    !!audio.tumurBossBgm &&
+    audio.tumurBossFadeRaf > 0 &&
+    audio.tumurBossFadeTarget === 0;
+  if (audio.tumurBossBgm && !fadingBossOut) {
+    stopTumurBossMusic();
+  }
+
   const family =
     state.parentsReturned ||
     !!state.story.milestone8Started ||
@@ -868,6 +885,7 @@ export function syncStoryMusic(state: {
     audio.mainBgmTrack === want &&
     mainBgmSrcMatches(audio.mainBgmA, want)
   ) {
+    resumeMainBgm();
     return;
   }
   if (family) startFamilyLifeTheme();
@@ -963,6 +981,14 @@ function fadeTumurBossBgmTo(
 export function startTumurBossMusic(): void {
   if (typeof window === "undefined" || typeof Audio === "undefined") return;
   ensureAudio();
+  if (audio.tumurBossBgm) {
+    setMusicDuck(0.06);
+    if (audio.tumurBossBgm.paused) {
+      void audio.tumurBossBgm.play().catch(() => {});
+    }
+    syncTumurBossBgmVolume();
+    return;
+  }
   stopTumurBossMusicImmediate();
   // Хангайн ая бараг унтарна
   setMusicDuck(0.06);

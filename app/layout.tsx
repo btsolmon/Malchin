@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Share_Tech_Mono, Yeseva_One } from "next/font/google";
+import { Philosopher, Yeseva_One } from "next/font/google";
 import "./globals.css";
 
 const display = Yeseva_One({
@@ -8,9 +8,10 @@ const display = Yeseva_One({
   variable: "--font-display",
 });
 
-const mono = Share_Tech_Mono({
-  weight: "400",
-  subsets: ["latin"],
+/** Цэс/UI — кирилл + дулаан, сонгодог мэдрэмж */
+const ui = Philosopher({
+  weight: ["400", "700"],
+  subsets: ["cyrillic", "latin"],
   variable: "--font-mono-body",
 });
 
@@ -71,7 +72,7 @@ export default function RootLayout({
   return (
     <html
       lang="mn"
-      className={`${display.variable} ${mono.variable} h-full antialiased`}
+      className={`${display.variable} ${ui.variable} h-full antialiased`}
     >
       <body className="h-full overflow-hidden">{children}</body>
     </html>

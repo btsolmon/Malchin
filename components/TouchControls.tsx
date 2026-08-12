@@ -65,7 +65,7 @@ function isPortrait(): boolean {
 
 /**
  * Утасны браузерын виртуал удирдлага.
- * Зүүн: joystick + K/H/3 · Баруун: тулаан · Дээд зүүн: цэс / бүтэн дэлгэц
+ * Зүүн: joystick + F/H/1 · Баруун: тулаан · Дээд зүүн: цэс / бүтэн дэлгэц
  */
 export default function TouchControls({ gameRef, hidden }: Props) {
   const [show, setShow] = useState(false);
@@ -290,9 +290,9 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           type="button"
           className="touch-btn touch-btn-inventory"
           onPointerDown={pulse("inventory")}
-          aria-label="Inventory"
+          aria-label="Bag"
         >
-          Inv
+          Bag
         </button>
         <button
           type="button"
@@ -316,15 +316,15 @@ export default function TouchControls({ gameRef, hidden }: Props) {
         <div ref={knobRef} className="touch-stick-knob" />
       </div>
 
-      {/* Зүүн дунд — K / H / 3 */}
+      {/* Зүүн дунд — F / H / 1 */}
       <div className="touch-utility">
         <button
           type="button"
           className="touch-btn touch-btn-horse"
           onPointerDown={pulse("horseMount")}
-          aria-label="Horse K"
+          aria-label="Horse F"
         >
-          <TouchGlyph icon="horse" size={26} letter="K" />
+          <TouchGlyph icon="horse" size={26} letter="F" />
         </button>
         <button
           type="button"
@@ -332,7 +332,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           onPointerDown={pulse("migrate")}
           aria-label="Pack"
         >
-          <TouchGlyph icon="camel" size={26} letter="H" />
+          <TouchGlyph icon="camel" size={26} letter="K" />
         </button>
         <button
           type="button"
@@ -340,7 +340,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           onPointerDown={hold("herd")}
           aria-label="Herd"
         >
-          <TouchGlyph icon="sheep" size={26} letter="H" />
+          <TouchGlyph icon="sheep" size={26} letter="K" />
         </button>
         <button
           type="button"
@@ -348,7 +348,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           onPointerDown={pulse("buildFence")}
           aria-label="Fence"
         >
-          <TouchGlyph icon="fence" size={24} letter="3" />
+          <TouchGlyph icon="fence" size={24} letter="1" />
         </button>
       </div>
 
@@ -359,7 +359,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           onPointerDown={pulse("parry")}
           aria-label="Parry"
         >
-          <TouchGlyph icon="shield" size={28} letter="⇧" />
+          <TouchGlyph icon="shield" size={28} letter="␣" />
         </button>
         <button
           type="button"
@@ -367,7 +367,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           onPointerDown={pulse("dodge")}
           aria-label="Dodge"
         >
-          <TouchGlyph icon="dodge" size={28} letter="␣" />
+          <TouchGlyph icon="dodge" size={28} letter="⇧" />
         </button>
         <button
           type="button"

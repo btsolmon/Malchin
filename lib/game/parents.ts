@@ -65,6 +65,7 @@ function makeParent(
     insideGer: false,
     attackCooldown: 0,
     attackAnim: 0,
+    hitFlash: 0,
   };
 }
 
@@ -75,6 +76,7 @@ export function ensureParents(state: GameState): void {
       if (typeof p.insideGer !== "boolean") p.insideGer = false;
       if (typeof p.attackCooldown !== "number") p.attackCooldown = 0;
       if (typeof p.attackAnim !== "number") p.attackAnim = 0;
+      if (typeof p.hitFlash !== "number") p.hitFlash = 0;
     }
     return;
   }
@@ -409,6 +411,7 @@ function updateFather(state: GameState, dt: number): void {
   father.workPulse = Math.max(0, father.workPulse - dt);
   father.attackCooldown = Math.max(0, father.attackCooldown - dt);
   father.attackAnim = Math.max(0, father.attackAnim - dt);
+  father.hitFlash = Math.max(0, father.hitFlash - dt);
 
   if (exitGerIfDawn(state, father)) return;
 
@@ -618,6 +621,7 @@ function updateMother(state: GameState, dt: number): void {
 
   mother.taskTimer = Math.max(0, mother.taskTimer - dt);
   mother.workPulse = Math.max(0, mother.workPulse - dt);
+  mother.hitFlash = Math.max(0, mother.hitFlash - dt);
 
   if (exitGerIfDawn(state, mother)) return;
 

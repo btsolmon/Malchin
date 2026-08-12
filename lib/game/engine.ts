@@ -59,7 +59,6 @@ import {
 import {
   beginElderLevelUp,
   tryBuildFence,
-  tryEatBerry,
   tryHorseMount,
   tryInteract,
   tryLightCampfire,
@@ -102,7 +101,7 @@ import {
   loadTumurShulmasSprites,
   updateTumurShulmasEncounter,
 } from "./tumurShulmas";
-import { applySelectedToolInput, trySelectTool } from "./combat/playerWeapon";
+import { applySelectedToolInput } from "./combat/playerWeapon";
 import {
   createFirstRoute,
   tryInteractFirstRoute,
@@ -134,8 +133,13 @@ import {
   advanceElderCultureQuiz,
   submitElderCultureAnswer,
 } from "./elderQuiz";
-import { exitSpiritWorld, tryDrinkSpiritWater, updateSpiritWorld } from "./spirit";
+import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
 import { pullFlockToPen } from "./daycycle";
+import {
+  createDefaultHotbar,
+  ensureHotbar,
+  updateHotbar,
+} from "./hotbar";
 import {
   createInitialStoryState,
   debugJumpToFamilyLife,
@@ -324,6 +328,8 @@ export function createInitialState(): GameState {
       dodgeDirection: { x: 0, y: 1 },
       parryPhase: "idle",
       parryTimer: 0,
+      bowCharge: 0,
+      bowChargeLock: false,
     },
     world: {
       width: WORLD_W,
@@ -431,6 +437,9 @@ export function createInitialState(): GameState {
     shopOpen: false,
     craftOpen: false,
     inventoryOpen: false,
+    hotbar: createDefaultHotbar(),
+    hotbarSelected: 0,
+    hotbarInvIndex: 0,
     gerArtZoom: null,
     gerPlayer: { x: 480, y: 455 },
     gerSleepTimer: 0,
@@ -481,6 +490,7 @@ export function createInitialState(): GameState {
     pos: horseHitchPos(state.world),
     face: -1,
     tied: true,
+    flash: 0,
   };
   return state;
 }
@@ -505,7 +515,11 @@ export function bindInput(
         break;
       case "ArrowUp":
         if (menuEdge) input.menuUp = true;
-        input.up = pressed;
+        // Тоглоомд сум = hotbar/авдар; хөдөлгөөн зөвхөн WASD
+        {
+          const phase = getPhase();
+          if (phase !== "playing" && phase !== "spirit") input.up = pressed;
+        }
         break;
       case "KeyS":
         input.down = pressed;
@@ -513,7 +527,10 @@ export function bindInput(
         break;
       case "ArrowDown":
         if (menuEdge) input.menuDown = true;
-        input.down = pressed;
+        {
+          const phase = getPhase();
+          if (phase !== "playing" && phase !== "spirit") input.down = pressed;
+        }
         break;
       case "KeyA":
         input.left = pressed;
@@ -521,7 +538,10 @@ export function bindInput(
         break;
       case "ArrowLeft":
         if (menuEdge) input.menuLeft = true;
-        input.left = pressed;
+        {
+          const phase = getPhase();
+          if (phase !== "playing" && phase !== "spirit") input.left = pressed;
+        }
         break;
       case "KeyD":
         input.right = pressed;
@@ -529,7 +549,10 @@ export function bindInput(
         break;
       case "ArrowRight":
         if (menuEdge) input.menuRight = true;
-        input.right = pressed;
+        {
+          const phase = getPhase();
+          if (phase !== "playing" && phase !== "spirit") input.right = pressed;
+        }
         break;
       case "KeyE":
         // Дарахад асаана, update() эсвэл хэрэглэгч нь унтраана —
@@ -540,8 +563,8 @@ export function bindInput(
         if (pressed) {
           const phase = getPhase();
           if (phase === "playing" || phase === "spirit") {
-            input.dodge = true;
-            input.dodgePressed = true;
+            input.parry = true;
+            input.parryPressed = true;
           } else {
             input.confirm = true;
           }
@@ -552,13 +575,17 @@ export function bindInput(
         if (pressed) input.attackPressed = true;
         break;
       case "KeyK":
+        input.herd = pressed;
+        if (pressed) input.migrate = true;
+        break;
+      case "KeyF":
         if (pressed) input.horseMount = true;
         break;
       case "ShiftLeft":
       case "ShiftRight":
         if (pressed) {
-          input.parry = true;
-          input.parryPressed = true;
+          input.dodge = true;
+          input.dodgePressed = true;
         }
         break;
       case "KeyL":
@@ -576,15 +603,8 @@ export function bindInput(
       case "KeyQ":
         if (pressed) input.eat = true;
         break;
-      case "KeyR":
-        if (pressed) input.drinkSpirit = true;
-        break;
       case "Slash":
         if (pressed) input.debugCheats = true;
-        break;
-      case "KeyH":
-        input.herd = pressed;
-        if (pressed) input.migrate = true;
         break;
       case "KeyG":
         if (pressed) input.migrate = true;
@@ -795,6 +815,9 @@ export function update(state: GameState, dt: number): void {
     updateFencePreviewAim(state);
   }
 
+  ensureHotbar(state);
+  updateHotbar(state);
+
   state.input.confirm = false;
   state.input.pause = false;
   state.input.inventoryToggle = false;
@@ -805,9 +828,8 @@ export function update(state: GameState, dt: number): void {
   state.input.mouseMoved = false;
   state.input.mouseClicked = false;
 
-  // 1 нударга · 2 нум · 3 хашаа — J хэрэглэнэ
+  // Hotbar-аас tool; J — цохих/хашаа; K — харвах
   if (state.phase === "playing" || state.phase === "spirit") {
-    trySelectTool(state);
     applySelectedToolInput(state);
   }
   state.input.skill1 = false;
@@ -873,8 +895,6 @@ export function update(state: GameState, dt: number): void {
         const usedRouteInteraction =
           !openingMilestoneActive && tryInteractFirstRoute(state);
         if (!usedRouteInteraction) tryInteract(state);
-        tryEatBerry(state);
-        tryDrinkSpiritWater(state);
         tryHorseMount(state);
         tryMigrateGer(state);
       }
@@ -934,7 +954,6 @@ export function update(state: GameState, dt: number): void {
     if (state.phase === "spirit") {
       updateCombat(state, dt);
       updatePlayerMovement(state, dt);
-      tryDrinkSpiritWater(state);
       const usedRouteInteraction = tryInteractFirstRoute(state);
       if (!usedRouteInteraction) {
         if (tryCollectSpiritOvooSoul(state)) {
@@ -1141,16 +1160,19 @@ export function mountHerderGame(
     if (event.code === "Period") {
       event.preventDefault();
       debugSkipCurrentStoryStage(state);
+      syncStoryMusic(state);
       return;
     }
     if (event.code === "Semicolon") {
       event.preventDefault();
       debugJumpToSpiritWorld(state);
+      syncStoryMusic(state);
       return;
     }
     if (event.code === "Quote") {
       event.preventDefault();
       debugJumpToFamilyLife(state);
+      syncStoryMusic(state);
     }
   };
   window.addEventListener("keydown", onStoryCheatKeyDown);
@@ -1490,6 +1512,7 @@ export function mountHerderGame(
     },
     skipStoryStage: () => {
       debugSkipCurrentStoryStage(state);
+      syncStoryMusic(state);
       notifyElderUi();
     },
   };

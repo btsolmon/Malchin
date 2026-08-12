@@ -31,14 +31,13 @@ export function restoreSpiritVisitSnapshot(state: GameState): void {
 }
 
 /**
- * R — рашаан балгах.
+ * Q цэсээр рашаан балгана.
  * 1 балга = бүтэн амьны үзүүлэлт. Лонхонд 3 балга.
  */
-export function tryDrinkSpiritWater(state: GameState): boolean {
-  if (!state.input.drinkSpirit) return false;
-  state.input.drinkSpirit = false;
-
-  if (state.phase !== "spirit" && state.phase !== "playing") return false;
+export function sipSpiritWater(state: GameState): boolean {
+  if (state.phase !== "spirit" && state.phase !== "playing" && state.phase !== "ger") {
+    return false;
+  }
   if (state.spiritPoints < 1) {
     if (state.story.spiritOvooSoulCollected) {
       setMessage(state, "Рашаан дууссан.", 1.8);
@@ -75,6 +74,12 @@ export function tryDrinkSpiritWater(state: GameState): boolean {
   );
   sfx("buy");
   return true;
+}
+
+export function tryDrinkSpiritWater(state: GameState): boolean {
+  if (!state.input.drinkSpirit) return false;
+  state.input.drinkSpirit = false;
+  return sipSpiritWater(state);
 }
 
 /** Эрүүл мэнд 0 болсон үед тоглоом дуусна (рашаан автоматаар нөхөхгүй) */
@@ -119,6 +124,8 @@ function resetPlayerCombatForSpirit(state: GameState): void {
   player.parryArmed = false;
   player.dodgePhase = "idle";
   player.dodgeTimer = 0;
+  player.bowCharge = 0;
+  player.bowChargeLock = false;
   state.combatMovementLocked = false;
   state.combatDodgeActive = false;
 }
@@ -182,7 +189,7 @@ export function enterShulmasSpirit(state: GameState): void {
   enterSpiritWorld(state, { scout: false });
   setMessage(
     state,
-    "Шулмасын сүнсний орон… 1+J цохих, 2+J сум. Туслахууд голын цаана.",
+    "Шулмасын сүнсний орон… 1+J цохих, K харвах. Туслахууд голын цаана.",
     4.5,
   );
 }
