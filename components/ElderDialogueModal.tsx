@@ -30,7 +30,7 @@ function SpiritGateChoices({ onChoose }: { onChoose: (id: ElderChoiceId) => void
         <span className="block text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300">
           Гол шийдвэр
         </span>
-        <span className="mt-1 block font-semibold text-white">{tr("Сүнсний ертөнц рүү одох")}</span>
+        <span className="mt-1 block font-semibold text-white">{tr("Доод тив рүү одох")}</span>
         <span className="mt-1 block text-xs leading-relaxed text-sky-100/70">
           Өвгөн хаалгыг нээнэ. Аав ээжийгээ хайх зам үргэлжилнэ.
         </span>

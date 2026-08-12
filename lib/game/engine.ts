@@ -134,7 +134,7 @@ import {
   advanceElderCultureQuiz,
   submitElderCultureAnswer,
 } from "./elderQuiz";
-import { exitSpiritWorld, updateSpiritWorld } from "./spirit";
+import { updateSpiritWorld } from "./spirit";
 import { pullFlockToPen } from "./daycycle";
 import {
   createDefaultHotbar,
@@ -963,14 +963,6 @@ export function update(state: GameState, dt: number): void {
           // амь авсан
         } else if (state.story.spiritAllowReturn && state.input.interact) {
           tryExitSpiritViaOvoo(state);
-        } else if (
-          state.spiritMode === "purge" &&
-          state.input.interact &&
-          (state.spiritCleared || state.input.confirm)
-        ) {
-          exitSpiritWorld(state);
-          state.input.interact = false;
-          state.input.confirm = false;
         } else {
           tryInteract(state);
           if (
@@ -1029,7 +1021,6 @@ export function update(state: GameState, dt: number): void {
   // Нэг удаагийн үйлдлийн товчнуудыг frame бүрийн төгсгөлд цэвэрлэнэ
   state.input.interact = false;
   state.input.eat = false;
-  state.input.drinkSpirit = false;
   state.input.lightFire = false;
   state.input.buildFence = false;
   state.input.debugCheats = false;

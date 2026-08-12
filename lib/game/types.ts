@@ -594,7 +594,6 @@ export interface FirstRoute {
   active: boolean;
   complete: boolean;
   introductionShown: boolean;
-  gateMessageShown: boolean;
   startX: number;
   gatePos: Vector2;
   gateRadius: number;
@@ -612,8 +611,8 @@ export interface FirstRoute {
   defeated: number;
   total: number;
   /**
-   * Туслах мангасын давалгаа:
-   * 1 = Зургаан нар, 2 = Хар могой, 3 = үлдсэн 3 мангас.
+   * Хуучин давалгааны талбар (compat). Шинэ тоглоомд үргэлж 3 —
+   * бүх туслах мангас нэг дор гардаг.
    */
   helperWave: 1 | 2 | 3;
   /** Могойг дарсан Тайхар чулууны хэлбэртэй хаднууд */
@@ -651,7 +650,6 @@ export interface TumurShulmasEncounter {
   defeated: boolean;
   phase: TumurShulmasPhase;
   phaseTimer: number;
-  cycleIndex: number;
   pos: Vector2;
   facing: Vector2;
   attackDirection: Vector2;
@@ -768,8 +766,6 @@ export interface InputState {
   /** 3 сонгоод J — хашаа барих / шинэчлэх */
   buildFence: boolean;
   eat: boolean;
-  /** Хуучин R — одоо Q цэсээр рашаан ууна */
-  drinkSpirit: boolean;
   /** Debug — / дарж үхэшгүй + мод/зоос хязгааргүй */
   debugCheats: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */

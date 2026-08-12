@@ -10,8 +10,8 @@ export const EN_DIALOGUE: Record<string, string> = {
   "Голомтын дэргэд": "By the hearth",
   "Үүрийн цагаан гэгээ": "The white light of dawn",
   "Хар мөрийн хариу": "The answer in the black trail",
-  "Сүнсний ертөнц рүү одох": "Depart for the spirit world",
-  "Сүнсний орон": "The spirit realm",
+  "Доод тив рүү одох": "Enter the Lower Continent",
+  "Доод тив": "The Lower Continent",
   "Гэр бүл эргэн нэгдэв": "The family is whole again",
   "Аав ээжийн тухай": "About my parents",
   "Бэлтгэл хангах": "Make ready",
@@ -38,8 +38,11 @@ export const EN_DIALOGUE: Record<string, string> = {
   "Дайраад өнгөрсөн муу ёрыг өвгөн ах нь мөрөөр нь мөшгиж, замаар нь дагаж явна.":
     "An old man's eyes notice not what is far, but what is wrong.",
   "Өнгөрсөн шөнийн шуурга эцэг эхийг минь авч одов. Өвгөн ах минь, та надад туслаач.":
-    "Last night's storm carried away my mother and fatheТэр салхи энгийн салхи бус, шуналын эрчимд тэжээгдсэн шулмасын шуурга билээ. Энэ шуурганы мөрөөр дагаж, энэ хорвоог туулж явна.r.",
-  "": "That wind was not of the sky. I too heard its cold laughter.",
+    "Last night's storm carried away my mother and father. Elder, please help me.",
+  "Өнгөрсөн шөнийн шуурга аав, ээжийг минь авч одсон.":
+    "Last night's storm carried away my mother and father.",
+  "Тэр салхи тэнгэрийнх бус байлаа. Хүйтэн инээдийг нь би ч бас сонссон.":
+    "That wind was not of the sky. I too heard its cold laughter.",
   "Шөнийн аймшгийг үүрийн гэгээ тайлдаг учиртай. Голомтоо түшиж амар, хүү минь.":
     "Words spoken at night must be read in the light of dawn. Now rest by your hearth, my boy.",
   "Нар ургахад зүүн толгодын бууцанд минь ир. Мэдэх бүхнээ тэнд би чамд өчье.":
@@ -80,13 +83,13 @@ export const EN_DIALOGUE: Record<string, string> = {
     "What do you mean? Are they... no longer in this world?!",
   "Тэгвэл тэд маань хаашаа одсон байж таарах вэ?":
     "Then do you know where they were taken?",
-  "Тэр газар нь Сүнсний орон гэж үү?": "Is that place the spirit realm?",
+  "Тэр газар нь Доод тив гэж үү?": "Is that place the Lower Continent?",
   "Хуучин цагт тэгж нэрлэдэгсэн. Тийшээ хүрэх замыг **тэнхээтэн биш, сэхээтэн** нээдэг юм.":
     "So the ancients named it. Its gate opens not to the brave, but to the one who reads the trail rightly.",
   "Оюунаа чи чөлөөлж чадваас, очих замыг нь би газарчилна. Хайсан хүн олдог, яарсан хүн төөрдөг юм шүү, хүү минь.":
     "If the trail accepts you, I will open the next road. A hurried foot goes astray; a watchful eye finds the way.",
 
-  // Сүнсний ертөнц рүү одох
+  // Доод тив рүү одох
   "Би Өчигдрийг тольдож, өнөөдрийг зурдаг толиороо онгод тэнгэрийн заагийг нээнэ..Тэр ертөнцөд өнгөрсөн, одоо нэгэн цагт орших тул мал сүрэгтээ бүү санаа чилээ. Гэвч тэнд төөрөлдсөн олон бие буйг санагтун. Хүү минь, чи явахад бэлэн үү?":
     "With my shaman's mirror I will open the seam between the worlds. While you are there, time in this world stands still, so no harm will come to your sheep and goats — go with an easy mind. But remember: dangerous spirits wait on the other side. Are you ready to go?",
   "Би бэлэн байна, Өвгөн ахаа! Замыг минь нээж өгнө үү.":
@@ -107,9 +110,15 @@ export const EN_DIALOGUE: Record<string, string> = {
     "The elder went off silently into the darkness of the steppe.",
 
   "Харин тэр овоон дээр шилэн лонхтой рашаан үлдээнэ. Гурван балга л байна. R дарж нэг балгавал амьны үзүүлэлт бүрэн дүүрнэ. Могойг дарсны дараа Шидэт харваач, Шулмасын зарц, Талын харагч гэсэн үлдсэн гурав босно.":
-    "On that ovoo I will leave a glass bottle of sacred spring water. Only three sips. Press Q to choose it — one sip fills your health bar completely. After you crush the snake, the Magic Archer, Demon's Servant, and Steppe Seer will rise.",
+    "On that ovoo I will leave a glass bottle of sacred spring water. Only three sips. Press Q to choose it — one sip fills your health bar completely. All five guardians appear at once — crush the Black Snake with stones after you fell it.",
   "Харин тэр овоон дээр шилэн лонхтой рашаан үлдээнэ. Гурван балга л байна. Q дарж сонгоод нэг балгавал амьны үзүүлэлт бүрэн дүүрнэ. Могойг дарсны дараа Шидэт харваач, Шулмасын зарц, Талын харагч гэсэн үлдсэн гурав босно.":
     "On that ovoo I will leave a glass bottle of sacred spring water. Only three sips. Press Q to choose it — one sip fills your health bar completely. After you crush the snake, the Magic Archer, Demon's Servant, and Steppe Seer will rise.",
+  "Харин тэр овоон дээр шилэн лонхтой рашаан үлдээнэ. Гурван балга л байна. Q дарж сонгоод нэг балгавал амьны үзүүлэлт бүрэн дүүрнэ. Таван сахиул зэрэг гарч ирнэ — Аварга могойг унагасны дараа чулуугаар дарж алаарай.": "On that ovoo I will leave a glass bottle of sacred spring water. Only three sips. Press Q to choose it — one sip fills your health. All five guardians appear at once — crush the Giant Snake with stones after you fell it.",
+
+  "Тэнд Бар хул, Лалар, Чөтгөр, Харваач чөтгөр, Аварга могой зэрэг хүлээж байгаа. Би чамд нум, сум өгье — холхоос харвахад хэрэгтэй.": "There Bar Khul, Lalar, Demon, Archer Demon, and the Giant Snake wait. I will give you a bow and arrows — useful for shooting from afar.",
+  "Аварга могойг унагасны дараа зуун чулуугаар дарж алаарай. Гэвч энэ удаа чулуу цуглуулах цаг байхгүй. Зөвхөн тагнаад, үхэлгүй буцаж ирээрэй.": "After you fell the Giant Snake, crush it with a hundred stones. But this time there is no time to gather stones. Only scout, and return alive.",
+  "Бар хул, Лалар, Чөтгөр болон бусад сахиулууд хүлээж байв. Чулуугүй учир могойг дарах боломжгүй байлаа. Гэвч аав, ээжийн минь мөр тэнд байна гэдгийг би мэдэрч байна.": "Bar Khul, Lalar, Demon and other guardians waited there. Without stones I could not crush the snake. But I felt that my mother and father's trail is there.",
+  "Би бөөгийн толиороо орон зайн заагийг нээнэ. Тэр ертөнцөд ороход бодит дэлхийн цаг хугацаа зогсох тул чиний хонь, ямаанд аюул тохиолдохгүй. Гэвч тэнд Аварга могой, Лалар, Бар хул, Чөтгөр, Харваач чөтгөр хүлээж байгааг санагтун! Чи явахад бэлэн үү?": "With my shaman's mirror I will open the seam of space. When you enter that world, time in the real world stops — your sheep and goats will be safe. But remember: the Giant Snake, Lalar, Bar Khul, Demon, and Archer Demon wait there! Are you ready to go?",
 
   // Гэр бүл эргэн нэгдэв
   "Хүү минь... голомтын чинь гал биднийг харанхуйн дундаас замчилж ирлээ.":
@@ -131,4 +140,8 @@ export const EN_DIALOGUE: Record<string, string> = {
   Алга: "None",
   зоос: "coins",
   "Эзэмшсэн ✓": "Owned ✓",
+  "Тэд чинь амьд, гэхдээ бодит ба далд ертөнцийн зааг болох \"Доод тив\"-д хүлээстэй байна. Эртний шулмас, сүнсний эзэд тэднийг татаж одсон юм. Би чиний насны хүүг тийшээ явуулж, аюулд унагамааргүй байна... Гэвч чиний аав ээжээ гэсэн халуун сэтгэл чинь Доод тивийн замыг нээх хэмжээнд хүрэв.":
+    "They are alive, but held at the seam of the seen and unseen — the Lower Continent. Ancient shulmas spirits dragged them there. I would not send a boy your age into that danger… yet your love for your parents has opened the path to the Lower Continent.",
+  "Доод тивээс буцсан нь":
+    "Returned from the Lower Continent",
 };

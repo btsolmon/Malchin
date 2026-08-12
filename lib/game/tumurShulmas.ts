@@ -24,6 +24,7 @@ import { clamp, dist, normalize, setMessage } from "./utils";
 import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
 import { trFormat } from "./i18n";
+import { drawFlameArenaRing, BLUE_FIRE } from "./render/arenaFire";
 
 function eastArenaX(y: number, margin = 170): number {
   return Math.min(
@@ -98,9 +99,9 @@ const PHASE_DURATION: Record<TumurShulmasPhase, number> = {
 };
 
 export function createTumurShulmasEncounter(): TumurShulmasEncounter {
-  // Голын зүүн эрэг — Хараалт хаалгын цаана / урагш
-  const gateY = WORLD_H * 0.58;
-  const arenaY = WORLD_H - 360;
+  // Голын зүүн эрэг — газрын зурагны хойд (дээшээ), Хараалт хаалгаас зайтай
+  const gateY = WORLD_H * 0.3;
+  const arenaY = WORLD_H * 0.16;
   const arenaCenter = {
     x: eastArenaX(arenaY, 180),
     y: arenaY,
@@ -110,13 +111,12 @@ export function createTumurShulmasEncounter(): TumurShulmasEncounter {
     gateRadius: 72,
     arenaCenter,
     arenaRadius: 285,
-    exitPos: { x: arenaCenter.x, y: WORLD_H - 104 },
+    exitPos: { x: eastArenaX(gateY + 70, 155), y: gateY + 70 },
     unlocked: false,
     active: false,
     defeated: false,
     phase: "sealed",
     phaseTimer: 0,
-    cycleIndex: 0,
     pos: { x: arenaCenter.x, y: arenaCenter.y - 45 },
     facing: { x: 0, y: 1 },
     attackDirection: { x: 0, y: 1 },
@@ -211,9 +211,6 @@ function spriteFrame(encounter: TumurShulmasEncounter, time: number): number {
     const fps = encounter.bossPhase === 2 ? 9 : spec.fps;
     return Math.floor(time * fps) % spec.frameCount;
   }
-  if (spec.loop) {
-    return Math.floor(time * spec.fps) % spec.frameCount;
-  }
   return nonLoopingFrame(phaseProgress(encounter), spec.frameCount);
 }
 
@@ -261,7 +258,6 @@ function resetEncounter(encounter: TumurShulmasEncounter): void {
   encounter.defeated = false;
   encounter.phase = "summoning";
   encounter.phaseTimer = PHASE_DURATION.summoning;
-  encounter.cycleIndex = 0;
   encounter.pos = {
     x: encounter.arenaCenter.x,
     y: encounter.arenaCenter.y - 27,
@@ -376,7 +372,6 @@ function damagePlayer(
 ): boolean {
   const player = state.player;
   const encounter = state.world.tumurShulmas;
-  // Boss зөвхөн сүнсний оронд байдаг — playing шалгалт тулааныг унтраадаг байсан
   if (
     player.invuln > 0 ||
     (state.phase !== "playing" && state.phase !== "spirit")
@@ -416,7 +411,7 @@ function damagePlayer(
 
   if (player.vitals.health <= 0) {
     state.phase = "lost";
-    setMessage(state, "Наян есөн шидтэй төмөр шулмаст ялагдлаа…", 99);
+    setMessage(state, "Төмөр шулмаст ялагдлаа…", 99);
   }
   return true;
 }
@@ -736,7 +731,7 @@ export function damageTumurShulmasFromPlayer(
 
   if (encounter.hp <= 0) {
     enterDeathPhase(state);
-    setMessage(state, "Наян есөн шидтэй шулмас нам дор сөхрөв.…", 3.5);
+    setMessage(state, "Төмөр шулмас нам дор сөхрөв.…", 3.5);
     return true;
   }
 
@@ -811,12 +806,12 @@ export function updateTumurShulmasEncounter(
       spawnText(
         state,
         encounter.pos,
-        "НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС",
+        "ТӨМӨР ШУЛМАС",
         "#ff8b7c",
       );
       setMessage(
         state,
-        "Төмөр Шулмасын төрөлх зан сэргэж, наян есөн хар шидээр давшин дайрахаар зэхэв.",
+        "Төмөр шулмасын төрөлх зан сэргэж, давшин дайрахаар зэхэв.",
         5.5,
       );
       sfx("alert");
@@ -960,7 +955,7 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
   if (!encounter.unlocked || !state.player.hasSkySword) {
     setMessage(
       state,
-      "Хар төмөр хаалгыг нээхийн тулд Шулмасын баатрыг ялж, Хөх тэнгэрийн сэлмийг ол.",
+      "Хар төмөр хаалгыг нээхийн тулд долоон толгойтой мангасыг ялж, Хөх тэнгэрийн сэлмийг ол.",
       3.2,
     );
     sfx("move");
@@ -979,7 +974,7 @@ export function tryInteractTumurShulmasGate(state: GameState): boolean {
     size: 3.3,
   });
   state.fx.shake = Math.max(state.fx.shake, 11);
-  setMessage(state, "Сүнсний оронд Хар төмөр хаалга нээгдэж, boss тулаан эхэллээ.", 4);
+  setMessage(state, "Доод тивд Хар төмөр хаалга нээгдэж, boss тулаан эхэллээ.", 4);
   sfx("levelup");
   return true;
 }
@@ -1026,36 +1021,161 @@ export function drawTumurShulmasArena(
 
   const x = encounter.arenaCenter.x - cam.x;
   const y = encounter.arenaCenter.y - cam.y;
-  const pulse = 0.5 + Math.sin(time * 2.2) * 0.08;
+  drawFlameArenaRing(ctx, x, y, encounter.arenaRadius, time, BLUE_FIRE, {
+    heightScale: encounter.bossPhase === 2 ? 2.2 : 1.9,
+    fierce: true,
+    defeated: encounter.defeated,
+  });
+}
+
+/** Аргаль гавал — зурагтай адил урд харагдах, хоёр том эвэртэй */
+function drawArgaliSkull(
+  ctx: CanvasRenderingContext2D,
+  scale = 1,
+): void {
+  const bone = "#e8e0d4";
+  const boneMid = "#d0c4b4";
+  const boneDark = "#a89888";
+  const socket = "#1a1410";
+  const horn = "#2a2018";
+  const hornMid = "#3a3028";
+  const hornLite = "#4a4038";
 
   ctx.save();
-  const ground = ctx.createRadialGradient(
-    x,
-    y,
-    30,
-    x,
-    y,
-    encounter.arenaRadius,
-  );
-  ground.addColorStop(
-    0,
-    encounter.bossPhase === 2 ? "rgba(55,8,13,0.9)" : "rgba(38,15,18,0.86)",
-  );
-  ground.addColorStop(0.62, "rgba(18,12,15,0.7)");
-  ground.addColorStop(1, "rgba(5,5,7,0.12)");
-  ctx.fillStyle = ground;
+  ctx.scale(scale, scale);
+
+  // —— Хоёр эвэр (гавлын ард/дээр эхлээд) ——
+  const drawHorn = (side: 1 | -1) => {
+    ctx.save();
+    ctx.scale(side, 1);
+    // Үндэс
+    ctx.fillStyle = horn;
+    ctx.beginPath();
+    ctx.ellipse(7, -10, 7, 6, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Гол муруй — гадагш → дээш → доош урагш
+    ctx.strokeStyle = horn;
+    ctx.lineWidth = 11;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(6, -8);
+    ctx.bezierCurveTo(18, -22, 32, -18, 34, 2);
+    ctx.bezierCurveTo(35, 14, 28, 22, 18, 24);
+    ctx.stroke();
+    ctx.strokeStyle = hornMid;
+    ctx.lineWidth = 7.5;
+    ctx.beginPath();
+    ctx.moveTo(6, -8);
+    ctx.bezierCurveTo(17, -20, 30, -16, 32, 2);
+    ctx.bezierCurveTo(33, 12, 27, 19, 19, 21);
+    ctx.stroke();
+    // Өсөлтийн цагираг
+    ctx.strokeStyle = hornLite;
+    ctx.lineWidth = 1.15;
+    ctx.globalAlpha = 0.55;
+    const rings: Array<[number, number, number, number]> = [
+      [10, -12, 14, -16],
+      [16, -18, 22, -14],
+      [24, -12, 28, -4],
+      [30, 2, 32, 8],
+      [30, 12, 26, 18],
+      [22, 20, 18, 22],
+    ];
+    for (const [ax, ay, bx, by] of rings) {
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo((ax + bx) * 0.5 + 2, (ay + by) * 0.5, bx, by);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    // Үзүүр
+    ctx.fillStyle = hornLite;
+    ctx.beginPath();
+    ctx.moveTo(16, 22);
+    ctx.lineTo(14, 28);
+    ctx.lineTo(20, 24);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+  drawHorn(-1);
+  drawHorn(1);
+
+  // —— Гавал ——
+  ctx.fillStyle = bone;
   ctx.beginPath();
-  ctx.arc(x, y, encounter.arenaRadius, 0, Math.PI * 2);
+  ctx.ellipse(0, -2, 11, 13, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Духан
+  ctx.fillStyle = boneMid;
+  ctx.beginPath();
+  ctx.ellipse(0, -8, 9, 6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = `rgba(215,60,52,${pulse})`;
-  ctx.lineWidth = 4;
-  ctx.setLineDash([13, 10]);
-  ctx.lineDashOffset = -time * (encounter.bossPhase === 2 ? 34 : 20);
+  // Хошуу / хамар
+  ctx.fillStyle = bone;
   ctx.beginPath();
-  ctx.arc(x, y, encounter.arenaRadius - 8, 0, Math.PI * 2);
+  ctx.moveTo(-6, 4);
+  ctx.quadraticCurveTo(-5, 16, -2.5, 20);
+  ctx.lineTo(2.5, 20);
+  ctx.quadraticCurveTo(5, 16, 6, 4);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = boneMid;
+  ctx.beginPath();
+  ctx.ellipse(0, 14, 4.5, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Хамрын нүх
+  ctx.fillStyle = socket;
+  ctx.beginPath();
+  ctx.ellipse(-1.8, 16, 1.6, 2.8, -0.15, 0, Math.PI * 2);
+  ctx.ellipse(1.8, 16, 1.6, 2.8, 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Нүдний нүх
+  ctx.fillStyle = socket;
+  ctx.beginPath();
+  ctx.ellipse(-5.2, -1, 3.4, 4.0, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(5.2, -1, 3.4, 4.0, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Нүдний гүн сүүдэр
+  ctx.fillStyle = "#0c0a08";
+  ctx.beginPath();
+  ctx.ellipse(-5.0, 0.2, 2.0, 2.4, -0.15, 0, Math.PI * 2);
+  ctx.ellipse(5.0, 0.2, 2.0, 2.4, 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ясны оёдол
+  ctx.strokeStyle = boneDark;
+  ctx.lineWidth = 0.9;
+  ctx.globalAlpha = 0.45;
+  ctx.beginPath();
+  ctx.moveTo(0, -14);
+  ctx.lineTo(0, 8);
+  ctx.moveTo(-8, -6);
+  ctx.quadraticCurveTo(0, -4, 8, -6);
   ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // Шүд (дээд)
+  ctx.fillStyle = "#f4efe6";
+  for (const tx of [-3.2, -1.0, 1.0, 3.2] as const) {
+    ctx.beginPath();
+    ctx.moveTo(tx - 0.7, 19);
+    ctx.lineTo(tx, 22.5);
+    ctx.lineTo(tx + 0.7, 19);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Эврийн суурь (гавлын орой)
+  ctx.fillStyle = horn;
+  ctx.beginPath();
+  ctx.ellipse(-7, -11, 5, 4, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(7, -11, 5, 4, 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
 }
 
@@ -1066,33 +1186,150 @@ function drawGateShape(
   open: boolean,
   time: number,
 ): void {
-  const glow = open ? 0.38 + Math.sin(time * 4) * 0.08 : 0.12;
+  // Хар төмөр хаалга — төмөр багана + аргаль гавал
+  const pulse = 0.5 + Math.sin(time * 3.2) * 0.12;
+  const iron = open ? "#3a3236" : "#1a1618";
+  const ironMid = open ? "#4a4246" : "#2a2428";
+  const ironLite = open ? "#6a6068" : "#3a3438";
+  const ironDark = "#0c0a0c";
+  const rivet = "#5a5058";
+  const glow = open
+    ? `rgba(255,90,60,${0.28 + pulse * 0.18})`
+    : `rgba(60,40,70,${0.14 + pulse * 0.08})`;
+
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = `rgba(210,50,43,${glow})`;
+
+  ctx.fillStyle = "rgba(6,4,6,0.45)";
   ctx.beginPath();
-  ctx.ellipse(0, 0, 62, 36, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 18, 74, 15, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "#20191d";
-  ctx.fillRect(-48, -55, 18, 66);
-  ctx.fillRect(30, -55, 18, 66);
-  ctx.fillRect(-48, -58, 96, 18);
-  ctx.strokeStyle = open ? "#db6256" : "#6d626b";
-  ctx.lineWidth = 4;
+
+  ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.moveTo(-27, 8);
-  ctx.lineTo(-27, -35);
-  ctx.quadraticCurveTo(0, -58, 27, -35);
-  ctx.lineTo(27, 8);
-  ctx.stroke();
-  for (let i = -2; i <= 2; i += 1) {
-    ctx.strokeStyle = open ? "rgba(255,112,90,0.72)" : "rgba(130,120,130,0.45)";
-    ctx.lineWidth = 2;
+  ctx.moveTo(-30, 12);
+  ctx.lineTo(-30, -50);
+  ctx.quadraticCurveTo(0, -78, 30, -50);
+  ctx.lineTo(30, 12);
+  ctx.closePath();
+  ctx.fill();
+
+  // Зүүн төмөр багана
+  ctx.fillStyle = ironDark;
+  ctx.fillRect(-54, -58, 20, 78);
+  ctx.fillStyle = iron;
+  ctx.fillRect(-51, -55, 14, 72);
+  ctx.fillStyle = ironLite;
+  ctx.fillRect(-49, -53, 3, 68);
+  // Тав
+  ctx.fillStyle = rivet;
+  for (const ry of [-48, -32, -16, 0, 12] as const) {
     ctx.beginPath();
-    ctx.moveTo(i * 11, -40);
-    ctx.lineTo(i * 11, 5);
-    ctx.stroke();
+    ctx.arc(-44, ry, 1.8, 0, Math.PI * 2);
+    ctx.fill();
   }
+
+  // Баруун төмөр багана
+  ctx.fillStyle = ironDark;
+  ctx.fillRect(34, -58, 20, 78);
+  ctx.fillStyle = ironMid;
+  ctx.fillRect(37, -55, 14, 72);
+  ctx.fillStyle = ironLite;
+  ctx.fillRect(46, -53, 3, 68);
+  for (const ry of [-48, -32, -16, 0, 12] as const) {
+    ctx.beginPath();
+    ctx.arc(44, ry, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Төмөр нуман орой
+  ctx.fillStyle = ironDark;
+  ctx.beginPath();
+  ctx.moveTo(-56, -52);
+  ctx.lineTo(-34, -76);
+  ctx.lineTo(34, -76);
+  ctx.lineTo(56, -52);
+  ctx.lineTo(50, -48);
+  ctx.lineTo(32, -68);
+  ctx.lineTo(-32, -68);
+  ctx.lineTo(-50, -48);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = ironLite;
+  ctx.beginPath();
+  ctx.moveTo(-50, -54);
+  ctx.lineTo(-32, -72);
+  ctx.lineTo(32, -72);
+  ctx.lineTo(50, -54);
+  ctx.lineTo(46, -52);
+  ctx.lineTo(30, -66);
+  ctx.lineTo(-30, -66);
+  ctx.lineTo(-46, -52);
+  ctx.closePath();
+  ctx.fill();
+
+  // Хаалганы хавтан
+  if (!open) {
+    ctx.fillStyle = "#121014";
+    ctx.beginPath();
+    ctx.moveTo(-28, 12);
+    ctx.lineTo(-28, -48);
+    ctx.quadraticCurveTo(0, -70, 28, -48);
+    ctx.lineTo(28, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = ironMid;
+    ctx.lineWidth = 3.2;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * 11, -44);
+      ctx.lineTo(i * 11, 8);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = ironDark;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-26, -20);
+    ctx.lineTo(26, -20);
+    ctx.moveTo(-26, -2);
+    ctx.lineTo(26, -2);
+    ctx.stroke();
+    // Төв төмөр цэг
+    ctx.fillStyle = ironMid;
+    ctx.beginPath();
+    ctx.arc(0, -12, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = rivet;
+    ctx.beginPath();
+    ctx.arc(0, -12, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    const voidG = ctx.createRadialGradient(0, -22, 4, 0, -10, 42);
+    voidG.addColorStop(0, `rgba(255,70,45,${0.4 + pulse * 0.2})`);
+    voidG.addColorStop(0.5, "rgba(35,8,12,0.88)");
+    voidG.addColorStop(1, "rgba(6,2,4,0.96)");
+    ctx.fillStyle = voidG;
+    ctx.beginPath();
+    ctx.moveTo(-28, 12);
+    ctx.lineTo(-28, -48);
+    ctx.quadraticCurveTo(0, -70, 28, -48);
+    ctx.lineTo(28, 12);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Суурь төмөр
+  ctx.fillStyle = ironDark;
+  ctx.fillRect(-58, 10, 116, 8);
+  ctx.fillStyle = iron;
+  ctx.fillRect(-54, 12, 108, 4);
+
+  // —— Аргаль гавал — хаалганы дээр ——
+  ctx.save();
+  ctx.translate(0, -78);
+  drawArgaliSkull(ctx, 1.15);
+  ctx.restore();
+
   ctx.restore();
 }
 
@@ -1116,9 +1353,9 @@ export function drawTumurShulmasGate(
   ctx.font = "700 12px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.82)";
   ctx.lineWidth = 4;
-  ctx.strokeText("ХАР ТӨМӨР ХААЛГА", x, y - 72);
-  ctx.fillStyle = encounter.unlocked ? "#ffaca0" : "#9d919b";
-  ctx.fillText("ХАР ТӨМӨР ХААЛГА", x, y - 72);
+  ctx.strokeText("ХАР ТӨМӨР ХААЛГА", x, y - 118);
+  ctx.fillStyle = encounter.unlocked ? "#ffaca0" : "#c8b8a8";
+  ctx.fillText("ХАР ТӨМӨР ХААЛГА", x, y - 118);
   ctx.textAlign = "left";
 }
 
@@ -1187,21 +1424,42 @@ export function drawTumurShulmasTelegraphs(
       encounter.attackDirection.x,
     );
     const readiness = smoothstep(progress / 0.52);
+    const critical = readiness > 0.78;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
-    ctx.fillStyle = `rgba(255,55,45,${0.1 + readiness * 0.28})`;
+    const radius = 125;
+    const half = 0.55;
     ctx.beginPath();
-    ctx.moveTo(18, 0);
-    ctx.arc(0, 0, 125, -0.55, 0.55);
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, -half, half);
     ctx.closePath();
+    ctx.fillStyle = critical
+      ? `rgba(80,190,255,${0.12 + readiness * 0.22})`
+      : `rgba(30,90,180,${0.1 + readiness * 0.2})`;
     ctx.fill();
-    ctx.strokeStyle = `rgba(255,190,135,${0.45 + readiness * 0.5})`;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([10, 7]);
+    const inner = radius * (0.2 + readiness * 0.8);
     ctx.beginPath();
-    ctx.arc(0, 0, 105, -0.52, 0.52);
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, inner, -half * 0.9, half * 0.9);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(70,180,255,${0.06 + readiness * 0.14})`;
+    ctx.fill();
+    ctx.strokeStyle = critical
+      ? `rgba(180,230,255,${0.5 + readiness * 0.4})`
+      : `rgba(120,200,255,${0.4 + readiness * 0.45})`;
+    ctx.lineWidth = critical ? 2.8 : 2.2;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, -half, half);
     ctx.stroke();
+    ctx.strokeStyle = `rgba(140,210,255,${0.25 + readiness * 0.3})`;
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(14, 0);
+    ctx.lineTo(radius - 6, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
   }
 
@@ -1211,29 +1469,38 @@ export function drawTumurShulmasTelegraphs(
     !encounter.attackHitDone
   ) {
     const readiness = smoothstep(progress / 0.52);
+    const critical = readiness > 0.78;
     const direction = encounter.facing;
     const length = 78 + readiness * 54;
     const endX = x + direction.x * length;
     const endY = y - 22 + direction.y * length;
     const glow = ctx.createRadialGradient(x, y - 28, 5, x, y - 28, 58);
-    glow.addColorStop(0, `rgba(255,92,78,${0.28 + readiness * 0.4})`);
-    glow.addColorStop(1, "rgba(255,55,45,0)");
+    glow.addColorStop(0, `rgba(70,180,255,${0.22 + readiness * 0.35})`);
+    glow.addColorStop(1, "rgba(40,120,220,0)");
     ctx.fillStyle = glow;
     ctx.beginPath();
     ctx.arc(x, y - 28, 58, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = `rgba(255,170,145,${0.4 + readiness * 0.5})`;
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = critical
+      ? `rgba(190,235,255,${0.55 + readiness * 0.35})`
+      : `rgba(130,200,255,${0.4 + readiness * 0.45})`;
+    ctx.lineWidth = 2.4;
     ctx.setLineDash([8, 6]);
+    ctx.lineDashOffset = -time * 40;
     ctx.beginPath();
     ctx.moveTo(x + direction.x * 34, y - 22 + direction.y * 34);
     ctx.lineTo(endX, endY);
     ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "#ffb09f";
+    ctx.fillStyle = critical ? "#d8f4ff" : "#9ed2ff";
     ctx.beginPath();
-    ctx.arc(endX, endY, 3 + readiness * 2, 0, Math.PI * 2);
+    ctx.arc(endX, endY, 3 + readiness * 2.5, 0, Math.PI * 2);
     ctx.fill();
+    ctx.strokeStyle = `rgba(160,220,255,${0.35 + readiness * 0.4})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(endX, endY, 8 + readiness * 5, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   if (encounter.phase === "summoning") {
@@ -1241,17 +1508,37 @@ export function drawTumurShulmasTelegraphs(
     const pulse = 0.82 + Math.sin(time * 9) * 0.08;
     const radius = (52 + ritualProgress * 74) * pulse;
     ctx.save();
-    ctx.strokeStyle = `rgba(225,65,58,${0.35 + ritualProgress * 0.48})`;
-    ctx.lineWidth = 4;
+    const fill = ctx.createRadialGradient(x, y + 10, 8, x, y + 10, radius);
+    fill.addColorStop(0, `rgba(30,90,180,${0.12 + ritualProgress * 0.16})`);
+    fill.addColorStop(1, "rgba(20,50,120,0)");
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(x, y + 10, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(70,170,255,${0.35 + ritualProgress * 0.48})`;
+    ctx.lineWidth = 3;
     ctx.setLineDash([12, 8]);
     ctx.lineDashOffset = -time * 34;
     ctx.beginPath();
     ctx.arc(x, y + 10, radius, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.strokeStyle = `rgba(255,165,125,${0.22 + ritualProgress * 0.35})`;
-    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.strokeStyle = `rgba(120,200,255,${0.22 + ritualProgress * 0.35})`;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
     ctx.arc(x, y + 10, radius * 0.62, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(160,220,255,${0.4 + ritualProgress * 0.4})`;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(
+      x,
+      y + 10,
+      radius + 5,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * ritualProgress,
+    );
     ctx.stroke();
     ctx.restore();
   }
@@ -1261,10 +1548,31 @@ export function drawTumurShulmasTelegraphs(
     progress < 0.58 &&
     !encounter.attackHitDone
   ) {
-    ctx.strokeStyle = `rgba(255,70,58,${0.35 + progress * 0.45})`;
-    ctx.lineWidth = 5;
+    const readiness = smoothstep(progress / 0.58);
+    const radius = 70 + readiness * 80;
+    const fill = ctx.createRadialGradient(x, y, 10, x, y, radius);
+    fill.addColorStop(0, `rgba(40,100,200,${0.14 + readiness * 0.16})`);
+    fill.addColorStop(1, "rgba(20,50,120,0)");
+    ctx.fillStyle = fill;
     ctx.beginPath();
-    ctx.arc(x, y, 70 + progress * 80, 0, Math.PI * 2);
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(80,180,255,${0.4 + readiness * 0.4})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = `rgba(140,210,255,${0.3 + readiness * 0.35})`;
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(
+      x,
+      y,
+      radius + 6,
+      -Math.PI / 2,
+      -Math.PI / 2 + Math.PI * 2 * readiness,
+    );
     ctx.stroke();
   }
 
@@ -1274,12 +1582,12 @@ export function drawTumurShulmasTelegraphs(
     const wave = smoothstep(progress);
     const radius = 40 + wave * (encounter.arenaRadius - 24);
     ctx.save();
-    ctx.strokeStyle = `rgba(220,45,70,${0.75 * (1 - wave * 0.45)})`;
-    ctx.lineWidth = 8 - wave * 4;
+    ctx.strokeStyle = `rgba(60,150,255,${0.75 * (1 - wave * 0.45)})`;
+    ctx.lineWidth = 6 - wave * 3;
     ctx.beginPath();
     ctx.arc(arenaX, arenaY, radius, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = `rgba(65,8,24,${0.16 * (1 - wave)})`;
+    ctx.fillStyle = `rgba(10,30,70,${0.16 * (1 - wave)})`;
     ctx.beginPath();
     ctx.arc(arenaX, arenaY, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -1356,18 +1664,6 @@ export function drawTumurShulmas(
     DRAW_SIZE,
   );
   ctx.restore();
-
-  if (encounter.ward > 0 && encounter.phase !== "death") {
-    ctx.save();
-    ctx.strokeStyle = "rgba(130,220,255,0.64)";
-    ctx.lineWidth = 3;
-    ctx.setLineDash([8, 7]);
-    ctx.lineDashOffset = -time * 28;
-    ctx.beginPath();
-    ctx.arc(x, y - 32, 68, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
 }
 
 export function drawTumurShulmasNeedles(
@@ -1425,9 +1721,9 @@ export function drawTumurShulmasHud(
   ctx.font = "800 13px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.9)";
   ctx.lineWidth = 4;
-  ctx.strokeText("НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС", VIEW_W / 2, y - 12);
+  ctx.strokeText("ТӨМӨР ШУЛМАС", VIEW_W / 2, y - 12);
   ctx.fillStyle = encounter.bossPhase === 2 ? "#ff6d63" : "#ffaaa0";
-  ctx.fillText("НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС", VIEW_W / 2, y - 12);
+  ctx.fillText("ТӨМӨР ШУЛМАС", VIEW_W / 2, y - 12);
 
   ctx.fillStyle = "rgba(8,6,8,0.85)";
   ctx.fillRect(x - 3, y - 3, width + 6, height + 6);
@@ -1489,7 +1785,7 @@ export function drawTumurShulmasHint(
     ctx,
     encounter.unlocked
       ? "E — Төмөр шулмасын ордонд орох"
-      : "E — Түгжээтэй · эхлээд Шулмасын баатрыг ял",
+      : "E — Түгжээтэй · эхлээд долоон толгойтой мангасыг ял",
     x,
     y,
     encounter.unlocked ? "#ffb4a8" : "#b9adb7",

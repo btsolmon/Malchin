@@ -76,12 +76,6 @@ export function sipSpiritWater(state: GameState): boolean {
   return true;
 }
 
-export function tryDrinkSpiritWater(state: GameState): boolean {
-  if (!state.input.drinkSpirit) return false;
-  state.input.drinkSpirit = false;
-  return sipSpiritWater(state);
-}
-
 /** Эрүүл мэнд 0 болсон үед тоглоом дуусна (рашаан автоматаар нөхөхгүй) */
 export function handlePlayerDeath(state: GameState, reason: string): void {
   if (state.godMode) {
@@ -176,8 +170,8 @@ export function enterSpiritWorld(
   setMessage(
     state,
     scout
-      ? "Сүнсний орон… цаг зогсов. Буцахдаа хар мөрийн чулуун овоо руу оч — E дарж гарна."
-      : "Сүнсний орон… буцах зам хаагдсан. Мангасыг дарж аав ээжийгээ авраарай.",
+      ? "Доод тив… цаг зогсов. Буцахдаа хар мөрийн чулуун овоо руу оч — E дарж гарна."
+      : "Доод тив… буцах зам хаагдсан. Мангасыг дарж аав ээжийгээ авраарай.",
     5.5,
   );
 }
@@ -189,25 +183,9 @@ export function enterShulmasSpirit(state: GameState): void {
   enterSpiritWorld(state, { scout: false });
   setMessage(
     state,
-    "Шулмасын сүнсний орон… 1+J цохих, K харвах. Туслахууд голын цаана.",
+    "Доод тив… 1+J цохих, K харвах. Туслахууд голын цаана.",
     4.5,
   );
-}
-
-/** Одоо буцахыг зөвшөөрөх эсэх */
-export function canExitSpiritWorld(state: GameState): boolean {
-  if (state.phase !== "spirit") return false;
-  const tumur = state.world.tumurShulmas;
-  if (
-    state.spiritMode === "shulmas" &&
-    tumur.active &&
-    !tumur.defeated &&
-    tumur.phase !== "death"
-  ) {
-    return false;
-  }
-  if (state.spiritMode === "purge") return true;
-  return state.story.spiritAllowReturn === true;
 }
 
 export function exitSpiritWorld(state: GameState, msg?: string): void {
@@ -220,7 +198,7 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
     !tumur.defeated &&
     tumur.phase !== "death"
   ) {
-    setMessage(state, "Тулаан дуусах хүртэл сүнсний оронгоос гарч чадахгүй.", 2.4);
+    setMessage(state, "Тулаан дуусах хүртэл доод тивээс гарч чадахгүй.", 2.4);
     sfx("move");
     return;
   }
@@ -356,9 +334,9 @@ export function exitSpiritWorld(state: GameState, msg?: string): void {
     state,
     msg ??
       (wasShulmas
-        ? "Шулмасын сүнсний орноос буцлаа."
+        ? "Доод тивээс буцлаа."
         : wasCleared
-          ? "Сүнсний орноос буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ."
+          ? "Доод тивээс буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ."
           : "Бэлтгэл хийгээд дахин ир."),
     4,
   );
@@ -410,13 +388,6 @@ export function updateSpiritWorld(state: GameState, dt: number): void {
       sfx("levelup");
     }
     return;
-  }
-
-  const alive = state.world.wolves.filter((w) => w.alive);
-  if (!state.spiritCleared && alive.length === 0) {
-    state.spiritCleared = true;
-    setMessage(state, "Сүнсний дайснууд унав! E — бодит ертөнц рүү буцах.", 5);
-    sfx("levelup");
   }
 }
 
@@ -472,11 +443,7 @@ export function drawSpiritOverlay(
       ctx.fillStyle = `rgba(200,230,255,${a})`;
       ctx.font = "bold 28px system-ui, sans-serif";
       ctx.fillText(
-        inSpirit || t > 0.5
-          ? shulmas
-            ? "ШУЛМАСЫН СҮНСНИЙ ОРОН"
-            : "СҮНСНИЙ ОРОН"
-          : "БОДИТ ЕРТӨНЦ",
+        inSpirit || t > 0.5 ? "ДООД ТИВ" : "БОДИТ ЕРТӨНЦ",
         viewW / 2,
         viewH / 2,
       );

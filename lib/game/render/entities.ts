@@ -1203,8 +1203,8 @@ export function drawSheep(
     rx = 9;
     ry = 7;
   } else if (kind === "cattle") {
-    rx = 14;
-    ry = 10;
+    rx = 22;
+    ry = 15;
   } else if (kind === "horse") {
     rx = 13;
     ry = 9;
@@ -1218,7 +1218,11 @@ export function drawSheep(
   if (kind === "goat") {
     drawGoatBody(ctx, x, y, flip, walk, graze);
   } else if (kind === "cattle") {
-    drawCattleBody(ctx, x, y, flip, walk, graze, time, sheep.id);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1.55, 1.55);
+    drawCattleBody(ctx, 0, 0, flip, walk, graze, time, sheep.id);
+    ctx.restore();
   } else if (kind === "horse") {
     drawHerdHorseBody(ctx, x, y, flip, walk, graze);
   } else if (kind === "camel") {
@@ -1228,12 +1232,13 @@ export function drawSheep(
   }
 
   if (sheep.hp < 3) {
-    const bw = 18;
+    const bw = kind === "cattle" ? 26 : 18;
+    const barY = kind === "cattle" ? -28 : -18;
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    roundRectPath(ctx, x - bw / 2, y - 18, bw, 3.5, 1.5);
+    roundRectPath(ctx, x - bw / 2, y + barY, bw, 3.5, 1.5);
     ctx.fill();
     ctx.fillStyle = "#8fd08f";
-    roundRectPath(ctx, x - bw / 2, y - 18, (bw * sheep.hp) / 3, 3.5, 1.5);
+    roundRectPath(ctx, x - bw / 2, y + barY, (bw * sheep.hp) / 3, 3.5, 1.5);
     ctx.fill();
   }
 
@@ -3910,7 +3915,7 @@ export function drawPlayer(
       ctx.fill();
     }
     ctx.save();
-    ctx.translate(0, -14);
+    ctx.translate(0, -18);
   }
 
   if (!eyesClosed) {
@@ -4612,337 +4617,206 @@ export function drawHorse(
   moving: boolean,
   gerPacked = false,
 ): void {
-  const run = moving ? Math.sin(time * 12) * 4 : 0;
+  // Зургийн загвар — том, хавтгай бор морь (зурагтай адил)
   const f = flip;
+  const s = 1.55;
+  const run = moving ? Math.sin(time * 11) * 3.2 : 0;
+  const bob = moving ? Math.abs(Math.sin(time * 11)) * 0.8 : 0;
 
-  drawShadow(ctx, x, y + 12, 20, 6);
+  drawShadow(ctx, x, y + 14, 28 * s * 0.55, 7);
 
-  // Хөл
-  ctx.strokeStyle = "#1a120c";
-  ctx.lineWidth = 3;
+  const body = "#6a4a30";
+  const dark = "#2a1c12";
+  const mane = "#1a120c";
+  const muzzle = "#3a2818";
+
+  ctx.save();
+  ctx.translate(x, y - bob);
+
+  // —— Дөрвөн нарийн хөл ——
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = 3.4 * s * 0.55;
+  ctx.lineCap = "round";
+  const legs: Array<[number, number]> = [
+    [-14, run],
+    [-6, -run],
+    [6, run * 0.85],
+    [14, -run * 0.85],
+  ];
+  for (const [ox, swing] of legs) {
+    ctx.beginPath();
+    ctx.moveTo(ox * s * 0.55, 2);
+    ctx.lineTo(ox * s * 0.55 + swing, 16);
+    ctx.stroke();
+  }
+
+  // —— Сүүл ——
+  ctx.strokeStyle = mane;
+  ctx.lineWidth = 4.2;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(x - 12, y + 2);
-  ctx.lineTo(x - 12 + run, y + 13);
-  ctx.moveTo(x - 6, y + 3);
-  ctx.lineTo(x - 6 - run, y + 13);
-  ctx.moveTo(x + 6, y + 3);
-  ctx.lineTo(x + 6 + run, y + 13);
-  ctx.moveTo(x + 12, y + 2);
-  ctx.lineTo(x + 12 - run, y + 13);
-  ctx.stroke();
-  // Туурайн хар үзүүр
-  ctx.strokeStyle = "#0a0804";
-  ctx.lineWidth = 2.2;
-  ctx.beginPath();
-  ctx.moveTo(x - 12 + run, y + 12);
-  ctx.lineTo(x - 12 + run, y + 14);
-  ctx.moveTo(x - 6 - run, y + 12);
-  ctx.lineTo(x - 6 - run, y + 14);
-  ctx.moveTo(x + 6 + run, y + 12);
-  ctx.lineTo(x + 6 + run, y + 14);
-  ctx.moveTo(x + 12 - run, y + 12);
-  ctx.lineTo(x + 12 - run, y + 14);
-  ctx.stroke();
-
-  // Сүүл
-  ctx.strokeStyle = "#241808";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(x - 16 * f, y - 2);
-  ctx.quadraticCurveTo(x - 22 * f, y + 4, x - 20 * f, y + 12);
-  ctx.stroke();
-  ctx.strokeStyle = "#3a2810";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x - 16 * f, y - 1);
+  ctx.moveTo(-18 * f * s * 0.55, -2);
   ctx.quadraticCurveTo(
-    x - 24 * f,
-    y + 6 + Math.sin(time * 5) * 1.5,
-    x - 18 * f,
-    y + 11,
+    -26 * f * s * 0.55,
+    2 + Math.sin(time * 4) * 2,
+    -22 * f * s * 0.55,
+    12,
   );
   ctx.stroke();
 
-  // Бие — хар бор
-  const body = ctx.createLinearGradient(x, y - 10, x, y + 6);
-  body.addColorStop(0, "#4a3420");
-  body.addColorStop(0.45, "#2e2014");
-  body.addColorStop(1, "#1a120c");
+  // —— Бие — том өндөг хэлбэр ——
   ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.ellipse(x, y - 2, 17, 8.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Гялбаа
-  ctx.fillStyle = "rgba(180,150,100,0.1)";
-  ctx.beginPath();
-  ctx.ellipse(x + 2 * f, y - 5, 10, 3.2, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, -3, 22 * s * 0.55, 12 * s * 0.55, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ===== Эмээл — монгол хэв (улбар шар нум, ягаан суудал, цэнхэр гөлөм) =====
+  // —— Эмээл (морь унах үед) ——
   if (!gerPacked) {
-    const sx = x - 1 * f;
-    const sy = y - 5;
-
-    // Доод эсгий дэвсгэр
+    const sx = -1 * f;
+    const sy = -7;
     ctx.fillStyle = "#5a4030";
     ctx.beginPath();
-    ctx.ellipse(sx, sy + 1, 12, 5.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(sx, sy + 1, 14, 6.5, 0, 0, Math.PI * 2);
     ctx.fill();
-
-    // Гөлөм — хар бор хажуугийн хавтан
     ctx.fillStyle = "#2a1810";
-    ctx.fillRect(sx - 3 * f - 2, sy - 1, 9, 11);
-    ctx.strokeStyle = "#1a1008";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx - 3 * f - 2, sy - 1, 9, 11);
-
-    // Цэнхэр цагаан цэгтэй гөлөм
+    ctx.fillRect(sx - 3 * f - 2, sy - 1, 10, 12);
     ctx.fillStyle = "#2a4a7a";
-    ctx.fillRect(sx - 2.5 * f - 1.5, sy - 2, 7.5, 7);
+    ctx.fillRect(sx - 2.5 * f - 1.5, sy - 2, 8.5, 7.5);
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 3; col++) {
         ctx.beginPath();
-        ctx.arc(
-          sx - 2.5 * f + col * 2.2,
-          sy - 0.5 + row * 2,
-          0.55,
-          0,
-          Math.PI * 2,
-        );
+        ctx.arc(sx - 2.5 * f + col * 2.4, sy - 0.3 + row * 2.1, 0.55, 0, Math.PI * 2);
         ctx.fill();
       }
     }
-
-    // Хойд нум (улбар шар)
     const ORANGE = "#e89030";
-    const ORANGE_D = "#c07020";
     ctx.fillStyle = ORANGE;
     ctx.beginPath();
-    ctx.moveTo(sx - 8 * f, sy - 2);
-    ctx.lineTo(sx - 10 * f, sy - 11);
-    ctx.lineTo(sx - 5 * f, sy - 11);
+    ctx.moveTo(sx - 9 * f, sy - 2);
+    ctx.lineTo(sx - 11 * f, sy - 12);
+    ctx.lineTo(sx - 5 * f, sy - 12);
     ctx.lineTo(sx - 4 * f, sy - 2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = ORANGE_D;
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-
-    // Урд нум (улбар шар, өндөр)
-    ctx.fillStyle = ORANGE;
     ctx.beginPath();
     ctx.moveTo(sx + 5 * f, sy - 2);
-    ctx.lineTo(sx + 4 * f, sy - 12);
-    ctx.lineTo(sx + 9 * f, sy - 12);
-    ctx.lineTo(sx + 9 * f, sy - 2);
+    ctx.lineTo(sx + 4 * f, sy - 13);
+    ctx.lineTo(sx + 10 * f, sy - 13);
+    ctx.lineTo(sx + 10 * f, sy - 2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = ORANGE_D;
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    // Нумны дугуй толгой
-    ctx.fillStyle = ORANGE;
     ctx.beginPath();
-    ctx.arc(sx + 6.5 * f, sy - 12.5, 2.4, 0, Math.PI * 2);
+    ctx.arc(sx + 7 * f, sy - 13.5, 2.6, 0, Math.PI * 2);
+    ctx.arc(sx - 8 * f, sy - 12.5, 2.4, 0, Math.PI * 2);
     ctx.fill();
-    ctx.beginPath();
-    ctx.arc(sx - 7.5 * f, sy - 11.5, 2.2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Ягаан суудлын дэвсгэр + цагаан цэцэг
     ctx.fillStyle = "#8a2a6a";
-    ctx.fillRect(sx - 5.5, sy - 9, 11, 5);
-    ctx.strokeStyle = "#c04090";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx - 5.5, sy - 9, 11, 5);
-    // Цагаан 5 навчит цэцэг ×2
-    const drawFlower = (fx: number, fy: number): void => {
-      ctx.fillStyle = "#f8f0f8";
-      for (let i = 0; i < 5; i++) {
-        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
-        ctx.beginPath();
-        ctx.ellipse(
-          fx + Math.cos(a) * 1.4,
-          fy + Math.sin(a) * 1.4,
-          1.1,
-          0.7,
-          a,
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      }
-      ctx.fillStyle = "#e8d060";
-      ctx.beginPath();
-      ctx.arc(fx, fy, 0.7, 0, Math.PI * 2);
-      ctx.fill();
-    };
-    drawFlower(sx - 2.2, sy - 6.5);
-    drawFlower(sx + 2.2, sy - 6.5);
-
-    // Олом — хэвлийн оосор
+    ctx.fillRect(sx - 6, sy - 10, 12, 5.5);
     ctx.strokeStyle = "#4a3020";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(sx - 4 * f, sy + 3);
-    ctx.quadraticCurveTo(sx, sy + 8, sx + 5 * f, sy + 4);
-    ctx.stroke();
-    ctx.strokeStyle = "#c8b090";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(sx - 3 * f, sy + 4);
-    ctx.quadraticCurveTo(sx, sy + 7.5, sx + 4 * f, sy + 4.5);
-    ctx.stroke();
-
-    // Дөрөө — төмөр
-    ctx.strokeStyle = "#3a3028";
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.moveTo(sx + 1 * f, sy - 1);
-    ctx.lineTo(sx + 2 * f, sy + 8);
-    ctx.stroke();
-    ctx.strokeStyle = "#8a9098";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(sx + 0.2 * f, sy + 8);
-    ctx.lineTo(sx + 2 * f, sy + 11);
-    ctx.lineTo(sx + 3.8 * f, sy + 8);
-    ctx.stroke();
-    ctx.strokeStyle = "#b0b8c0";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(sx + 2 * f, sy + 8.5, 2.6, 0.15, Math.PI - 0.15);
+    ctx.quadraticCurveTo(sx, sy + 9, sx + 5 * f, sy + 4);
     ctx.stroke();
   }
 
-  // Нүүдэл — хураасан гэрийг морины нуруун дээр ачна
+  // Нүүдэл гэр
   if (gerPacked) {
-    const bx = x - 2 * f;
-    const by = y - 14;
+    const bx = -2 * f;
+    const by = -18;
     ctx.strokeStyle = "#5a3a1e";
     ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(bx - 8, by + 4);
-    ctx.lineTo(x - 8, y - 2);
-    ctx.moveTo(bx + 8, by + 4);
-    ctx.lineTo(x + 6, y - 2);
+    ctx.moveTo(bx - 9, by + 4);
+    ctx.lineTo(-8, -2);
+    ctx.moveTo(bx + 9, by + 4);
+    ctx.lineTo(6, -2);
     ctx.stroke();
     ctx.fillStyle = "#f7f4ec";
     ctx.beginPath();
-    ctx.ellipse(bx, by, 11, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(bx, by, 12, 9, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#f7f4ec";
     ctx.beginPath();
-    ctx.moveTo(bx - 12, by - 2);
-    ctx.quadraticCurveTo(bx, by - 16, bx + 12, by - 2);
+    ctx.moveTo(bx - 13, by - 2);
+    ctx.quadraticCurveTo(bx, by - 18, bx + 13, by - 2);
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = "#1a3d7a";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(bx, by - 14);
-    ctx.quadraticCurveTo(bx - 4, by - 6, bx - 8, by - 2);
-    ctx.moveTo(bx, by - 14);
-    ctx.quadraticCurveTo(bx + 4, by - 6, bx + 8, by - 2);
-    ctx.stroke();
     ctx.fillStyle = "#d42028";
     ctx.beginPath();
-    ctx.arc(bx, by - 12, 3.5, 0, Math.PI * 2);
+    ctx.arc(bx, by - 14, 3.8, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#1a3d7a";
-    ctx.beginPath();
-    ctx.arc(bx, by - 12, 1.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#1a1a1e";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.ellipse(bx, by, 11, 8, 0, 0, Math.PI * 2);
-    ctx.stroke();
   }
 
-  // Хүзүү ба толгой
-  ctx.fillStyle = "#2a1c12";
+  // —— Хүзүү ——
+  ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.moveTo(x + 10 * f, y - 6);
-  ctx.lineTo(x + 18 * f, y - 14);
-  ctx.lineTo(x + 22 * f, y - 11);
-  ctx.lineTo(x + 14 * f, y - 2);
+  ctx.moveTo(10 * f * s * 0.55, -6);
+  ctx.quadraticCurveTo(14 * f * s * 0.55, -14, 20 * f * s * 0.55, -20);
+  ctx.lineTo(26 * f * s * 0.55, -16);
+  ctx.quadraticCurveTo(18 * f * s * 0.55, -8, 14 * f * s * 0.55, -1);
   ctx.closePath();
   ctx.fill();
-  // Толгой
+
+  // —— Толгой ——
+  ctx.fillStyle = body;
   ctx.beginPath();
-  ctx.ellipse(x + 22 * f, y - 14.5, 5.5, 3.3, f * -0.55, 0, Math.PI * 2);
+  ctx.ellipse(28 * f * s * 0.55, -20, 7.5 * s * 0.55, 5.2 * s * 0.55, f * -0.35, 0, Math.PI * 2);
   ctx.fill();
-  // Хошуу
-  ctx.fillStyle = "#1e160e";
+  // Хошуу бараан
+  ctx.fillStyle = muzzle;
   ctx.beginPath();
-  ctx.ellipse(x + 26.5 * f, y - 13.5, 2.8, 2.0, f * -0.4, 0, Math.PI * 2);
+  ctx.ellipse(33 * f * s * 0.55, -18.5, 4.2 * s * 0.55, 3.2 * s * 0.55, f * -0.3, 0, Math.PI * 2);
   ctx.fill();
 
   // Чих
-  ctx.fillStyle = "#1a120c";
+  ctx.fillStyle = dark;
   ctx.beginPath();
-  ctx.moveTo(x + 19 * f, y - 16);
-  ctx.lineTo(x + 18.5 * f, y - 21);
-  ctx.lineTo(x + 21.5 * f, y - 17);
+  ctx.moveTo(24 * f * s * 0.55, -24);
+  ctx.lineTo(23 * f * s * 0.55, -30);
+  ctx.lineTo(27 * f * s * 0.55, -25);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = "#5a4030";
   ctx.beginPath();
-  ctx.moveTo(x + 19.4 * f, y - 16.5);
-  ctx.lineTo(x + 19.2 * f, y - 19.5);
-  ctx.lineTo(x + 20.8 * f, y - 17);
+  ctx.moveTo(27.5 * f * s * 0.55, -24);
+  ctx.lineTo(28 * f * s * 0.55, -29.5);
+  ctx.lineTo(30.5 * f * s * 0.55, -24.5);
   ctx.closePath();
   ctx.fill();
 
-  // Дэл — хүзүүний дээд ирмэг
-  ctx.strokeStyle = "#0c0804";
-  ctx.lineWidth = 2.4;
+  // Дэл — хүзүүний дээд хавтгай зураас
+  ctx.strokeStyle = mane;
+  ctx.lineWidth = 4.5;
   ctx.lineCap = "round";
   ctx.beginPath();
-  ctx.moveTo(x + 11 * f, y - 7);
-  ctx.lineTo(x + 18 * f, y - 15);
+  ctx.moveTo(11 * f * s * 0.55, -8);
+  ctx.quadraticCurveTo(16 * f * s * 0.55, -16, 22 * f * s * 0.55, -23);
   ctx.stroke();
 
-  // Нүд — хазаараас өмнө
+  // Нүд + хамрын цэг
   ctx.fillStyle = "#0a0804";
   ctx.beginPath();
-  ctx.arc(x + 23.5 * f, y - 15.5, 1.05, 0, Math.PI * 2);
+  ctx.arc(29.5 * f * s * 0.55, -21.5, 1.15, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = "rgba(255,240,200,0.28)";
+  ctx.fillStyle = dark;
   ctx.beginPath();
-  ctx.arc(x + 23.8 * f, y - 15.8, 0.3, 0, Math.PI * 2);
+  ctx.arc(34.5 * f * s * 0.55, -17.8, 1.0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ===== Хазаар — нимгэн олсоор (хошуу + хацар + жолоо) =====
-  const ROPE = "#d4c8b4";
-  ctx.strokeStyle = ROPE;
-  ctx.lineWidth = 0.95;
-  ctx.lineCap = "round";
-  // Хошууны оосор — зөвхөн хошууг тойрно
-  ctx.beginPath();
-  ctx.ellipse(x + 26.4 * f, y - 13.3, 2.35, 1.55, f * -0.4, 0.2, Math.PI * 2 - 0.15);
-  ctx.stroke();
-  // Хацрын оосор — амнаас нүдний доогуур чих рүү
-  ctx.beginPath();
-  ctx.moveTo(x + 25.2 * f, y - 12.4);
-  ctx.quadraticCurveTo(x + 22.2 * f, y - 13.0, x + 19.4 * f, y - 16.4);
-  ctx.stroke();
-  // Зажлуурын жижиг цагираг
-  ctx.strokeStyle = "#8a929a";
-  ctx.lineWidth = 0.9;
-  ctx.beginPath();
-  ctx.arc(x + 25.3 * f, y - 12.15, 0.85, 0, Math.PI * 2);
-  ctx.stroke();
-  // Жолоо — хүзүүний доод талаар эмээл рүү
-  ctx.strokeStyle = ROPE;
-  ctx.lineWidth = 0.95;
-  ctx.beginPath();
-  ctx.moveTo(x + 25 * f, y - 11.8);
-  ctx.quadraticCurveTo(x + 15 * f, y - 0.5, x + 3 * f, y - 2.5);
-  ctx.stroke();
+  // Хазаар — энгийн
+  if (!gerPacked) {
+    ctx.strokeStyle = "#d4c8b4";
+    ctx.lineWidth = 1.1;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.ellipse(33 * f * s * 0.55, -18.2, 3.2, 2.2, f * -0.3, 0.15, Math.PI * 2 - 0.1);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(32 * f * s * 0.55, -16.5);
+    ctx.quadraticCurveTo(18 * f * s * 0.55, -2, 2 * f, -4);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 /** Хоньчин нохой */

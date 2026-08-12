@@ -102,7 +102,7 @@ export function createHerdAnimal(
     kind === "camel"
       ? 1.35
       : kind === "cattle"
-        ? 1.25
+        ? 1.55
         : kind === "horse"
           ? 1.15
           : 1;

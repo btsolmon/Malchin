@@ -41,7 +41,6 @@ export function neutralInput(): InputState {
     lightFire: false,
     buildFence: false,
     eat: false,
-    drinkSpirit: false,
     debugCheats: false,
     debugBoss: false,
     herd: false,

@@ -26,6 +26,7 @@ import { riverCenterX, RIVER_HALF_W } from "./biomes";
 import { tryInteractTumurShulmasGate } from "./tumurShulmas";
 import { drawOngodDemon } from "./render/ongodDemons";
 import { drawSkySwordSprite } from "./render/entities";
+import { drawFlameArenaRing, ORANGE_FIRE } from "./render/arenaFire";
 import { tr, trFormat } from "./i18n";
 import { handlePlayerDeath } from "./spirit";
 
@@ -74,7 +75,7 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
   harMogoi: {
     hp: 140,
     posture: 70,
-    radius: 38,
+    radius: 42,
     speed: 88,
     damage: 16,
     aggroRange: 240,
@@ -85,7 +86,7 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
   talynHaragch: {
     hp: 72,
     posture: 58,
-    radius: 18,
+    radius: 26,
     speed: 94,
     damage: 12,
     aggroRange: 220,
@@ -96,7 +97,7 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
   shulmasynHuu: {
     hp: 56,
     posture: 42,
-    radius: 16,
+    radius: 18,
     speed: 148,
     damage: 10,
     aggroRange: 210,
@@ -107,7 +108,7 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
   shidetHarvaach: {
     hp: 52,
     posture: 38,
-    radius: 17,
+    radius: 18,
     speed: 86,
     damage: 11,
     aggroRange: 260,
@@ -118,7 +119,7 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
   shulmasynZarts: {
     hp: 118,
     posture: 92,
-    radius: 23,
+    radius: 28,
     speed: 72,
     damage: 20,
     aggroRange: 225,
@@ -129,8 +130,8 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
   shulmasynBaatar: {
     hp: 360,
     posture: 180,
-    radius: 34,
-    speed: 84,
+    radius: 48,
+    speed: 78,
     damage: 24,
     aggroRange: 999,
     attackRange: 116,
@@ -141,12 +142,12 @@ const ROUTE_CONFIG: Record<RouteEnemyKind, RouteEnemyConfig> = {
 
 const ROUTE_ENEMY_LABELS: Record<RouteEnemyKind, string> = {
   zurgaanNar: "Зургаан нар",
-  harMogoi: "Хар могой",
-  talynHaragch: "Талын харагч",
-  shulmasynHuu: "Шулмасын хүү",
-  shidetHarvaach: "Шидэт харваач",
-  shulmasynZarts: "Шулмасын зарц",
-  shulmasynBaatar: "Шулмасын баатар",
+  harMogoi: "Аварга могой",
+  talynHaragch: "Бар хул",
+  shulmasynHuu: "Чөтгөр",
+  shidetHarvaach: "Харваач чөтгөр",
+  shulmasynZarts: "Лалар",
+  shulmasynBaatar: "Долоон толгойтой доголон хар мангас",
 };
 
 const ROUTE_ENEMY_COLORS: Record<RouteEnemyKind, string> = {
@@ -208,7 +209,7 @@ function createEnemy(
   };
 }
 
-/** Таван сахиул: Зургаан нар(1) + могой(1) + үлдсэн 3 мангас */
+/** Зургаан наргүй: Хар могой + өмнөх дөрвөн мангас = 5 сахиул */
 const HELPER_TOTAL = 5;
 
 type HelperSlot = {
@@ -217,29 +218,14 @@ type HelperSlot = {
   margin: number;
 };
 
-function buildSunSlots(spawn: Vector2): HelperSlot[] {
-  const sunSlots: HelperSlot[] = [];
-  const sunMidY = clamp(spawn.y - 20, 160, WORLD_H - 160);
-  for (let i = 0; i < 6; i++) {
-    sunSlots.push({
-      kind: "zurgaanNar",
-      y: clamp(sunMidY + (i - 2.5) * 72, 120, WORLD_H - 120),
-      margin: 110 + (i % 2) * 28,
-    });
-  }
-  return sunSlots;
-}
-
-function buildSnakeSlot(spawn: Vector2): HelperSlot {
-  return { kind: "harMogoi", y: spawn.y + 80, margin: 95 };
-}
-
-/** Өмнөх таван сахиулаас үлдээсэн гурав */
-function buildTrioSlots(spawn: Vector2): HelperSlot[] {
+/** Өмнөх мангасууд + Хар могой — бүгд зэрэг */
+function buildHelperSlots(spawn: Vector2): HelperSlot[] {
   return [
-    { kind: "shidetHarvaach", y: spawn.y + 160, margin: 70 },
+    { kind: "talynHaragch", y: spawn.y - 180, margin: 55 },
+    { kind: "shulmasynHuu", y: spawn.y - 40, margin: 95 },
+    { kind: "harMogoi", y: spawn.y + 40, margin: 95 },
+    { kind: "shidetHarvaach", y: spawn.y + 140, margin: 70 },
     { kind: "shulmasynZarts", y: spawn.y + 280, margin: 110 },
-    { kind: "talynHaragch", y: spawn.y + 400, margin: 65 },
   ];
 }
 
@@ -256,111 +242,25 @@ function createEnemiesFromSlots(
   });
 }
 
-/** Эхний давалгаа — зөвхөн 6 нар */
+/** Туслахууд — могой + өмнөх мангасууд */
 function createHelperEnemies(spawn: Vector2): RouteEnemy[] {
-  return createEnemiesFromSlots(buildSunSlots(spawn), 6001);
-}
-
-function nextEnemyId(route: FirstRoute): number {
-  let maxId = 6000;
-  for (const enemy of route.enemies) {
-    if (enemy.id > maxId) maxId = enemy.id;
-  }
-  return maxId + 1;
-}
-
-function spawnHelperWave(
-  state: GameState,
-  slots: HelperSlot[],
-  message: string,
-): void {
-  const route = routeOf(state);
-  const spawned = createEnemiesFromSlots(slots, nextEnemyId(route));
-  route.enemies.push(...spawned);
-  setMessage(state, message, 4.5);
-  state.fx.shake = Math.max(state.fx.shake, 4);
-  sfx("levelup");
-  const mid = spawned[Math.floor(spawned.length / 2)] ?? spawned[0];
-  if (mid) {
-    spawnParticles(state, mid.pos, 18, ROUTE_ENEMY_COLORS[mid.kind], {
-      speed: 110,
-      size: 2.8,
-    });
-  }
-}
-
-/**
- * Дараагийн давалгааг нээх:
- * нар дууссан → могой; могой дарсан → 3 мангас.
- */
-function tryAdvanceHelperWave(state: GameState): void {
-  const route = routeOf(state);
-  if (!route.active || route.complete) return;
-  const spawn = state.world.campPos;
-
-  if (route.helperWave === 1) {
-    const anySunAlive = route.enemies.some(
-      (e) => e.kind === "zurgaanNar" && e.alive,
-    );
-    if (anySunAlive) return;
-    // Нар аль хэдийн алга — могой гаргах
-    if (route.enemies.some((e) => e.kind === "harMogoi")) {
-      route.helperWave = 2;
-      return;
-    }
-    route.helperWave = 2;
-    // Халуун шар туяа арилга — сүнсний хөх бүүдгэр рүү буцна
-    state.player.vitals.warmth = Math.min(state.player.vitals.warmth, 55);
-    const scoutTrip = state.story.spiritAllowReturn === true;
-    spawnHelperWave(
-      state,
-      [buildSnakeSlot(spawn)],
-      scoutTrip
-        ? "Зургаан нар унтарлаа. Хар могой гарч ирлээ — тагнаад чулуун овоогоор буц."
-        : "Зургаан нар унтарлаа. Хар могой гарч ирлээ — унагаад чулуугаар дар!",
-    );
-    return;
-  }
-
-  if (route.helperWave === 2) {
-    const snakeAlive = route.enemies.some(
-      (e) => e.kind === "harMogoi" && e.alive,
-    );
-    if (snakeAlive) return;
-    if (
-      route.enemies.some(
-        (e) =>
-          e.kind === "shidetHarvaach" ||
-          e.kind === "shulmasynZarts" ||
-          e.kind === "talynHaragch",
-      )
-    ) {
-      route.helperWave = 3;
-      return;
-    }
-    route.helperWave = 3;
-    spawnHelperWave(
-      state,
-      buildTrioSlots(spawn),
-      "Могой дарлаа. Таван сахиулын үлдсэн гурав гарч ирлээ!",
-    );
-  }
+  return createEnemiesFromSlots(buildHelperSlots(spawn), 6001);
 }
 
 export function createFirstRoute(spawn: Vector2): FirstRoute {
-  // Эхэнд зөвхөн 6 нар — дараагийн давалгаанууд хожим нээгдэнэ
+  // Хар могой + өмнөх мангасууд — зэрэг
   const enemies = createHelperEnemies(spawn);
 
-  const gateY = clamp(spawn.y + 420, 120, WORLD_H - 140);
+  // Газрын зурагны өмнөд (доошоо) — Хар төмөр хаалгаас зайтай
+  const gateY = WORLD_H * 0.7;
   const gateX = eastOfRiver(gateY, 140);
-  const arenaY = clamp(WORLD_H - 380, 200, WORLD_H - 200);
+  const arenaY = WORLD_H * 0.86;
   const arenaX = eastOfRiver(arenaY, 160);
 
   return {
     active: true,
     complete: false,
     introductionShown: false,
-    gateMessageShown: false,
     startX: clamp(riverCenterX(spawn.y) - 40, 80, WORLD_W - 80),
     gatePos: { x: gateX, y: gateY },
     gateRadius: 74,
@@ -377,7 +277,7 @@ export function createFirstRoute(spawn: Vector2): FirstRoute {
     bolts: [],
     defeated: 0,
     total: HELPER_TOTAL,
-    helperWave: 1,
+    helperWave: 3,
     crushMonoliths: [],
   };
 }
@@ -402,19 +302,18 @@ export function ensureShulmasHelpers(state: GameState): void {
   route.total = HELPER_TOTAL;
   route.defeated = 0;
   route.complete = false;
-  route.helperWave = 1;
+  route.helperWave = 3;
   route.bolts = [];
   route.crushMonoliths = [];
   route.active = true;
   route.introductionShown = false;
-  route.gateMessageShown = false;
 
-  // Хаалга/ареныйг одоогийн бууцтай уяна
-  const gateY = clamp(spawn.y + 420, 120, WORLD_H - 140);
+  // Хаалга/ареныйг өмнөд хэсэгт тогтооно (Хар төмөр хаалгаас зайтай)
+  const gateY = WORLD_H * 0.7;
   route.gatePos = { x: eastOfRiver(gateY, 140), y: gateY };
   route.startX = clamp(riverCenterX(spawn.y) - 40, 80, WORLD_W - 80);
   if (!route.bossStarted) {
-    const arenaY = clamp(WORLD_H - 380, 200, WORLD_H - 200);
+    const arenaY = WORLD_H * 0.86;
     route.arenaCenter = { x: eastOfRiver(arenaY, 160), y: arenaY };
     route.swordDrop.pos = { ...route.arenaCenter };
     route.swordDrop.visible = false;
@@ -745,8 +644,6 @@ export function parryRouteEnemy(
 function completeRouteIfCleared(state: GameState): boolean {
   const route = routeOf(state);
   if (route.complete) return false;
-  // Дараагийн давалгаа үлдсэн бол хаалга бүү нээ
-  if (route.helperWave < 3) return false;
   if (route.enemies.some((enemy) => enemy.alive)) return false;
 
   route.complete = true;
@@ -845,18 +742,16 @@ export function damageRouteEnemy(
     route.swordDrop.collected = false;
     route.swordDrop.pos = { ...enemy.pos };
   } else if (enemy.kind === "zurgaanNar") {
-    // 6 нар = 1 сахиул — зөвхөн сүүлийн нар унахад тоолно
+    // Хуучин save — нар үлдсэн бол тоолно (шинэ тоглоомд spawn хийхгүй)
     const sunsLeft = route.enemies.filter(
       (e) => e.kind === "zurgaanNar" && e.alive,
     ).length;
     if (sunsLeft === 0) {
       route.defeated += 1;
-      tryAdvanceHelperWave(state);
       routeCompleted = completeRouteIfCleared(state);
     }
   } else {
     route.defeated += 1;
-    tryAdvanceHelperWave(state);
     routeCompleted = completeRouteIfCleared(state);
   }
 
@@ -902,7 +797,7 @@ export function damageRouteEnemy(
   if (isBoss) {
     setMessage(
       state,
-      "Шулмасын баатар унав. Хөх тэнгэрийн сэлэм газарт үлдлээ.",
+      "Долоон толгойтой доголон хар мангас унав. Хөх тэнгэрийн сэлэм газарт үлдлээ.",
       5,
     );
     state.fx.shake = Math.max(state.fx.shake, 12);
@@ -973,7 +868,6 @@ export function tryCrushHarMogoi(state: GameState): boolean {
   route.crushMonoliths = route.crushMonoliths ?? [];
   route.crushMonoliths.push({ pos: { ...snake.pos } });
   route.defeated += 1;
-  tryAdvanceHelperWave(state);
   const routeCompleted = completeRouteIfCleared(state);
 
   const config = ROUTE_CONFIG.harMogoi;
@@ -1305,7 +1199,21 @@ function updateHarvaach(
     stopEnemy(enemy);
     enemy.phaseTimer = Math.max(0, enemy.phaseTimer - dt);
     if (enemy.phaseTimer <= 0) {
+      enemy.phase = "attacking";
+      enemy.phaseTimer = 0.2;
+      enemy.attackHitDone = false;
+    }
+    return;
+  }
+
+  if (enemy.phase === "attacking") {
+    stopEnemy(enemy);
+    enemy.phaseTimer = Math.max(0, enemy.phaseTimer - dt);
+    if (!enemy.attackHitDone) {
       spawnEnemyBolt(state, enemy);
+      enemy.attackHitDone = true;
+    }
+    if (enemy.phaseTimer <= 0) {
       enemy.phase = "recovery";
       enemy.phaseTimer = 0.52;
       enemy.attackCooldown = 1.35;
@@ -1630,19 +1538,23 @@ export function updateFirstRoute(state: GameState, dt: number): void {
   const route = routeOf(state);
   if (!route.active) return;
 
-  // Хуучин save — helperWave байхгүй бол сэргээнэ
-  if (route.helperWave == null) {
-    const hasTrio = route.enemies.some(
-      (e) =>
-        e.kind === "shidetHarvaach" ||
-        e.kind === "shulmasynZarts" ||
-        e.kind === "talynHaragch",
-    );
-    const hasSnake = route.enemies.some((e) => e.kind === "harMogoi");
-    route.helperWave = hasTrio ? 3 : hasSnake ? 2 : 1;
+  // Хуучин давалгаа / зургаан нарыг нэг дор таван сахиул руу шилжүүлнэ
+  if (route.helperWave == null || route.helperWave < 3) {
+    route.helperWave = 3;
+  }
+  if (inShulmasSpirit(state) && !route.bossStarted && !route.complete) {
+    const hasLegacySuns = route.enemies.some((e) => e.kind === "zurgaanNar");
+    const hasRestoredHelpers =
+      route.enemies.some((e) => e.kind === "harMogoi") &&
+      route.enemies.some((e) => e.kind === "talynHaragch") &&
+      route.enemies.some((e) => e.kind === "shulmasynHuu") &&
+      route.enemies.some((e) => e.kind === "shidetHarvaach") &&
+      route.enemies.some((e) => e.kind === "shulmasynZarts");
+    if (hasLegacySuns || !hasRestoredHelpers) {
+      ensureShulmasHelpers(state);
+    }
   }
 
-  tryAdvanceHelperWave(state);
   completeRouteIfCleared(state);
 
   // Туслахууд — сүнсний оронд
@@ -1655,7 +1567,7 @@ export function updateFirstRoute(state: GameState, dt: number): void {
     route.introductionShown = true;
     setMessage(
       state,
-      "Зүүн тэнгэрт зургаан нар! Нум сумаар харва. Дараа нь могой, дараа нь бусад мангас гарч ирнэ.",
+      "Хараалт сахиулууд голын цаана хүлээж байна. Аварга могойг унагасны дараа чулуугаар дар.",
       5,
     );
   }
@@ -1743,8 +1655,8 @@ export function updateFirstRoute(state: GameState, dt: number): void {
         setMessage(
           state,
           state.story.spiritAllowReturn
-            ? "Хар могой мөлхөж ирлээ. Тагнаад хар мөрийн чулуун овоогоор буц."
-            : "Хар могой мөлхөж ирлээ. Унагасны дараа чулуугаар дар.",
+            ? "Аварга могой мөлхөж ирлээ. Тагнаад хар мөрийн чулуун овоогоор буц."
+            : "Аварга могой мөлхөж ирлээ. Унагасны дараа чулуугаар дар.",
           2.2,
         );
       } else {
@@ -1812,7 +1724,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
   const route = routeOf(state);
   const encounter = state.world.tumurShulmas;
 
-  // Сүнсний ангал хасагдсан — бодит ертөнцөд хаалга байхгүй
+  // Бодит ертөнцөд хаалга байхгүй
   if (state.phase === "playing") return false;
 
   if (!inShulmasSpirit(state)) return false;
@@ -1905,15 +1817,14 @@ export function tryInteractFirstRoute(state: GameState): boolean {
       route.bossDefeated
         ? route.swordDrop.collected
           ? "Хөх тэнгэрийн сэлэм чиний мэдэлд орсон."
-          : "Шулмасын баатар унасан. Сэлэм газарт хүлээж байна."
-        : "Шулмасын баатартай тулаан үргэлжилж байна.",
+          : "Долоон толгойтой доголон хар мангас унасан. Сэлэм газарт хүлээж байна."
+        : "Долоон толгойтой доголон хар мангастай тулаан үргэлжилж байна.",
       2.5,
     );
     sfx("move");
     return true;
   }
 
-  route.gateMessageShown = true;
   route.bossStarted = true;
   route.bossDefeated = false;
   route.bolts = [];
@@ -1946,7 +1857,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
 
   setMessage(
     state,
-    "Шулмасын баатар зам хаалаа. Хараалтай талбайгаас зугтах аргагүй!",
+    "Долоон толгойтой доголон хар мангас зам хаалаа. Хараалтай талбайгаас зугтах аргагүй!",
     4.5,
   );
   spawnParticles(state, route.arenaCenter, 34, "#9d6ac8", {
@@ -1998,13 +1909,12 @@ function drawEnemyHealthBars(
   }
 
   if (enemy.kind === "harMogoi") {
+    if (!enemy.awaitingCrush) return;
     const have = Math.max(0, Math.floor(stoneCount));
     const hint =
-      scoutTrip && enemy.awaitingCrush
+      scoutTrip
         ? "Тагнаад буц"
-        : enemy.awaitingCrush
-          ? `E · ${have}/${SNAKE_CRUSH_STONE_COST} чулуу`
-          : `${have}/${SNAKE_CRUSH_STONE_COST} чулуу`;
+        : `E · ${have}/${SNAKE_CRUSH_STONE_COST} чулуу`;
     const tipY = y + (showPosture ? 22 : 16);
     ctx.textAlign = "center";
     ctx.font = "600 10px system-ui, sans-serif";
@@ -2018,6 +1928,205 @@ function drawEnemyHealthBars(
   }
 }
 
+function routeWindupMax(enemy: RouteEnemy): number {
+  if (enemy.kind === "shulmasynBaatar") {
+    if (enemy.attackKind === "bossCharge") return BOSS_CHARGE_WINDUP;
+    if (enemy.attackKind === "bossOverhead") return BOSS_OVERHEAD_WINDUP;
+    return BOSS_SWEEP_WINDUP;
+  }
+  if (enemy.kind === "shulmasynZarts") return 0.88;
+  if (enemy.kind === "shulmasynHuu") return 0.34;
+  if (enemy.kind === "shidetHarvaach") return 0.82;
+  return 0.56;
+}
+
+function drawSoulsArcSector(
+  ctx: CanvasRenderingContext2D,
+  radius: number,
+  halfAngle: number,
+  readiness: number,
+  critical: boolean,
+): void {
+  const fillA = 0.08 + readiness * 0.22 + (critical ? 0.12 : 0);
+  const rimA = 0.35 + readiness * 0.5 + (critical ? 0.25 : 0);
+  const rimColor = critical
+    ? `rgba(255,220,180,${rimA})`
+    : `rgba(255,120,70,${rimA})`;
+  const fillColor = critical
+    ? `rgba(255,90,60,${fillA})`
+    : `rgba(180,40,30,${fillA})`;
+
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, radius, -halfAngle, halfAngle);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  // Дотор аажмаар дүүрэх аюулын бүс
+  const innerR = radius * (0.18 + readiness * 0.82);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, innerR, -halfAngle * 0.92, halfAngle * 0.92);
+  ctx.closePath();
+  ctx.fillStyle = critical
+    ? `rgba(255,160,90,${0.1 + readiness * 0.2})`
+    : `rgba(220,70,40,${0.06 + readiness * 0.16})`;
+  ctx.fill();
+
+  ctx.strokeStyle = rimColor;
+  ctx.lineWidth = critical ? 2.8 : 2.2;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, -halfAngle, halfAngle);
+  ctx.stroke();
+
+  // Гадна зөөлөн гэрэл
+  ctx.strokeStyle = critical
+    ? `rgba(255,240,200,${0.15 + readiness * 0.2})`
+    : `rgba(255,140,80,${0.1 + readiness * 0.15})`;
+  ctx.lineWidth = 6;
+  ctx.globalAlpha = 0.45;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius + 3, -halfAngle, halfAngle);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Чиглэлийн шугам
+  ctx.strokeStyle = `rgba(255,200,150,${0.25 + readiness * 0.35})`;
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.lineTo(radius - 4, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawSoulsSlamCircle(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  radius: number,
+  readiness: number,
+  critical: boolean,
+): void {
+  const r = radius * (0.55 + readiness * 0.45);
+  const fill = ctx.createRadialGradient(cx, cy, 4, cx, cy, r);
+  fill.addColorStop(
+    0,
+    critical
+      ? `rgba(255,140,80,${0.22 + readiness * 0.2})`
+      : `rgba(160,40,30,${0.14 + readiness * 0.18})`,
+  );
+  fill.addColorStop(0.65, `rgba(120,30,25,${0.08 + readiness * 0.1})`);
+  fill.addColorStop(1, "rgba(80,20,20,0)");
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = critical
+    ? `rgba(255,220,170,${0.55 + readiness * 0.35})`
+    : `rgba(255,110,70,${0.4 + readiness * 0.4})`;
+  ctx.lineWidth = critical ? 3 : 2.4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(255,180,120,${0.15 + readiness * 0.25})`;
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([8, 6]);
+  ctx.lineDashOffset = -readiness * 40;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Progress tick ring
+  ctx.strokeStyle = critical
+    ? `rgba(255,245,220,${0.7})`
+    : `rgba(255,160,100,${0.35 + readiness * 0.45})`;
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.arc(
+    cx,
+    cy,
+    r + 6,
+    -Math.PI / 2,
+    -Math.PI / 2 + Math.PI * 2 * readiness,
+  );
+  ctx.stroke();
+}
+
+function drawSoulsChargeLane(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  dirX: number,
+  dirY: number,
+  length: number,
+  width: number,
+  readiness: number,
+  critical: boolean,
+  time: number,
+): void {
+  const angle = Math.atan2(dirY, dirX);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  const len = length * (0.55 + readiness * 0.45);
+  ctx.fillStyle = critical
+    ? `rgba(255,90,70,${0.12 + readiness * 0.18})`
+    : `rgba(140,35,40,${0.1 + readiness * 0.14})`;
+  ctx.beginPath();
+  ctx.moveTo(12, -width * 0.5);
+  ctx.lineTo(len, -width * 0.35);
+  ctx.lineTo(len, width * 0.35);
+  ctx.lineTo(12, width * 0.5);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = critical
+    ? `rgba(255,210,170,${0.55 + readiness * 0.35})`
+    : `rgba(255,120,80,${0.4 + readiness * 0.4})`;
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(12, -width * 0.5);
+  ctx.lineTo(len, -width * 0.35);
+  ctx.moveTo(12, width * 0.5);
+  ctx.lineTo(len, width * 0.35);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(255,180,130,${0.3 + readiness * 0.35})`;
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([10, 8]);
+  ctx.lineDashOffset = -time * 55;
+  ctx.beginPath();
+  ctx.moveTo(18, 0);
+  ctx.lineTo(len - 6, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Chevrons
+  ctx.fillStyle = critical
+    ? `rgba(255,230,190,${0.45 + readiness * 0.4})`
+    : `rgba(255,150,100,${0.3 + readiness * 0.4})`;
+  for (let i = 0; i < 4; i++) {
+    const cx = 28 + i * (len / 5) + (time * 40) % (len / 5);
+    if (cx > len - 10) continue;
+    ctx.beginPath();
+    ctx.moveTo(cx, 0);
+    ctx.lineTo(cx - 7, -5);
+    ctx.lineTo(cx - 4, 0);
+    ctx.lineTo(cx - 7, 5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawRouteTelegraph(
   ctx: CanvasRenderingContext2D,
   enemy: RouteEnemy,
@@ -2027,44 +2136,115 @@ function drawRouteTelegraph(
 ): void {
   if (enemy.phase !== "windup") return;
 
-  const warning = isRouteEnemyParryThreat(enemy);
-  const pulse = 0.65 + Math.sin(time * 13) * 0.25;
-  ctx.save();
-  ctx.globalAlpha = pulse;
-  ctx.strokeStyle =
-    warning
-      ? "#ff5252"
-      : enemy.attackKind === "bossCharge"
-        ? "#b887ff"
-        : "#f2c45a";
-  ctx.lineWidth =
-    warning ? 4 : enemy.kind === "shulmasynBaatar" ? 3 : 2;
-  ctx.beginPath();
-  ctx.arc(
-    x,
-    y - (enemy.kind === "shulmasynBaatar" ? 28 : 18),
-    enemy.radius +
-      (enemy.kind === "shulmasynBaatar" ? 15 : 9),
+  const windMax = routeWindupMax(enemy);
+  const readiness = Math.max(
     0,
-    Math.PI * 2,
+    Math.min(1, 1 - enemy.phaseTimer / Math.max(0.001, windMax)),
   );
-  ctx.stroke();
+  const critical = isRouteEnemyParryThreat(enemy) || readiness > 0.82;
+  const dir = enemy.attackDirection;
+  const angle = Math.atan2(dir.y, dir.x);
 
-  if (
-    enemy.kind === "shulmasynBaatar" &&
-    enemy.attackKind === "bossCharge"
-  ) {
-    ctx.setLineDash([10, 8]);
+  ctx.save();
+
+  if (enemy.kind === "shulmasynBaatar") {
+    if (enemy.attackKind === "bossOverhead") {
+      drawSoulsSlamCircle(
+        ctx,
+        x + dir.x * 36,
+        y + dir.y * 36 + 6,
+        enemy.radius + 52,
+        readiness,
+        critical,
+      );
+    } else if (enemy.attackKind === "bossSweep") {
+      ctx.translate(x, y + 4);
+      ctx.rotate(angle);
+      drawSoulsArcSector(ctx, enemy.radius + 78, 1.15, readiness, critical);
+    } else {
+      drawSoulsChargeLane(
+        ctx,
+        x,
+        y + 4,
+        dir.x,
+        dir.y,
+        160,
+        42,
+        readiness,
+        critical,
+        time,
+      );
+    }
+    ctx.restore();
+    return;
+  }
+
+  if (enemy.kind === "shulmasynHuu" || enemy.attackKind === "rush") {
+    drawSoulsChargeLane(
+      ctx,
+      x,
+      y + 2,
+      dir.x,
+      dir.y,
+      120,
+      28,
+      readiness,
+      critical,
+      time,
+    );
+    ctx.restore();
+    return;
+  }
+
+  if (enemy.kind === "shidetHarvaach" || enemy.attackKind === "bolt") {
+    const len = 90 + readiness * 70;
+    const ex = x + dir.x * len;
+    const ey = y - 10 + dir.y * len;
+    ctx.strokeStyle = critical
+      ? `rgba(220,180,255,${0.45 + readiness * 0.4})`
+      : `rgba(170,120,230,${0.3 + readiness * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 6]);
     ctx.lineDashOffset = -time * 40;
     ctx.beginPath();
-    ctx.moveTo(x, y - 12);
-    ctx.lineTo(
-      x + enemy.attackDirection.x * 150,
-      y - 12 + enemy.attackDirection.y * 150,
-    );
+    ctx.moveTo(x + dir.x * 18, y - 8 + dir.y * 18);
+    ctx.lineTo(ex, ey);
     ctx.stroke();
     ctx.setLineDash([]);
+    const aim = ctx.createRadialGradient(ex, ey, 2, ex, ey, 16 + readiness * 10);
+    aim.addColorStop(0, `rgba(200,150,255,${0.35 + readiness * 0.35})`);
+    aim.addColorStop(1, "rgba(120,80,180,0)");
+    ctx.fillStyle = aim;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 16 + readiness * 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = `rgba(230,200,255,${0.4 + readiness * 0.4})`;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(ex, ey, 8 + readiness * 4, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+    return;
   }
+
+  // Меlee — конус / сектор
+  const reach =
+    enemy.radius +
+    (enemy.kind === "shulmasynZarts"
+      ? 48
+      : enemy.kind === "harMogoi"
+        ? 40
+        : 34);
+  const half =
+    enemy.kind === "shulmasynZarts"
+      ? 0.72
+      : enemy.kind === "harMogoi"
+        ? 0.9
+        : 0.62;
+  ctx.translate(x, y + 2);
+  ctx.rotate(angle);
+  drawSoulsArcSector(ctx, reach, half, readiness, critical);
+
   ctx.restore();
 }
 
@@ -2144,19 +2324,25 @@ export function drawRouteEnemy(
     ctx.fillText(
       "✦",
       0,
-      enemy.kind === "shulmasynBaatar" ? -78 : -52,
+      enemy.kind === "shulmasynBaatar" ? -110 : -52,
     );
   }
   ctx.restore();
 
   drawRouteTelegraph(ctx, enemy, x, y, time);
   const barY =
-    y - enemy.radius - (enemy.kind === "harMogoi" ? 56 : 35);
+    y -
+    enemy.radius -
+    (enemy.kind === "harMogoi"
+      ? 62
+      : enemy.kind === "shulmasynBaatar"
+        ? 102
+        : 42);
   drawEnemyHealthBars(ctx, enemy, x, barY, stoneCount, scoutTrip);
   if (
     enemy.engaged &&
     enemy.kind !== "shulmasynBaatar" &&
-    enemy.kind !== "harMogoi"
+    !(enemy.kind === "harMogoi" && enemy.awaitingCrush)
   ) {
     ctx.fillStyle = "#f0dfc3";
     ctx.font = "600 10px system-ui, sans-serif";
@@ -2164,7 +2350,9 @@ export function drawRouteEnemy(
     ctx.fillText(
       routeEnemyLabel(enemy.kind),
       x,
-      y - enemy.radius - 42,
+      y -
+        enemy.radius -
+        (enemy.kind === "harMogoi" ? 62 : 42),
     );
     ctx.textAlign = "left";
   }
@@ -2353,126 +2541,226 @@ function drawHarMogoiBody(
   flash: boolean,
   time: number,
 ): void {
-  // Хар могой — кобра: ороосон бие, босоо хүзүү, дэлгэсэн бамбай
+  // Аварга могой — ороомол бие, шаантаг толгой, соёо, салаа хэл
   const face = enemy.facing < 0 ? -1 : 1;
   const limp = enemy.awaitingCrush === true;
-  const sway = limp ? 0 : Math.sin(time * 2.8) * 2;
+  const winding = !limp && enemy.phase === "windup";
+  const striking = !limp && enemy.phase === "attacking";
+  const animT = winding
+    ? Math.max(0, Math.min(1, 1 - enemy.phaseTimer / 0.56))
+    : striking
+      ? Math.max(0, Math.min(1, 1 - enemy.phaseTimer / 0.16))
+      : 0;
+  // Windup: хүзүү хойш татна; attack: урагш цохино
+  const strikePull = winding ? -animT * 10 : striking ? Math.min(1, animT * 2.2) * 18 : 0;
+  const wave = limp ? 0 : time * 3.0;
 
   const scaleDark = flash ? "#3a3238" : "#121016";
-  const scaleMid = flash ? "#4a4048" : "#1c181e";
-  const belly = flash ? "#6a6058" : "#2a2420";
-  const hoodEdge = flash ? "#504848" : "#0e0c10";
+  const scaleMid = flash ? "#524850" : "#1e1820";
+  const scaleLight = flash ? "#6a6068" : "#2a242c";
+  const belly = flash ? "#a89080" : "#4a3c34";
+  const tongue = flash ? "#ff4060" : "#e01838";
+  const fang = flash ? "#fff8f0" : "#f0e8e0";
 
   ctx.save();
   ctx.scale(face, 1);
   if (limp) {
-    ctx.rotate(0.55);
-    ctx.translate(0, 8);
+    ctx.rotate(0.35);
+    ctx.translate(0, 10);
+  } else if (striking) {
+    ctx.translate(strikePull * 0.15, 0);
   }
 
-  // Ороосон бие
+  // —— Ороомол бие (зузаан цилиндр сегментүүд) ——
+  const coils: Array<{
+    x: number;
+    y: number;
+    rx: number;
+    ry: number;
+    rot: number;
+  }> = [
+    { x: -20, y: 24, rx: 11, ry: 7, rot: 0.7 },
+    { x: -8, y: 22, rx: 13, ry: 8, rot: -0.4 },
+    { x: 6, y: 20, rx: 14, ry: 8.5, rot: 0.5 },
+    { x: 16, y: 14, rx: 12, ry: 7.5, rot: -0.5 },
+    { x: 12, y: 6, rx: 11, ry: 8, rot: 0.25 },
+    { x: 4, y: 0, rx: 9, ry: 7, rot: -0.15 },
+  ];
+  for (let i = 0; i < coils.length; i++) {
+    const c = coils[i]!;
+    const wobble = limp ? 0 : Math.sin(wave + i * 0.65) * 1.8;
+    ctx.fillStyle = i % 2 === 0 ? scaleDark : scaleMid;
+    ctx.beginPath();
+    ctx.ellipse(c.x + wobble, c.y, c.rx, c.ry, c.rot, 0, Math.PI * 2);
+    ctx.fill();
+    // Гэдсний цайвар зураас
+    ctx.fillStyle = belly;
+    ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    ctx.ellipse(
+      c.x + wobble,
+      c.y + c.ry * 0.25,
+      c.rx * 0.4,
+      c.ry * 0.45,
+      c.rot,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // —— Хүзүү: S хэлбэр, дайралтын үед урагш ——
+  const neckH = limp ? 22 : striking ? 40 : winding ? 52 + animT * 4 : 48;
+  const sway = limp
+    ? 0
+    : Math.sin(wave * 0.85) * 3.5 + strikePull;
   ctx.fillStyle = scaleDark;
   ctx.beginPath();
-  ctx.ellipse(2, 18, 22, 11, -0.2, 0, Math.PI * 2);
+  ctx.moveTo(-6, 4);
+  ctx.bezierCurveTo(
+    -12 + sway * 0.5,
+    -neckH * 0.2,
+    2 + sway,
+    -neckH * 0.5,
+    4 + sway,
+    -neckH,
+  );
+  ctx.lineTo(16 + sway, -neckH + 2);
+  ctx.bezierCurveTo(
+    14 + sway,
+    -neckH * 0.5,
+    10 + sway * 0.3,
+    -neckH * 0.15,
+    10,
+    4,
+  );
+  ctx.closePath();
   ctx.fill();
+  // Гэдсний зураас хүзүүнд
+  ctx.fillStyle = belly;
+  ctx.globalAlpha = 0.4;
+  ctx.beginPath();
+  ctx.moveTo(2, 2);
+  ctx.bezierCurveTo(
+    0 + sway * 0.4,
+    -neckH * 0.25,
+    6 + sway,
+    -neckH * 0.55,
+    8 + sway,
+    -neckH + 4,
+  );
+  ctx.lineTo(12 + sway, -neckH + 4);
+  ctx.bezierCurveTo(
+    10 + sway,
+    -neckH * 0.55,
+    6 + sway * 0.3,
+    -neckH * 0.2,
+    6,
+    2,
+  );
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // —— Толгой: шаантаг / хортой могой ——
+  const hx = 10 + sway;
+  const hy = -neckH;
+  // Дээд эрүү
+  ctx.fillStyle = scaleLight;
+  ctx.beginPath();
+  ctx.moveTo(hx - 4, hy - 2);
+  ctx.quadraticCurveTo(hx + 2, hy - 12, hx + 18, hy - 2);
+  ctx.quadraticCurveTo(hx + 10, hy + 2, hx - 2, hy + 4);
+  ctx.closePath();
+  ctx.fill();
+  // Доод эрүү
+  const jawOpen = limp
+    ? 1
+    : striking
+      ? 9
+      : winding
+        ? 3 + animT * 4
+        : 5 + Math.sin(time * 4) * 0.8;
   ctx.fillStyle = scaleMid;
   ctx.beginPath();
-  ctx.ellipse(-6, 14, 14, 8, 0.4, 0, Math.PI * 2);
+  ctx.moveTo(hx - 2, hy + 2);
+  ctx.quadraticCurveTo(hx + 8, hy + 2 + jawOpen, hx + 16, hy + 1 + jawOpen * 0.4);
+  ctx.quadraticCurveTo(hx + 8, hy + 6 + jawOpen * 0.3, hx - 1, hy + 5);
+  ctx.closePath();
   ctx.fill();
+  // Амны дотор
+  ctx.fillStyle = flash ? "#801828" : "#400810";
   ctx.beginPath();
-  ctx.ellipse(12, 16, 12, 7, -0.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Босоо хүзүү
-  const neckH = limp ? 28 : 48;
-  ctx.fillStyle = scaleDark;
-  ctx.beginPath();
-  ctx.moveTo(-7 + sway * 0.2, 10);
-  ctx.quadraticCurveTo(-9 + sway, -neckH * 0.4, -6 + sway, -neckH);
-  ctx.lineTo(7 + sway, -neckH);
-  ctx.quadraticCurveTo(10 + sway, -neckH * 0.4, 8 + sway * 0.2, 10);
+  ctx.moveTo(hx + 2, hy + 1);
+  ctx.lineTo(hx + 14, hy);
+  ctx.lineTo(hx + 13, hy + jawOpen * 0.7);
+  ctx.lineTo(hx + 3, hy + 3 + jawOpen * 0.5);
   ctx.closePath();
   ctx.fill();
 
-  ctx.strokeStyle = belly;
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, 6);
-  ctx.quadraticCurveTo(sway * 0.5, -neckH * 0.5, sway, -neckH + 6);
-  ctx.stroke();
-
-  // Бамбай
-  const hoodY = -neckH + 4;
-  const hoodW = limp ? 22 : 34;
-  const hoodH = limp ? 18 : 28;
-  ctx.fillStyle = hoodEdge;
-  ctx.beginPath();
-  ctx.moveTo(-4 + sway, hoodY + 8);
-  ctx.quadraticCurveTo(
-    -hoodW + sway,
-    hoodY - 2,
-    -hoodW * 0.7 + sway,
-    hoodY - hoodH,
-  );
-  ctx.quadraticCurveTo(sway, hoodY - hoodH - 6, hoodW * 0.7 + sway, hoodY - hoodH);
-  ctx.quadraticCurveTo(hoodW + sway, hoodY - 2, 4 + sway, hoodY + 8);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.fillStyle = belly;
-  ctx.beginPath();
-  ctx.moveTo(-2 + sway, hoodY + 4);
-  ctx.quadraticCurveTo(
-    -hoodW * 0.55 + sway,
-    hoodY - 2,
-    -hoodW * 0.35 + sway,
-    hoodY - hoodH * 0.75,
-  );
-  ctx.lineTo(hoodW * 0.35 + sway, hoodY - hoodH * 0.75);
-  ctx.quadraticCurveTo(hoodW * 0.55 + sway, hoodY - 2, 2 + sway, hoodY + 4);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.strokeStyle = "rgba(0,0,0,0.45)";
-  ctx.lineWidth = 1.5;
-  for (let i = 0; i < 3; i++) {
-    const ty = hoodY - 6 - i * 6;
+  // Соёо (том, тод)
+  if (!limp) {
+    ctx.fillStyle = fang;
     ctx.beginPath();
-    ctx.moveTo(-hoodW * 0.35 + sway, ty);
-    ctx.lineTo(hoodW * 0.35 + sway, ty);
-    ctx.stroke();
+    ctx.moveTo(hx + 8, hy + 0.5);
+    ctx.lineTo(hx + 7.2, hy + jawOpen * 0.85);
+    ctx.lineTo(hx + 9.2, hy + 0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx + 12, hy);
+    ctx.lineTo(hx + 11.4, hy + jawOpen * 0.75);
+    ctx.lineTo(hx + 13.2, hy);
+    ctx.closePath();
+    ctx.fill();
   }
 
-  // Толгой + улаан нүд
-  const hx = sway;
-  const hy = hoodY - hoodH + 2;
-  ctx.fillStyle = scaleDark;
+  // Нүд — нарийн, улаан
+  const eyeA = limp ? 0.3 : 0.9 + Math.sin(time * 5) * 0.1;
+  ctx.fillStyle = `rgba(230, 40, 50, ${eyeA})`;
   ctx.beginPath();
-  ctx.ellipse(hx, hy - 4, 11, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(hx + 4, hy - 5, 3.2, 1.8, -0.35, 0, Math.PI * 2);
   ctx.fill();
-
-  const eyeA = limp ? 0.4 : 0.8 + Math.sin(time * 5) * 0.15;
-  ctx.fillStyle = `rgba(220, 25, 35, ${eyeA})`;
+  ctx.fillStyle = limp ? "#300808" : "#100404";
   ctx.beginPath();
-  ctx.ellipse(hx - 4, hy - 6, 3.2, 2.4, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(hx + 4.5, hy - 5, 1.0, 1.5, -0.2, 0, Math.PI * 2);
   ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(hx + 4, hy - 6, 3.2, 2.4, 0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = limp ? "#501010" : "#ff7078";
-  ctx.beginPath();
-  ctx.arc(hx - 3.5, hy - 6, 1.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(hx + 3.5, hy - 6, 1.2, 0, Math.PI * 2);
-  ctx.fill();
-
+  // Нүдний гялбаа
   if (!limp) {
-    ctx.strokeStyle = "#c02838";
-    ctx.lineWidth = 1.4;
+    ctx.fillStyle = "rgba(255,200,200,0.5)";
     ctx.beginPath();
-    ctx.moveTo(hx, hy + 2);
-    ctx.lineTo(hx + 10, hy + 4 + Math.sin(time * 9) * 2);
+    ctx.ellipse(hx + 3.2, hy - 5.5, 0.7, 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Хамрын нүх
+  ctx.fillStyle = "#08060a";
+  ctx.beginPath();
+  ctx.ellipse(hx + 16, hy - 1.5, 1.1, 0.7, 0.2, 0, Math.PI * 2);
+  ctx.ellipse(hx + 16.5, hy - 0.2, 1.0, 0.6, 0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Салаа хэл — урт, хөдөлгөөнтэй
+  if (!limp) {
+    const flick = Math.sin(time * 11);
+    const tipX = hx + 22 + flick * 2;
+    const tipY = hy + 2 + jawOpen * 0.35 + Math.cos(time * 9) * 1.5;
+    ctx.strokeStyle = tongue;
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(hx + 14, hy + 1 + jawOpen * 0.25);
+    ctx.quadraticCurveTo(hx + 18, tipY - 1, tipX - 4, tipY);
+    ctx.stroke();
+    // Салаа
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(tipX - 4, tipY);
+    ctx.lineTo(tipX + 2, tipY - 4);
+    ctx.moveTo(tipX - 4, tipY);
+    ctx.lineTo(tipX + 3, tipY + 4);
     ctx.stroke();
   }
 
@@ -2531,57 +2819,11 @@ export function drawMiniBossArena(
 
   const x = route.arenaCenter.x - cam.x;
   const y = route.arenaCenter.y - cam.y;
-  const pulse = 0.45 + Math.sin(time * 3.2) * 0.08;
-  ctx.save();
-  const ground = ctx.createRadialGradient(
-    x,
-    y,
-    20,
-    x,
-    y,
-    route.arenaRadius,
-  );
-  ground.addColorStop(0, "rgba(58,38,63,0.22)");
-  ground.addColorStop(0.72, "rgba(38,25,43,0.2)");
-  ground.addColorStop(1, "rgba(18,12,22,0)");
-  ctx.fillStyle = ground;
-  ctx.beginPath();
-  ctx.arc(x, y, route.arenaRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = route.bossDefeated
-    ? "rgba(232,197,106,0.32)"
-    : `rgba(150,95,190,${pulse})`;
-  ctx.lineWidth = route.bossDefeated ? 3 : 7;
-  ctx.beginPath();
-  ctx.arc(x, y, route.arenaRadius, 0, Math.PI * 2);
-  ctx.stroke();
-
-  if (!route.bossDefeated) {
-    ctx.setLineDash([16, 15]);
-    ctx.lineDashOffset = time * 28;
-    ctx.strokeStyle = "rgba(206,145,255,0.28)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, route.arenaRadius - 13, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  for (let index = 0; index < 8; index += 1) {
-    const angle = (Math.PI * 2 * index) / 8 + time * 0.025;
-    const runeRadius = route.arenaRadius - 30;
-    const runeX = x + Math.cos(angle) * runeRadius;
-    const runeY = y + Math.sin(angle) * runeRadius;
-    ctx.save();
-    ctx.translate(runeX, runeY);
-    ctx.rotate(angle + Math.PI / 2);
-    ctx.fillStyle = route.bossDefeated
-      ? "rgba(232,197,106,0.18)"
-      : "rgba(190,125,230,0.3)";
-    ctx.fillRect(-3, -12, 6, 24);
-    ctx.fillRect(-10, -3, 20, 6);
-    ctx.restore();
-  }
-  ctx.restore();
+  drawFlameArenaRing(ctx, x, y, route.arenaRadius, time, ORANGE_FIRE, {
+    heightScale: 1.45,
+    fierce: true,
+    defeated: route.bossDefeated,
+  });
 }
 
 export function drawSwordDrop(
@@ -2662,9 +2904,9 @@ export function drawMiniBossHud(
   ctx.lineWidth = 2;
   ctx.strokeRect(x - 16, y - 24, width + 32, 66);
   ctx.textAlign = "center";
-  ctx.font = "800 15px system-ui, sans-serif";
+  ctx.font = "800 11px system-ui, sans-serif";
   ctx.fillStyle = "#ead9f1";
-  ctx.fillText("ШУЛМАСЫН БААТАР", VIEW_W / 2, y - 7);
+  ctx.fillText("ДОЛООН ТОЛГОЙТОЙ ДОГОЛОН ХАР МАНГАС", VIEW_W / 2, y - 7);
   ctx.fillStyle = "rgba(0,0,0,0.72)";
   ctx.fillRect(x, y, width, 13);
   ctx.fillStyle = "#b43f53";
@@ -2702,55 +2944,149 @@ export function drawFirstRouteGate(
   cam: Camera,
   time: number,
 ): void {
+  // Хараалт хаалга — зөвхөн чулуу/хад овоолсон үүд (төмөр/гавалгүй)
   const route = routeOf(state);
   const x = route.gatePos.x - cam.x;
   const y = route.gatePos.y - cam.y;
   const open = route.complete;
-  const pulse = 0.55 + Math.sin(time * 4) * 0.15;
+  const pulse = 0.5 + Math.sin(time * 2.8) * 0.1;
+
+  const rocks: Array<{
+    ox: number;
+    oy: number;
+    rx: number;
+    ry: number;
+    rot: number;
+    shade: number;
+  }> = [
+    // Зүүн овоо
+    { ox: -48, oy: 8, rx: 16, ry: 11, rot: -0.2, shade: 0 },
+    { ox: -42, oy: -6, rx: 14, ry: 12, rot: 0.15, shade: 1 },
+    { ox: -50, oy: -20, rx: 13, ry: 10, rot: -0.1, shade: 0 },
+    { ox: -40, oy: -34, rx: 15, ry: 11, rot: 0.25, shade: 2 },
+    { ox: -46, oy: -48, rx: 12, ry: 10, rot: -0.18, shade: 1 },
+    { ox: -38, oy: -58, rx: 11, ry: 8, rot: 0.1, shade: 0 },
+    // Баруун овоо
+    { ox: 48, oy: 8, rx: 15, ry: 11, rot: 0.18, shade: 1 },
+    { ox: 42, oy: -8, rx: 14, ry: 12, rot: -0.12, shade: 0 },
+    { ox: 50, oy: -22, rx: 13, ry: 10, rot: 0.22, shade: 2 },
+    { ox: 40, oy: -36, rx: 15, ry: 11, rot: -0.2, shade: 1 },
+    { ox: 46, oy: -50, rx: 12, ry: 9, rot: 0.15, shade: 0 },
+    { ox: 38, oy: -60, rx: 11, ry: 8, rot: -0.08, shade: 2 },
+    // Дээд гүүр / нуранги
+    { ox: -18, oy: -64, rx: 14, ry: 9, rot: 0.05, shade: 1 },
+    { ox: 0, oy: -68, rx: 16, ry: 10, rot: -0.05, shade: 0 },
+    { ox: 18, oy: -64, rx: 14, ry: 9, rot: 0.12, shade: 2 },
+    { ox: -8, oy: -56, rx: 10, ry: 7, rot: 0.2, shade: 1 },
+    { ox: 10, oy: -55, rx: 11, ry: 7, rot: -0.15, shade: 0 },
+  ];
+
+  const shades = open
+    ? ["#8a7a62", "#7a6a52", "#6a5a44"]
+    : ["#5a5248", "#4a443c", "#3a342e"];
+  const darks = open
+    ? ["#5a4a38", "#4a3a2a", "#3a2a1c"]
+    : ["#2e2822", "#242018", "#1a1612"];
+
   ctx.save();
   ctx.translate(x, y);
-  ctx.fillStyle = "rgba(15,12,10,0.32)";
+
+  ctx.fillStyle = "rgba(10,8,6,0.4)";
   ctx.beginPath();
-  ctx.ellipse(0, 20, 64, 15, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 16, 70, 13, 0, 0, Math.PI * 2);
   ctx.fill();
-  for (const side of [-1, 1]) {
-    const postX = side * 46;
-    ctx.fillStyle = open ? "#88775f" : "#655c58";
-    ctx.fillRect(postX - 12, -58, 24, 78);
-    ctx.fillStyle = open ? "#a28d6d" : "#7b6f68";
-    ctx.beginPath();
-    ctx.moveTo(postX - 17, -58);
-    ctx.lineTo(postX + 17, -58);
-    ctx.lineTo(postX + 10, -70);
-    ctx.lineTo(postX - 10, -70);
-    ctx.closePath();
-    ctx.fill();
-  }
-  ctx.fillStyle = open ? "#9d8662" : "#514946";
-  ctx.fillRect(-58, -57, 116, 16);
-  if (!open) {
-    ctx.strokeStyle = `rgba(140,95,185,${pulse})`;
-    ctx.lineWidth = 5;
-    for (let bar = -2; bar <= 2; bar += 1) {
-      ctx.beginPath();
-      ctx.moveTo(bar * 18, -42);
-      ctx.lineTo(bar * 18, 18);
-      ctx.stroke();
-    }
+
+  // Нээлттэй/түгжээтэй дотоод
+  if (open) {
+    const voidG = ctx.createRadialGradient(0, -18, 2, 0, -8, 34);
+    voidG.addColorStop(0, `rgba(220,180,100,${0.28 + pulse * 0.15})`);
+    voidG.addColorStop(0.55, "rgba(50,35,20,0.75)");
+    voidG.addColorStop(1, "rgba(12,10,8,0.9)");
+    ctx.fillStyle = voidG;
   } else {
-    ctx.fillStyle = `rgba(232,197,106,${pulse})`;
+    ctx.fillStyle = `rgba(30,22,38,${0.55 + pulse * 0.1})`;
+  }
+  ctx.beginPath();
+  ctx.moveTo(-26, 10);
+  ctx.lineTo(-26, -42);
+  ctx.quadraticCurveTo(0, -58, 26, -42);
+  ctx.lineTo(26, 10);
+  ctx.closePath();
+  ctx.fill();
+
+  // Түгжээтэй үед — чулуун хаалт (том хаднууд дундуур)
+  if (!open) {
+    const blockers = [
+      { ox: -8, oy: -8, rx: 14, ry: 12, rot: -0.15 },
+      { ox: 10, oy: -4, rx: 13, ry: 11, rot: 0.2 },
+      { ox: 0, oy: -22, rx: 15, ry: 10, rot: 0.05 },
+      { ox: -6, oy: 4, rx: 12, ry: 9, rot: 0.1 },
+      { ox: 8, oy: 6, rx: 11, ry: 8, rot: -0.18 },
+    ];
+    for (const b of blockers) {
+      ctx.fillStyle = shades[1]!;
+      ctx.beginPath();
+      ctx.ellipse(b.ox, b.oy, b.rx, b.ry, b.rot, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = darks[1]!;
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.ellipse(b.ox + 2, b.oy + 2, b.rx * 0.6, b.ry * 0.55, b.rot, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Чулуунууд
+  for (const r of rocks) {
+    ctx.fillStyle = darks[r.shade]!;
     ctx.beginPath();
-    ctx.arc(0, -49, 8, 0, Math.PI * 2);
+    ctx.ellipse(r.ox + 1.5, r.oy + 1.5, r.rx, r.ry, r.rot, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = shades[r.shade]!;
+    ctx.beginPath();
+    ctx.ellipse(r.ox, r.oy, r.rx, r.ry, r.rot, 0, Math.PI * 2);
+    ctx.fill();
+    // Жижиг гялбаа / хагархай
+    ctx.fillStyle = open ? "rgba(200,180,140,0.18)" : "rgba(140,130,120,0.12)";
+    ctx.beginPath();
+    ctx.ellipse(
+      r.ox - r.rx * 0.25,
+      r.oy - r.ry * 0.3,
+      r.rx * 0.35,
+      r.ry * 0.25,
+      r.rot,
+      0,
+      Math.PI * 2,
+    );
     ctx.fill();
   }
+
+  // Хөвөн
+  ctx.fillStyle = "rgba(55,70,40,0.28)";
+  ctx.beginPath();
+  ctx.ellipse(-44, -52, 8, 4, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(42, -54, 7, 3.5, 0.3, 0, Math.PI * 2);
+  ctx.ellipse(-50, 4, 6, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Суурь хайрга
+  ctx.fillStyle = darks[0]!;
+  ctx.beginPath();
+  ctx.ellipse(-30, 14, 12, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(28, 14, 11, 5, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 15, 18, 4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.restore();
+
   ctx.textAlign = "center";
   ctx.font = "700 12px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.75)";
   ctx.lineWidth = 3;
-  ctx.strokeText("ХАРААЛТ ХААЛГА", x, y - 82);
-  ctx.fillStyle = open ? "#ffe29a" : "#d6c6d9";
-  ctx.fillText("ХАРААЛТ ХААЛГА", x, y - 82);
+  ctx.strokeText("ХАРААЛТ ХААЛГА", x, y - 86);
+  ctx.fillStyle = open ? "#ffe29a" : "#c8b8c8";
+  ctx.fillText("ХАРААЛТ ХААЛГА", x, y - 86);
   ctx.textAlign = "left";
 }
 

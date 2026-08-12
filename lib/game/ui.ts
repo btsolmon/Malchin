@@ -3243,7 +3243,7 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
             ? "Хар төмөр хаалга нээгдсэн"
             : "Mini-boss унав · Сэлмээ ав"
           : route.bossStarted
-            ? "Mini-boss · Шулмасын баатар"
+            ? "Mini-boss · Долоон толгойтой доголон хар мангас"
             : route.complete
               ? "Хараалт хаалга нээгдсэн"
               : trFormat("Эхний зам {have}/{total}", {

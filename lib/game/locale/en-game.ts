@@ -34,9 +34,8 @@ export const EN_GAME: Record<string, string> = {
     "CHEAT: Skipped the livestock and sunset chapter.",
   "CHEAT: Нээлтийн хэсгийг эхлүүллээ.": "CHEAT: Started the opening chapter.",
   "CHEAT: Оршил алгаслаа.": "CHEAT: Skipped the prologue.",
-  "CHEAT: Сүнсний ертөнц — дөнгөж орсон. Туслахуудыг дар.":
-    "CHEAT: Spirit world — just arrived. Beat the helpers.",
-  "CHEAT: Сүнсний замыг нээлээ.": "CHEAT: Opened the spirit path.",
+  "CHEAT: Доод тив — дөнгөж орсон. Туслахуудыг дар.": "CHEAT: Lower Continent — just arrived. Beat the helpers.",
+  "CHEAT: Доод тивийн замыг нээлээ.": "CHEAT: Opened the Lower Continent path.",
   "CHEAT: Таван сахиулыг дарлаа.": "CHEAT: Beat the five guardians.",
   "CHEAT: Тулааны сургалтыг алгаслаа.": "CHEAT: Skipped combat training.",
   "CHEAT: Төмөр шулмасыг дарлаа.": "CHEAT: Beat Tömör Shulmas.",
@@ -44,9 +43,8 @@ export const EN_GAME: Record<string, string> = {
   "CHEAT: Хөх тэнгэрийн сэлмийг авлаа.": "CHEAT: Took the Sky-Blue Sword.",
   "CHEAT: Шулмасыг дийлээд аав ээжтэй амьдрах үе эхэллээ.":
     "CHEAT: Demon beaten — life with mother and father begins.",
-  "CHEAT: Шулмасын баатрыг дарлаа.": "CHEAT: Beat the Shulmas Warrior.",
-  "CHEAT: Шулмасын баатрын тулааныг эхлүүллээ.":
-    "CHEAT: Started the Shulmas Warrior fight.",
+  "CHEAT: Долоон толгойтой доголон хар мангасыг дарлаа.": "CHEAT: Beat the Seven-Headed Limping Black Monster.",
+  "CHEAT: Долоон толгойтой доголон хар мангасын тулааныг эхлүүллээ.": "CHEAT: Started the Seven-Headed monster fight.",
   "CHEAT: Шуурганы мөрийг шинжиллээ.": "CHEAT: Examined the storm's trail.",
   "CHEAT: Үүрийн өвгөний яриаг алгаслаа.":
     "CHEAT: Skipped the dawn talk with the elder.",
@@ -86,8 +84,7 @@ export const EN_GAME: Record<string, string> = {
   "E — Мод хагалах": "E — Chop wood",
   "E — Мод хагалах (сүх)": "E — Chop wood (axe)",
   "E — Ордноос буцах": "E — Leave the palace",
-  "E — Түгжээтэй · эхлээд Шулмасын баатрыг ял":
-    "E — Locked · beat the Shulmas Warrior first",
+  "E — Түгжээтэй · эхлээд долоон толгойтой мангасыг ял": "E — Locked · defeat the seven-headed monster first",
   "E — Түлээ нэмэх": "E — Add firewood",
   "E — Зууханд түлээ нэмэх": "E — Add firewood to the stove",
   "E — Төмөр шулмасын ордонд орох": "E — Enter Tömör Shulmas's palace",
@@ -136,7 +133,7 @@ export const EN_GAME: Record<string, string> = {
   "L / Parry дарж няцаа.": "press Space to turn it aside.",
   "Shift дарж няцаа.": "press Space to turn it aside.",
   "Space дарж няцаа.": "press Space to turn it aside.",
-  "Mini-boss · Шулмасын баатар": "Mini-boss · Shulmas Warrior",
+  "Mini-boss · Долоон толгойтой доголон хар мангас": "Mini-boss · Seven-Headed Limping Black Monster",
   "Mini-boss унав · Сэлмээ ав": "Mini-boss down · Take the sword",
   "N — Малаа туу": "K — Herd livestock",
   "K — Малаа туу": "K — Herd livestock",
@@ -413,7 +410,7 @@ export const EN_GAME: Record<string, string> = {
     "Dismounted and hitched. F — mount again.",
   "Морьноос буулаа.": "Off the horse.",
   Мянганнаст: "Myanganast",
-  "НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС": "TÖMÖR SHULMAS OF EIGHTY-NINE SPELLS",
+  "ТӨМӨР ШУЛМАС": "IRON SHULMAS",
   "Нар жаргаж байна! Малаа хашаанд оруул — чоно ирнэ!":
     "The sun is setting! Pen your livestock — the wolves come!",
   "Нар жаргаж байна! Малаа заавал хашаанд оруул — чоно ирнэ!":
@@ -423,10 +420,8 @@ export const EN_GAME: Record<string, string> = {
     "At sunrise, go to the elder's camp in the eastern hills.",
   "Нар уулын цаагуур шингэж, тал нутгийг бараан сүүдэр нөмрөв.":
     "The sun sank beyond the mountains, and a dark shadow covered the steppe.",
-  "Наян есөн шидтэй төмөр шулмаст ялагдлаа…":
-    "The iron demon of eighty-nine spells beat you…",
-  "Наян есөн шидтэй шулмас нам дор сөхрөв.…":
-    "The demon of eighty-nine spells sank low to its knees.…",
+  "Төмөр шулмаст ялагдлаа…": "Defeated by the Iron Shulmas…",
+  "Төмөр шулмас нам дор сөхрөв.…": "The Iron Shulmas sinks to its knees.…",
   Номин: "Nomin",
   "Ноолуур зарах": "Sell cashmere",
   "Ноос зарах": "Sell wool",
@@ -467,21 +462,17 @@ export const EN_GAME: Record<string, string> = {
   "Суллав!": "Let go!",
   "Сум алга — урлалаар хий (1 мод + 1 чулуу = 2 сум).":
     "No arrows — craft them (1 wood + 1 stone = 2 arrows).",
-  "СҮНСНИЙ ОРОН": "THE SPIRIT REALM",
-  "Сүнс дууссан… бодит ертөнц рүү буцлаа.":
+    "Сүнс дууссан… бодит ертөнц рүү буцлаа.":
     "No spirits left… back to the real world.",
   "Сүнс зарцуулав — дахин амиллаа!": "A spirit spent — you live again!",
   "Сүнсний дайснууд · E/P — гарах": "Spirit foes · E/P — leave",
   "Сүнсний дайснууд унав! E — бодит ертөнц рүү буцах.":
     "The spirit foes have fallen! E — return to the real world.",
-  "Сүнсний замыг нээ": "Open the spirit path",
-  "Сүнсний орноос буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ.":
-    "Back from the spirit realm. Your parents' trail… goes on.",
-  "Сүнсний орноос гарлаа.": "You left the spirit realm.",
-  "Сүнсний оронд Хар төмөр хаалга нээгдэж, boss тулаан эхэллээ.":
-    "In the spirit realm the black iron gate opened — the boss fight begins.",
-  "Сүнсний орон… цаг зогсов. Шулмасын туслахуудыг цэвэрлэ. E — буцах.":
-    "The spirit realm… time halts. Clear the demon's helpers. E — back.",
+  "Доод тивийн замыг нээ": "Open the path to the Lower Continent",
+  "Доод тивээс буцлаа. Аав ээжийн мөр… үргэлжлүүлнэ.": "Returned from the Lower Continent. Your parents' trail… continues.",
+  "Доод тивээс гарлаа.": "Left the Lower Continent.",
+  "Доод тивд Хар төмөр хаалга нээгдэж, boss тулаан эхэллээ.": "In the Lower Continent the Black Iron Gate opens, and the boss fight begins.",
+  "Доод тив… цаг зогсов. Туслахуудыг цэвэрлэ. E — буцах.": "Lower Continent… time stopped. Clear the helpers. E — return.",
   "Сүргийг чононоос хамгаална": "Guards the herd from wolves",
   "Сүргийн морь · сүү өгнө": "Herd horse · gives milk",
   "Сүргийн тэмээ · сүү/ноос": "Herd camel · milk/wool",
@@ -492,14 +483,12 @@ export const EN_GAME: Record<string, string> = {
   Сүх: "Axe",
   "Сүү зарах": "Sell milk",
   "Тайвшир, хүү минь.": "Be still, my boy.",
-  "Талын харагч": "Steppe Watcher",
-  "Тамир тасарч, хүч барагдав.": "Stamina gone, strength spent.",
+    "Тамир тасарч, хүч барагдав.": "Stamina gone, strength spent.",
   "Тарсан мал хашаандаа орж, хотон бүрдэв.":
     "The scattered livestock came home, and the pen was whole again.",
   "Тонгойж чулуу цохиж гал асааж байна…":
     "Bent low, striking stone for a spark…",
-  "Тулаан дуусах хүртэл сүнсний оронгоос гарч чадахгүй.":
-    "You cannot leave the spirit realm until the fight ends.",
+  "Тулаан дуусах хүртэл доод тивээс гарч чадахгүй.": "You cannot leave the Lower Continent until the battle ends.",
   "Тулааны хөдөлгөөн дууссаны дараа зэвсгээ солино.":
     "Change weapons once the current move ends.",
   "Тэвш дүүрэн.": "The trough is full.",
@@ -516,8 +505,7 @@ export const EN_GAME: Record<string, string> = {
   "ТӨГСГӨЛ!": "THE END!",
   "Төмөр Шулмас унав. Аав ээжийг буцаан өглөө. E — гэртээ буцаж, хамт амьдар.":
     "Tömör Shulmas has fallen and given your parents back. E — go home and live together.",
-  "Төмөр Шулмасын төрөлх зан сэргэж, наян есөн хар шидээр давшин дайрахаар зэхэв.":
-    "The true nature of Tömör Shulmas woke, and it made ready to strike with eighty-nine black spells.",
+  "Төмөр шулмасын төрөлх зан сэргэж, давшин дайрахаар зэхэв.": "The Iron Shulmas's true nature awakens, and it prepares to strike.",
   "Төмөр биеийг зөвхөн Хөх тэнгэрийн сэлэм шархдуулна. Богцоос сэлмээ сонго.":
     "Only the Sky Sword can wound that iron body. Select the sword from your bag.",
   "Төмөр биеийг зөвхөн Хөх тэнгэрийн сэлэм шархдуулна.":
@@ -585,14 +573,18 @@ export const EN_GAME: Record<string, string> = {
   "Хар төмөр хаалгыг Хөх тэнгэрийн сэлэм л нээнэ.":
     "Only the Sky-Blue Sword opens the black iron gate.",
   "Хар төмөр хаалгыг нээ": "Open the black iron gate",
-  "Хар төмөр хаалгыг нээхийн тулд Шулмасын баатрыг ялж, Хөх тэнгэрийн сэлмийг ол.":
-    "To open the black iron gate, beat the Shulmas Warrior and find the Sky-Blue Sword.",
+  "Хар төмөр хаалгыг нээхийн тулд долоон толгойтой мангасыг ялж, Хөх тэнгэрийн сэлмийг ол.": "To open the black iron gate, defeat the seven-headed monster and find the Sky-Blue Sword.",
   "Хар хүлээс тасарч, голомтын бараа дахин бүтэн болов.":
     "The black bonds broke, and the circle of the hearth was whole once more.",
+  "Аварга могой": "Giant Snake",
   "Хар үнс салхины өөдөөс мөлхөх мэт хөдөлж, чулуун завсраас хахир инээд цуурайтав.":
     "Black ash crept against the wind, and a bitter laugh echoed from the rocks.",
   "Хараалд автсан таван": "Defeat the five",
   "Хараалд автсан таван сахиулыг дар.": "Defeat the five cursed guardians.",
+  "Аварга могой, Лалар, Бар хул, Чөтгөр, Харваач чөтгөрийг дар.": "Defeat the Giant Snake, Lalar, Bar Khul, Demon, and Archer Demon.",
+  "Аварга могой · Лалар · Бар хул ·": "Giant Snake · Lalar · Bar Khul ·",
+  "Чөтгөр · Харваач чөтгөр.": "Demon · Archer Demon.",
+  "Хараалт сахиулууд голын цаана хүлээж байна. Аварга могойг унагасны дараа чулуугаар дар.": "Cursed guardians wait beyond the river. After you fell the Giant Snake, crush it with stones.",
   "Хараалт талбайг сахих": "Defeat the warrior guarding",
   "Хараалт талбайг сахих баатрыг ял.":
     "Defeat the warrior guarding the cursed grounds.",
@@ -683,8 +675,8 @@ export const EN_GAME: Record<string, string> = {
   "Чоно унав! Голомтын дэргэд өвгөн дээр оч.":
     "The wolf is down! Go to the elder by the hearth.",
   "Чонын хөдөлгөөнийг ажигла": "Watch the wolf's moves",
-  "ШУЛМАСЫН БААТАР": "THE SHULMAS WARRIOR",
-  "ШУЛМАСЫН СҮНСНИЙ ОРОН": "THE DEMON'S SPIRIT REALM",
+  "ДОЛООН ТОЛГОЙТОЙ ДОГОЛОН ХАР МАНГАС": "THE SHULMAS WARRIOR",
+  "ДООД ТИВ": "THE LOWER CONTINENT",
   "Шаардлагатай XP": "XP needed",
   "Шар туяа тодрох үед J дарж,": "When the yellow glow rises, press J",
   "Шар туяа тодрох үед J дарж, араатны сул мөчийг ашигла.":
@@ -693,32 +685,23 @@ export const EN_GAME: Record<string, string> = {
   "J / Attack дарж цохь.": "press J / Attack to strike.",
   "Шар туяа тодрох үед J / Attack дарж, араатны сул мөчийг ашигла.":
     "When the yellow glow rises, press J / Attack and take the beast's opening.",
-  "Шидэт харваач": "Enchanted Archer",
+  "Бар хул": "Bar Khul",
   "Шинэ бууц! Өвөл — тэвш бэлд.": "New camp! Winter — ready the trough.",
-  "Шулмасын баатар": "Shulmas Warrior",
-  "Шулмасын баатар зам хаалаа. Хараалтай талбайгаас зугтах аргагүй!":
-    "The Shulmas Warrior bars the way. No escape from the cursed ground!",
-  "Шулмасын баатар унав. Хөх тэнгэрийн сэлэм газарт үлдлээ.":
-    "The Shulmas Warrior has fallen. The Sky-Blue Sword lies on the ground.",
-  "Шулмасын баатар унасан. Сэлэм газарт хүлээж байна.":
-    "The Shulmas Warrior is down. The sword waits on the ground.",
-  "Шулмасын баатартай тулаан үргэлжилж байна.":
-    "The fight with the Shulmas Warrior goes on.",
-  "Шулмасын баатрыг дар": "Defeat the Shulmas Warrior",
-  "Шулмасын зарц": "Shulmas Servant",
-  "Шулмасын сүнсний зам: туслахуудыг давж, хараалт хаалгад хүр.":
-    "The demon's spirit path: get past the helpers and reach the cursed gate.",
-  "Шулмасын сүнсний орноос буцлаа.": "Back from the demon's spirit realm.",
-  "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум. Туслахууд голын цаана.":
-    "The demon's spirit realm… 1+J punch, K shoot. The helpers are across the river.",
-  "Шулмасын сүнсний орон… 1+J цохих, 2+J сум. Туслахууд голын цаана.":
-    "The demon's spirit realm… 1+J punch, K shoot. The helpers are across the river.",
-  "Шулмасын сүнсний орон… 1+J цохих, K харвах. Туслахууд голын цаана.":
-    "The demon's spirit realm… 1+J punch, K shoot. The helpers are across the river.",
+  "Долоон толгойтой доголон хар мангас": "Seven-Headed Limping Black Monster",
+  "Долоон толгойтой доголон хар мангас зам хаалаа. Хараалтай талбайгаас зугтах аргагүй!": "The Seven-Headed Limping Black Monster blocks the way. There is no escape from the cursed grounds!",
+  "Долоон толгойтой доголон хар мангас унав. Хөх тэнгэрийн сэлэм газарт үлдлээ.": "The Seven-Headed Limping Black Monster fell. The Sky-Blue Sword remains on the ground.",
+  "Долоон толгойтой доголон хар мангас унасан. Сэлэм газарт хүлээж байна.": "The Seven-Headed Limping Black Monster has fallen. The sword waits on the ground.",
+  "Долоон толгойтой доголон хар мангастай тулаан үргэлжилж байна.": "The fight with the Seven-Headed Limping Black Monster continues.",
+  "Долоон толгойтой доголон хар мангасыг дар": "Defeat the Seven-Headed Limping Black Monster",
+    "Доод тивийн зам: туслахуудыг давж, хараалт хаалгад хүр.": "Lower Continent path: clear the helpers, reach the cursed gate.",
+  "Доод тивээс буцлаа.": "Returned from the Lower Continent.",
+  "Доод тив… J — ойрын цохилт, K — сүнсний сум. Туслахууд голын цаана.": "Lower Continent… J melee, K spirit arrow. Helpers beyond the river.",
+  "Доод тив… 1+J цохих, 2+J сум. Туслахууд голын цаана.": "Lower Continent… 1+J melee, 2+J arrows. Helpers beyond the river.",
+  "Доод тив… 1+J цохих, K харвах. Туслахууд голын цаана.": "Lower Continent… 1+J melee, K shoot. Helpers beyond the river.",
   "Шулмасын туслахууд · E — буцах": "The demon's helpers · E — back",
   "Шулмасын туслахууд унав. E — бодит ертөнц рүү буцах · хаалга руу оч.":
     "The demon's helpers have fallen. E — return to the real world · go to the gate.",
-  "Шулмасын хүү": "Shulmas Son",
+  "Лалар": "Lalar",
   "Шуурганд тарсан малаа олж,": "Find the livestock the storm scattered",
   "Шуурганд тарсан малаа олж, хотондоо буцаа.":
     "Find the livestock the storm scattered and drive them back to the pen.",
@@ -900,4 +883,21 @@ export const EN_GAME: Record<string, string> = {
   "Амь бүрэн — рашаан хэрэггүй.": "Health is full — no need for sacred water.",
   "Рашаан · дууссан": "Sacred water · empty",
   "Сүүлийн рашаанаа уув — амь дүүрэн. Лонх хоосорлоо.": "Last sip of sacred water — health full. Bottle empty.",
+  "Хараалт талбайг манах долоон толгойтой мангасыг ял.": "Defeat the seven-headed monster guarding the cursed grounds.",
+  "Долоон толгойтой доголон": "Defeat the seven-headed",
+  "хар мангасыг ял.": "limping black monster.",
+  "Унасан мангасын дэргэд": "Take the sword left beside",
+  "Унасан мангасын дэргэд үлдсэн сэлмийг ав.": "Take the sword left beside the fallen monster.",
+  "Доод тив рүү ор": "Enter the Lower Continent",
+  "Доод тив рүү ор.": "Enter the Lower Continent.",
+  "Доод тив рүү ор. Орвол буцах хаалга байхгүй.": "Enter the Lower Continent. Once inside, there is no gate back.",
+  "E — Доод тив рүү ор": "E — Enter the Lower Continent",
+  "CHEAT: Доод тивийн замыг нээлээ (тагнах).": "CHEAT: Opened the Lower Continent path (scout).",
+  "CHEAT: Овоогоор доод тив рүү орлоо.": "CHEAT: Entered the Lower Continent via the ovoo.",
+  "Доод тив… цаг зогсов. Буцахдаа хар мөрийн чулуун овоо руу оч — E дарж гарна.": "Lower Continent… time has stopped. To return, go to the dark-trail stone ovoo — press E.",
+  "Доод тив… буцах зам хаагдсан. Мангасыг дарж аав ээжийгээ авраарай.": "Lower Continent… the way back is sealed. Defeat the monsters and save your parents.",
+  "Аварга могой мөлхөж ирлээ. Тагнаад хар мөрийн чулуун овоогоор буц.": "The Giant Snake slithers forth. Scout, then return via the dark-trail stone ovoo.",
+  "Аварга могой мөлхөж ирлээ. Унагасны дараа чулуугаар дар.": "The Giant Snake slithers forth. After you fell it, crush it with stones.",
+  "Чөтгөр": "Demon",
+  "Харваач чөтгөр": "Archer Demon",
 };

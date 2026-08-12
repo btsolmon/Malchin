@@ -248,9 +248,13 @@ export function render(
   const inShulmasSpirit =
     state.phase === "spirit" && state.spiritMode === "shulmas";
   if (inShulmasSpirit) {
-    drawTumurShulmasArena(ctx, state, cam, time);
-    drawTumurShulmasTelegraphs(ctx, state, cam, time);
-    drawMiniBossArena(ctx, state, cam, time);
+    const tumurActive = world.tumurShulmas.active;
+    if (tumurActive) {
+      drawTumurShulmasArena(ctx, state, cam, time);
+      drawTumurShulmasTelegraphs(ctx, state, cam, time);
+    } else {
+      drawMiniBossArena(ctx, state, cam, time);
+    }
   }
 
   // Салхины хүч (модны найгалт)
@@ -934,8 +938,6 @@ export function render(
       } else if (world.tumurShulmas.active) {
         tip = "Төмөр шулмастай тулаан · дуустал гарахгүй";
       }
-    } else if (state.spiritCleared) {
-      tip = "E — бодит ертөнц рүү буцах";
     }
     if (tip) {
       const tx = tipPos.x - cam.x;
@@ -1197,7 +1199,7 @@ export function render(
         const tip = state.story.spiritOvooSoulCollected
           ? "Овоо сүүдэрлэг — нэвтрэх боломжгүй"
           : state.story.spiritOvooBuilt
-            ? "E — Сүнсний орон руу ор"
+            ? "E — Доод тив рүү ор"
             : `E — Чулуун овоо босго (${SPIRIT_OVOO_STONE_COST} чулуу)`;
         ctx.strokeText(tip, tx, ty);
         ctx.fillStyle = state.story.spiritOvooSoulCollected
@@ -1352,9 +1354,7 @@ export function render(
         }
     }
   }
-  if (state.phase === "playing") {
-    drawFirstRouteHint(ctx, state, cam);
-  } else if (state.phase === "spirit" && state.spiritMode === "shulmas") {
+  if (state.phase === "spirit" && state.spiritMode === "shulmas") {
     drawFirstRouteHint(ctx, state, cam);
     drawTumurShulmasHint(ctx, state, cam);
   }

@@ -214,21 +214,21 @@ export const BUILD_SPIRIT_OVOO_QUEST = {
 } as const;
 
 export const ENTER_SPIRIT_VIA_OVOO_QUEST = {
-  title: "Сүнсний орон руу ор",
-  description: "Сүнсний орон руу ор. Орвол буцах хаалга байхгүй.",
+  title: "Доод тив рүү ор",
+  description: "Доод тив рүү ор. Орвол буцах хаалга байхгүй.",
   panelLines: [
-    "Сүнсний орон руу ор.",
+    "Доод тив рүү ор.",
     "Орвол буцах хаалга байхгүй.",
   ],
 } as const;
 
 export const DEFEAT_SPIRIT_GUARDS_QUEST = {
-  title: "Сүнсний замыг нээ",
+  title: "Доод тивийн замыг нээ",
   description:
-    "Зургаан нар, Хар могой, үлдсэн гурван сахиулыг дар.",
+    "Аварга могой, Лалар, Бар хул, Чөтгөр, Харваач чөтгөрийг дар.",
   panelLines: [
-    "Зургаан нар · Хар могой ·",
-    "үлдсэн гурван сахиулыг дар.",
+    "Аварга могой · Лалар · Бар хул ·",
+    "Чөтгөр · Харваач чөтгөр.",
   ],
 } as const;
 
@@ -242,19 +242,19 @@ export const REACH_CURSED_GATE_QUEST = {
 } as const;
 
 export const DEFEAT_SHULMAS_BAATAR_QUEST = {
-  title: "Шулмасын баатрыг дар",
-  description: "Хараалт талбайг сахих баатрыг ял.",
+  title: "Долоон толгойтой доголон хар мангасыг дар",
+  description: "Хараалт талбайг манах долоон толгойтой мангасыг ял.",
   panelLines: [
-    "Хараалт талбайг сахих",
-    "баатрыг ял.",
+    "Долоон толгойтой доголон",
+    "хар мангасыг ял.",
   ],
 } as const;
 
 export const CLAIM_SKY_SWORD_QUEST = {
   title: "Хөх тэнгэрийн сэлмийг ав",
-  description: "Унасан баатрын дэргэд үлдсэн сэлмийг ав.",
+  description: "Унасан мангасын дэргэд үлдсэн сэлмийг ав.",
   panelLines: [
-    "Унасан баатрын дэргэд",
+    "Унасан мангасын дэргэд",
     "үлдсэн сэлмийг ав.",
   ],
 } as const;
@@ -3583,7 +3583,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     ensureShulmasHelpers(state);
     enterSpiritWorld(state, { scout: true });
     story.activeMainObjective = "defeatSpiritGuards";
-    setMessage(state, "CHEAT: Сүнсний замыг нээлээ (тагнах).", 2.5);
+    setMessage(state, "CHEAT: Доод тивийн замыг нээлээ (тагнах).", 2.5);
     return;
   }
 
@@ -3616,7 +3616,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     placePlayerNearHelpers(state);
     enterSpiritWorld(state, { scout: false });
     story.activeMainObjective = "defeatSpiritGuards";
-    setMessage(state, "CHEAT: Овоогоор сүнсний орон руу орлоо.", 2.5);
+    setMessage(state, "CHEAT: Овоогоор доод тив рүү орлоо.", 2.5);
     return;
   }
 
@@ -3645,7 +3645,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     state.input.interact = true;
     tryInteractFirstRoute(state);
     story.activeMainObjective = "defeatShulmasBaatar";
-    setMessage(state, "CHEAT: Шулмасын баатрын тулааныг эхлүүллээ.", 2.5);
+    setMessage(state, "CHEAT: Долоон толгойтой доголон хар мангасын тулааныг эхлүүллээ.", 2.5);
     return;
   }
 
@@ -3662,7 +3662,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     route.swordDrop.visible = true;
     route.swordDrop.collected = false;
     story.activeMainObjective = "claimSkySword";
-    setMessage(state, "CHEAT: Шулмасын баатрыг дарлаа.", 2.5);
+    setMessage(state, "CHEAT: Долоон толгойтой доголон хар мангасыг дарлаа.", 2.5);
     return;
   }
 
