@@ -23,28 +23,26 @@ export const EN_DIALOGUE: Record<string, string> = {
   // Анхны шөнө — өвгөн хүүг тайвшруулна
   "Хүү минь, бүү сандар. Би дэргэд чинь байна.":
     "My boy, do not be afraid. I am here beside you.",
-  "Би яахаа мэдэхгүй байна.": "I don't know what to do.",
+  "Та хэн бэ? Надад туслаач.": "I don't know what to do.",
   "Мэдэхгүй байх гэм биш ээ. Харин харалгүй дайрах нь л аюултай.":
     "There is no shame in not knowing. The danger is in striking before you look.",
   "Араатны нүдийг бус, хөдөлгөөнийг нь ажигла.":
     "Do not watch the beast's eyes. Watch how it moves.",
-  "Ташуураа чанга атган, тууштай харна":
+  "Ташуураа чанга атгаад сайтар ажигла.":
     "Grip your whip tight and hold your gaze",
 
   // Голомтын дэргэд — танилцах
   "Нааш суу, хүү минь. Шөнийн хүйтэн биеэс чинь хараахан гараагүй байна.":
     "Sit closer, my boy. The night's cold has not yet left your body.",
-  "Та намайг хаанаас ажиглаж байсан юм бэ?":
-    "Where were you watching me from?",
-  "Хөгшин хүний нүд холыг бус, эвгүйг түрүүлж анзаардаг юм.":
+  "Та намайг хаанаас ажиглаж байсан юм бэ?": "Where were you watching me from?",
+  "Дайраад өнгөрсөн муу ёрыг өвгөн ах нь мөрөөр нь мөшгиж, замаар нь дагаж явна.":
     "An old man's eyes notice not what is far, but what is wrong.",
-  "Өнгөрсөн шөнийн шуурга аав, ээжийг минь авч одсон.":
-    "Last night's storm carried away my mother and father.",
-  "Тэр салхи тэнгэрийнх бус байлаа. Хүйтэн инээдийг нь би ч бас сонссон.":
-    "That wind was not of the sky. I too heard its cold laughter.",
-  "Шөнийн үгийг үүрийн гэрэлд тайлдаг ёстой. Одоо голомтоо түшиж амар, хүү минь.":
+  "Өнгөрсөн шөнийн шуурга эцэг эхийг минь авч одов. Өвгөн ах минь, та надад туслаач.":
+    "Last night's storm carried away my mother and fatheТэр салхи энгийн салхи бус, шуналын эрчимд тэжээгдсэн шулмасын шуурга билээ. Энэ шуурганы мөрөөр дагаж, энэ хорвоог туулж явна.r.",
+  "": "That wind was not of the sky. I too heard its cold laughter.",
+  "Шөнийн аймшгийг үүрийн гэгээ тайлдаг учиртай. Голомтоо түшиж амар, хүү минь.":
     "Words spoken at night must be read in the light of dawn. Now rest by your hearth, my boy.",
-  "Нар ургахад зүүн толгодын бууцанд минь ир. Мэдсэн бүхнээ тэнд өгүүлье.":
+  "Нар ургахад зүүн толгодын бууцанд минь ир. Мэдэх бүхнээ тэнд би чамд өчье.":
     "Come to my camp by the eastern hills at sunrise. There I will tell you all I know.",
   "Өндөр наст өвгөний хөвд сахал чичирч, хүрэн бор царай нь хүйт дааж харагданa...":
     "The aged elder's mossy beard trembled, and his weathered brown face looked chilled to the bone...",
@@ -56,14 +54,14 @@ export const EN_DIALOGUE: Record<string, string> = {
     "Who raised that howling storm? What took my parents from here?",
 
   // Үүрийн цагаан гэгээ — шуурганы сураг
-  "Ирэв үү, хүү минь. Үүрийн цагаан гэгээ шөнийн мөрийг нууж амжаагүй байна.":
+  "Өглөөний салхи өнөөх шуурганы мөрийг дарж амжаагүй байна.":
     "So you came, my boy. The white light of dawn has not yet hidden the night's tracks.",
   "Та хар шуурганы учрыг хэлнэ гэсэн.":
     "You said you would explain the black storm.",
-  "Тэр хар үүл тэнгэрээс хуралдаагүй. Газрын гүнд нойрссон муу амьсгал талд сэвэлзсэн нь тэр.":
+  "Тэр хар үүл бол тэнгэрт атаархаж, газарт өсөрхсөн шулмын цээжнээс гарсан салхи сэвэлзсэн нь тэр.":
     "That black cloud did not gather in the sky. It was an evil breath, asleep deep in the earth, stirring across the steppe.",
   "Би хаанаас эхлэх вэ?": "Where do I begin?",
-  "Бууцнаас минь зүүн хойших чулуун завсарт хар үнс, хахир хүйтэн мөр үлджээ. Тэнд очоод гараар бүү хүр. Салхины эсрэг талд зогсон, юу хөдөлж буйг анзаар.":
+  "Бууцнаас минь зүүн хойших чулуун завсартХорсолт шулмасаас үлдсэн хар үнс, хачин мөр үлджээ. Тэнд очоод газарт юу үлдсэнийг нь сайтар ажиглаад ир.":
     "Northeast of my camp, in the cleft of the rocks, black ash and a bitter cold trail were left behind. Go there, but do not touch it with your hands. Stand upwind and notice what stirs.",
   "Өвгөн зүүн хойших чулуун завсрыг заав.":
     "The elder pointed to the cleft in the rocks to the northeast.",
@@ -72,23 +70,24 @@ export const EN_DIALOGUE: Record<string, string> = {
   "Мөрийг олж харав уу, хүү минь?": "Did you find the trail, my boy?",
   "Хар үнс салхины өөдөөс хөдөлж, чулуун завсраас өнөөх хүйтэн инээд сонсогдсон.":
     "The black ash moved against the wind, and that cold laughter came again from the cleft in the rocks.",
-  "Тэгвэл чи мөрийг харсан төдийгүй, мөр чамайг таньжээ.":
+  "Тэгвэл тэр өнөөх гайхлын мөр мөнөөс мөн ажээ.":
     "Then you did not merely see the trail — the trail has recognized you.",
-  "Аав, ээж минь амьд байгаа юу?": "Are my mother and father still alive?",
-  "Амьдын гол нь тасраагүй ээ, хүү минь. Гэвч хүний хөлөөр хүрдэг замд бус, ил ба далдын завсарт хүлээстэй байна.":
+  "Эцэг эх минь энх мэнд байгаа болов уу?":
+    "Are my mother and father still alive?",
+  "Эцэг эх чинь эрүүл саруул байвч хүний хөлөөр хүрдэг замд бус, ил ба далдын завсарт хүлээстэй байна.":
     "The thread of their lives is not cut, my boy. But they are bound where no human foot can walk — in the seam between the seen and the unseen.",
   "Юу гэсэн үг вэ? Тэд минь... энэ дэлхийд байхгүй гэж үү?!":
     "What do you mean? Are they... no longer in this world?!",
-  "Тэгвэл та тэднийг хаашаа одсоныг мэдэх үү?":
+  "Тэгвэл тэд маань хаашаа одсон байж таарах вэ?":
     "Then do you know where they were taken?",
   "Тэр газар нь Сүнсний орон гэж үү?": "Is that place the spirit realm?",
-  "Эртний хүмүүс тийн нэрлэдэгсэн. Түүний хаалга зоригт хүнд бус, мөрийг зөв таньсан хүнд нээгддэг юм.":
+  "Хуучин цагт тэгж нэрлэдэгсэн. Тийшээ хүрэх замыг **тэнхээтэн биш, сэхээтэн** нээдэг юм.":
     "So the ancients named it. Its gate opens not to the brave, but to the one who reads the trail rightly.",
-  "Мөр чамайг зөвшөөрвөл дараагийн замыг би нээнэ. Яарсан хөл төөрдөг, анзаарсан нүд зам олдог юм даа.":
+  "Оюунаа чи чөлөөлж чадваас, очих замыг нь би газарчилна. Хайсан хүн олдог, яарсан хүн төөрдөг юм шүү, хүү минь.":
     "If the trail accepts you, I will open the next road. A hurried foot goes astray; a watchful eye finds the way.",
 
   // Сүнсний ертөнц рүү одох
-  "Би бөөгийн толиороо орон зайн заагийг нээнэ. Тэр ертөнцөд ороход бодит дэлхийн цаг хугацаа зогсох тул чиний хонь, ямаанд аюул тохиолдохгүй, тайван явж болно. Гэвч тэнд сүнсний аюултай дайснууд хүлээж байгааг санагтун! Чи явахад бэлэн үү?":
+  "Би Өчигдрийг тольдож, өнөөдрийг зурдаг толиороо онгод тэнгэрийн заагийг нээнэ..Тэр ертөнцөд өнгөрсөн, одоо нэгэн цагт орших тул мал сүрэгтээ бүү санаа чилээ. Гэвч тэнд төөрөлдсөн олон бие буйг санагтун. Хүү минь, чи явахад бэлэн үү?":
     "With my shaman's mirror I will open the seam between the worlds. While you are there, time in this world stands still, so no harm will come to your sheep and goats — go with an easy mind. But remember: dangerous spirits wait on the other side. Are you ready to go?",
   "Би бэлэн байна, Өвгөн ахаа! Замыг минь нээж өгнө үү.":
     "I am ready, elder! Open the way for me.",
@@ -96,7 +95,7 @@ export const EN_DIALOGUE: Record<string, string> = {
     "I need more time to ready my weapons and food.",
   "Надад ямар ч аюул тохиосон хамаагүй! Би аав, ээжийгээ заавал буцааж авчирна. Би яаж тийшээ очих вэ?":
     "Whatever danger comes, I don't care! I will bring my mother and father back. How do I get there?",
-  "Тэдний цаана аав, ээжийн минь мөр байгаа бол би буцахгүй.":
+  "Тэнд эцэг эх минь буй бол би эргэж огт буцахгүй!.":
     "If my parents' trail lies beyond them, I will not turn back.",
   "Тэгвэл амьсгалаа тогтоож, харсан бүхнээ санаж яв. Яарсан гар бус, анзаарсан нүд чамайг буцааж авчирна.":
     "Then steady your breath and remember all you see. Not a hurried hand but a watchful eye will bring you back.",
