@@ -2610,20 +2610,18 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
 
   const lines: Array<[string, string]> = [
     ["WASD", t("controls.walk")],
-    ["J", t("controls.attack")],
-    ["K", t("controls.bow")],
-    ["Shift", t("controls.dodge")],
-    ["L", t("controls.parry")],
-    ["1 / 2", t("controls.weapon")],
+    ["1 + J", t("controls.attack")],
+    ["2 + J", t("controls.bow")],
+    ["3 + J", t("controls.fence")],
+    ["Space", t("controls.dodge")],
+    ["Shift", t("controls.parry")],
     ["E", t("controls.interact")],
-    ["H", t("controls.horse")],
+    ["K", t("controls.horse")],
     ["Q", t("controls.eat")],
     ["R", t("controls.rashaan")],
-    ["F", t("controls.fire")],
-    ["B", t("controls.fence")],
-    ["N", t("controls.herd")],
-    ["H", t("controls.horse")],
-    ["G", t("controls.packGer")],
+    ["L", t("controls.fire")],
+    ["H", t("controls.herd")],
+    ["H", t("controls.packGer")],
     ["Tab", t("controls.inventory")],
   ];
 
@@ -2777,7 +2775,7 @@ function bannerTheme(
         washDeep: "40,110,180",
         washLite: "140,210,255",
         particle: "220,240,255",
-        sub: "F — гал асаа · гэртээ дулаац",
+        sub: "L — гал асаа · гэртээ дулаац",
         soft: true,
         particleStyle: "snow",
       };
@@ -3218,22 +3216,32 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
   );
 
   const slots: Array<{ key: string; icon: GameIconId; active: boolean }> = [
-    { key: "J", icon: "punch", active: player.combatPhase !== "idle" },
     {
-      key: "K",
-      icon: player.gear.bow ? "bow" : "empty",
-      active: !!state.input.shoot,
+      key: "1",
+      icon: "punch",
+      active: (player.tool ?? "melee") === "melee",
     },
-    { key: "⇧", icon: "dodge", active: player.dodgePhase !== "idle" },
-    { key: "L", icon: "shield", active: player.parryPhase !== "idle" },
-    { key: "E", icon: "hand", active: false },
-    { key: "Q", icon: "berry", active: false },
     {
-      key: "F",
+      key: "2",
+      icon: player.gear.bow ? "bow" : "empty",
+      active: player.tool === "bow",
+    },
+    {
+      key: "3",
+      icon: "fence",
+      active: player.tool === "fence" || state.fencePreview,
+    },
+    { key: "J", icon: "hand", active: player.combatPhase !== "idle" },
+    { key: "␣", icon: "dodge", active: player.dodgePhase !== "idle" },
+    { key: "⇧", icon: "shield", active: player.parryPhase !== "idle" },
+    { key: "K", icon: "horse", active: player.riding },
+    {
+      key: "L",
       icon: "fire",
       active: world.campfire.lit || world.campfire.igniting > 0,
     },
-    { key: "B", icon: "fence", active: state.fencePreview },
+    { key: "E", icon: "hand", active: false },
+    { key: "Q", icon: "berry", active: false },
   ];
   if (state.spiritPoints > 0) {
     slots.push({

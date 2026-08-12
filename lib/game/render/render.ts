@@ -959,9 +959,9 @@ export function render(
       ctx.font = "600 12px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
-      ctx.strokeText("G — Гэр буулгах (мориноос)", tx, ty);
+      ctx.strokeText("H — Гэр буулгах (мориноос)", tx, ty);
       ctx.fillStyle = "#ffe9a8";
-      ctx.fillText("G — Гэр буулгах (мориноос)", tx, ty);
+      ctx.fillText("H — Гэр буулгах (мориноос)", tx, ty);
       ctx.textAlign = "left";
     } else if (
       state.story.activeMainObjective === "restoreHearth" &&
@@ -987,8 +987,8 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "E — Гэрт орох / бууж уях · G — моринд ачих"
-        : "E — Гэрт орох · G — моринд ачих";
+        ? "E — Гэрт орох · K — буух · H — моринд ачих"
+        : "E — Гэрт орох · H — моринд ачих";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#ffe9a8";
       ctx.fillText(tip, tx, ty);
@@ -1014,7 +1014,7 @@ export function render(
     } else if (callableLivestock) {
       const tx = callableLivestock.pos.x - cam.x;
       const ty = callableLivestock.pos.y - 32 - cam.y;
-      const tip = "N — Малаа туу";
+      const tip = "H — Малаа туу";
       ctx.textAlign = "center";
       ctx.font = "600 12px system-ui, sans-serif";
       ctx.strokeStyle = "rgba(0,0,0,0.75)";
@@ -1089,8 +1089,8 @@ export function render(
       ctx.strokeStyle = "rgba(0,0,0,0.7)";
       ctx.lineWidth = 3;
       const tip = state.player.riding
-        ? "H — морьноос буух"
-        : "H — морь унах";
+        ? "K — морьноос буух"
+        : "K — морь унах";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e0ff";
       ctx.fillText(tip, tx, ty);

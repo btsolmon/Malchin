@@ -2038,7 +2038,7 @@ export function drawGerInterior(
     else if (prox.nearStove)
       hint = state.gerStoveLit
         ? "E — Зууханд түлээ нэмэх"
-        : "E / F — Зууханд түлээ хийж гал асаах (3)";
+        : "E / L — Зууханд түлээ хийж гал асаах (3)";
     else if (prox.nearBed)
       hint = state.player.sleepCooldown > 0 ? "Сая унтсан…" : "E — Унтах";
     if (hint) {

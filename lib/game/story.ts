@@ -144,10 +144,10 @@ export const OBSERVE_WOLF_QUEST = {
 export const PARRY_STORY_WOLF_QUEST = {
   title: "Дайралтыг сөр",
   description:
-    "Улаан туяа цахих мөчид L / Parry дарж, дайралтыг нь няцаа.",
+    "Улаан туяа цахих мөчид Shift дарж, дайралтыг нь няцаа.",
   panelLines: [
     "Улаан туяа цахих мөчид",
-    "L / Parry дарж няцаа.",
+    "Shift дарж няцаа.",
   ],
 } as const;
 
@@ -3935,11 +3935,11 @@ export function startFamilyLifeRun(
   ensureStoryState(state);
   const story = state.story;
 
-  if (state.phase === "menu") {
-    beginOpeningSequence(state);
-  }
+  // Гаада битгий асаа — энэ зам Хангайн гэр бүлийн ая руу орно
   if (state.phase === "intro" || !story.introCompleted) {
     finishOpeningSequence(state);
+  } else if (state.phase === "menu") {
+    state.phase = "playing";
   }
 
   // —— Эртний quest-үүдийг дуусгана ——
@@ -4146,7 +4146,7 @@ export function updateLivestockRecoveryQuest(
       ) {
         continue;
       }
-      // Хашаанд ормогц олдсон/буцаасан гэж тооцно (N-ээр тууж оруулсан)
+      // Хашаанд ормогц олдсон/буцаасан гэж тооцно (H-ээр тууж оруулсан)
       if (!story.livestockFoundIds.includes(animal.id)) {
         story.livestockFoundIds.push(animal.id);
       }

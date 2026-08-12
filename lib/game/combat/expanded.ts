@@ -1184,7 +1184,7 @@ function tickCombatTimers(state: GameState, dt: number): void {
  * 1. Тулааны таймер (cooldown / anim / invuln)
  * 2. Тэнхэлийн regeneration
  * 3. Одоогийн melee / dodge / parry phase
- * 4. Buffered K/J/L/Shift оролт (recovery үед алдахгүй)
+ * 4. Buffered J/Space/Shift оролт (recovery үед алдахгүй)
  */
 export function updateCombat(state: GameState, dt: number): void {
   tickCombatTimers(state, dt);

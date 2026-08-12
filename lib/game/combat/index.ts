@@ -5,4 +5,4 @@ export {
   updateDog,
   updateProjectiles,
 } from "./expanded";
-export { trySwitchPlayerWeapon } from "./playerWeapon";
+export { trySelectTool, applySelectedToolInput } from "./playerWeapon";

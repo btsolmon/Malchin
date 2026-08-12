@@ -182,7 +182,7 @@ export function enterShulmasSpirit(state: GameState): void {
   enterSpiritWorld(state, { scout: false });
   setMessage(
     state,
-    "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум. Туслахууд голын цаана.",
+    "Шулмасын сүнсний орон… 1+J цохих, 2+J сум. Туслахууд голын цаана.",
     4.5,
   );
 }

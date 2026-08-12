@@ -56,16 +56,22 @@ export const EN_GAME: Record<string, string> = {
   "E / Enter / Space — алгасах": "E / Enter / Space — skip",
   "E / Enter / Space — оршилыг бүтнээр алгасах":
     "E / Enter / Space — skip entire intro",
-  "E / F — Гал асаах (3 түлээ)": "E / F — Light fire (3 firewood)",
+  "E / F — Гал асаах (3 түлээ)": "E / L — Light fire (3 firewood)",
+  "E / L — Гал асаах (3 түлээ)": "E / L — Light fire (3 firewood)",
   "E / F — Зууханд түлээ хийж гал асаах (3)":
-    "E / F — Add firewood and light the stove (3)",
+    "E / L — Add firewood and light the stove (3)",
+  "E / L — Зууханд түлээ хийж гал асаах (3)":
+    "E / L — Add firewood and light the stove (3)",
   "E дарж гэрийн зүг буц.": "Press E to head home.",
   "E — Mini-boss-ийн талбайг шалгах": "E — Scout the mini-boss ground",
   "E — Авдар": "E — Chest",
   "E — Гэрт орож зууханд гал асаа": "E — Enter the ger, light the stove",
-  "E — Гэрт орох · G — моринд ачих": "E — Enter ger · G — load on horse",
+  "E — Гэрт орох · G — моринд ачих": "E — Enter ger · H — load on horse",
+  "E — Гэрт орох · H — моринд ачих": "E — Enter ger · H — load on horse",
+  "E — Гэрт орох · K — буух · H — моринд ачих":
+    "E — Enter ger · K — dismount · H — load on horse",
   "E — Гэрт орох / бууж уях · G — моринд ачих":
-    "E — Enter ger / dismount, hitch · G — load on horse",
+    "E — Enter ger / dismount, hitch · H — load on horse",
   "E — Загас татах!": "E — Reel it in!",
   "E — Загас залгах!": "E — Hook the fish!",
   "E — Дэгээ залгах!": "E — Set the hook!",
@@ -93,20 +99,29 @@ export const EN_GAME: Record<string, string> = {
   "E — Өвгөнтэй ярих / арилжаа": "E — Talk to elder / trade",
   "E — Өвс хадаад тэвшид хий": "E — Cut hay into the trough",
   "E — Өвс хадах": "E — Cut hay",
-  "G — Гэр буулгах (мориноос)": "G — Unload ger (from horse)",
-  "H — морь унах": "H — mount horse",
-  "H — морьноос буух": "H — dismount horse",
-  "E — морь унах": "H — mount horse",
-  "E — морьноос буух": "H — dismount horse",
+  "G — Гэр буулгах (мориноос)": "H — Unload ger (from horse)",
+  "H — Гэр буулгах (мориноос)": "H — Unload ger (from horse)",
+  "H — морь унах": "K — mount horse",
+  "H — морьноос буух": "K — dismount horse",
+  "K — морь унах": "K — mount horse",
+  "K — морьноос буух": "K — dismount horse",
+  "E — морь унах": "K — mount horse",
+  "E — морьноос буух": "K — dismount horse",
   "J — ТӨГСГӨЛ": "J — FINISH",
   "J / Attack": "J / Attack",
   "J — Хаалга нураах": "J — Tear down gate",
   "J — Хашаа нураах": "J — Tear down fence",
-  "L дарж, дайралтыг нь няцаа.": "press L to turn its blow aside.",
-  "L / Parry дарж няцаа.": "press L / Parry to turn it aside.",
+  "Нударга сонголоо. J — цохих.": "Fists selected. J — punch.",
+  "Цохих сонголоо. J — цавчих.": "Blade selected. J — slash.",
+  "Нум сонголоо. J — харвах.": "Bow selected. J — shoot.",
+  "Хашаа сонголоо. J — барих.": "Wood selected. J — build fence.",
+  "L дарж, дайралтыг нь няцаа.": "press Shift to turn its blow aside.",
+  "L / Parry дарж няцаа.": "press Shift to turn it aside.",
+  "Shift дарж няцаа.": "press Shift to turn it aside.",
   "Mini-boss · Шулмасын баатар": "Mini-boss · Shulmas Warrior",
   "Mini-boss унав · Сэлмээ ав": "Mini-boss down · Take the sword",
-  "N — Малаа туу": "N — Herd livestock",
+  "N — Малаа туу": "H — Herd livestock",
+  "H — Малаа туу": "H — Herd livestock",
   "Posture эвдэрлээ — одоо J: амийн 1/4!":
     "Posture broken — now J: a quarter of its life!",
   "Story дууссан. Одоо сүргээ 1000 толгойд хүргэ.":
@@ -154,10 +169,14 @@ export const EN_GAME: Record<string, string> = {
   Буулаа: "Dismounted",
   "Бэлтгэл хийгээд дахин ир.": "Prepare, then come again.",
   "Бэлчээр хоосон! G-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ.":
-    "Pasture is bare! Move with G to find new grass, or wait for the season.",
+    "Pasture is bare! Move with H to find new grass, or wait for the season.",
+  "Бэлчээр хоосон! H-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ.":
+    "Pasture is bare! Move with H to find new grass, or wait for the season.",
   "Бэлчээрийн өвс бага.": "The pasture grass is running low.",
   "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (G) шинэ бэлчээр рүү нүү, эсвэл тэвш ашигла.":
-    "The pasture grass is gone! Pack the ger (G) and move on, or use the trough.",
+    "The pasture grass is gone! Pack the ger (H) and move on, or use the trough.",
+  "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (H) шинэ бэлчээр рүү нүү, эсвэл тэвш ашигла.":
+    "The pasture grass is gone! Pack the ger (H) and move on, or use the trough.",
   "Бэлчээрт үлдсэн малыг чоно идэв! Хашаанд оруул!":
     "Wolves took the livestock left on pasture! Get them in the pen!",
   "Бэлчээрт үлдсэн малыг чоно идэв! Орой бүр хашаанд оруул!":
@@ -189,13 +208,19 @@ export const EN_GAME: Record<string, string> = {
   "Гэр буулаа!": "The ger is pitched!",
   "Гэр бүл": "Family",
   "Гэр моринд ачсан — эхлээд G-ээр буулга.":
-    "The ger is on the horse — unload it with G first.",
+    "The ger is on the horse — unload it with H first.",
+  "Гэр моринд ачсан — эхлээд H-ээр буулга.":
+    "The ger is on the horse — unload it with H first.",
   "Гэр → морь": "Ger → horse",
   "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод G дарж буулга.":
-    "The ger is loaded. Find new pasture and press G to unload.",
+    "The ger is loaded. Find new pasture and press H to unload.",
+  "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод H дарж буулга.":
+    "The ger is loaded. Find new pasture and press H to unload.",
   "Гэрийн дэргэд хашаа барихгүй.": "No fence next to the ger.",
   "Гэрийнхээ дэргэд зогсоод G дар — моринд ачна.":
-    "Stand by your ger and press G — it loads onto the horse.",
+    "Stand by your ger and press H — it loads onto the horse.",
+  "Гэрийнхээ дэргэд зогсоод H дар — моринд ачна.":
+    "Stand by your ger and press H — it loads onto the horse.",
   "Гэртээ орж зууханд гал асаа": "Go inside and light the stove",
   "Гүйх хурд +12%": "Run speed +12%",
   "Дайралтыг сөр": "Parry the attack",
@@ -348,8 +373,9 @@ export const EN_GAME: Record<string, string> = {
   "E — Уургаа хүзүү рүү шид": "E — Throw lasso at the neck",
   "Морь ойрхон байх ёстой — гадаа уясан морь руу оч.":
     "A horse must be near — go to the one hitched outside.",
-  "Морь уналаа. H — буух.": "Mounted up. H — dismount.",
-  "Морь уналаа. E — буух.": "Mounted up. H — dismount.",
+  "Морь уналаа. H — буух.": "Mounted up. K — dismount.",
+  "Морь уналаа. E — буух.": "Mounted up. K — dismount.",
+  "Морь уналаа. K — буух.": "Mounted up. K — dismount.",
   "Морь уялаа": "Horse hitched",
   "Морь хамгаалав": "The horse took it",
   "Морь чинь үхлээ… Дэлгүүрээс шинийг ав.":
@@ -360,9 +386,11 @@ export const EN_GAME: Record<string, string> = {
   "Морь үхэж гэр унав! Энд буулаа — шинийг авч нүү.":
     "The horse died and the ger came down! It stands here — buy another and move.",
   "Морьноос бууж уялаа. H — дахин унах.":
-    "Dismounted and hitched. H — mount again.",
+    "Dismounted and hitched. K — mount again.",
   "Морьноос бууж уялаа. E — дахин унах.":
-    "Dismounted and hitched. H — mount again.",
+    "Dismounted and hitched. K — mount again.",
+  "Морьноос бууж уялаа. K — дахин унах.":
+    "Dismounted and hitched. K — mount again.",
   "Морьноос буулаа.": "Off the horse.",
   Мянганнаст: "Myanganast",
   "НАЯН ЕСӨН ШИДТЭЙ ТӨМӨР ШУЛМАС": "TÖMÖR SHULMAS OF EIGHTY-NINE SPELLS",
@@ -485,9 +513,11 @@ export const EN_GAME: Record<string, string> = {
     "Tömör Shulmas is off balance. J — counter blow.",
   "Улаан туяа цахих мөчид": "When the red glare flashes,",
   "Улаан туяа цахих мөчид L дарж, дайралтыг нь няцаа.":
-    "When the red glare flashes, press L to turn the blow aside.",
+    "When the red glare flashes, press Shift to turn the blow aside.",
   "Улаан туяа цахих мөчид L / Parry дарж, дайралтыг нь няцаа.":
-    "When the red glare flashes, press L / Parry to turn the blow aside.",
+    "When the red glare flashes, press Shift to turn the blow aside.",
+  "Улаан туяа цахих мөчид Shift дарж, дайралтыг нь няцаа.":
+    "When the red glare flashes, press Shift to turn the blow aside.",
   "Унаж явахад хурд +50%": "Speed +50% while riding",
   Уналаа: "Mounted",
   "Унасан баатрын дэргэд": "Take the sword left beside",
@@ -495,9 +525,11 @@ export const EN_GAME: Record<string, string> = {
     "Take the sword left beside the fallen warrior.",
   "Унах морь": "Riding horse",
   "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. H — бууж уях.":
-    "Got a riding horse! A hitching line stands west of the ger. H — dismount, hitch.",
+    "Got a riding horse! A hitching line stands west of the ger. K — dismount, hitch.",
   "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. E — бууж уях.":
-    "Got a riding horse! A hitching line stands west of the ger. H — dismount, hitch.",
+    "Got a riding horse! A hitching line stands west of the ger. K — dismount, hitch.",
+  "Унах морь авлаа! Гэрийн баруун талд уяа бослоо. K — бууж уях.":
+    "Got a riding horse! A hitching line stands west of the ger. K — dismount, hitch.",
   "Унах морь алга — авдраас ав.": "No riding horse — get one from the chest.",
   "Унтаж байна…": "Sleeping…",
   "Унтаж байна… Zzz": "Sleeping… Zzz",
@@ -542,7 +574,9 @@ export const EN_GAME: Record<string, string> = {
   "Харвах — сум хэрэгтэй (урлалаар хийнэ)":
     "Shoot — needs arrows (craft them)",
   "Харсан зүгт барина · B дахин · P цуцлах":
-    "Builds where you face · B again · P cancel",
+    "Builds where you face · J again · P cancel",
+  "Харсан зүгт барина · J дахин · P цуцлах":
+    "Builds where you face · J again · P cancel",
   "Хашаа нурлаа.": "The fence is down.",
   "Хашаа нурлаа — мал завсраар бэлчээрт гарч байна!":
     "Fence down — livestock are escaping to graze through the gap!",
@@ -639,7 +673,9 @@ export const EN_GAME: Record<string, string> = {
     "The demon's spirit path: get past the helpers and reach the cursed gate.",
   "Шулмасын сүнсний орноос буцлаа.": "Back from the demon's spirit realm.",
   "Шулмасын сүнсний орон… J — ойрын цохилт, K — сүнсний сум. Туслахууд голын цаана.":
-    "The demon's spirit realm… J — close blow, K — spirit arrow. The helpers are across the river.",
+    "The demon's spirit realm… 1+J punch, 2+J arrow. The helpers are across the river.",
+  "Шулмасын сүнсний орон… 1+J цохих, 2+J сум. Туслахууд голын цаана.":
+    "The demon's spirit realm… 1+J punch, 2+J arrow. The helpers are across the river.",
   "Шулмасын туслахууд · E — буцах": "The demon's helpers · E — back",
   "Шулмасын туслахууд унав. E — бодит ертөнц рүү буцах · хаалга руу оч.":
     "The demon's helpers have fallen. E — return to the real world · go to the gate.",
@@ -673,11 +709,17 @@ export const EN_GAME: Record<string, string> = {
     "Cast from the bank — do not step into the water.",
   "Эсгий зарах": "Sell felt",
   "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.":
-    "Mount with H first, then press G to load the ger.",
+    "Mount with K first, then press H to load the ger.",
   "Эхлээд E-ээр морь уна, дараа нь G дарж гэр ачна.":
-    "Mount with H first, then press G to load the ger.",
+    "Mount with K first, then press H to load the ger.",
+  "Эхлээд K-ээр морь уна, дараа нь G дарж гэр ачна.":
+    "Mount with K first, then press H to load the ger.",
+  "Эхлээд K-ээр морь уна, дараа нь H дарж гэр ачна.":
+    "Mount with K first, then press H to load the ger.",
   "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.":
-    "Pen the livestock first (E at the gate), then G.",
+    "Pen the livestock first (E at the gate), then H.",
+  "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь H.":
+    "Pen the livestock first (E at the gate), then H.",
   "Эхний зам цэвэрлэгдлээ. Хараалт хаалганы цаана mini-boss хүлээж байна.":
     "The first path is clear. A mini-boss waits beyond the cursed gate.",
   Ээж: "Mother",
@@ -743,7 +785,9 @@ export const EN_GAME: Record<string, string> = {
   "Өвс алга — бэлчээрээс E-ээр хад.":
     "No hay — cut some from the pasture with E.",
   "Өвс дууссан — мал өлсөж байна! G-ээр нүү эсвэл өвс өг.":
-    "Hay is gone — the livestock starve! Move with G or feed them.",
+    "Hay is gone — the livestock starve! Move with H or feed them.",
+  "Өвс дууссан — мал өлсөж байна! H-ээр нүү эсвэл өвс өг.":
+    "Hay is gone — the livestock starve! Move with H or feed them.",
   "Өвс хадгал! Өвөл ойртож байна.": "Store hay! Winter is drawing near.",
   "Өвөл бэлчээр хөлдсөн — өвс хадахгүй.":
     "Winter has frozen the pasture — no hay to cut.",
@@ -789,7 +833,8 @@ export const EN_GAME: Record<string, string> = {
   "ӨЛСӨЖ ҮХЭХ ГЭЖ БАЙНА!": "STARVING TO DEATH!",
   "ДААРЧ БАЙНА! ГАЛ ТҮЛ!": "FREEZING! LIGHT A FIRE!",
   "ХҮЙТЭНД НЭРВЭГДЭЖ БАЙНА!": "DYING OF COLD!",
-  "F — гал асаа · гэртээ дулаац": "F — light a fire · warm up in the ger",
+  "F — гал асаа · гэртээ дулаац": "L — light a fire · warm up in the ger",
+  "L — гал асаа · гэртээ дулаац": "L — light a fire · warm up in the ger",
   "МАЛ ӨЛСӨЖ БАЙНА!": "LIVESTOCK STARVING!",
   "МАЛ ӨЛСӨЖ ҮХЭЖ БАЙНА!": "LIVESTOCK DYING OF HUNGER!",
   "Q дарж ид · эсвэл малдаа өвс өг": "Press Q to eat · or feed hay",

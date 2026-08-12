@@ -529,7 +529,7 @@ export function dismountHorse(
   sfx("select");
   if (tie) {
     spawnText(state, pos, "Морь уялаа", "#c8e0ff");
-    setMessage(state, "Морьноос бууж уялаа. H — дахин унах.", 2.5);
+    setMessage(state, "Морьноос бууж уялаа. K — дахин унах.", 2.5);
   } else {
     spawnText(state, pos, "Буулаа", "#e8c56a");
     setMessage(state, "Морьноос буулаа.", 2.2);
@@ -565,7 +565,7 @@ export function tryToggleHorseMount(state: GameState): boolean {
     return true;
   }
   if (state.world.gerPacked && player.riding) {
-    setMessage(state, "Гэр моринд ачсан — эхлээд G-ээр буулга.", 2.5);
+    setMessage(state, "Гэр моринд ачсан — эхлээд H-ээр буулга.", 2.5);
     return true;
   }
 
@@ -585,7 +585,7 @@ export function tryToggleHorseMount(state: GameState): boolean {
   state.world.mountHorse = null;
   sfx("neigh");
   spawnText(state, player.pos, "Уналаа", "#e8c56a");
-  setMessage(state, "Морь уналаа. H — буух.", 2.2);
+  setMessage(state, "Морь уналаа. K — буух.", 2.2);
   return true;
 }
 
@@ -862,7 +862,7 @@ export function tryInteract(state: GameState): void {
       setMessage(
         state,
         world.pastureGrass <= 0
-          ? "Бэлчээр хоосон! G-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ."
+          ? "Бэлчээр хоосон! H-ээр нүүж шинэ бэлчээр ол, эсвэл улирал хүлээ."
           : "Бэлчээрийн өвс бага.",
         2.5,
       );
@@ -1201,14 +1201,14 @@ export function tryBuildFence(state: GameState): void {
   const { player, world } = state;
   if (player.chopCooldown > 0) return;
 
-  // Эхний B — preview; дараагийн B — бариад preview арилна
+  // Эхний J — preview; дараагийн J — бариад preview арилна
   if (!state.fencePreview) {
     state.fencePreview = true;
     state.fencePreviewAngle = angleFromOrient(
       fenceOrientFromFacing(player.facing),
     );
     state.fencePreviewOffset = { x: 0, y: 0 };
-    setMessage(state, "Харсан зүгт барина · B дахин · P цуцлах", 3);
+    setMessage(state, "Харсан зүгт барина · J дахин · P цуцлах", 3);
     return;
   }
 
@@ -1599,7 +1599,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
         world.pastureGrass = 0;
         setMessage(
           state,
-          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (G) шинэ бэлчээр рүү нүү, эсвэл тэвш ашигла.",
+          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (H) шинэ бэлчээр рүү нүү, эсвэл тэвш ашигла.",
           5,
         );
         sfx("alert");
@@ -1628,7 +1628,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
             setBannerAlert(state, "МАЛ ӨЛСӨЖ БАЙНА!", 3.8, "hunger");
             setMessage(
               state,
-              "Өвс дууссан — мал өлсөж байна! G-ээр нүү эсвэл өвс өг.",
+              "Өвс дууссан — мал өлсөж байна! H-ээр нүү эсвэл өвс өг.",
               3.5,
             );
           }
@@ -1658,9 +1658,10 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
   }
 }
 
-/** G — гэр хураах / шинэ газар буулгах */
+/** H (эсвэл G) — гэр хураах / шинэ газар буулгах */
 export function tryMigrateGer(state: GameState): void {
   if (!state.input.migrate || state.phase !== "playing") return;
+  const fromHerdKey = state.input.herd;
   state.input.migrate = false;
 
   const { player, world } = state;
@@ -1709,6 +1710,7 @@ export function tryMigrateGer(state: GameState): void {
 
   // Хураах — морьтой + мал хашаандаа
   if (!player.gear.horse || player.horseHp <= 0) {
+    if (fromHerdKey) return;
     setMessage(
       state,
       "Нүүдэлд унах морь хэрэгтэй! Авдраас морь авч, гэрээ моринд ачна.",
@@ -1717,20 +1719,23 @@ export function tryMigrateGer(state: GameState): void {
     return;
   }
   if (!player.riding) {
-    setMessage(state, "Эхлээд H-ээр морь уна, дараа нь G дарж гэр ачна.", 2.8);
+    if (fromHerdKey) return;
+    setMessage(state, "Эхлээд K-ээр морь уна, дараа нь H дарж гэр ачна.", 2.8);
     return;
   }
   if (world.flockOut || world.cattleOut) {
+    if (fromHerdKey) return;
     setMessage(
       state,
-      "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь G.",
+      "Эхлээд малыг хашаанд оруул (хаалганаас E), дараа нь H.",
       3,
     );
     return;
   }
   const ger = gerDoorPos(world);
   if (dist(player.pos, ger) > 90) {
-    setMessage(state, "Гэрийнхээ дэргэд зогсоод G дар — моринд ачна.", 2.5);
+    if (fromHerdKey) return;
+    setMessage(state, "Гэрийнхээ дэргэд зогсоод H дар — моринд ачна.", 2.5);
     return;
   }
 
@@ -1744,7 +1749,7 @@ export function tryMigrateGer(state: GameState): void {
   spawnText(state, player.pos, "Гэр → морь", "#e8c56a");
   setMessage(
     state,
-    "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод G дарж буулга.",
+    "Гэрийг моринд ачлаа. Шинэ бэлчээр олоод H дарж буулга.",
     4.5,
   );
 }

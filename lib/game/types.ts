@@ -29,6 +29,8 @@ export type GearId =
 export type CombatPhase = "idle" | "startup" | "active" | "recovery";
 export type AttackVariant = 0 | 1 | 2;
 export type PlayerWeapon = "staff" | "skySword";
+/** 1 нударга · 2 нум · 3 хашаа — J-ээр хэрэглэнэ */
+export type PlayerTool = "melee" | "bow" | "fence";
 
 /** 5 хошуу мал */
 export type LivestockKind = "sheep" | "goat" | "cattle" | "horse" | "camel";
@@ -166,6 +168,8 @@ export interface Player {
   attackHitDone: boolean;
   parryArmed: boolean;
   weapon: PlayerWeapon;
+  /** 1 / 2 / 3 — J аль үйлдэл хийх вэ */
+  tool: PlayerTool;
   hasSkySword: boolean;
   meleePhase: "idle" | "startup" | "active" | "recovery";
   meleeTimer: number;
@@ -735,20 +739,21 @@ export interface InputState {
   right: boolean;
   interact: boolean;
   attack: boolean;
-  /** J — нэг frame melee */
+  /** J — сонгосон зэвсгээр цохих / харвах / хашаа */
   attackPressed: boolean;
   /** Шинэ combat модульд зориулсан нэг удаагийн dodge оролт. */
   dodge: boolean;
-  /** Shift — булт */
+  /** Space — булт */
   dodgePressed: boolean;
   /** Шинэ combat модульд зориулсан нэг удаагийн parry оролт. */
   parry: boolean;
-  /** L — сөрөх (parry) */
+  /** Shift — сөрөх (parry) */
   parryPressed: boolean;
-  /** K — нум харвах */
+  /** Нум (2 сонгоод J, эсвэл утасны нум) */
   shoot: boolean;
+  /** L — гал түлэх */
   lightFire: boolean;
-  /** B — хашаа барих / шинэчлэх */
+  /** 3 сонгоод J — хашаа барих / шинэчлэх */
   buildFence: boolean;
   eat: boolean;
   /** R — сүнсний рашаан балгах (1 балга = бүтэн амь) */
@@ -757,17 +762,17 @@ export interface InputState {
   debugCheats: boolean;
   /** Debug — 5 дарж Төмөр шулмасын boss тулаан эхлүүлэх */
   debugBoss: boolean;
-  /** N барих — хонь туух */
+  /** H барих — хонь туух */
   herd: boolean;
-  /** G — гэр хураах / буулгах (нүүдэл) */
+  /** H (эсвэл G) — гэр хураах / буулгах (нүүдэл) */
   migrate: boolean;
-  /** H / утасны товч — морь унах / буух / уях */
+  /** K — морь унах / буух / уях */
   horseMount: boolean;
   skill1: boolean;
   skill2: boolean;
   skill3: boolean;
   skill4: boolean;
-  /** Enter/Space — меню дэх сонголт */
+  /** Enter — меню дэх сонголт; Space тоглоход булт */
   confirm: boolean;
   /** P — түр зогсоох */
   pause: boolean;

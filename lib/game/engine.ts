@@ -49,8 +49,7 @@ import {
   sfx,
   shutdownAudio,
   startMusic,
-  startFamilyLifeTheme,
-  startGaadaTheme,
+  syncStoryMusic,
   updateRiverAmbience,
   tickHoofsteps,
   tickLivestockVocal,
@@ -103,7 +102,7 @@ import {
   loadTumurShulmasSprites,
   updateTumurShulmasEncounter,
 } from "./tumurShulmas";
-import { trySwitchPlayerWeapon } from "./combat/playerWeapon";
+import { applySelectedToolInput, trySelectTool } from "./combat/playerWeapon";
 import {
   createFirstRoute,
   tryInteractFirstRoute,
@@ -314,6 +313,7 @@ export function createInitialState(): GameState {
       attackHitDone: false,
       parryArmed: false,
       weapon: "staff",
+      tool: "melee",
       hasSkySword: false,
       meleePhase: "idle",
       meleeTimer: 0,
@@ -492,6 +492,7 @@ export function createInitialState(): GameState {
 export function bindInput(
   getInput: () => InputState,
   _getFencePreview: () => boolean = () => false,
+  getPhase: () => GameState["phase"] = () => "menu",
 ): () => void {
   const setKey = (code: string, pressed: boolean, isRepeat = false): void => {
     const input = getInput();
@@ -535,31 +536,33 @@ export function bindInput(
         // ингэснээр маш богино даралт ч frame алгасахгүй
         if (pressed) input.interact = true;
         break;
-      case "KeyH":
-        if (pressed) input.horseMount = true;
-        break;
       case "Space":
-        if (pressed) input.confirm = true;
+        if (pressed) {
+          const phase = getPhase();
+          if (phase === "playing" || phase === "spirit") {
+            input.dodge = true;
+            input.dodgePressed = true;
+          } else {
+            input.confirm = true;
+          }
+        }
         break;
       case "KeyJ":
         input.attack = pressed;
         if (pressed) input.attackPressed = true;
         break;
       case "KeyK":
-        input.shoot = pressed;
+        if (pressed) input.horseMount = true;
         break;
       case "ShiftLeft":
       case "ShiftRight":
         if (pressed) {
-          input.dodge = true;
-          input.dodgePressed = true;
-        }
-        break;
-      case "KeyL":
-        if (pressed) {
           input.parry = true;
           input.parryPressed = true;
         }
+        break;
+      case "KeyL":
+        if (pressed) input.lightFire = true;
         break;
       case "Enter":
         if (pressed) input.confirm = true;
@@ -570,12 +573,6 @@ export function bindInput(
       case "Tab":
         if (pressed && !isRepeat) input.inventoryToggle = true;
         break;
-      case "KeyF":
-        if (pressed) input.lightFire = true;
-        break;
-      case "KeyB":
-        if (pressed) input.buildFence = true;
-        break;
       case "KeyQ":
         if (pressed) input.eat = true;
         break;
@@ -585,14 +582,12 @@ export function bindInput(
       case "Slash":
         if (pressed) input.debugCheats = true;
         break;
-      case "KeyN":
+      case "KeyH":
         input.herd = pressed;
+        if (pressed) input.migrate = true;
         break;
       case "KeyG":
         if (pressed) input.migrate = true;
-        break;
-      case "KeyH":
-        if (pressed) input.horseMount = true;
         break;
       case "Digit1":
       case "Numpad1":
@@ -810,10 +805,10 @@ export function update(state: GameState, dt: number): void {
   state.input.mouseMoved = false;
   state.input.mouseClicked = false;
 
-  // Талд 1 = нударга, 2 = Хөх тэнгэрийн сэлэм.
-  // Гэрийн shop дотор 1–4 нь хуучнаараа шууд худалдан авалт.
+  // 1 нударга · 2 нум · 3 хашаа — J хэрэглэнэ
   if (state.phase === "playing" || state.phase === "spirit") {
-    trySwitchPlayerWeapon(state);
+    trySelectTool(state);
+    applySelectedToolInput(state);
   }
   state.input.skill1 = false;
   state.input.skill2 = false;
@@ -1128,6 +1123,7 @@ export function mountHerderGame(
   const unbindInput = bindInput(
     () => state.input,
     () => state.fencePreview,
+    () => state.phase,
   );
 
   // Түр хөгжүүлэлтийн shortcut:
@@ -1321,12 +1317,13 @@ export function mountHerderGame(
       lastElderKey = "";
       autosaveIn = AUTOSAVE_INTERVAL;
       options.onElderUi?.({ open: false });
+      syncStoryMusic(state);
     } else if (state.requestRestart) {
       state = createInitialState();
       lastElderKey = "";
       autosaveIn = AUTOSAVE_INTERVAL;
       options.onElderUi?.({ open: false });
-      startGaadaTheme();
+      syncStoryMusic(state);
     }
 
     if (state.requestLoad) {
@@ -1335,8 +1332,7 @@ export function mountHerderGame(
         state = loaded;
         lastElderKey = "";
         options.onElderUi?.({ open: false });
-        if (state.parentsReturned) startFamilyLifeTheme();
-        else startGaadaTheme();
+        syncStoryMusic(state);
       } else {
         // Хадгалалт эвдэрсэн — цэс дээр "Үргэлжлүүлэх" харагдахаа болино
         clearSave();
@@ -1347,6 +1343,7 @@ export function mountHerderGame(
 
     const phaseBefore = state.phase;
     update(state, dt);
+    syncStoryMusic(state);
     // Play дармагц браузерийн fullscreen руу орно
     if (
       phaseBefore === "menu" &&

@@ -106,6 +106,7 @@ export function loadGame(): GameState | null {
     ...envelope.state,
     player: {
       ...envelope.state.player,
+      tool: envelope.state.player.tool ?? "melee",
       gear: {
         dog: !!gear?.dog,
         horse: !!gear?.horse,

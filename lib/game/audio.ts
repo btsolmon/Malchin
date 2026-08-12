@@ -55,6 +55,8 @@ export const audio = {
   mainBgmCrossfading: false,
   /** Одоогийн үндсэн ая: гаада мээрэн | хангай (гэр бүл) */
   mainBgmTrack: null as "gaada" | "hangai" | null,
+  /** startMainBgm үе бүрт нэмэгдэнэ — хуучин canplay callback-ийг хүчингүй болгоно */
+  mainBgmGen: 0,
   /** Төмөр шулмасын boss BGM */
   tumurBossBgm: null as HTMLAudioElement | null,
   tumurBossFadeRaf: 0,
@@ -543,9 +545,15 @@ export function morinKhuurNote(
 }
 
 export function startMusic(): void {
-  if (audio.started) return;
   ensureAudio();
   if (!audio.ctx) return;
+  if (audio.started) {
+    void audio.ctx.resume().then(() => {
+      refreshMasterGains();
+      resumeMainBgm();
+    });
+    return;
+  }
   audio.started = true;
   startGaadaTheme();
 
@@ -611,11 +619,23 @@ function mainBgmTargetVolume(): number {
 }
 
 function makeMainBgmEl(src: string): HTMLAudioElement {
-  const a = new Audio(src);
+  const a = new Audio();
   a.preload = "auto";
   a.loop = false;
   a.volume = 0;
+  a.src = src;
+  a.load();
   return a;
+}
+
+function mainBgmSrcMatches(
+  el: HTMLAudioElement | null,
+  track: "gaada" | "hangai",
+): boolean {
+  if (!el) return false;
+  const src = `${el.currentSrc || el.src || ""}`;
+  const file = track === "hangai" ? "hangai-theme" : "gaada-meeren";
+  return src.includes(file);
 }
 
 function getMainBgmPair(): {
@@ -779,40 +799,48 @@ function startMainBgm(
   introFadeSec = MAIN_BGM_INTRO_FADE_SEC,
 ): void {
   if (typeof window === "undefined" || typeof Audio === "undefined") return;
-  if (audio.mainBgmTrack === track && audio.mainBgmA) {
+  if (
+    audio.mainBgmTrack === track &&
+    mainBgmSrcMatches(audio.mainBgmA, track)
+  ) {
     syncMainBgmVolume(true);
     resumeMainBgm();
     return;
   }
   stopMainBgm();
   audio.mainBgmTrack = track;
+  const gen = ++audio.mainBgmGen;
   audio.mainBgmA = makeMainBgmEl(src);
   audio.mainBgmB = makeMainBgmEl(src);
   audio.mainBgmActive = "a";
   const a = audio.mainBgmA;
 
+  let started = false;
   const begin = (): void => {
-    if (audio.mainBgmA !== a) return;
+    if (started || audio.mainBgmGen !== gen || audio.mainBgmA !== a) return;
+    started = true;
     a.volume = 0;
     void a
       .play()
       .then(() => {
-        if (audio.mainBgmA !== a) return;
+        if (audio.mainBgmGen !== gen || audio.mainBgmA !== a) return;
         fadeMainElTo(a, mainBgmTargetVolume(), introFadeSec);
         watchMainBgmLoop();
       })
       .catch(() => {
-        // Файл байхгүй / autoplay — чимээгүй үлдээнэ
+        started = false;
       });
   };
 
+  a.addEventListener("canplay", begin, { once: true });
+  a.addEventListener("loadeddata", begin, { once: true });
   if (a.readyState >= 2) begin();
-  else a.addEventListener("canplay", begin, { once: true });
 }
 
 /** Тоглоомын үндсэн ая — Гаада мээрэн */
 export function startGaadaTheme(): void {
   ensureAudio();
+  if (!audio.started) audio.started = true;
   startMainBgm(GAADA_BGM_SRC, "gaada", MAIN_BGM_INTRO_FADE_SEC);
 }
 
@@ -826,11 +854,33 @@ export function startFamilyLifeTheme(): void {
   startMainBgm(HANGAI_BGM_SRC, "hangai", 3.6);
 }
 
+/** Төлөвөөс зөв аяг барина — шинэ тоглоом / үе давах / load */
+export function syncStoryMusic(state: {
+  parentsReturned: boolean;
+  story: { milestone8Started?: boolean; milestone8Completed?: boolean };
+}): void {
+  const family =
+    state.parentsReturned ||
+    !!state.story.milestone8Started ||
+    !!state.story.milestone8Completed;
+  const want: "gaada" | "hangai" = family ? "hangai" : "gaada";
+  if (
+    audio.mainBgmTrack === want &&
+    mainBgmSrcMatches(audio.mainBgmA, want)
+  ) {
+    return;
+  }
+  if (family) startFamilyLifeTheme();
+  else startGaadaTheme();
+}
+
 // ---------------------------------------------------------------------------
 // Төмөр шулмас boss BGM
 // ---------------------------------------------------------------------------
 
 const TUMUR_BOSS_BGM_SRC = "/assets/music/tumur-shulmas-boss.mp3";
+/** The HU — Sad But True: intro алгасаад 41с-ээс */
+const TUMUR_BOSS_START_SEC = 41;
 /** musicVol-той харьцуулсан дээд түвшин */
 const TUMUR_BOSS_BGM_LEVEL = 0.72;
 
@@ -849,6 +899,7 @@ function cancelTumurBossFade(): void {
 function disposeTumurBossBgmEl(a: HTMLAudioElement | null): void {
   if (!a) return;
   a.pause();
+  a.ontimeupdate = null;
   a.onended = null;
   a.onerror = null;
   a.removeAttribute("src");
@@ -918,16 +969,42 @@ export function startTumurBossMusic(): void {
 
   const a = new Audio(TUMUR_BOSS_BGM_SRC);
   a.preload = "auto";
-  a.loop = true;
+  a.loop = false;
   a.volume = 0;
   audio.tumurBossBgm = a;
 
+  const seekToDrop = (): void => {
+    if (a.currentTime < TUMUR_BOSS_START_SEC - 0.05) {
+      a.currentTime = TUMUR_BOSS_START_SEC;
+    }
+  };
+
+  a.ontimeupdate = (): void => {
+    if (audio.tumurBossBgm !== a) return;
+    if (a.currentTime < TUMUR_BOSS_START_SEC - 0.2) {
+      a.currentTime = TUMUR_BOSS_START_SEC;
+      return;
+    }
+    if (Number.isFinite(a.duration) && a.duration > TUMUR_BOSS_START_SEC + 1) {
+      if (a.currentTime >= a.duration - 0.2) {
+        a.currentTime = TUMUR_BOSS_START_SEC;
+      }
+    }
+  };
+  a.onended = (): void => {
+    if (audio.tumurBossBgm !== a) return;
+    a.currentTime = TUMUR_BOSS_START_SEC;
+    void a.play().catch(() => {});
+  };
+
   const play = (): void => {
     if (audio.tumurBossBgm !== a) return;
+    seekToDrop();
     void a
       .play()
       .then(() => {
         if (audio.tumurBossBgm !== a) return;
+        seekToDrop();
         fadeTumurBossBgmTo(tumurBossTargetVolume(), 1.1);
       })
       .catch(() => {
@@ -939,8 +1016,8 @@ export function startTumurBossMusic(): void {
       });
   };
 
-  if (a.readyState >= 2) play();
-  else a.addEventListener("canplay", play, { once: true });
+  if (a.readyState >= 1) play();
+  else a.addEventListener("loadedmetadata", play, { once: true });
 }
 
 /** Ялалт / тулаан төгсөхөд зөөлөн fade */
