@@ -61,7 +61,7 @@ import {
   checkFlockDefeat,
 } from "../livestock";
 import { handlePlayerDeath } from "../spirit";
-import { tr, trFormat } from "../i18n";
+import { tr, trFormat } from "../lang";
 
 export function syncVisualFlock(state: GameState): void {
   syncLivestockVisuals(state);

@@ -47,7 +47,7 @@ import {
   damageTumurShulmasFromPlayer,
   isTumurShulmasParryThreat,
 } from "../tumurShulmas";
-import { trFormat } from "../i18n";
+import { trFormat } from "../lang";
 
 type EnemyCombatPhase =
   | "chasing"

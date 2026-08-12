@@ -6,7 +6,7 @@ import { clamp, setMessage } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
 import { sipSpiritWater } from "./spirit";
-import { t } from "./i18n";
+import { t } from "./lang";
 import type { GameIconId } from "./icons";
 
 export const HOTBAR_SIZE = 4;

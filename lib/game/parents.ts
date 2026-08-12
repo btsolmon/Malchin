@@ -29,7 +29,7 @@ import {
   pushOutOfGer,
   pushOutOfUrtz,
 } from "./utils";
-import { trFormat } from "./i18n";
+import { trFormat } from "./lang";
 
 const PARENT_SPEED = 62;
 const PARENT_RADIUS = 12;

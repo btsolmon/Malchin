@@ -23,8 +23,9 @@ import {
 import { clamp, dist, normalize, setMessage } from "./utils";
 import { enterShulmasSpirit, exitSpiritWorld } from "./spirit";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
-import { trFormat } from "./i18n";
+import { trFormat } from "./lang";
 import { drawFlameArenaRing, BLUE_FIRE } from "./render/arenaFire";
+import { drawBossVitalsHud } from "./render/bossHud";
 
 function eastArenaX(y: number, margin = 170): number {
   return Math.min(
@@ -99,9 +100,9 @@ const PHASE_DURATION: Record<TumurShulmasPhase, number> = {
 };
 
 export function createTumurShulmasEncounter(): TumurShulmasEncounter {
-  // Голын зүүн эрэг — газрын зурагны хойд (дээшээ), Хараалт хаалгаас зайтай
+  // Хаалга хойд (дээшээ) — арена хуучин байрандаа өмнөд хэсэгт
   const gateY = WORLD_H * 0.3;
-  const arenaY = WORLD_H * 0.16;
+  const arenaY = WORLD_H - 360;
   const arenaCenter = {
     x: eastArenaX(arenaY, 180),
     y: arenaY,
@@ -111,7 +112,7 @@ export function createTumurShulmasEncounter(): TumurShulmasEncounter {
     gateRadius: 72,
     arenaCenter,
     arenaRadius: 285,
-    exitPos: { x: eastArenaX(gateY + 70, 155), y: gateY + 70 },
+    exitPos: { x: arenaCenter.x, y: WORLD_H - 104 },
     unlocked: false,
     active: false,
     defeated: false,
@@ -1704,55 +1705,21 @@ export function drawTumurShulmasHud(
   const encounter = state.world.tumurShulmas;
   if (!encounter.active || encounter.phase === "summoning") return;
 
-  const width = 430;
-  const height = 18;
-  const x = (VIEW_W - width) / 2;
-  const y = VIEW_H - 68;
-  const hpRatio = clamp(encounter.hp / encounter.maxHp, 0, 1);
-  const postureRatio = clamp(encounter.posture / encounter.maxPosture, 0, 1);
   const deathFade =
     encounter.phase === "death"
       ? clamp(encounter.phaseTimer / (PHASE_DURATION.death * 0.65), 0, 1)
       : 1;
 
-  ctx.save();
-  ctx.globalAlpha = deathFade;
-  ctx.textAlign = "center";
-  ctx.font = "800 13px system-ui, sans-serif";
-  ctx.strokeStyle = "rgba(0,0,0,0.9)";
-  ctx.lineWidth = 4;
-  ctx.strokeText("ТӨМӨР ШУЛМАС", VIEW_W / 2, y - 12);
-  ctx.fillStyle = encounter.bossPhase === 2 ? "#ff6d63" : "#ffaaa0";
-  ctx.fillText("ТӨМӨР ШУЛМАС", VIEW_W / 2, y - 12);
-
-  ctx.fillStyle = "rgba(8,6,8,0.85)";
-  ctx.fillRect(x - 3, y - 3, width + 6, height + 6);
-  ctx.fillStyle = "#55191f";
-  ctx.fillRect(x, y, width, height);
-  ctx.fillStyle = encounter.bossPhase === 2 ? "#dc2f38" : "#a9323a";
-  ctx.fillRect(x, y, width * hpRatio, height);
-
-  ctx.fillStyle = "rgba(8,6,8,0.88)";
-  ctx.fillRect(x, y + 24, width, 7);
-  ctx.fillStyle = "#e6bd58";
-  ctx.fillRect(x, y + 24, width * postureRatio, 7);
-
-  ctx.textAlign = "left";
-  ctx.font = "700 11px system-ui, sans-serif";
-  ctx.fillStyle = "#cceeff";
-  ctx.fillText(
-    trFormat("Төмөр хаалт: {n}", { n: encounter.ward }),
-    x,
-    y - 12,
-  );
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#ffd6d1";
-  ctx.fillText(
-    trFormat("Үе {n}", { n: encounter.bossPhase }),
-    x + width,
-    y - 12,
-  );
-  ctx.restore();
+  drawBossVitalsHud(ctx, {
+    name: "Төмөр шулмас",
+    nameColor: encounter.bossPhase === 2 ? "#ff7a72" : "#ffc0b8",
+    hpRatio: clamp(encounter.hp / encounter.maxHp, 0, 1),
+    postureRatio: clamp(encounter.posture / encounter.maxPosture, 0, 1),
+    hpFill: encounter.bossPhase === 2 ? "#e03842" : "#c44a5c",
+    leftMeta: trFormat("Хаалт {n}", { n: encounter.ward }),
+    rightMeta: trFormat("Үе {n}", { n: encounter.bossPhase }),
+    alpha: deathFade,
+  });
 }
 
 export function drawTumurShulmasHint(

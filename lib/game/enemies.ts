@@ -54,7 +54,7 @@ import {
 } from "./livestock";
 import { updateWolves as updateCombatWolves } from "./combat/enemyBehaviors";
 import { handlePlayerDeath } from "./spirit";
-import { trFormat } from "./i18n";
+import { trFormat } from "./lang";
 
 function enemyCombatLocksMovement(
   phase: Wolf["combatPhase"] | Thief["combatPhase"] | undefined,

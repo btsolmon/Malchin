@@ -411,6 +411,9 @@ export const EN_GAME: Record<string, string> = {
   "Морьноос буулаа.": "Off the horse.",
   Мянганнаст: "Myanganast",
   "ТӨМӨР ШУЛМАС": "IRON SHULMAS",
+  "Төмөр шулмас": "Iron Shulmas",
+  "Амь": "HP",
+  "Тэнцвэр": "Posture",
   "Нар жаргаж байна! Малаа хашаанд оруул — чоно ирнэ!":
     "The sun is setting! Pen your livestock — the wolves come!",
   "Нар жаргаж байна! Малаа заавал хашаанд оруул — чоно ирнэ!":
@@ -676,6 +679,7 @@ export const EN_GAME: Record<string, string> = {
     "The wolf is down! Go to the elder by the hearth.",
   "Чонын хөдөлгөөнийг ажигла": "Watch the wolf's moves",
   "ДОЛООН ТОЛГОЙТОЙ ДОГОЛОН ХАР МАНГАС": "THE SHULMAS WARRIOR",
+  "Долоон толгойтой доголон хар мангас": "Seven-headed lame black mangas",
   "ДООД ТИВ": "THE LOWER CONTINENT",
   "Шаардлагатай XP": "XP needed",
   "Шар туяа тодрох үед J дарж,": "When the yellow glow rises, press J",

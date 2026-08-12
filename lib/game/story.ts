@@ -48,7 +48,7 @@ import {
   exitSpiritWorld,
   stashSpiritVisitSnapshot,
 } from "./spirit";
-import { tr, trFormat } from "./i18n";
+import { tr, trFormat } from "./lang";
 import {
   clamp,
   dist,

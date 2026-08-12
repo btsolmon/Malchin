@@ -8,7 +8,7 @@ import {
   type ElderCultureQuestion,
 } from "./elderQuizData";
 import { setMessage } from "./utils";
-import { tr, trFormat } from "./i18n";
+import { tr, trFormat } from "./lang";
 import type { GameState } from "./types";
 
 export type ElderQuizFeedback = "idle" | "correct" | "wrong";

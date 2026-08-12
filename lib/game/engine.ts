@@ -109,7 +109,7 @@ import {
 } from "./firstRoute";
 import { clearSave, loadGame, saveGame } from "./save";
 import { captureRecords, hasCompletedStory } from "./records";
-import { loadLangSetting } from "./i18n";
+import { loadLangSetting } from "./lang";
 import { localizeCanvasText } from "./locale/canvasText";
 import { preloadGameIcons } from "./icons";
 

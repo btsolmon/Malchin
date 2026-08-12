@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ElderUiState } from "@/lib/game/elder";
-import { tr, trFormat } from "@/lib/game/i18n";
+import { tr, trFormat } from "@/lib/game/lang";
 import GameIcon from "@/components/GameIcon";
 
 interface ElderModalProps {

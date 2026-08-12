@@ -23,11 +23,12 @@ import {
 import { gainXp } from "./player";
 import { clamp, dist, normalize, setMessage } from "./utils";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
+import { drawBossVitalsHud } from "./render/bossHud";
 import { tryInteractTumurShulmasGate } from "./tumurShulmas";
-import { drawOngodDemon } from "./render/ongodDemons";
+import { drawDemon } from "./render/demons";
 import { drawSkySwordSprite } from "./render/entities";
 import { drawFlameArenaRing, ORANGE_FIRE } from "./render/arenaFire";
-import { tr, trFormat } from "./i18n";
+import { tr, trFormat } from "./lang";
 import { handlePlayerDeath } from "./spirit";
 
 /** Голын зүүн эрэг — туслахууд энд зогсоно */
@@ -251,10 +252,10 @@ export function createFirstRoute(spawn: Vector2): FirstRoute {
   // Хар могой + өмнөх мангасууд — зэрэг
   const enemies = createHelperEnemies(spawn);
 
-  // Газрын зурагны өмнөд (доошоо) — Хар төмөр хаалгаас зайтай
+  // Хаалга өмнөд (доошоо) — арена хуучин байрандаа
   const gateY = WORLD_H * 0.7;
   const gateX = eastOfRiver(gateY, 140);
-  const arenaY = WORLD_H * 0.86;
+  const arenaY = WORLD_H - 380;
   const arenaX = eastOfRiver(arenaY, 160);
 
   return {
@@ -308,12 +309,12 @@ export function ensureShulmasHelpers(state: GameState): void {
   route.active = true;
   route.introductionShown = false;
 
-  // Хаалга/ареныйг өмнөд хэсэгт тогтооно (Хар төмөр хаалгаас зайтай)
+  // Хаалга өмнөд — арена хуучин байрандаа
   const gateY = WORLD_H * 0.7;
   route.gatePos = { x: eastOfRiver(gateY, 140), y: gateY };
   route.startX = clamp(riverCenterX(spawn.y) - 40, 80, WORLD_W - 80);
   if (!route.bossStarted) {
-    const arenaY = WORLD_H * 0.86;
+    const arenaY = WORLD_H - 380;
     route.arenaCenter = { x: eastOfRiver(arenaY, 160), y: arenaY };
     route.swordDrop.pos = { ...route.arenaCenter };
     route.swordDrop.visible = false;
@@ -2314,7 +2315,7 @@ export function drawRouteEnemy(
   if (enemy.kind === "harMogoi") {
     drawHarMogoiBody(ctx, enemy, flash, time);
   } else {
-    drawOngodDemon(ctx, enemy, flash, time);
+    drawDemon(ctx, enemy, flash, time);
   }
 
   if (enemy.phase === "stunned" && !enemy.awaitingCrush) {
@@ -2888,54 +2889,13 @@ export function drawMiniBossHud(
   );
   if (!boss) return;
 
-  const width = Math.min(500, VIEW_W - 80);
-  const x = (VIEW_W - width) / 2;
-  const y = VIEW_H - 54;
-  const hpRatio = clamp(boss.hp / boss.maxHp, 0, 1);
-  const postureRatio = clamp(
-    boss.posture / boss.maxPosture,
-    0,
-    1,
-  );
-  ctx.save();
-  ctx.fillStyle = "rgba(12,8,14,0.84)";
-  ctx.fillRect(x - 16, y - 24, width + 32, 66);
-  ctx.strokeStyle = "rgba(199,154,226,0.58)";
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x - 16, y - 24, width + 32, 66);
-  ctx.textAlign = "center";
-  ctx.font = "800 11px system-ui, sans-serif";
-  ctx.fillStyle = "#ead9f1";
-  ctx.fillText("ДОЛООН ТОЛГОЙТОЙ ДОГОЛОН ХАР МАНГАС", VIEW_W / 2, y - 7);
-  ctx.fillStyle = "rgba(0,0,0,0.72)";
-  ctx.fillRect(x, y, width, 13);
-  ctx.fillStyle = "#b43f53";
-  ctx.fillRect(x, y, width * hpRatio, 13);
-  ctx.fillStyle = "rgba(0,0,0,0.72)";
-  ctx.fillRect(x, y + 20, width, 7);
-  ctx.fillStyle = "#d8b84f";
-  ctx.fillRect(x, y + 20, width * postureRatio, 7);
-  ctx.textAlign = "left";
-  ctx.font = "600 10px system-ui, sans-serif";
-  ctx.fillStyle = "#f3d9dc";
-  ctx.fillText(
-    trFormat("Амьдрал {hp} / {max}", {
-      hp: Math.ceil(boss.hp),
-      max: boss.maxHp,
-    }),
-    x + 5,
-    y + 11,
-  );
-  ctx.fillStyle = "#ffe39a";
-  ctx.fillText(
-    trFormat("Биеийн тэнцвэр {hp} / {max}", {
-      hp: Math.ceil(boss.posture),
-      max: boss.maxPosture,
-    }),
-    x + 5,
-    y + 27,
-  );
-  ctx.restore();
+  drawBossVitalsHud(ctx, {
+    name: "Долоон толгойтой доголон хар мангас",
+    nameColor: "#f0e0f8",
+    hpRatio: clamp(boss.hp / boss.maxHp, 0, 1),
+    postureRatio: clamp(boss.posture / boss.maxPosture, 0, 1),
+    hpFill: "#c44a5c",
+  });
 }
 
 export function drawFirstRouteGate(

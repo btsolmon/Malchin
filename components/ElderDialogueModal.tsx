@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DialogueBeat, ElderChoiceId } from "@/lib/game/elder";
 import { speakerLabel } from "@/lib/game/elder";
-import { tr, trFormat } from "@/lib/game/i18n";
+import { tr, trFormat } from "@/lib/game/lang";
 import DialoguePortrait from "@/components/DialoguePortrait";
 
 interface ElderDialogueModalProps {

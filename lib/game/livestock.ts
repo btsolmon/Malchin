@@ -34,7 +34,7 @@ import {
 } from "./utils";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
-import { trFormat } from "./i18n";
+import { trFormat } from "./lang";
 
 export function emptyCounts(): Record<LivestockKind, number> {
   return { sheep: 0, goat: 0, cattle: 0, horse: 0, camel: 0 };

@@ -60,7 +60,7 @@ lib/game/     тоглоомын логик (37 модуль)
   ui.ts         меню, HUD, дэлгүүр, minimap
   render/       зурах давхаргууд
   combat/       тулааны систем
-  i18n.ts       хэлний толь
+  lang.ts       хэлний толь (орчуулга)
   save.ts       хадгалалт
 components/   React дээрх modal-ууд (өвгөний харилцан яриа)
 app/          Next.js хуудас

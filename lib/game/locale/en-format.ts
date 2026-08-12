@@ -111,6 +111,7 @@ export const EN_FORMAT: Record<string, string> = {
     "The great blow is hurled back! −{dmg}",
   "Баавгайн posture: {have}/{max}": "Bear posture: {have}/{max}",
   "Амь {hp} / {max}": "Health {hp} / {max}",
+  "Тэнцвэр {hp} / {max}": "Posture {hp} / {max}",
   "Биеийн тэнцвэр {hp} / {max}": "Posture {hp} / {max}",
 
   // Эхний зам ба Төмөр шулмас
@@ -123,6 +124,7 @@ export const EN_FORMAT: Record<string, string> = {
     "Cursed gate is locked. {n} enemies left.",
   "Төмөр шулмас · Үе {n}": "Tömör Shulmas · Phase {n}",
   "Үе {n}": "Phase {n}",
+  "Хаалт {n}": "Ward {n}",
   "Төмөр хаалт: {n}": "Iron ward: {n}",
   "ХАЛХАВЧЛАХ ТӨМӨР {have}/{max}": "IRON WARD {have}/{max}",
 

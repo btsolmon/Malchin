@@ -33,7 +33,7 @@ import {
   HOTBAR_SIZE,
 } from "./hotbar";
 import { advanceToMorning } from "../game/daycycle";
-import { getLang, langLabel, setLang, t, tr, trFormat } from "./i18n";
+import { getLang, langLabel, setLang, t, tr, trFormat } from "./lang";
 import { hasAnyRecord, hasCompletedStory, loadRecords } from "./records";
 import { clearSave, hasSave } from "./save";
 import { DESERT_Y, FOREST_Y, RIVER_HALF_W, riverCenterX } from "./biomes";
@@ -2671,23 +2671,11 @@ export function drawMenuSettings(
 
 export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
   ensureMenuDisplayFont();
-  ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  drawGoldGlowText(
-    ctx,
-    t("controls.title"),
-    VIEW_W / 2,
-    72,
-    `28px ${menuDisplayFamily()}`,
-    { blur: 14 },
-  );
-  ctx.textAlign = "left";
 
   const lines: Array<[string, string]> = [
     ["WASD", t("controls.walk")],
-    ["1–4", t("controls.weapon")],
     ["J", t("controls.attack")],
-    ["J", t("controls.bow")],
     ["Shift", t("controls.dodge")],
     ["Space", t("controls.parry")],
     ["E", t("controls.interact")],
@@ -2699,49 +2687,63 @@ export function drawMenuControls(ctx: CanvasRenderingContext2D): void {
     ["Tab", t("controls.bag")],
   ];
 
-  const cols = 2;
-  const perCol = Math.ceil(lines.length / cols);
-  const rowH = 24;
-  const padX = 16;
-  const padY = 14;
-  const boxW = Math.min(820, VIEW_W - 48);
-  const boxH = perCol * rowH + padY * 2;
+  const rowH = 28;
+  const padX = 36;
+  const padY = 20;
+  const keyGap = 18;
+  const titleGap = 28;
+
+  ctx.font = `700 13px ${menuUiFamily()}`;
+  let maxKeyW = 0;
+  for (const [key] of lines) {
+    maxKeyW = Math.max(maxKeyW, ctx.measureText(key).width);
+  }
+  ctx.font = `13px ${menuUiFamily()}`;
+  let maxDescW = 0;
+  for (const [, desc] of lines) {
+    maxDescW = Math.max(maxDescW, ctx.measureText(desc).width);
+  }
+
+  const contentW = maxKeyW + keyGap + maxDescW;
+  const boxW = Math.min(VIEW_W - 48, contentW + padX * 2);
+  const boxH = lines.length * rowH + padY * 2;
+  const blockH = 36 + titleGap + boxH;
+  const blockTop = Math.max(56, (VIEW_H - blockH) / 2);
+  const titleY = blockTop + 28;
   const bx = (VIEW_W - boxW) / 2;
-  const by = 92;
-  const colW = (boxW - padX * 2) / cols;
-  const keyColW = 78;
+  const by = titleY + titleGap;
+  const contentX = bx + (boxW - contentW) / 2;
+
+  ctx.textAlign = "center";
+  drawGoldGlowText(
+    ctx,
+    t("controls.title"),
+    VIEW_W / 2,
+    titleY,
+    `28px ${menuDisplayFamily()}`,
+    { blur: 14 },
+  );
 
   ctx.fillStyle = "rgba(12,10,8,0.72)";
-  roundRectPath(ctx, bx, by, boxW, boxH, 10);
+  roundRectPath(ctx, bx, by, boxW, boxH, 12);
   ctx.fill();
-  ctx.strokeStyle = "rgba(232,197,106,0.25)";
+  ctx.strokeStyle = "rgba(232,197,106,0.28)";
   ctx.lineWidth = 1;
-  roundRectPath(ctx, bx, by, boxW, boxH, 10);
+  roundRectPath(ctx, bx, by, boxW, boxH, 12);
   ctx.stroke();
 
   lines.forEach(([key, desc], i) => {
-    const col = Math.floor(i / perCol);
-    const row = i % perCol;
-    const x0 = bx + padX + col * colW;
-    const ly = by + padY + 16 + row * rowH;
-    const descMaxW = colW - keyColW - 12;
+    const ly = by + padY + 18 + i * rowH;
 
     ctx.textAlign = "right";
     ctx.fillStyle = COLORS.hudAccent;
-    ctx.font = `700 12px ${menuUiFamily()}`;
-    ctx.fillText(key, x0 + keyColW, ly);
+    ctx.font = `700 13px ${menuUiFamily()}`;
+    ctx.fillText(key, contentX + maxKeyW, ly);
 
     ctx.textAlign = "left";
     ctx.fillStyle = COLORS.hudText;
-    ctx.font = `12px ${menuUiFamily()}`;
-    let text = desc;
-    if (ctx.measureText(text).width > descMaxW) {
-      while (text.length > 1 && ctx.measureText(`${text}…`).width > descMaxW) {
-        text = text.slice(0, -1);
-      }
-      text = `${text}…`;
-    }
-    ctx.fillText(text, x0 + keyColW + 10, ly);
+    ctx.font = `13px ${menuUiFamily()}`;
+    ctx.fillText(desc, contentX + maxKeyW + keyGap, ly);
   });
 
   drawBackHint(ctx, Math.min(VIEW_H - 24, by + boxH + 28));

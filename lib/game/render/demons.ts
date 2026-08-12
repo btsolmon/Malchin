@@ -1032,7 +1032,7 @@ type Weapon = "spear" | "claws" | "bow" | "hammer" | "greatsword";
 type HairStyle = "curly" | "tuft" | "topknot";
 type SkinTone = "grey" | "red" | "green" | "blue";
 
-interface OngodStyle {
+interface DemonStyle {
   scale: number;
   headGear: HeadGear;
   weapon: Weapon;
@@ -1041,7 +1041,7 @@ interface OngodStyle {
   skin: SkinTone;
 }
 
-const STYLE: Record<RouteEnemyKind, OngodStyle> = {
+const STYLE: Record<RouteEnemyKind, DemonStyle> = {
   zurgaanNar: {
     scale: 1.1,
     headGear: "none",
@@ -1152,7 +1152,7 @@ function palette(
   };
 }
 
-function drawOngodWeapon(
+function drawDemonWeapon(
   ctx: CanvasRenderingContext2D,
   weapon: Weapon,
   flash: boolean,
@@ -1382,7 +1382,7 @@ function drawHair(
  * Мангас — том хамар, ярвайсан уруул, том чих, буржгар үс.
  * Алхалт аав ээж шиг walkPhase-аар.
  */
-function drawOngodHumanoid(
+function drawDemonHumanoid(
   ctx: CanvasRenderingContext2D,
   enemy: RouteEnemy,
   flash: boolean,
@@ -1715,12 +1715,12 @@ function drawOngodHumanoid(
     ctx.stroke();
   }
 
-  drawOngodWeapon(ctx, style.weapon, flash, enemy.phase, enemy.attackKind, animT);
+  drawDemonWeapon(ctx, style.weapon, flash, enemy.phase, enemy.attackKind, animT);
 
   ctx.restore();
 }
 
-export function drawOngodDemon(
+export function drawDemon(
   ctx: CanvasRenderingContext2D,
   enemy: RouteEnemy,
   flash: boolean,
@@ -1739,7 +1739,7 @@ export function drawOngodDemon(
     return;
   }
   if (enemy.kind === "shulmasynHuu" || enemy.kind === "shidetHarvaach") {
-    drawOngodHumanoid(ctx, enemy, flash, time);
+    drawDemonHumanoid(ctx, enemy, flash, time);
     return;
   }
   // Хуучин save / бусад

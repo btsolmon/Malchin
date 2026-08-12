@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { mountHerderGame, type HerderGameHandle } from "@/lib/game";
-import { tr } from "@/lib/game/i18n";
+import { tr } from "@/lib/game/lang";
 import type { ElderChoiceId, ElderUiSnapshot, ElderUiState } from "@/lib/game/elder";
 import ElderDialogueModal from "@/components/ElderDialogueModal";
 import ElderModal from "@/components/ElderModal";

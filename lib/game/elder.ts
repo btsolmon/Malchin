@@ -2,7 +2,7 @@
 
 import { sfx } from "./audio";
 import { spawnText } from "./effects";
-import { tr, trFormat } from "./i18n";
+import { tr, trFormat } from "./lang";
 import { ensureShulmasHelpers } from "./firstRoute";
 import {
   clearElderQuiz,

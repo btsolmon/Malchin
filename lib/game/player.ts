@@ -94,7 +94,7 @@ import {
   tryCallOpeningLivestock,
   tryInspectStormTrace,
 } from "./story";
-import { tr, trFormat } from "./i18n";
+import { tr, trFormat } from "./lang";
 import { handlePlayerDeath } from "./spirit";
 
 export const SKILL_POOL: Skill[] = [

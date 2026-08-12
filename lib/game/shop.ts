@@ -10,7 +10,7 @@ import {
   type LivestockKind,
 } from "./types";
 import { setMessage } from "./utils";
-import { tr, trFormat } from "./i18n";
+import { tr, trFormat } from "./lang";
 
 export type ShopItem =
   | {

@@ -31,7 +31,7 @@ import {
 import { addLivestock, killHerdVisual, loseLivestock } from "./livestock";
 import { spawnParticles, spawnText } from "./effects";
 import { sfx } from "./audio";
-import { trFormat } from "./i18n";
+import { trFormat } from "./lang";
 
 /** Бодит секундэд нэг өдөр — timeOfDay += dt * TIME_RATE */
 export const TIME_RATE = 24 / DAY_LENGTH_SEC;
