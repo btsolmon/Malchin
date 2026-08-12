@@ -23,7 +23,7 @@ export const EN_FORMAT: Record<string, string> = {
   // Өдөр, улирал, бэлчээр
   "Өдөр {day}. {hint}": "Day {day}. {hint}",
   "Өдөр {day}: сүрэг +{n}. {hint}": "Day {day}: herd +{n}. {hint}",
-  "Хавар — бэлчээр ургалаа ({grass}). Мал өснө · ямааны ноолуур энэ улиралд!":
+  "Хавар -- болж өвс нахиалав ({grass}). Мал өснө · ямааны ноолуур энэ улиралд!":
     "Spring — pasture grew ({grass}). Herd grows · goat cashmere this season!",
   "Зун — бэлчээр дүүрэн ({grass}). Хоньны ноос энэ улиралд · мал бэлчээрт идүүлъя!":
     "Summer — pasture full ({grass}). Sheep wool this season · graze the herd!",
@@ -41,12 +41,11 @@ export const EN_FORMAT: Record<string, string> = {
   "Мал {n} хоног хашаандаа байлаа — өлсөж үхэв! Өглөө бүр бэлчээрт гарга.":
     "Livestock stayed penned {n} days — starved! Let them out every morning.",
   "+{n} төллөлт": "+{n} births",
-  "Хавар төллөлт! +{n} залуу мал — шөнө дулаан байлга (гал/хашаа).":
+  "Хавар төллөлт! +{n} Нялх төл — шөнө дулаан байлга (гал/хашаа).":
     "Spring births! +{n} young — keep them warm at night (fire/fence).",
   "Өвс дүүрэн ({max}).": "Hay full ({max}).",
   "+{n} өвс → тэвш": "+{n} hay → trough",
-  "Тэвшид {n} өвс хийлээ ({have}/{max})":
-    "Put {n} hay in the trough ({have}/{max})",
+  " {n} өвс хийлээ ({have}/{max})": "Put {n} hay in the trough ({have}/{max})",
   "{who} {name} барив!": "{who} caught a {name}!",
   "Сүрэг: {have} / 1000": "Herd: {have} / 1000",
   "Олсон мал: {have} / {total}": "Found: {have} / {total}",
@@ -77,7 +76,7 @@ export const EN_FORMAT: Record<string, string> = {
   "E — Жимс түүх ({n})": "E — Pick berries ({n})",
   "E — Бүх жимс түүх ({n})": "E — Pick all berries ({n})",
   "E — Чулуу түүх ({n})": "E — Gather stone ({n})",
-  "E — Тэвшид өвс хийх ({n})": "E — Hay into trough ({n})",
+  "E —  өвс хийх ({n})": "E — Hay into trough ({n})",
   "E — Хараалт хаалга ({n} үлдсэн)": "E — Cursed gate ({n} left)",
 
   // Худалдаа
@@ -88,41 +87,38 @@ export const EN_FORMAT: Record<string, string> = {
   "{name} авлаа! (−{price})": "Bought {name}! (−{price})",
   "{name} худалдаж авлаа!": "Bought {name}!",
   "{name} худалдаж авлаа! (+1 {kind})": "Bought {name}! (+1 {kind})",
-  "Зоос хүрэхгүй — {price} зоос хэрэгтэй.":
-    "Not enough coins — need {price}.",
+  "Зоос хүрэхгүй — {price} зоос хэрэгтэй.": "Not enough coins — need {price}.",
   "Зоос хүрэхгүй — {price} зоос хэрэгтэй. (Одоо: {have})":
     "Not enough coins — need {price}. (Now: {have})",
 
   // Хулгайч, чоно
   "Чоно {n}": "Wolves {n}",
   "Хулгайч (−{n})": "Thief (−{n})",
-  "Хулгайч {n} мал авч зугтав! Гүйцэж ав!":
-    "Thief stole {n} livestock! Chase him!",
-  "Хулгайч {n} хонь авч зугтав! Гүйцэж ав!":
-    "Thief stole {n} sheep! Chase him!",
-  "Хулгайч зугтав… {n} мал үгүй болов.": "Thief escaped… {n} livestock lost.",
-  "Хулгайч зугтав… {n} хонь үгүй болов.": "Thief escaped… {n} sheep lost.",
+  "Хулгайч {n} мал авч зугтав! Гүйц!": "Thief stole {n} livestock! Chase him!",
+  "Хулгайч {n} хонь авч зугтав! Гүйц!": "Thief stole {n} sheep! Chase him!",
+  "Хулгайч зугтав… {n} Мал хорогдов.": "Thief escaped… {n} livestock lost.",
+  "Хулгайч зугтав… {n} Хонь хорогдов.": "Thief escaped… {n} sheep lost.",
   "−{n} хонь!": "−{n} sheep!",
   "Хашаа хулгайчийг зогсоов! +{n} мал":
     "Fence stopped the thief! +{n} livestock",
-  "Мал буцааж авлаа! +{n} хонь": "Livestock recovered! +{n} sheep",
+  "Малaa буцааж авлаа! +{n} хонь": "Livestock recovered! +{n} sheep",
   "+{n} мал · +{xp} XP": "+{n} livestock · +{xp} XP",
   "+{n} хонь · +{xp} XP": "+{n} sheep · +{xp} XP",
 
   // Тулаан
   "СӨРӨГ ЦОХИЛТ! −{dmg}": "COUNTER! −{dmg}",
-  "Ирсэн их аюулыг эгц өөд нь буцаав! −{dmg}":
+  "Ирсэн аюулыг эгц өөд нь буцаав! −{dmg}":
     "The great blow is hurled back! −{dmg}",
   "Баавгайн posture: {have}/{max}": "Bear posture: {have}/{max}",
-  "Амьдрал {hp} / {max}": "Health {hp} / {max}",
+  "Амь {hp} / {max}": "Health {hp} / {max}",
   "Биеийн тэнцвэр {hp} / {max}": "Posture {hp} / {max}",
 
   // Эхний зам ба Төмөр шулмас
   "Эхний зам {have}/{total}": "First road {have}/{total}",
   "Сахиул: {have} / {total}": "Guardians: {have} / {total}",
-  "{name} тулалдаанд орлоо.": "{name} joins the fight.",
+  "{name}- Дайрч байна.": "{name} joins the fight.",
   "{name}-д ялагдлаа…": "Defeated by {name}…",
-  "{name}-ын сүнс одлоо.": "{name}'s spirit departs.",
+  "{name}-ын сүнс дээш одов.": "{name}'s spirit departs.",
   "Хараалт хаалга түгжээтэй. Замын {n} дайсан үлдлээ.":
     "Cursed gate is locked. {n} enemies left.",
   "Төмөр шулмас · Үе {n}": "Tömör Shulmas · Phase {n}",
