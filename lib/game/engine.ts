@@ -124,6 +124,7 @@ import {
   retreatElderDialogue,
   setElderTab,
   startElderDialogue,
+  tickElderHitFlash,
   tradeWithElder,
   type ElderChoiceId,
   type ElderTab,
@@ -573,6 +574,8 @@ export function bindInput(
       case "KeyJ":
         input.attack = pressed;
         if (pressed) input.attackPressed = true;
+        // Нум: суллахад shoot унтраана — үгүй бол bowChargeLock гацаад дахин харваж чадахгүй
+        if (!pressed) input.shoot = false;
         break;
       case "KeyK":
         input.herd = pressed;
@@ -1021,6 +1024,7 @@ export function update(state: GameState, dt: number): void {
   }
 
   updateEffects(state, dt);
+  tickElderHitFlash(state, dt);
 
   // Нэг удаагийн үйлдлийн товчнуудыг frame бүрийн төгсгөлд цэвэрлэнэ
   state.input.interact = false;

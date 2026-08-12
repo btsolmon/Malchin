@@ -9,6 +9,7 @@ import { createDefaultHotbar, HOTBAR_SIZE, type HotbarItemId } from "./hotbar";
 
 const HOTBAR_IDS = new Set<HotbarItemId | null>([
   "melee",
+  "skySword",
   "bow",
   "fence",
   "stone",
@@ -23,6 +24,7 @@ const HOTBAR_IDS = new Set<HotbarItemId | null>([
 function normalizeHotbar(
   raw: unknown,
   hasBow = false,
+  hasSkySword = false,
 ): Array<HotbarItemId | null> {
   if (!Array.isArray(raw) || raw.length !== HOTBAR_SIZE) {
     return createDefaultHotbar();
@@ -31,6 +33,7 @@ function normalizeHotbar(
     if (!HOTBAR_IDS.has(id as HotbarItemId | null)) return null;
     const item = id as HotbarItemId | null;
     if (item === "bow" && !hasBow) return null;
+    if (item === "skySword" && !hasSkySword) return null;
     return item;
   });
 }
@@ -157,6 +160,7 @@ export function loadGame(): GameState | null {
     hotbar: normalizeHotbar(
       envelope.state.hotbar,
       !!envelope.state.player.gear?.bow,
+      !!envelope.state.player.hasSkySword,
     ),
     hotbarSelected: envelope.state.hotbarSelected ?? 0,
     hotbarInvIndex: 0,

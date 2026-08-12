@@ -16,6 +16,11 @@ export function applySelectedToolInput(state: GameState): void {
     }
     return;
   }
+  // Нум биш зэвсэг сонгоход keyboard-аас үлдсэн shoot гацааг цэвэрлэнэ
+  // (утасны shoot товч setTouchHold-оор удирдагдана)
+  if (input.attack || input.attackPressed) {
+    input.shoot = false;
+  }
   if (tool === "fence") {
     if (input.attackPressed) input.buildFence = true;
     input.attack = false;

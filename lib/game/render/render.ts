@@ -4,7 +4,14 @@ import { drawHud, drawMinimap, drawThreatArrows } from "../ui";
 import { tr, trFormat } from "../i18n";
 import { canHarvestHay, clamp, dist, fenceOrientFromFacing, fencePlacePos, FLOCK_GATE_RADIUS, flockGatePos, gerDoorPos, nearestPenGate, pastureCenter, randRange } from "../utils";
 import { drawBear, drawBerryBush, drawCampfire, drawDismantledGer, drawDog, drawElder, drawFeeder, drawFence, drawFenceGhost, drawFish, drawFishingRod, drawGer, drawHorse, drawHorseHitch, drawHorseLasso, drawParentNpc, drawPlayer, drawProjectile, drawSheep, drawThief, drawTree, drawWildHorse, drawWolf, drawWorldStone } from "./entities";
-import { horseHitchRail, nearestAliveTree, nearestBerryBush, nearestGatherableStone, nearMountHorse } from "../player";
+import {
+  horseHitchRail,
+  nearestAliveTree,
+  nearestBerryBush,
+  nearestGatherableStone,
+  nearDog,
+  nearMountHorse,
+} from "../player";
 import {
   fishKindInfo,
   fishMouthPos,
@@ -766,12 +773,6 @@ export function render(
         const hx = mh.pos.x - cam.x;
         const hy = mh.pos.y - cam.y;
         drawHorse(ctx, hx, hy + 2, mh.face, time, false, false);
-        if ((mh.flash ?? 0) > 0) {
-          ctx.fillStyle = `rgba(255,255,255,${Math.min(0.5, mh.flash * 3)})`;
-          ctx.beginPath();
-          ctx.ellipse(hx, hy, 22, 14, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
         if (mh.tied) {
           // Уяанаас морь руу богино оосор
           const rail = horseHitchRail(world);
@@ -816,6 +817,8 @@ export function render(
         time,
         world.gerPacked,
         world.campfire.igniting,
+        false,
+        world.dog?.petTimer ?? 0,
       );
       const casting =
         state.player.gear.fishingRod &&
@@ -1131,6 +1134,19 @@ export function render(
           : "E — Өвс хадаад тэвшид хий";
       ctx.strokeText(tip, tx, ty);
       ctx.fillStyle = "#c8e070";
+      ctx.fillText(tip, tx, ty);
+      ctx.textAlign = "left";
+    } else if (nearDog(state)) {
+      const dog = world.dog!;
+      const tx = dog.pos.x - cam.x;
+      const ty = dog.pos.y - 28 - cam.y;
+      ctx.textAlign = "center";
+      ctx.font = "600 11px system-ui, sans-serif";
+      ctx.strokeStyle = "rgba(0,0,0,0.7)";
+      ctx.lineWidth = 3;
+      const tip = "F — нохойгоо илэх";
+      ctx.strokeText(tip, tx, ty);
+      ctx.fillStyle = "#ffc8d8";
       ctx.fillText(tip, tx, ty);
       ctx.textAlign = "left";
     } else if (

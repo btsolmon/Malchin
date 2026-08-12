@@ -395,8 +395,9 @@ export function createElder(camp: Vector2): {
   gerPos: Vector2;
   radius: number;
   pose: "seated";
-  face: 1;
+  face: -1;
   walkPhase: number;
+  hitFlash: number;
 } {
   let gerPos = {
     x: camp.x + 320,
@@ -412,9 +413,17 @@ export function createElder(camp: Vector2): {
     gerPos,
     radius: 42,
     pose: "seated",
-    face: 1,
+    face: -1,
     walkPhase: 0,
+    hitFlash: 0,
   };
+}
+
+/** Цочих анимэйшн таймер */
+export function tickElderHitFlash(state: GameState, dt: number): void {
+  const elder = state.world.elder;
+  if (typeof elder.hitFlash !== "number") elder.hitFlash = 0;
+  elder.hitFlash = Math.max(0, elder.hitFlash - dt);
 }
 
 export function nearElder(state: GameState): boolean {
@@ -679,6 +688,7 @@ export function beginFamilyReunionDialogue(state: GameState): void {
   story.familyReunionDialogueStarted = true;
   story.activeMainObjective = null;
   state.phase = "elder";
+  faceElderTowardPlayer(state);
   startElderDialogue(state, FAMILY_REUNION_DIALOGUE.id);
 }
 
@@ -864,6 +874,8 @@ export function tradeWithElder(state: GameState, itemId: string): boolean {
   // Авсан эсэх — зоос буурсан эсвэл gear эзэмшсэн болсон
   if (item.type === "gear") {
     if (!state.player.gear[item.id] || state.score > scoreBefore) return false;
+  } else if (item.type === "pack") {
+    if (state.score >= scoreBefore) return false;
   } else if (state.score >= scoreBefore) {
     return false;
   }
@@ -916,6 +928,23 @@ export function getElderUiSnapshot(state: GameState): ElderUiSnapshot {
         action: "buy" as const,
         price: t.price,
         have: 0,
+        owned: false,
+        canTrade: afford,
+        detail: `${t.price} ${tr("зоос")}`,
+        rare: false,
+      };
+    }
+    if (t.type === "pack") {
+      const afford = state.score >= t.price;
+      return {
+        id,
+        icon: t.icon,
+        nameMn: tr(t.name),
+        itemName: tr(t.name),
+        desc: tr(t.desc),
+        action: "buy" as const,
+        price: t.price,
+        have: t.id === "arrows" ? inv.arrows : 0,
         owned: false,
         canTrade: afford,
         detail: `${t.price} ${tr("зоос")}`,

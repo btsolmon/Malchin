@@ -13,6 +13,7 @@ export const HOTBAR_SIZE = 4;
 
 export type HotbarItemId =
   | "melee"
+  | "skySword"
   | "bow"
   | "fence"
   | "stone"
@@ -33,13 +34,14 @@ export interface HotbarCatalogEntry {
 }
 
 export function createDefaultHotbar(): Array<HotbarItemId | null> {
-  // Нум — худалдаж авсны дараа богцоос онооно
+  // Нум / сэлэм — авсны дараа богцоос онооно
   return ["melee", "fence", null, null];
 }
 
-export function hotbarIcon(id: HotbarItemId | null, hasSkySword: boolean): GameIconId {
+export function hotbarIcon(id: HotbarItemId | null, _hasSkySword = false): GameIconId {
   if (!id) return "empty";
-  if (id === "melee") return hasSkySword ? "hand" : "punch";
+  if (id === "melee") return "punch";
+  if (id === "skySword") return "sword";
   if (id === "bow") return "bow";
   if (id === "fence") return "wood";
   if (id === "stone") return "stone";
@@ -70,8 +72,8 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
   const list: HotbarCatalogEntry[] = [
     {
       id: "melee",
-      icon: hotbarIcon("melee", state.player.hasSkySword),
-      label: state.player.hasSkySword ? t("hotbar.sword") : t("hotbar.fists"),
+      icon: "punch",
+      label: t("hotbar.fists"),
       count: null,
       assignable: true,
     },
@@ -83,6 +85,15 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
       assignable: true,
     },
   ];
+  if (state.player.hasSkySword) {
+    list.push({
+      id: "skySword",
+      icon: "sword",
+      label: t("hotbar.sword"),
+      count: null,
+      assignable: true,
+    });
+  }
   if (state.player.gear.bow || state.phase === "spirit") {
     list.push({
       id: "bow",
@@ -213,22 +224,29 @@ function isConsumable(id: HotbarItemId): boolean {
 
 function applyToolFromHotbar(state: GameState, id: HotbarItemId | null): void {
   const { player } = state;
-  if (id === "melee") {
+  if (id === "skySword" && player.hasSkySword) {
     player.tool = "melee";
-    player.weapon = player.hasSkySword ? "skySword" : "staff";
+    player.weapon = "skySword";
+    state.fencePreview = false;
+  } else if (id === "melee") {
+    player.tool = "melee";
+    player.weapon = "staff";
     state.fencePreview = false;
   } else if (id === "fence") {
     player.tool = "fence";
+    player.weapon = "staff";
   } else if (id === "bow") {
     player.tool = "bow";
+    player.weapon = "staff";
     state.fencePreview = false;
   } else if (id === "stone") {
     player.tool = "stone";
+    player.weapon = "staff";
     state.fencePreview = false;
   } else {
-    // Хоол/хоосон — нум гарт үлдэхгүй
+    // Хоол/хоосон — зэвсэг гарт үлдэхгүй
     player.tool = "melee";
-    player.weapon = player.hasSkySword ? "skySword" : "staff";
+    player.weapon = "staff";
     state.fencePreview = false;
   }
 }
@@ -371,6 +389,10 @@ export function pruneHotbar(state: GameState): void {
     const id = state.hotbar[i];
     if (!id) continue;
     if (id === "bow" && !hasBow) {
+      state.hotbar[i] = null;
+      continue;
+    }
+    if (id === "skySword" && !state.player.hasSkySword) {
       state.hotbar[i] = null;
       continue;
     }

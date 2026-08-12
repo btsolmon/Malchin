@@ -102,8 +102,9 @@ function makeParentPortrait(role: "father" | "mother"): ParentNpc {
   return {
     role,
     pos: { x: 0, y: 0 },
-    facing: { x: role === "father" ? -1 : 1, y: 0 },
-    face: role === "father" ? -1 : 1,
+    // Баруун тал — хүү рүү (зүүн тийш) харна
+    facing: { x: -1, y: 0 },
+    face: -1,
     moving: false,
     task: "idle",
     taskTimer: 0,
@@ -128,6 +129,7 @@ function makeElderPortrait(eyeMode: Elder["eyeMode"]): Elder {
     // Хүү зүүн талаас баруун тийш хардаг тул өвгөн зүүн тийш (тоглогч руу) харна
     face: -1,
     walkPhase: 0,
+    hitFlash: 0,
   };
 }
 
@@ -159,15 +161,28 @@ export default function DialoguePortrait({
         : null;
 
     // Дүрийн хэмжээ (pos төвөөс дээш/доош) — бүтэн багтаана
-    // хүү: үс ~−24, гутал ~+14; өвгөн: толгой ~−25, хивс ~+20 (±28 өргөн)
+    // Аав/ээж: drawParentNpc дотор ~1.35× scale — bounds-д оруулна
+    const parentDraw = kind === "father" ? 1.38 : kind === "mother" ? 1.32 : 1;
     const above =
-      kind === "boy" ? 25 : kind === "elder" ? 25 : 24;
+      kind === "boy"
+        ? 25
+        : kind === "elder"
+          ? 25
+          : Math.ceil(26 * parentDraw);
     const below =
-      kind === "boy" ? 16 : kind === "elder" ? 21 : 14;
+      kind === "boy"
+        ? 16
+        : kind === "elder"
+          ? 21
+          : Math.ceil(15 * parentDraw);
     const halfW =
-      kind === "boy" ? 16 : kind === "elder" ? 29 : 14;
-    const padX = cssW * 0.06;
-    const padY = cssH * 0.05;
+      kind === "boy"
+        ? 16
+        : kind === "elder"
+          ? 29
+          : Math.ceil(15 * parentDraw);
+    const padX = cssW * (kind === "elder" ? 0.04 : 0.05);
+    const padY = cssH * 0.04;
     const scaleByW = (cssW - padX * 2) / (halfW * 2);
     const scaleByH = (cssH - padY * 2) / (above + below);
     const scale = Math.min(scaleByW, scaleByH);

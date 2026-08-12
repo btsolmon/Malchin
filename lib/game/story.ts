@@ -3420,10 +3420,13 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     story.hearthQuestCompleted = true;
     story.hearthCompletionEffectShown = true;
     story.hearthCompletionEffectRemaining = 0;
-    state.world.campfire.placed = true;
-    state.world.campfire.lit = true;
+    // Голомт = гэрийн зуух — гадаа үүдэнд гал бүү тавь
+    state.gerStoveLit = true;
+    state.gerStoveFuel = Math.max(state.gerStoveFuel, 40);
+    state.world.campfire.placed = false;
+    state.world.campfire.lit = false;
     state.world.campfire.igniting = 0;
-    state.world.campfire.fuel = Math.max(state.world.campfire.fuel, 18);
+    state.world.campfire.fuel = 0;
     startLivestockRecoveryQuest(state);
     setMessage(state, "CHEAT: Галын үеийг алгаслаа.", 2);
     return;
@@ -3669,9 +3672,9 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     route.swordDrop.collected = true;
     state.world.tumurShulmas.unlocked = true;
     state.player.hasSkySword = true;
-    state.player.weapon = "skySword";
+    state.player.weapon = "staff";
     story.activeMainObjective = "openBlackIronGate";
-    setMessage(state, "CHEAT: Хөх тэнгэрийн сэлмийг авлаа.", 2.5);
+    setMessage(state, "CHEAT: Хөх тэнгэрийн сэлмийг авлаа. Богцоос сонго.", 2.5);
     return;
   }
 
@@ -4055,7 +4058,7 @@ export function startFamilyLifeRun(
   tumur.flash = 0;
 
   state.player.hasSkySword = true;
-  state.player.weapon = "skySword";
+  state.player.weapon = "staff";
   state.player.vitals.health = state.player.vitals.maxHealth;
   state.player.vitals.hunger = Math.max(state.player.vitals.hunger, 70);
   state.player.vitals.warmth = Math.max(state.player.vitals.warmth, 70);
@@ -4075,6 +4078,7 @@ export function startFamilyLifeRun(
   state.spiritTransition = 0;
   state.world.elder.eyeMode = "idle";
   state.world.elder.pose = "seated";
+  state.world.elder.face = -1;
   state.world.elder.pos = {
     x: state.world.elder.gerPos.x - 36,
     y: state.world.elder.gerPos.y + 18,

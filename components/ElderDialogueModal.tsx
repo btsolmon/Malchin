@@ -154,7 +154,17 @@ export default function ElderDialogueModal({
               !isBoySpeaking ? "z-10 scale-105 opacity-100" : "scale-95 opacity-45 grayscale"
             }`}
           >
-            <div className="relative h-52 w-40 sm:h-64 sm:w-48 md:h-80 md:w-64">
+            <div
+              className={
+                otherPortraitKind === "elder"
+                  ? "relative h-52 w-52 sm:h-64 sm:w-64 md:h-80 md:w-80"
+                  : otherPortraitKind === "father" ||
+                      otherPortraitKind === "mother"
+                    ? // Хүүгээс өндөр frame — бүтэн бие + насанд хүрсэн харьцаа
+                      "relative h-64 w-44 sm:h-80 sm:w-52 md:h-[22rem] md:w-72"
+                    : "relative h-52 w-40 sm:h-64 sm:w-48 md:h-80 md:w-64"
+              }
+            >
               <DialoguePortrait kind={otherPortraitKind} eyeMode="idle" />
             </div>
           </div>

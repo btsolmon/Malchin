@@ -356,6 +356,20 @@ export function updatePlayerMovement(state: GameState, dt: number): void {
     return;
   }
 
+  // Нохой илж байхад бага зэрэг тонгойно — хөдөлгөөнгүй
+  if (world.dog && (world.dog.petTimer ?? 0) > 0) {
+    player.moving = false;
+    const toDog = {
+      x: world.dog.pos.x - player.pos.x,
+      y: world.dog.pos.y - player.pos.y,
+    };
+    if (Math.hypot(toDog.x, toDog.y) > 0.1) {
+      player.facing = normalize(toDog);
+    }
+    clampPlayerToWorld(player, world.width, world.height);
+    return;
+  }
+
   // Dodge үед advanced combat өөрөө хөдөлгөнө
   if (state.combatDodgeActive) {
     player.pos.x = clamp(
@@ -589,11 +603,69 @@ export function tryToggleHorseMount(state: GameState): boolean {
   return true;
 }
 
-/** Утасны морины товч */
+/** Утасны морины товч / F — ойрхон нохой байвал илэнэ */
 export function tryHorseMount(state: GameState): void {
   if (!state.input.horseMount) return;
+  if (tryPetDog(state)) {
+    state.input.horseMount = false;
+    return;
+  }
   state.input.horseMount = false;
   tryToggleHorseMount(state);
+}
+
+/** Бараг хүрэх зай — илэх заавар / F зөвхөн энэ дотор */
+const DOG_PET_RANGE = 8;
+
+export function nearDog(state: GameState, range = DOG_PET_RANGE): boolean {
+  const dog = state.world.dog;
+  if (!dog || !state.player.gear.dog) return false;
+  if (state.player.riding) return false;
+  return dist(state.player.pos, dog.pos) < range + state.player.radius;
+}
+
+/** F — нохойгоо илэх / эрхлүүлэх. Амжилттай бол true. */
+export function tryPetDog(state: GameState): boolean {
+  if (state.phase !== "playing" && state.phase !== "spirit") return false;
+  const dog = state.world.dog;
+  if (!dog || !state.player.gear.dog) return false;
+  if (!nearDog(state)) return false;
+
+  // Дахин илэх хүртэл бага зэрэг хүлээлгэ
+  if (dog.petTimer > 1.2) {
+    setMessage(state, "Нохой чинь баяртай байна.", 1.4);
+    return true;
+  }
+
+  dog.petTimer = 2.4;
+  dog.vel = { x: 0, y: 0 };
+  // Хоорондоо харцна
+  const toDog = {
+    x: dog.pos.x - state.player.pos.x,
+    y: dog.pos.y - state.player.pos.y,
+  };
+  if (Math.hypot(toDog.x, toDog.y) > 0.1) {
+    state.player.facing = normalize(toDog);
+  }
+  const dx = state.player.pos.x - dog.pos.x;
+  if (Math.abs(dx) > 4) dog.face = dx < 0 ? -1 : 1;
+  state.player.moving = false;
+
+  // Бага зэрэг эдгээнэ
+  dog.hp = Math.min(dog.maxHp, dog.hp + 4);
+
+  sfx("bark");
+  spawnParticles(state, dog.pos, 10, "#ff9ab8", {
+    speed: 55,
+    gravity: -40,
+  });
+  spawnParticles(state, { x: dog.pos.x, y: dog.pos.y - 10 }, 6, "#ffe08a", {
+    speed: 35,
+    gravity: -50,
+  });
+  spawnText(state, { x: dog.pos.x, y: dog.pos.y - 18 }, "♥", "#ff8ab0");
+  setMessage(state, "Нохойгоо илэв — сүүлээ найгаад баярлав.", 2.2);
+  return true;
 }
 
 export function nearestAliveTree(player: Player, trees: Tree[]): Tree | null {

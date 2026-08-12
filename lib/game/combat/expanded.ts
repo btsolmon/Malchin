@@ -1210,6 +1210,7 @@ function tryThrowStone(state: GameState): boolean {
     if (!state.parents.father.insideGer) consider(state.parents.father.pos);
     if (!state.parents.mother.insideGer) consider(state.parents.mother.pos);
   }
+  consider(world.elder.pos);
 
   dir = safeFacing(dir);
 
@@ -1286,12 +1287,35 @@ function tryStoneBonkFriendly(
     for (const parent of [state.parents.father, state.parents.mother]) {
       if (parent.insideGer) continue;
       if (dist(pos, parent.pos) < 18) {
-        parent.hitFlash = 0.32;
+        parent.hitFlash = 0.85;
+        parent.moving = false;
+        parent.workPulse = 0;
+        parent.walkTarget = null;
         bump(parent.pos);
-        sfx("hurt");
+        sfx("yell");
+        spawnText(
+          state,
+          { x: parent.pos.x, y: parent.pos.y - 22 },
+          parent.role === "father" ? "Аа!" : "Ээ!",
+          "#ffb090",
+        );
         return true;
       }
     }
+  }
+
+  const elder = world.elder;
+  if (dist(pos, elder.pos) < 22) {
+    elder.hitFlash = 0.9;
+    bump(elder.pos);
+    sfx("yell");
+    spawnText(
+      state,
+      { x: elder.pos.x, y: elder.pos.y - 26 },
+      "Өө!",
+      "#e8d0a8",
+    );
+    return true;
   }
 
   const mh = world.mountHorse;
@@ -1339,6 +1363,12 @@ function updateBowCharge(state: GameState, dt: number): boolean {
     player.attackCooldown <= 0;
 
   if (!input.shoot) {
+    player.bowCharge = 0;
+    player.bowChargeLock = false;
+    return false;
+  }
+
+  if (!bow && !spiritBolt) {
     player.bowCharge = 0;
     player.bowChargeLock = false;
     return false;
@@ -1731,10 +1761,21 @@ export function updateDog(state: GameState, dt: number): void {
 
   dog.attackCooldown = Math.max(0, dog.attackCooldown - dt);
   dog.flash = Math.max(0, dog.flash - dt);
+  dog.petTimer = Math.max(0, (dog.petTimer ?? 0) - dt);
 
   // Тайван үедээ аажмаар амиа нөхнө
   if (dog.hp < dog.maxHp) {
     dog.hp = Math.min(dog.maxHp, dog.hp + dt * 1.2);
+  }
+
+  // Илэж байхад тоглогч дэргэд зогсоод сүүл найлгана
+  if (dog.petTimer > 0) {
+    dog.vel = { x: 0, y: 0 };
+    const dx = state.player.pos.x - dog.pos.x;
+    if (Math.abs(dx) > 4) dog.face = dx < 0 ? -1 : 1;
+    if (state.phase === "playing") applyRiverCurrent(dog.pos, dt, 0.55);
+    pushOutOfGer(dog.pos, 12, state.world);
+    return;
   }
 
   let prey: Wolf | null = null;

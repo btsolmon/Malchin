@@ -25,6 +25,7 @@ import { clamp, dist, normalize, setMessage } from "./utils";
 import { riverCenterX, RIVER_HALF_W } from "./biomes";
 import { tryInteractTumurShulmasGate } from "./tumurShulmas";
 import { drawOngodDemon } from "./render/ongodDemons";
+import { drawSkySwordSprite } from "./render/entities";
 import { tr, trFormat } from "./i18n";
 import { handlePlayerDeath } from "./spirit";
 
@@ -1848,7 +1849,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
     drop.collected = true;
     encounter.unlocked = true;
     state.player.hasSkySword = true;
-    state.player.weapon = "skySword";
+    state.player.weapon = "staff";
     state.player.stamina = state.player.maxStamina;
     state.player.staminaRegenDelay = 0;
     state.score += 150;
@@ -1866,7 +1867,7 @@ export function tryInteractFirstRoute(state: GameState): boolean {
     );
     setMessage(
       state,
-      "Хөх тэнгэрийн сэлмийг авлаа. Хар төмөр хаалга нээгдэв. 1: нударга · 2: сэлэм",
+      "Хөх тэнгэрийн сэлмийг авлаа. Богцоос сэлмээ сонгоод гарт барина. Хар төмөр хаалга нээгдэв.",
       5.5,
     );
     state.fx.shake = Math.max(state.fx.shake, 8);
@@ -2594,41 +2595,32 @@ export function drawSwordDrop(
 
   const x = drop.pos.x - cam.x;
   const y = drop.pos.y - cam.y;
-  const bob = Math.sin(time * 4.2) * 5;
-  const pulse = 0.72 + Math.sin(time * 6.5) * 0.16;
+  const bob = Math.sin(time * 3.4) * 4;
+  const pulse = 0.72 + Math.sin(time * 5.2) * 0.14;
+
+  // Гарт баригдах хэлбэрээр — бариул доор, ир дээш/баруун
   ctx.save();
-  ctx.translate(x, y - 22 + bob);
-  ctx.rotate(-0.62);
+  ctx.translate(x, y - 18 + bob);
+
   ctx.globalCompositeOperation = "lighter";
-  ctx.fillStyle = `rgba(120,200,255,${0.15 * pulse})`;
+  ctx.fillStyle = `rgba(120,200,255,${0.14 * pulse})`;
   ctx.beginPath();
-  ctx.arc(0, 0, 36, 0, Math.PI * 2);
+  ctx.ellipse(6, -4, 28, 18, -0.35, 0, Math.PI * 2);
   ctx.fill();
-  ctx.strokeStyle = "#d9f4ff";
-  ctx.lineWidth = 5;
-  ctx.lineCap = "round";
+  ctx.globalCompositeOperation = "source-over";
+
+  // Сүүдэр
+  ctx.fillStyle = "rgba(10,14,28,0.28)";
   ctx.beginPath();
-  ctx.moveTo(0, -30);
-  ctx.lineTo(0, 24);
-  ctx.stroke();
-  ctx.strokeStyle = "#8bc8e8";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0, -29);
-  ctx.lineTo(0, 22);
-  ctx.stroke();
-  ctx.strokeStyle = "#d7b86a";
-  ctx.lineWidth = 5;
-  ctx.beginPath();
-  ctx.moveTo(-12, 18);
-  ctx.lineTo(12, 18);
-  ctx.stroke();
-  ctx.strokeStyle = "#74513a";
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.moveTo(0, 19);
-  ctx.lineTo(0, 35);
-  ctx.stroke();
+  ctx.ellipse(2, 16 - bob * 0.35, 16, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Гартаа барьсантай ижил сэлэм (~idle өнцөг)
+  ctx.save();
+  ctx.rotate(-Math.PI * 0.72);
+  drawSkySwordSprite(ctx, time, { scale: 1.55 });
+  ctx.restore();
+
   ctx.restore();
 
   ctx.save();
@@ -2636,17 +2628,9 @@ export function drawSwordDrop(
   ctx.font = "700 12px system-ui, sans-serif";
   ctx.strokeStyle = "rgba(0,0,0,0.82)";
   ctx.lineWidth = 4;
-  ctx.strokeText(
-    "ХӨХ ТЭНГЭРИЙН СЭЛЭМ",
-    x,
-    y - 72 + bob,
-  );
+  ctx.strokeText("ХӨХ ТЭНГЭРИЙН СЭЛЭМ", x, y - 72 + bob);
   ctx.fillStyle = "#ccefff";
-  ctx.fillText(
-    "ХӨХ ТЭНГЭРИЙН СЭЛЭМ",
-    x,
-    y - 72 + bob,
-  );
+  ctx.fillText("ХӨХ ТЭНГЭРИЙН СЭЛЭМ", x, y - 72 + bob);
   ctx.restore();
 }
 

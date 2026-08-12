@@ -109,8 +109,15 @@ export const EN_GAME: Record<string, string> = {
   "H — морьноос буух": "F — dismount horse",
   "K — морь унах": "F — mount horse",
   "K — морьноос буух": "F — dismount horse",
+  "F — нохойгоо илэх": "F — pet dog",
   "F — морь унах": "F — mount horse",
   "F — морьноос буух": "F — dismount horse",
+  "Аа!": "Ah!",
+  "Ээ!": "Ee!",
+  "Өө!": "Oh!",
+  "Нохойгоо илэв — сүүлээ найгаад баярлав.":
+    "You pet your dog — it wags happily.",
+  "Нохой чинь баяртай байна.": "Your dog looks happy.",
   "E — морь унах": "F — mount horse",
   "E — морьноос буух": "F — dismount horse",
   "J — ТӨГСГӨЛ": "J — FINISH",
@@ -511,6 +518,8 @@ export const EN_GAME: Record<string, string> = {
     "Tömör Shulmas has fallen and given your parents back. E — go home and live together.",
   "Төмөр Шулмасын төрөлх зан сэргэж, наян есөн хар шидээр давшин дайрахаар зэхэв.":
     "The true nature of Tömör Shulmas woke, and it made ready to strike with eighty-nine black spells.",
+  "Төмөр биеийг зөвхөн Хөх тэнгэрийн сэлэм шархдуулна. Богцоос сэлмээ сонго.":
+    "Only the Sky Sword can wound that iron body. Select the sword from your bag.",
   "Төмөр биеийг зөвхөн Хөх тэнгэрийн сэлэм шархдуулна.":
     "Only the Sky-Blue Sword can wound that iron body.",
   "Төмөр хаалга тулаан дуусах хүртэл түгжээтэй.":
@@ -590,8 +599,17 @@ export const EN_GAME: Record<string, string> = {
   "Хараалт хаалга нээгдсэн": "The cursed gate is open",
   "Хараалт хаалгад хүр": "Reach the cursed gate",
   "Хараалт хаалгыг зорь.": "Make for the cursed gate.",
+  "Харвах — сум урла эсвэл дэлгүүрээс ав":
+    "Shoot — craft arrows or buy them at the shop",
   "Харвах — сум хэрэгтэй (урлалаар хийнэ)":
     "Shoot — needs arrows (craft them)",
+  "Сум ×10": "Arrows ×10",
+  "Нумны сум 10 ширхэг": "A pack of 10 bow arrows",
+  "{name} авлаа! (+{n})": "Got {name}! (+{n})",
+  "Хөх тэнгэрийн сэлмийг авлаа. Богцоос сэлмээ сонгоод гарт барина. Хар төмөр хаалга нээгдэв.":
+    "You claimed the Sky Sword. Select it from your bag to hold it. The black iron gate opened.",
+  "CHEAT: Хөх тэнгэрийн сэлмийг авлаа. Богцоос сонго.":
+    "CHEAT: Got the Sky Sword. Select it from your bag.",
   "Харсан зүгт барина · B дахин · P цуцлах":
     "Builds where you face · J again · P cancel",
   "Харсан зүгт барина · J дахин · P цуцлах":

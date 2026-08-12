@@ -652,7 +652,7 @@ export function damageTumurShulmasFromPlayer(
     );
     setMessage(
       state,
-      "Төмөр биеийг зөвхөн Хөх тэнгэрийн сэлэм шархдуулна.",
+      "Төмөр биеийг зөвхөн Хөх тэнгэрийн сэлэм шархдуулна. Богцоос сэлмээ сонго.",
       2.3,
     );
     sfx("hit");
@@ -993,7 +993,7 @@ export function forceStartTumurShulmasBoss(state: GameState): void {
   encounter.unlocked = true;
   encounter.defeated = false;
   state.player.hasSkySword = true;
-  state.player.weapon = "skySword";
+  state.player.weapon = "staff";
 
   // Сүнсэнд байгаагүй бол аренад орох
   if (state.phase !== "spirit" || state.spiritMode !== "shulmas") {

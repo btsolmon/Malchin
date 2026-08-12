@@ -1,6 +1,6 @@
 // Бэлэн SVG icon-ууд (`public/icons/`) — зураасан дүрс биш
-// Эх сурвалж: Game-icons.net (CC BY 3.0), Lucide (ISC), Material Design Icons (Apache 2.0)
-// Iconify API-аар татаж, алтан өнгөөр (#e8c56a) хадгалсан.
+// Эх сурвалж: Game-icons.net (CC BY 3.0), Lucide (ISC), Material Design Icons (Apache 2.0),
+// OpenMoji (CC BY-SA 4.0). Iconify API-аар татаж хадгалсан.
 
 export type GameIconId =
   | "dog"
@@ -31,11 +31,13 @@ export type GameIconId =
   | "dodge"
   | "shield"
   | "hand"
+  | "sword"
   | "fire"
   | "log"
   | "fence"
   | "spiritWater"
   | "steak"
+  | "stomach"
   | "empty";
 
 /** public/icons доторх файлтай 1:1 */
@@ -68,11 +70,13 @@ export const GAME_ICON_SRC: Record<GameIconId, string> = {
   dodge: "/icons/dodge.svg",
   shield: "/icons/shield.svg",
   hand: "/icons/hand.svg",
+  sword: "/icons/sword.svg?v=8",
   fire: "/icons/fire.svg",
   log: "/icons/log.svg",
   fence: "/icons/fence.svg",
   spiritWater: "/icons/spiritWater.svg",
   steak: "/icons/steak.svg",
+  stomach: "/icons/stomach.svg?v=5",
   empty: "/icons/empty.svg",
 };
 

@@ -30,6 +30,15 @@ export type ShopItem =
       price: number;
     }
   | {
+      type: "pack";
+      id: "arrows";
+      icon: GameIconId;
+      name: string;
+      desc: string;
+      price: number;
+      amount: number;
+    }
+  | {
       type: "sell";
       key: "wool" | "cashmere" | "milk" | "felt" | "aaruul" | "fish";
       icon: GameIconId;
@@ -60,8 +69,17 @@ export const SHOP_ITEMS: ShopItem[] = [
     id: "bow",
     icon: "bow",
     name: "Нум",
-    desc: "Харвах — сум хэрэгтэй (урлалаар хийнэ)",
+    desc: "Харвах — сум урла эсвэл дэлгүүрээс ав",
     price: 400,
+  },
+  {
+    type: "pack",
+    id: "arrows",
+    icon: "arrow",
+    name: "Сум ×10",
+    desc: "Нумны сум 10 ширхэг",
+    price: 35,
+    amount: 10,
   },
   {
     type: "gear",
@@ -188,6 +206,7 @@ export const SHOP_ITEMS: ShopItem[] = [
 export function shopItemId(item: ShopItem): string {
   if (item.type === "gear") return item.id;
   if (item.type === "livestock") return `livestock:${item.kind}`;
+  if (item.type === "pack") return `pack:${item.id}`;
   return `sell:${item.key}`;
 }
 
@@ -258,6 +277,34 @@ export function buyItem(state: GameState, idx: number): void {
     return;
   }
 
+  if (item.type === "pack") {
+    if (!state.unlimitedCoins && state.score < item.price) {
+      setMessage(
+        state,
+        trFormat("Зоос хүрэхгүй — {price} зоос хэрэгтэй.", {
+          price: item.price,
+        }),
+        2,
+      );
+      sfx("move");
+      return;
+    }
+    if (!state.unlimitedCoins) state.score -= item.price;
+    if (item.id === "arrows") {
+      state.player.inventory.arrows += item.amount;
+    }
+    sfx("buy");
+    setMessage(
+      state,
+      trFormat("{name} авлаа! (+{n})", {
+        name: tr(item.name),
+        n: item.amount,
+      }),
+      2.5,
+    );
+    return;
+  }
+
   if (state.player.gear[item.id]) {
     setMessage(
       state,
@@ -291,6 +338,7 @@ export function buyItem(state: GameState, idx: number): void {
       hp: 60,
       maxHp: 60,
       flash: 0,
+      petTimer: 0,
     };
   }
   if (item.id === "bow") {

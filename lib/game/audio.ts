@@ -236,6 +236,7 @@ export type SfxName =
   | "eat"
   | "fire"
   | "hurt"
+  | "yell"
   | "baa"
   | "moo"
   | "howl"
@@ -367,6 +368,13 @@ export function sfx(name: SfxName): void {
       break;
     case "hurt":
       tone(230, 0.2, "sawtooth", 0.28, 70);
+      break;
+    case "yell":
+      // Цочсон орилоо — өндөр, хурц
+      tone(420, 0.12, "sawtooth", 0.22, 680);
+      tone(560, 0.22, "triangle", 0.18, 320, 0.06);
+      tone(380, 0.18, "sine", 0.12, 520, 0.14);
+      noiseBurst(0.12, 900, 0.1, 0.04);
       break;
     case "baa":
       tone(520, 0.14, "sawtooth", 0.14, 380);

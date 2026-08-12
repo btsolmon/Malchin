@@ -1,16 +1,13 @@
-import { COLORS, GameState, Player, VIEW_H, VIEW_W, type ParentNpc } from "../types";
+import { GameState, Player, VIEW_H, VIEW_W, type ParentNpc } from "../types";
 import {
   drawChest,
   drawCraft,
   gerLayout,
   gerProximity,
   overButton,
-  SHOP_ITEMS,
 } from "../ui";
-import { drawGameIcon } from "../icons";
 import { roundRectPath } from "../utils";
 import { drawParentNpc, drawPlayer } from "./entities";
-import { trFormat } from "../i18n";
 
 const GER_SLEEP_DURATION = 5;
 
@@ -2100,25 +2097,6 @@ export function drawGerInterior(
     cool.addColorStop(1, "rgba(0,0,0,0.42)");
     ctx.fillStyle = cool;
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  }
-
-  // Зоос ба эзэмшил
-  if (state.gerSleepTimer <= 0) {
-    ctx.fillStyle = "rgba(12,10,8,0.75)";
-    roundRectPath(ctx, 14, 14, 210, 36, 10);
-    ctx.fill();
-    ctx.fillStyle = COLORS.hudAccent;
-    ctx.font = "600 14px system-ui, sans-serif";
-    ctx.fillText(trFormat("Зоос: {n}", { n: state.score }), 28, 37);
-    const owned = SHOP_ITEMS.filter(
-      (it): it is Extract<typeof it, { type: "gear" }> =>
-        it.type === "gear" && state.player.gear[it.id],
-    );
-    let gx = 130;
-    for (const it of owned) {
-      drawGameIcon(ctx, it.icon, gx + 8, 28, 16);
-      gx += 18;
-    }
   }
 
   // Удирдлагын заавар

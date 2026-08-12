@@ -29,7 +29,7 @@ export type GearId =
 export type CombatPhase = "idle" | "startup" | "active" | "recovery";
 export type AttackVariant = 0 | 1 | 2;
 export type PlayerWeapon = "staff" | "skySword";
-/** 1 — нударга/сэлэм; хашаа; нум; чулуу */
+/** 1 — нударга; сэлэм/нум — богцоос сонгоно; хашаа; чулуу */
 export type PlayerTool = "melee" | "bow" | "fence" | "stone";
 
 /** 5 хошуу мал */
@@ -76,6 +76,8 @@ export interface Elder {
   pose: "seated" | "walking" | "standing";
   face: 1 | -1;
   walkPhase: number;
+  /** Чулуу оноход цочих үлдсэн хугацаа (сек) */
+  hitFlash: number;
 }
 
 /** Түүх боломжтой чулууны овоолго */
@@ -328,7 +330,7 @@ export interface ParentNpc {
   attackCooldown: number;
   /** Цохилтын анимейшн үлдсэн хугацаа */
   attackAnim: number;
-  /** Чулуу оноход анивчилт (амь алдахгүй) */
+  /** Чулуу оноход цочих / орилох үлдсэн хугацаа (сек) */
   hitFlash: number;
 }
 
@@ -503,6 +505,8 @@ export interface Dog {
   maxHp: number;
   /** Хазуулсны дараах анивчилт */
   flash: number;
+  /** Илэх / эрхлүүлэх үлдсэн хугацаа (сек) */
+  petTimer: number;
 }
 
 /** Нумны сум / сүнсний сум / чулуу */
@@ -1060,6 +1064,7 @@ export interface GameState {
   /** Minecraft шиг 4 нүх — null = хоосон */
   hotbar: Array<
     | "melee"
+    | "skySword"
     | "bow"
     | "fence"
     | "stone"
@@ -1277,7 +1282,7 @@ export const COLORS = {
   hudAccent: "#e8c56a",
   hudMuted: "#a89880",
   health: "#d64545",
-  hunger: "#b04030",
+  hunger: "#e87828",
   warmth: "#ff9f5a",
   flockBar: "#d4c4a0",
 } as const;

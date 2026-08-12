@@ -412,6 +412,10 @@ function updateFather(state: GameState, dt: number): void {
   father.attackCooldown = Math.max(0, father.attackCooldown - dt);
   father.attackAnim = Math.max(0, father.attackAnim - dt);
   father.hitFlash = Math.max(0, father.hitFlash - dt);
+  if (father.hitFlash > 0) {
+    father.moving = false;
+    father.workPulse = 0;
+  }
 
   if (exitGerIfDawn(state, father)) return;
 
@@ -622,6 +626,10 @@ function updateMother(state: GameState, dt: number): void {
   mother.taskTimer = Math.max(0, mother.taskTimer - dt);
   mother.workPulse = Math.max(0, mother.workPulse - dt);
   mother.hitFlash = Math.max(0, mother.hitFlash - dt);
+  if (mother.hitFlash > 0) {
+    mother.moving = false;
+    mother.workPulse = 0;
+  }
 
   if (exitGerIfDawn(state, mother)) return;
 

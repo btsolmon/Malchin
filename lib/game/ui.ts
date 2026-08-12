@@ -1346,7 +1346,7 @@ function drawHudMeter(
   }
 }
 
-type HudMeterIcon = "heart" | "bolt" | "steak" | "snow";
+type HudMeterIcon = "heart" | "bolt" | "stomach" | "snow";
 
 /** Баруудын зүүн талд — амь / стамина / өлсгөлөн / даарах */
 function drawHudMeterIcon(
@@ -1356,6 +1356,12 @@ function drawHudMeterIcon(
   cy: number,
   size: number,
 ): void {
+  if (kind === "stomach") {
+    // Жишээ зурагтай адил анатомийн J-ходоод (SVG)
+    drawGameIcon(ctx, "stomach", cx, cy, size * 1.2);
+    return;
+  }
+
   const s = size / 16;
   ctx.save();
   ctx.translate(cx, cy);
@@ -1390,64 +1396,6 @@ function drawHudMeterIcon(
     ctx.fill();
     ctx.strokeStyle = "rgba(120,80,10,0.45)";
     ctx.lineWidth = 0.8;
-    ctx.stroke();
-  } else if (kind === "steak") {
-    // 3D T-bone — зузаан хажуу, өөхний ирмэг, улаан мах, T яс
-    const steakBlob = (ox: number, oy: number) => {
-      ctx.beginPath();
-      ctx.moveTo(-6.6 + ox, -1.4 + oy);
-      ctx.bezierCurveTo(
-        -8.8 + ox, -5.6 + oy,
-        -5.4 + ox, -9.4 + oy,
-        -0.4 + ox, -8.8 + oy,
-      );
-      ctx.bezierCurveTo(
-        5.2 + ox, -8.2 + oy,
-        9.0 + ox, -5.2 + oy,
-        8.6 + ox, -0.4 + oy,
-      );
-      ctx.bezierCurveTo(
-        8.2 + ox, 4.0 + oy,
-        5.0 + ox, 7.0 + oy,
-        0.6 + ox, 7.4 + oy,
-      );
-      ctx.bezierCurveTo(
-        -4.0 + ox, 7.8 + oy,
-        -8.2 + ox, 5.0 + oy,
-        -8.2 + ox, 1.4 + oy,
-      );
-      ctx.bezierCurveTo(
-        -8.2 + ox, 0.0 + oy,
-        -7.8 + ox, 0.6 + oy,
-        -6.6 + ox, -1.4 + oy,
-      );
-      ctx.closePath();
-    };
-    ctx.fillStyle = "#c4a06a";
-    steakBlob(0.2, 3.2);
-    ctx.fill();
-    ctx.fillStyle = "#f0e2bc";
-    steakBlob(0, 0);
-    ctx.fill();
-    ctx.fillStyle = "#8a2a1c";
-    ctx.beginPath();
-    ctx.moveTo(-5.0, -1.2);
-    ctx.bezierCurveTo(-6.6, -4.4, -4.0, -7.2, -0.3, -6.8);
-    ctx.bezierCurveTo(3.8, -6.4, 6.8, -4.0, 6.5, -0.4);
-    ctx.bezierCurveTo(6.2, 3.0, 3.8, 5.2, 0.4, 5.5);
-    ctx.bezierCurveTo(-3.0, 5.8, -6.2, 3.6, -6.2, 0.8);
-    ctx.bezierCurveTo(-6.2, -0.2, -5.8, 0.2, -5.0, -1.2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = "#f6eed8";
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 2.1;
-    ctx.beginPath();
-    ctx.moveTo(-2.5, -3.8);
-    ctx.lineTo(-0.9, 3.4);
-    ctx.moveTo(-1.7, -0.3);
-    ctx.lineTo(4.8, 0.4);
     ctx.stroke();
   } else {
     // Цас
@@ -2907,10 +2855,10 @@ function bannerTheme(
       };
     case "hunger":
       return {
-        title: "#ffd4b8",
-        washDeep: "120,40,28",
-        washLite: "200,80,55",
-        particle: "255,170,120",
+        title: "#ffe0b8",
+        washDeep: "140,70,20",
+        washLite: "232,120,40",
+        particle: "255,180,90",
         sub: "Q дарж ид · эсвэл малдаа өвс өг",
         soft: true,
         particleStyle: "ember",
@@ -3250,8 +3198,8 @@ export function drawHud(ctx: CanvasRenderingContext2D, state: GameState): void {
     {
       width: barW - 40,
       ratio: player.vitals.hunger / player.vitals.maxHunger,
-      color: "#b04030",
-      icon: "steak",
+      color: COLORS.hunger,
+      icon: "stomach",
     },
     {
       width: barW - 60,
