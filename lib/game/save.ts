@@ -157,6 +157,7 @@ export function loadGame(): GameState | null {
     fishingHook: null,
     horseLasso: null,
     bannerAlert: null,
+    unlimitedSupplies: envelope.state.unlimitedSupplies ?? false,
     hotbar: normalizeHotbar(
       envelope.state.hotbar,
       !!envelope.state.player.gear?.bow,

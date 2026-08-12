@@ -1064,7 +1064,7 @@ function fireRangedProjectile(state: GameState): boolean {
     !player.gear.bow && state.phase === "spirit" && player.tool === "bow";
   if (!bow && !spiritBolt) return false;
 
-  if (bow && player.inventory.arrows <= 0) {
+  if (bow && player.inventory.arrows <= 0 && !state.unlimitedSupplies) {
     setMessage(
       state,
       "Сум алга — урлалаар хий (1 мод + 1 чулуу = 2 сум).",
@@ -1139,7 +1139,7 @@ function fireRangedProjectile(state: GameState): boolean {
 
   dir = safeFacing(dir);
 
-  if (bow) player.inventory.arrows -= 1;
+  if (bow && !state.unlimitedSupplies) player.inventory.arrows -= 1;
 
   const speed = spiritBolt ? 420 : 400;
   world.projectiles.push({
@@ -1165,12 +1165,12 @@ function tryThrowStone(state: GameState): boolean {
   if (player.dodgePhase !== "idle") return false;
   if (player.parryPhase !== "idle") return false;
   if (player.attackCooldown > 0) return false;
-  if (player.inventory.stone <= 0) {
+  if (player.inventory.stone <= 0 && !state.unlimitedSupplies) {
     setMessage(state, "Чулуу алга.", 1.6);
     return false;
   }
 
-  player.inventory.stone -= 1;
+  if (!state.unlimitedSupplies) player.inventory.stone -= 1;
   player.attackCooldown = 0.42 * player.cooldownMult;
   player.attackMelee = false;
   player.attackAnim = 0.16;
@@ -1383,7 +1383,7 @@ function updateBowCharge(state: GameState, dt: number): boolean {
     return false;
   }
 
-  if (bow && player.inventory.arrows <= 0) {
+  if (bow && player.inventory.arrows <= 0 && !state.unlimitedSupplies) {
     setMessage(
       state,
       "Сум алга — урлалаар хий (1 мод + 1 чулуу = 2 сум).",

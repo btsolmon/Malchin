@@ -1106,6 +1106,8 @@ export interface GameState {
   unlimitedWood: boolean;
   /** / cheat — зоос хязгааргүй, худалдан авалтад хасагдахгүй */
   unlimitedCoins: boolean;
+  /** / cheat — чулуу, сум, хоол хязгааргүй */
+  unlimitedSupplies: boolean;
   /** / cheat — амь багасахгүй, үхэхгүй */
   godMode: boolean;
   /** Melee/parry үед хэвийн хөдөлгөөн түгжигдсэн */

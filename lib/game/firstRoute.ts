@@ -836,7 +836,7 @@ export function tryCrushHarMogoi(state: GameState): boolean {
 
   const scoutTrip = state.story.spiritAllowReturn === true;
   const stones = state.player.inventory.stone ?? 0;
-  if (stones < SNAKE_CRUSH_STONE_COST) {
+  if (stones < SNAKE_CRUSH_STONE_COST && !state.unlimitedSupplies) {
     setMessage(
       state,
       scoutTrip
@@ -859,7 +859,9 @@ export function tryCrushHarMogoi(state: GameState): boolean {
     return true;
   }
 
-  state.player.inventory.stone -= SNAKE_CRUSH_STONE_COST;
+  if (!state.unlimitedSupplies) {
+    state.player.inventory.stone -= SNAKE_CRUSH_STONE_COST;
+  }
   snake.awaitingCrush = false;
   snake.alive = false;
   snake.deathTimer = 0.4;

@@ -66,6 +66,37 @@ export function hotbarCount(state: GameState, id: HotbarItemId | null): number |
   return null;
 }
 
+/** Богц/hotbar дээрх stack — cheat үед ∞ */
+export function stackLabelForId(
+  state: GameState,
+  id: HotbarItemId | null,
+  count: number | null = hotbarCount(state, id),
+): string | null {
+  if (id === "fence" && state.unlimitedWood) return "∞";
+  if (
+    state.unlimitedSupplies &&
+    (id === "bow" ||
+      id === "stone" ||
+      id === "berry" ||
+      id === "fish" ||
+      id === "aaruul" ||
+      id === "milk")
+  ) {
+    return "∞";
+  }
+  if (count === null) return null;
+  return String(count);
+}
+
+export function stackLabelForCatalog(
+  state: GameState,
+  entry: HotbarCatalogEntry,
+): string | null {
+  if (entry.id) return stackLabelForId(state, entry.id, entry.count);
+  if (entry.count === null) return null;
+  return String(entry.count);
+}
+
 /** Богцод харагдах бүх зүйл (оноох + нөөц) */
 export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
   const inv = state.player.inventory;
@@ -80,7 +111,7 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
     {
       id: "fence",
       icon: "wood",
-      label: t("hotbar.fence"),
+      label: t("inv.wood"),
       count: inv.wood,
       assignable: true,
     },
@@ -104,7 +135,7 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
     });
   }
 
-  if (inv.stone > 0) {
+  if (inv.stone > 0 || state.unlimitedSupplies) {
     list.push({
       id: "stone",
       icon: "stone",
@@ -149,7 +180,7 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
       assignable: false,
     });
   }
-  if (inv.berries > 0) {
+  if (inv.berries > 0 || state.unlimitedSupplies) {
     list.push({
       id: "berry",
       icon: "berry",
@@ -158,7 +189,7 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
       assignable: true,
     });
   }
-  if (inv.fish > 0) {
+  if (inv.fish > 0 || state.unlimitedSupplies) {
     list.push({
       id: "fish",
       icon: "fish",
@@ -167,7 +198,7 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
       assignable: true,
     });
   }
-  if (inv.aaruul > 0) {
+  if (inv.aaruul > 0 || state.unlimitedSupplies) {
     list.push({
       id: "aaruul",
       icon: "aaruul",
@@ -176,7 +207,7 @@ export function listBagCatalog(state: GameState): HotbarCatalogEntry[] {
       assignable: true,
     });
   }
-  if (inv.milk > 0) {
+  if (inv.milk > 0 || state.unlimitedSupplies) {
     list.push({
       id: "milk",
       icon: "milk",
@@ -290,8 +321,8 @@ function applyConsume(state: GameState, id: HotbarItemId): boolean {
   if (id === "spiritWater") return sipSpiritWater(state);
 
   if (id === "berry") {
-    if (player.inventory.berries <= 0) return false;
-    player.inventory.berries -= 1;
+    if (player.inventory.berries <= 0 && !state.unlimitedSupplies) return false;
+    if (!state.unlimitedSupplies) player.inventory.berries -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 28,
       0,
@@ -316,8 +347,8 @@ function applyConsume(state: GameState, id: HotbarItemId): boolean {
   }
 
   if (id === "fish") {
-    if (player.inventory.fish <= 0) return false;
-    player.inventory.fish -= 1;
+    if (player.inventory.fish <= 0 && !state.unlimitedSupplies) return false;
+    if (!state.unlimitedSupplies) player.inventory.fish -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 36,
       0,
@@ -342,8 +373,8 @@ function applyConsume(state: GameState, id: HotbarItemId): boolean {
   }
 
   if (id === "aaruul") {
-    if (player.inventory.aaruul <= 0) return false;
-    player.inventory.aaruul -= 1;
+    if (player.inventory.aaruul <= 0 && !state.unlimitedSupplies) return false;
+    if (!state.unlimitedSupplies) player.inventory.aaruul -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 40,
       0,
@@ -361,8 +392,8 @@ function applyConsume(state: GameState, id: HotbarItemId): boolean {
   }
 
   if (id === "milk") {
-    if (player.inventory.milk <= 0) return false;
-    player.inventory.milk -= 1;
+    if (player.inventory.milk <= 0 && !state.unlimitedSupplies) return false;
+    if (!state.unlimitedSupplies) player.inventory.milk -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 24,
       0,
@@ -397,6 +428,7 @@ export function pruneHotbar(state: GameState): void {
       continue;
     }
     if (id === "stone" || isConsumable(id)) {
+      if (state.unlimitedSupplies && id !== "spiritWater") continue;
       const n = hotbarCount(state, id) ?? 0;
       if (n <= 0) state.hotbar[i] = null;
     }

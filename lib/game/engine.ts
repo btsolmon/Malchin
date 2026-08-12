@@ -401,6 +401,7 @@ export function createInitialState(): GameState {
     horseLasso: null,
     unlimitedWood: false,
     unlimitedCoins: false,
+    unlimitedSupplies: false,
     godMode: false,
     combatMovementLocked: false,
     combatDodgeActive: false,
@@ -851,20 +852,21 @@ export function update(state: GameState, dt: number): void {
     const enable = !(
       state.godMode &&
       state.unlimitedWood &&
-      state.unlimitedCoins
+      state.unlimitedCoins &&
+      state.unlimitedSupplies
     );
     state.godMode = enable;
     state.unlimitedWood = enable;
     state.unlimitedCoins = enable;
+    state.unlimitedSupplies = enable;
     if (enable) {
       state.player.vitals.health = state.player.vitals.maxHealth;
-      state.player.inventory.wood = 999999;
       state.score = Math.max(state.score, 999999);
       spawnText(state, state.player.pos, "Cheat ON", "#7dffb0");
       setMessage(
         state,
-        "Үхэшгүй · мод хязгааргүй · зоос хязгааргүй (/).",
-        3,
+        "Үхэшгүй · мод/чулуу/сум/хоол хязгааргүй · зоос хязгааргүй (/).",
+        3.2,
       );
     } else {
       state.player.inventory.wood = Math.min(state.player.inventory.wood, 50);

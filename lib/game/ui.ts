@@ -31,6 +31,8 @@ import {
   hotbarCount,
   hotbarIcon,
   HOTBAR_SIZE,
+  stackLabelForCatalog,
+  stackLabelForId,
 } from "./hotbar";
 import { advanceToMorning } from "../game/daycycle";
 import { getLang, langLabel, setLang, t, tr, trFormat } from "./lang";
@@ -679,7 +681,11 @@ export function craftItem(state: GameState, idx: number): void {
   type GiveKey = "felt" | "aaruul" | "arrows";
   for (const [k, need] of Object.entries(recipe.need)) {
     const key = k as NeedKey;
-    if ((inv[key] ?? 0) < (need ?? 0)) {
+    const have = inv[key] ?? 0;
+    const free =
+      (key === "wood" && state.unlimitedWood) ||
+      (key === "stone" && state.unlimitedSupplies);
+    if (!free && have < (need ?? 0)) {
       setMessage(
         state,
         trFormat("Хүрэлцэхгүй — {desc}", { desc: tr(recipe.desc) }),
@@ -691,7 +697,10 @@ export function craftItem(state: GameState, idx: number): void {
   }
   for (const [k, need] of Object.entries(recipe.need)) {
     const key = k as NeedKey;
-    inv[key] -= need ?? 0;
+    const free =
+      (key === "wood" && state.unlimitedWood) ||
+      (key === "stone" && state.unlimitedSupplies);
+    if (!free) inv[key] -= need ?? 0;
   }
   for (const [k, give] of Object.entries(recipe.give)) {
     const key = k as GiveKey;
@@ -1865,7 +1874,7 @@ function drawInventoryPanel(
     const x = px + padX + col * (cell + gapX);
     const y = py + padTop + row * (cell + gapY);
     const active = i === state.hotbarInvIndex;
-    const stack = it.count === null ? null : String(it.count);
+    const stack = stackLabelForCatalog(state, it);
     drawHotSlot(ctx, x, y, cell, stack, it.icon, active);
     ctx.fillStyle = active
       ? it.assignable
@@ -1901,7 +1910,7 @@ function drawItemHotbar(
     const active = i === state.hotbarSelected;
     const icon = hotbarIcon(id, state.player.hasSkySword);
     const count = hotbarCount(state, id);
-    const stack = count !== null ? String(count) : null;
+    const stack = stackLabelForId(state, id, count);
 
     if (!id) {
       const r = 6;
@@ -3759,11 +3768,11 @@ export function drawCraft(
     const selected = state.menuIndex === i;
     let can = true;
     for (const [k, need] of Object.entries(recipe.need)) {
-      if (
-        (inv[k as "wool" | "cashmere" | "milk" | "wood" | "stone"] ?? 0) <
-        (need ?? 0)
-      )
-        can = false;
+      const key = k as "wool" | "cashmere" | "milk" | "wood" | "stone";
+      const free =
+        (key === "wood" && state.unlimitedWood) ||
+        (key === "stone" && state.unlimitedSupplies);
+      if (!free && (inv[key] ?? 0) < (need ?? 0)) can = false;
     }
 
     const rowFill = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
@@ -3797,11 +3806,14 @@ export function drawCraft(
     for (const [k, need] of Object.entries(recipe.need)) {
       const key = k as "wool" | "cashmere" | "milk" | "wood" | "stone";
       const have = inv[key] ?? 0;
-      const enough = have >= (need ?? 0);
+      const free =
+        (key === "wood" && state.unlimitedWood) ||
+        (key === "stone" && state.unlimitedSupplies);
+      const enough = free || have >= (need ?? 0);
       drawGameIcon(ctx, needIcon[key], nx + 7, ny - 4, 14);
       ctx.font = "600 11px system-ui, sans-serif";
       ctx.fillStyle = enough ? "#a0d890" : "#e07070";
-      ctx.fillText(`×${need}`, nx + 16, ny);
+      ctx.fillText(free ? "∞" : `×${need}`, nx + 16, ny);
       nx += 44;
     }
 

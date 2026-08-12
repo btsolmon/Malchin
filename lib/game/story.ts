@@ -2857,7 +2857,10 @@ export function tryBuildOrEnterSpiritOvoo(state: GameState): boolean {
   state.input.interact = false;
 
   if (!story.spiritOvooBuilt) {
-    if (state.player.inventory.stone < SPIRIT_OVOO_STONE_COST) {
+    if (
+      state.player.inventory.stone < SPIRIT_OVOO_STONE_COST &&
+      !state.unlimitedSupplies
+    ) {
       setMessage(
         state,
         `Овоо босгоход ${SPIRIT_OVOO_STONE_COST} чулуу хэрэгтэй.`,
@@ -2866,7 +2869,9 @@ export function tryBuildOrEnterSpiritOvoo(state: GameState): boolean {
       sfx("move");
       return true;
     }
-    state.player.inventory.stone -= SPIRIT_OVOO_STONE_COST;
+    if (!state.unlimitedSupplies) {
+      state.player.inventory.stone -= SPIRIT_OVOO_STONE_COST;
+    }
     story.spiritOvooBuilt = true;
     // Зорилго болгохгүй — тоглогч бэлэн үедээ орно
     if (

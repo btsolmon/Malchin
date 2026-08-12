@@ -997,8 +997,8 @@ export function tryEatBerry(state: GameState): void {
   if (!state.input.eat || player.eatCooldown > 0) return;
 
   // Жимс → загас → ааруул
-  if (player.inventory.berries > 0) {
-    player.inventory.berries -= 1;
+  if (player.inventory.berries > 0 || state.unlimitedSupplies) {
+    if (!state.unlimitedSupplies) player.inventory.berries -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 28,
       0,
@@ -1023,8 +1023,8 @@ export function tryEatBerry(state: GameState): void {
     return;
   }
 
-  if (player.inventory.fish > 0) {
-    player.inventory.fish -= 1;
+  if (player.inventory.fish > 0 || state.unlimitedSupplies) {
+    if (!state.unlimitedSupplies) player.inventory.fish -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 36,
       0,
@@ -1050,8 +1050,8 @@ export function tryEatBerry(state: GameState): void {
     return;
   }
 
-  if (player.inventory.aaruul > 0) {
-    player.inventory.aaruul -= 1;
+  if (player.inventory.aaruul > 0 || state.unlimitedSupplies) {
+    if (!state.unlimitedSupplies) player.inventory.aaruul -= 1;
     player.vitals.hunger = clamp(
       player.vitals.hunger + 40,
       0,
@@ -1189,7 +1189,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
     );
     return;
   }
-  if (player.inventory.berries < cost.berries) {
+  if (!state.unlimitedSupplies && player.inventory.berries < cost.berries) {
     setMessage(
       state,
       trFormat("{name} — {need} жимс хэрэгтэй.", {
@@ -1203,7 +1203,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
 
   if (!state.unlimitedWood) player.inventory.wood -= cost.wood;
   if (!state.unlimitedCoins) state.score -= cost.score;
-  player.inventory.berries -= cost.berries;
+  if (!state.unlimitedSupplies) player.inventory.berries -= cost.berries;
   player.chopCooldown = 0.28;
   fence.tier = next;
   fence.maxHp = FENCE_MAX_HP_BY_TIER[next];
