@@ -1910,13 +1910,6 @@ export function drawWildHorse(
   ctx.beginPath();
   ctx.arc(x + 23.8 * f, y - 15.8, 0.3, 0, Math.PI * 2);
   ctx.fill();
-
-  if (horse.spooked > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${Math.min(0.45, horse.spooked * 0.35)})`;
-    ctx.beginPath();
-    ctx.ellipse(x, y - 2, 22, 14, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 /** Голын загас */
