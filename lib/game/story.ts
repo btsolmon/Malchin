@@ -68,10 +68,7 @@ import {
 /** Нээлт — аав ээжийг авч явах үеийн шулмын инээд */
 let introWitchLaughPlayed = false;
 
-export type OpeningVignetteId =
-  | "stormNight"
-  | "laughingStorm"
-  | "coldDawn";
+export type OpeningVignetteId = "stormNight" | "laughingStorm" | "coldDawn";
 
 export interface OpeningStorySection {
   text: string;
@@ -126,57 +123,38 @@ export const SCATTERED_LIVESTOCK_QUEST = {
 export const PROTECT_FLOCK_QUEST = {
   title: "Сүргээ хамгаал",
   description: "Чоно хотонд ойртжээ. Сүргээсээ холдуулж, амьд үлд.",
-  panelLines: [
-    "Чоно хотонд ойртжээ.",
-    "Сүргээсээ холдуулж, амьд үлд.",
-  ],
+  panelLines: ["Чоно хотонд ойртжээ.", "Сүргээсээ холдуулж, амьд үлд."],
 } as const;
 
 export const OBSERVE_WOLF_QUEST = {
   title: "Чонын хөдөлгөөнийг ажигла",
   description: "Өвгөний үгийг сонсож, араатны дайрах мөчийг тань.",
-  panelLines: [
-    "Өвгөний үгийг сонсож,",
-    "араатны дайрах мөчийг тань.",
-  ],
+  panelLines: ["Өвгөний үгийг сонсож,", "араатны дайрах мөчийг тань."],
 } as const;
 
 export const PARRY_STORY_WOLF_QUEST = {
   title: "Дайралтыг сөр",
-  description:
-    "Улаан туяа цахих мөчид Space дарж, дайралтыг нь няцаа.",
-  panelLines: [
-    "Улаан туяа цахих мөчид",
-    "Space дарж няцаа.",
-  ],
+  description: "Улаан туяа цахих мөчид Space дарж, дайралтыг нь няцаа.",
+  panelLines: ["Улаан туяа цахих мөчид", "Space дарж няцаа."],
 } as const;
 
 export const COUNTER_STORY_WOLF_QUEST = {
   title: "Нээлттэй мөчид цохь",
   description:
     "Шар туяа тодрох үед J / Attack дарж, араатны сул мөчийг ашигла.",
-  panelLines: [
-    "Шар туяа тодрох үед",
-    "J / Attack дарж цохь.",
-  ],
+  panelLines: ["Шар туяа тодрох үед", "J / Attack дарж цохь."],
 } as const;
 
 export const TALK_TO_OLD_MAN_QUEST = {
   title: "Өвгөнтэй ярилц",
   description: "Голомтын дэргэд суух үл таних өвгөн дээр оч.",
-  panelLines: [
-    "Голомтын дэргэд суух",
-    "үл таних өвгөн дээр оч.",
-  ],
+  panelLines: ["Голомтын дэргэд суух", "үл таних өвгөн дээр оч."],
 } as const;
 
 export const VISIT_OLD_MAN_AT_DAWN_QUEST = {
   title: "Үүрээр өвгөнийг зорь",
   description: "Нар мандахад зүүн толгодын өвгөний бууцанд оч.",
-  panelLines: [
-    "Нар мандахад зүүн толгодын",
-    "өвгөний бууцанд оч.",
-  ],
+  panelLines: ["Нар мандахад зүүн толгодын", "өвгөний бууцанд оч."],
 } as const;
 
 export const INSPECT_STORM_TRACE_QUEST = {
@@ -192,10 +170,7 @@ export const INSPECT_STORM_TRACE_QUEST = {
 export const RETURN_TRACE_TO_OLD_MAN_QUEST = {
   title: "Өвгөнд мэдээ хүргэ",
   description: "Хар мөрийн хөдөлгөөнийг өвгөнд очиж өгүүл.",
-  panelLines: [
-    "Хар мөрийн хөдөлгөөнийг",
-    "өвгөнд очиж өгүүл.",
-  ],
+  panelLines: ["Хар мөрийн хөдөлгөөнийг", "өвгөнд очиж өгүүл."],
 } as const;
 
 export const TALK_AFTER_SPIRIT_SCOUT_QUEST = {
@@ -205,7 +180,7 @@ export const TALK_AFTER_SPIRIT_SCOUT_QUEST = {
 } as const;
 
 export const BUILD_SPIRIT_OVOO_QUEST = {
-  title: "Сүнсний овоо босго",
+  title: " овоо босго",
   description: `Хар салхины мөр дээр ${SPIRIT_OVOO_STONE_COST} чулуугаар овоо босго (заавал биш).`,
   panelLines: [
     "Хар салхины мөр дээр чулуун овоо босго.",
@@ -214,6 +189,7 @@ export const BUILD_SPIRIT_OVOO_QUEST = {
 } as const;
 
 export const ENTER_SPIRIT_VIA_OVOO_QUEST = {
+<<<<<<< Updated upstream
   title: "Доод тив рүү ор",
   description: "Доод тив рүү ор. Орвол буцах хаалга байхгүй.",
   panelLines: [
@@ -230,69 +206,76 @@ export const DEFEAT_SPIRIT_GUARDS_QUEST = {
     "Аварга могой · Лалар · Бар хул ·",
     "Чөтгөр · Харваач чөтгөр.",
   ],
+=======
+  title: "Сүнсний орон руу ор",
+  description: "Сүнсний орон руу ор. Орвол буцах хаалга байхгүй.",
+  panelLines: ["Сүнсний орон руу ор.", "Орвол буцах хаалга байхгүй."],
+} as const;
+
+export const DEFEAT_SPIRIT_GUARDS_QUEST = {
+  title: "Сүнсний замыг нээ",
+  description: "Зургаан нар, Хар могой, үлдсэн гурван сахиулыг дар.",
+  panelLines: ["Зургаан нар · Хар могой ·", "үлдсэн гурван сахиулыг дар."],
+>>>>>>> Stashed changes
 } as const;
 
 export const REACH_CURSED_GATE_QUEST = {
   title: "Хараалт хаалгад хүр",
   description: "Сахиулын мөр тасарлаа. Хараалт хаалгыг зорь.",
-  panelLines: [
-    "Сахиулын мөр тасарлаа.",
-    "Хараалт хаалгыг зорь.",
-  ],
+  panelLines: ["Сахиулын мөр тасарлаа.", "Хараалт хаалгыг зорь."],
 } as const;
 
 export const DEFEAT_SHULMAS_BAATAR_QUEST = {
+<<<<<<< Updated upstream
   title: "Долоон толгойтой доголон хар мангасыг дар",
   description: "Хараалт талбайг манах долоон толгойтой мангасыг ял.",
   panelLines: [
     "Долоон толгойтой доголон",
     "хар мангасыг ял.",
   ],
+=======
+  title: "Шулмасын баатрыг дар",
+  description: "Хараалт талбайг сахих баатрыг ял.",
+  panelLines: ["Хараалт талбайг сахих", "баатрыг ял."],
+>>>>>>> Stashed changes
 } as const;
 
 export const CLAIM_SKY_SWORD_QUEST = {
   title: "Хөх тэнгэрийн сэлмийг ав",
+<<<<<<< Updated upstream
   description: "Унасан мангасын дэргэд үлдсэн сэлмийг ав.",
   panelLines: [
     "Унасан мангасын дэргэд",
     "үлдсэн сэлмийг ав.",
   ],
+=======
+  description: "Унасан баатрын дэргэд үлдсэн сэлмийг ав.",
+  panelLines: ["Унасан баатрын дэргэд", "үлдсэн сэлмийг ав."],
+>>>>>>> Stashed changes
 } as const;
 
 export const OPEN_BLACK_IRON_GATE_QUEST = {
   title: "Хар төмөр хаалгыг нээ",
   description: "Хөх тэнгэрийн сэлмээр хар төмөр хаалгыг нээ.",
-  panelLines: [
-    "Хөх тэнгэрийн сэлмээр",
-    "хар төмөр хаалгыг нээ.",
-  ],
+  panelLines: ["Хөх тэнгэрийн сэлмээр", "хар төмөр хаалгыг нээ."],
 } as const;
 
 export const DEFEAT_TUMUR_SHULMAS_QUEST = {
   title: "Төмөр шулмасыг дар",
   description: "Аав, ээжийг хүлсэн төмөр шулмасыг ял.",
-  panelLines: [
-    "Аав, ээжийг хүлсэн",
-    "төмөр шулмасыг ял.",
-  ],
+  panelLines: ["Аав, ээжийг хүлсэн", "төмөр шулмасыг ял."],
 } as const;
 
 export const RETURN_FROM_SPIRIT_QUEST = {
   title: "Бодит ертөнцөд буц",
   description: "Хүлээс тасарлаа. E дарж гэрийн зүг буц.",
-  panelLines: [
-    "Хүлээс тасарлаа.",
-    "E дарж гэрийн зүг буц.",
-  ],
+  panelLines: ["Хүлээс тасарлаа.", "E дарж гэрийн зүг буц."],
 } as const;
 
 export const GROW_FLOCK_QUEST = {
   title: "Сүргээ өсгө",
   description: "Голомтоо сахиж, сүргээ 1000 толгойд хүргэ.",
-  panelLines: [
-    "Голомтоо сахиж, сүргээ",
-    "1000 толгойд хүргэ.",
-  ],
+  panelLines: ["Голомтоо сахиж, сүргээ", "1000 толгойд хүргэ."],
 } as const;
 
 export const LIVESTOCK_QUEST_NARRATION =
@@ -301,8 +284,7 @@ export const LIVESTOCK_QUEST_NARRATION =
 export const FIRST_NIGHT_SUNSET_NARRATION =
   "Нар уулын цаагуур шингэж, тал нутгийг бараан сүүдэр нөмрөв.";
 
-export const FIRST_NIGHT_WOLF_WARNING =
-  "Алсад чонын улиан сонсогдоно.";
+export const FIRST_NIGHT_WOLF_WARNING = "Алсад чонын улиан сонсогдоно.";
 
 const INTRO_SECTION_DURATION = 5.2;
 const INTRO_SECTION_MAX_DURATION = 45;
@@ -629,10 +611,12 @@ function objectiveForFirstNightStage(
   stage: FirstNightStage,
 ): StoryState["activeMainObjective"] {
   if (stage === "pending") return "restoreHearth";
-  if (stage === "recoveringLivestock" ||
-      stage === "sunset" ||
-      stage === "nightNarration" ||
-      stage === "wolfWarning") {
+  if (
+    stage === "recoveringLivestock" ||
+    stage === "sunset" ||
+    stage === "nightNarration" ||
+    stage === "wolfWarning"
+  ) {
     return "findScatteredLivestock";
   }
   if (stage === "completed") return "observeWolfMovement";
@@ -742,8 +726,7 @@ function isCompleteStoryState(
       (story.livestockQuestStarted &&
         story.openingLivestockTotal > 0 &&
         story.livestockFoundIds.length === story.openingLivestockTotal &&
-        story.livestockReturnedIds.length ===
-          story.openingLivestockTotal)) &&
+        story.livestockReturnedIds.length === story.openingLivestockTotal)) &&
     typeof story.livestockCompletionEffectRemaining === "number" &&
     typeof story.livestockCompletionEffectShown === "boolean" &&
     isFirstNightStage(story.firstNightStage) &&
@@ -835,8 +818,7 @@ function isCompleteStoryState(
     (!firstNightStageAtLeast(story.firstNightStage, "sunset") ||
       story.firstNightSunsetStarted) &&
     (!firstNightStageAtLeast(story.firstNightStage, "nightNarration") ||
-      (story.firstNightNormalTimeRestored &&
-        story.firstNightNarrationShown)) &&
+      (story.firstNightNormalTimeRestored && story.firstNightNarrationShown)) &&
     (!firstNightStageAtLeast(story.firstNightStage, "wolfWarning") ||
       story.firstNightWolfWarningShown) &&
     (!firstNightStageAtLeast(story.firstNightStage, "protecting") ||
@@ -905,8 +887,7 @@ function isCompleteStoryState(
         story.firstNightStageRemaining <= FIRST_NIGHT_NARRATION_DURATION) ||
       (story.firstNightStage === "wolfWarning" &&
         story.firstNightStageRemaining > 0 &&
-        story.firstNightStageRemaining <=
-          FIRST_NIGHT_WOLF_WARNING_DURATION) ||
+        story.firstNightStageRemaining <= FIRST_NIGHT_WOLF_WARNING_DURATION) ||
       ((story.firstNightStage === "pending" ||
         story.firstNightStage === "recoveringLivestock" ||
         story.firstNightStage === "protecting" ||
@@ -1003,11 +984,7 @@ export function normalizeLoadedStoryState(
   const firstNightStageRemaining =
     firstNightStage === "sunset"
       ? hasSavedFirstNightTimer
-        ? clamp(
-            rawFirstNightStageRemaining,
-            0,
-            FIRST_NIGHT_SUNSET_DURATION,
-          )
+        ? clamp(rawFirstNightStageRemaining, 0, FIRST_NIGHT_SUNSET_DURATION)
         : FIRST_NIGHT_SUNSET_DURATION
       : firstNightStage === "nightNarration"
         ? hasSavedFirstNightTimer
@@ -1098,9 +1075,7 @@ export function normalizeLoadedStoryState(
     firstNightStage === "elderDialogue" ||
     (firstNightStage === "completed" &&
       (!oldManArrived || !milestone4Completed));
-  const rawStoryWolfSceneElapsed = Number.isFinite(
-    story.storyWolfSceneElapsed,
-  )
+  const rawStoryWolfSceneElapsed = Number.isFinite(story.storyWolfSceneElapsed)
     ? (story.storyWolfSceneElapsed ?? 0)
     : 0;
   const rawHelplessPhaseElapsed = Number.isFinite(story.helplessPhaseElapsed)
@@ -1109,9 +1084,7 @@ export function normalizeLoadedStoryState(
   const rawAttackAttempts = Number.isSafeInteger(story.storyWolfAttackAttempts)
     ? (story.storyWolfAttackAttempts ?? 0)
     : 0;
-  const rawOldManArrivalElapsed = Number.isFinite(
-    story.oldManArrivalElapsed,
-  )
+  const rawOldManArrivalElapsed = Number.isFinite(story.oldManArrivalElapsed)
     ? (story.oldManArrivalElapsed ?? 0)
     : 0;
 
@@ -1128,8 +1101,12 @@ export function normalizeLoadedStoryState(
       INTRO_SECTION_DURATION,
       INTRO_SECTION_MAX_DURATION,
     ),
-    introCamX: Number.isFinite(story.introCamX) ? (story.introCamX as number) : 0,
-    introCamY: Number.isFinite(story.introCamY) ? (story.introCamY as number) : 0,
+    introCamX: Number.isFinite(story.introCamX)
+      ? (story.introCamX as number)
+      : 0,
+    introCamY: Number.isFinite(story.introCamY)
+      ? (story.introCamY as number)
+      : 0,
     introParentFade: Number.isFinite(story.introParentFade)
       ? clamp(story.introParentFade as number, 0, 1)
       : 0,
@@ -1181,17 +1158,17 @@ export function normalizeLoadedStoryState(
                     ? null
                     : "talkAfterSpiritScout"
                   : "defeatSpiritGuards"
-              : stormTraceInspected
-                ? "returnToOldManWithTrace"
-                : milestone6DialogueCompleted
-              ? "inspectStormTrace"
-              : milestone5DialogueCompleted
-                ? "visitOldManAtDawn"
-                : milestone4Completed
-                ? "talkToOldMan"
-                : storyWolfParryCompleted
-                  ? "counterStoryWolf"
-                  : "observeWolfMovement"
+                : stormTraceInspected
+                  ? "returnToOldManWithTrace"
+                  : milestone6DialogueCompleted
+                    ? "inspectStormTrace"
+                    : milestone5DialogueCompleted
+                      ? "visitOldManAtDawn"
+                      : milestone4Completed
+                        ? "talkToOldMan"
+                        : storyWolfParryCompleted
+                          ? "counterStoryWolf"
+                          : "observeWolfMovement"
           : objectiveForFirstNightStage(firstNightStage),
     hearthCompletionEffectRemaining: 0,
     hearthCompletionEffectShown:
@@ -1243,10 +1220,8 @@ export function normalizeLoadedStoryState(
     storyWolfAttackInProgress:
       firstNightStage === "protecting" &&
       story.storyWolfAttackInProgress === true,
-    temporaryPlayerProtectionActive:
-      scriptedProtectionExpected,
-    temporaryLivestockProtectionActive:
-      scriptedProtectionExpected,
+    temporaryPlayerProtectionActive: scriptedProtectionExpected,
+    temporaryLivestockProtectionActive: scriptedProtectionExpected,
     oldManArrivalStarted:
       story.oldManArrivalStarted === true ||
       firstNightStageAtLeast(firstNightStage, "elderIntervention"),
@@ -1327,8 +1302,7 @@ function ensureOpeningLivestockRoster(state: GameState): void {
   const story = state.story;
   if (
     story.openingLivestockIds.length > 0 &&
-      story.openingLivestockAnchors.length ===
-        story.openingLivestockIds.length
+    story.openingLivestockAnchors.length === story.openingLivestockIds.length
   ) {
     if (story.livestockQuestCompleted) {
       story.livestockFoundIds = [...story.openingLivestockIds];
@@ -1427,8 +1401,10 @@ function openingLivestockSpotIsClear(
     dist(pos, world.elder.pos) < world.elder.radius + 38 ||
     dist(pos, world.elder.gerPos) < 82 ||
     dist(pos, world.firstRoute.gatePos) < world.firstRoute.gateRadius + 90 ||
-    dist(pos, world.firstRoute.arenaCenter) < world.firstRoute.arenaRadius + 80 ||
-    dist(pos, world.tumurShulmas.gatePos) < world.tumurShulmas.gateRadius + 80 ||
+    dist(pos, world.firstRoute.arenaCenter) <
+      world.firstRoute.arenaRadius + 80 ||
+    dist(pos, world.tumurShulmas.gatePos) <
+      world.tumurShulmas.gateRadius + 80 ||
     dist(pos, world.tumurShulmas.arenaCenter) <
       world.tumurShulmas.arenaRadius + 80
   ) {
@@ -1681,13 +1657,12 @@ export function updateOpeningSequence(state: GameState, dt: number): void {
 
   // Цагийг зорилт руу зөөлөн уусгана (ялангуяа үүр)
   const timeBlend =
-    section.vignette === "coldDawn" ? Math.min(1, dt * 0.38) : Math.min(1, dt * 1.8);
+    section.vignette === "coldDawn"
+      ? Math.min(1, dt * 0.38)
+      : Math.min(1, dt * 1.8);
   state.world.timeOfDay +=
     (state.story.introTimeTarget - state.world.timeOfDay) * timeBlend;
-  state.world.dayPhase = getDayPhase(
-    state.world.timeOfDay,
-    state.world.season,
-  );
+  state.world.dayPhase = getDayPhase(state.world.timeOfDay, state.world.season);
   if (section.vignette === "coldDawn") {
     const hold = Math.max(state.story.introSectionHold, INTRO_SECTION_DURATION);
     const dawnT = clamp(state.story.introSectionElapsed / hold, 0, 1);
@@ -1908,8 +1883,7 @@ export function updateHearthQuest(state: GameState, dt: number): void {
       story.campfireRelit = true;
       story.hearthQuestCompleted = true;
       story.hearthCompletionEffectShown = true;
-      story.hearthCompletionEffectRemaining =
-        HEARTH_COMPLETION_EFFECT_DURATION;
+      story.hearthCompletionEffectRemaining = HEARTH_COMPLETION_EFFECT_DURATION;
       state.message = "";
       state.messageTimer = 0;
       sfx("levelup");
@@ -2123,8 +2097,7 @@ function updateFirstNightCatchUp(
 
   const step = Math.min(Math.max(0, dt), remaining);
   world.timeOfDay +=
-    (FIRST_NIGHT_VISIBLE_SUNSET_START - world.timeOfDay) *
-    (step / remaining);
+    (FIRST_NIGHT_VISIBLE_SUNSET_START - world.timeOfDay) * (step / remaining);
   world.dayPhase = getDayPhase(world.timeOfDay, world.season);
 }
 
@@ -2295,10 +2268,7 @@ function ensureStoryWolf(state: GameState): Wolf | null {
   return wolf;
 }
 
-function nearestOpeningLivestockDistance(
-  state: GameState,
-  wolf: Wolf,
-): number {
+function nearestOpeningLivestockDistance(state: GameState, wolf: Wolf): number {
   let nearest = Number.POSITIVE_INFINITY;
   for (const animal of state.world.flock.visuals) {
     if (!state.story.openingLivestockIds.includes(animal.id)) continue;
@@ -2428,10 +2398,7 @@ function beginSecondUnknownOldManLine(state: GameState, wolf: Wolf): void {
   state.messageTimer = 0;
 }
 
-function completeUnknownOldManGuidance(
-  state: GameState,
-  wolf: Wolf,
-): void {
+function completeUnknownOldManGuidance(state: GameState, wolf: Wolf): void {
   const story = state.story;
   story.shortDialogueCompleted = true;
   story.milestone3Completed = true;
@@ -2441,7 +2408,8 @@ function completeUnknownOldManGuidance(
   story.storyWolfAttackInProgress = false;
   state.world.elder.pos = elderCutsceneTarget(state);
   state.world.elder.pose = "standing";
-  state.world.elder.face = state.player.pos.x < state.world.elder.pos.x ? -1 : 1;
+  state.world.elder.face =
+    state.player.pos.x < state.world.elder.pos.x ? -1 : 1;
   state.world.elder.walkPhase = 0;
 
   // Cutscene duussan frame-ees story wolf-iig dahin toglogch ruu
@@ -2477,7 +2445,8 @@ function revealSeatedOldMan(state: GameState): void {
     y: clamp(fire.y + 28, 52, state.world.height - 52),
   };
   state.world.elder.pose = "seated";
-  state.world.elder.face = state.player.pos.x < state.world.elder.pos.x ? -1 : 1;
+  state.world.elder.face =
+    state.player.pos.x < state.world.elder.pos.x ? -1 : 1;
   state.world.elder.walkPhase = 0;
   state.world.elder.eyeMode = "idle";
 
@@ -2493,11 +2462,7 @@ export function updateMilestone3(state: GameState, dt: number): void {
 
   if (story.milestone3Completed) {
     const defeatedWolf = getStoryWolf(state);
-    if (
-      story.milestone4Completed &&
-      defeatedWolf &&
-      !defeatedWolf.alive
-    ) {
+    if (story.milestone4Completed && defeatedWolf && !defeatedWolf.alive) {
       revealSeatedOldMan(state);
     }
     return;
@@ -2567,9 +2532,7 @@ export function updateMilestone3(state: GameState, dt: number): void {
     story.oldManArrivalElapsed += Math.max(0, dt);
     walkOldManIntoCutscene(state, dt);
     calmStoryWolfForVoice(wolf, 0.18);
-    if (
-      story.oldManArrivalElapsed >= UNKNOWN_OLD_MAN_FIRST_LINE_DURATION
-    ) {
+    if (story.oldManArrivalElapsed >= UNKNOWN_OLD_MAN_FIRST_LINE_DURATION) {
       beginSecondUnknownOldManLine(state, wolf);
     }
     return;
@@ -2580,9 +2543,7 @@ export function updateMilestone3(state: GameState, dt: number): void {
     story.oldManArrivalElapsed += Math.max(0, dt);
     walkOldManIntoCutscene(state, dt);
     calmStoryWolfForVoice(wolf, 0.18);
-    if (
-      story.oldManArrivalElapsed >= UNKNOWN_OLD_MAN_SECOND_LINE_DURATION
-    ) {
+    if (story.oldManArrivalElapsed >= UNKNOWN_OLD_MAN_SECOND_LINE_DURATION) {
       completeUnknownOldManGuidance(state, wolf);
     }
   }
@@ -2602,10 +2563,7 @@ function storyWolfIsInRedSignalWindow(wolf: Wolf): boolean {
   );
 }
 
-function beginNightCompletionEffect(
-  state: GameState,
-  deathPos: Vector2,
-): void {
+function beginNightCompletionEffect(state: GameState, deathPos: Vector2): void {
   const story = state.story;
   if (story.nightCompletionEffectShown) return;
 
@@ -2673,19 +2631,13 @@ export function updateMilestone4(state: GameState, dt: number): void {
     (!wolf || !wolf.alive) &&
     (story.storyWolfDefeated || story.storyWolfCounterCompleted)
   ) {
-    beginNightCompletionEffect(
-      state,
-      wolf?.pos ?? state.player.pos,
-    );
+    beginNightCompletionEffect(state, wolf?.pos ?? state.player.pos);
     return;
   }
 
   if (!wolf || !wolf.alive) return;
 
-  if (
-    !story.storyWolfRedSignalSeen &&
-    storyWolfIsInRedSignalWindow(wolf)
-  ) {
+  if (!story.storyWolfRedSignalSeen && storyWolfIsInRedSignalWindow(wolf)) {
     story.storyWolfRedSignalSeen = true;
     story.activeMainObjective = "parryStoryWolf";
     setMessage(
@@ -2703,7 +2655,6 @@ export function updateMilestone4(state: GameState, dt: number): void {
       : "parryStoryWolf";
   }
 }
-
 
 const STORM_TRACE_INTERACT_DISTANCE = 54;
 const STORM_TRACE_EFFECT_DURATION = 2.8;
@@ -2765,7 +2716,7 @@ export function tryInspectStormTrace(state: GameState): boolean {
   stormTraceApproachSfxPlayed = true;
   setMessage(
     state,
-    "Хар үнс салхины өөдөөс мөлхөх мэт хөдөлж, чулуун завсраас хахир инээд цуурайтав.",
+    "Хар үнс агаарт дэгдэж, хавцлын завсраар хахир инээд цуурайтав.",
     5,
   );
   return true;
@@ -2834,11 +2785,7 @@ export function tryExitSpiritViaOvoo(state: GameState): boolean {
 
   if (!nearSpiritExitOvoo(state)) {
     state.input.interact = false;
-    setMessage(
-      state,
-      "Буцахын тулд хар мөрийн чулуун овоо руу оч.",
-      2.6,
-    );
+    setMessage(state, "Буцахын тулд хар мөрийн чулуун овоо руу оч.", 2.6);
     sfx("move");
     return true;
   }
@@ -3062,7 +3009,8 @@ export function drawStormTrace(
   const visible =
     (state.phase === "playing" &&
       story.milestone6DialogueCompleted &&
-      ((!story.stormTraceInspected || story.stormTraceEffectRemaining > 0) ||
+      (!story.stormTraceInspected ||
+        story.stormTraceEffectRemaining > 0 ||
         ovooPhase)) ||
     spiritExitOvoo ||
     spiritSealedOvoo;
@@ -3173,13 +3121,7 @@ export function drawStormTrace(
   }
 
   if (story.spiritOvooBuilt) {
-    drawSpiritOvooAt(
-      ctx,
-      x,
-      y,
-      time,
-      story.spiritOvooSoulCollected !== true,
-    );
+    drawSpiritOvooAt(ctx, x, y, time, story.spiritOvooSoulCollected !== true);
   } else if (story.postSpiritScoutDialogueCompleted) {
     // Босгох газрын тэмдэг — чулуун суурь
     ctx.globalAlpha = 0.85;
@@ -3365,7 +3307,10 @@ function drawSpiritOvooAt(
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(bx, by);
-    ctx.lineTo(x + Math.sin(angle) * 2 + tipJitter * 0.35, apexY + tipJitter * 0.4);
+    ctx.lineTo(
+      x + Math.sin(angle) * 2 + tipJitter * 0.35,
+      apexY + tipJitter * 0.4,
+    );
     ctx.stroke();
   }
 
@@ -3397,7 +3342,6 @@ function drawSpiritOvooAt(
   }
 }
 
-
 /**
  * Түр хөгжүүлэлтийн cheat: нээлтийн story-н одоогийн үеийг дараагийн
  * тогтвортой objective руу шууд шилжүүлнэ.
@@ -3418,7 +3362,10 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     return;
   }
 
-  if (!story.hearthQuestCompleted || story.activeMainObjective === "restoreHearth") {
+  if (
+    !story.hearthQuestCompleted ||
+    story.activeMainObjective === "restoreHearth"
+  ) {
     story.hearthQuestStarted = true;
     story.hearthWoodCollected = CAMPFIRE_WOOD_COST;
     story.campfireRelit = true;
@@ -3656,7 +3603,9 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
 
   if (story.activeMainObjective === "defeatShulmasBaatar") {
     const route = state.world.firstRoute;
-    const boss = route.enemies.find((enemy) => enemy.kind === "shulmasynBaatar");
+    const boss = route.enemies.find(
+      (enemy) => enemy.kind === "shulmasynBaatar",
+    );
     if (boss) {
       boss.hp = 0;
       boss.alive = false;
@@ -3717,10 +3666,7 @@ export function debugSkipCurrentStoryStage(state: GameState): void {
     return;
   }
 
-  if (
-    story.milestone8Started &&
-    !story.familyReunionDialogueCompleted
-  ) {
+  if (story.milestone8Started && !story.familyReunionDialogueCompleted) {
     story.familyReunionEffectRemaining = 0;
     story.familyReunionEffectShown = true;
     story.familyReunionDialogueStarted = true;
@@ -4248,10 +4194,8 @@ export function drawLivestockTrail(
     for (let i = 0; i < stepCount; i++) {
       const progress = HOOFPRINT_TRAIL_STEPS[i];
       const lateral = Math.sin(anchor.id * 1.73 + i * 2.41) * 7;
-      const worldX =
-        start.x + dx * progress + perpendicularX * lateral;
-      const worldY =
-        start.y + dy * progress + perpendicularY * lateral;
+      const worldX = start.x + dx * progress + perpendicularX * lateral;
+      const worldY = start.y + dy * progress + perpendicularY * lateral;
       const x = worldX - camera.x;
       const y = worldY - camera.y;
       if (x < -12 || x > VIEW_W + 12 || y < -12 || y > VIEW_H + 12) {
@@ -4425,7 +4369,10 @@ export function drawOpeningSequence(
   const elapsed = state.story.introSectionElapsed;
   const hold = Math.max(state.story.introSectionHold, INTRO_SECTION_DURATION);
   const sectionAlpha = clamp(
-    Math.min(elapsed / INTRO_FADE_DURATION, (hold - elapsed) / INTRO_FADE_DURATION),
+    Math.min(
+      elapsed / INTRO_FADE_DURATION,
+      (hold - elapsed) / INTRO_FADE_DURATION,
+    ),
     0,
     1,
   );
@@ -4546,44 +4493,41 @@ export function drawMainObjectivePanel(
               ? PARRY_STORY_WOLF_QUEST
               : objective === "counterStoryWolf"
                 ? COUNTER_STORY_WOLF_QUEST
-              : objective === "talkToOldMan"
-                ? TALK_TO_OLD_MAN_QUEST
-                : objective === "visitOldManAtDawn"
-                  ? VISIT_OLD_MAN_AT_DAWN_QUEST
-                  : objective === "inspectStormTrace"
-                    ? INSPECT_STORM_TRACE_QUEST
-                    : objective === "returnToOldManWithTrace"
-                      ? RETURN_TRACE_TO_OLD_MAN_QUEST
-                      : objective === "talkAfterSpiritScout"
-                        ? TALK_AFTER_SPIRIT_SCOUT_QUEST
-                        : objective === "buildSpiritOvoo"
-                          ? BUILD_SPIRIT_OVOO_QUEST
-                          : objective === "enterSpiritViaOvoo"
-                            ? ENTER_SPIRIT_VIA_OVOO_QUEST
-                      : objective === "defeatSpiritGuards"
-                        ? DEFEAT_SPIRIT_GUARDS_QUEST
-                        : objective === "reachCursedGate"
-                          ? REACH_CURSED_GATE_QUEST
-                          : objective === "defeatShulmasBaatar"
-                            ? DEFEAT_SHULMAS_BAATAR_QUEST
-                            : objective === "claimSkySword"
-                              ? CLAIM_SKY_SWORD_QUEST
-                              : objective === "openBlackIronGate"
-                                ? OPEN_BLACK_IRON_GATE_QUEST
-                                : objective === "defeatTumurShulmas"
-                                  ? DEFEAT_TUMUR_SHULMAS_QUEST
-                                  : objective === "growFlock"
-                                    ? GROW_FLOCK_QUEST
-                                    : RETURN_FROM_SPIRIT_QUEST;
+                : objective === "talkToOldMan"
+                  ? TALK_TO_OLD_MAN_QUEST
+                  : objective === "visitOldManAtDawn"
+                    ? VISIT_OLD_MAN_AT_DAWN_QUEST
+                    : objective === "inspectStormTrace"
+                      ? INSPECT_STORM_TRACE_QUEST
+                      : objective === "returnToOldManWithTrace"
+                        ? RETURN_TRACE_TO_OLD_MAN_QUEST
+                        : objective === "talkAfterSpiritScout"
+                          ? TALK_AFTER_SPIRIT_SCOUT_QUEST
+                          : objective === "buildSpiritOvoo"
+                            ? BUILD_SPIRIT_OVOO_QUEST
+                            : objective === "enterSpiritViaOvoo"
+                              ? ENTER_SPIRIT_VIA_OVOO_QUEST
+                              : objective === "defeatSpiritGuards"
+                                ? DEFEAT_SPIRIT_GUARDS_QUEST
+                                : objective === "reachCursedGate"
+                                  ? REACH_CURSED_GATE_QUEST
+                                  : objective === "defeatShulmasBaatar"
+                                    ? DEFEAT_SHULMAS_BAATAR_QUEST
+                                    : objective === "claimSkySword"
+                                      ? CLAIM_SKY_SWORD_QUEST
+                                      : objective === "openBlackIronGate"
+                                        ? OPEN_BLACK_IRON_GATE_QUEST
+                                        : objective === "defeatTumurShulmas"
+                                          ? DEFEAT_TUMUR_SHULMAS_QUEST
+                                          : objective === "growFlock"
+                                            ? GROW_FLOCK_QUEST
+                                            : RETURN_FROM_SPIRIT_QUEST;
   ctx.fillStyle = COLORS.hudAccent;
   ctx.font = "600 15px system-ui, sans-serif";
   ctx.fillText(quest.title, x + 14, y + 54);
 
   if (objective === "restoreHearth") {
-    const wood = Math.min(
-      CAMPFIRE_WOOD_COST,
-      state.story.hearthWoodCollected,
-    );
+    const wood = Math.min(CAMPFIRE_WOOD_COST, state.story.hearthWoodCollected);
     const woodDone = wood >= CAMPFIRE_WOOD_COST;
     const fireDone = state.story.campfireRelit;
 
@@ -4669,28 +4613,29 @@ export function drawMainObjectivePanel(
                           ? BUILD_SPIRIT_OVOO_QUEST.panelLines
                           : objective === "enterSpiritViaOvoo"
                             ? ENTER_SPIRIT_VIA_OVOO_QUEST.panelLines
-                      : objective === "defeatSpiritGuards"
-                        ? DEFEAT_SPIRIT_GUARDS_QUEST.panelLines
-                        : objective === "reachCursedGate"
-                          ? REACH_CURSED_GATE_QUEST.panelLines
-                          : objective === "defeatShulmasBaatar"
-                            ? DEFEAT_SHULMAS_BAATAR_QUEST.panelLines
-                            : objective === "claimSkySword"
-                              ? CLAIM_SKY_SWORD_QUEST.panelLines
-                              : objective === "openBlackIronGate"
-                                ? OPEN_BLACK_IRON_GATE_QUEST.panelLines
-                                : objective === "defeatTumurShulmas"
-                                  ? DEFEAT_TUMUR_SHULMAS_QUEST.panelLines
-                                  : objective === "growFlock"
-                                    ? GROW_FLOCK_QUEST.panelLines
-                                    : RETURN_FROM_SPIRIT_QUEST.panelLines;
+                            : objective === "defeatSpiritGuards"
+                              ? DEFEAT_SPIRIT_GUARDS_QUEST.panelLines
+                              : objective === "reachCursedGate"
+                                ? REACH_CURSED_GATE_QUEST.panelLines
+                                : objective === "defeatShulmasBaatar"
+                                  ? DEFEAT_SHULMAS_BAATAR_QUEST.panelLines
+                                  : objective === "claimSkySword"
+                                    ? CLAIM_SKY_SWORD_QUEST.panelLines
+                                    : objective === "openBlackIronGate"
+                                      ? OPEN_BLACK_IRON_GATE_QUEST.panelLines
+                                      : objective === "defeatTumurShulmas"
+                                        ? DEFEAT_TUMUR_SHULMAS_QUEST.panelLines
+                                        : objective === "growFlock"
+                                          ? GROW_FLOCK_QUEST.panelLines
+                                          : RETURN_FROM_SPIRIT_QUEST.panelLines;
     lines.forEach((line, index) => {
       ctx.fillText(line, x + 14, y + 76 + index * 16);
     });
     if (objective === "defeatSpiritGuards") {
       const route = state.world.firstRoute;
       ctx.font = "13px 'Courier New', monospace";
-      ctx.fillStyle = route.defeated >= route.total ? "#8fd48f" : COLORS.hudText;
+      ctx.fillStyle =
+        route.defeated >= route.total ? "#8fd48f" : COLORS.hudText;
       ctx.fillText(
         trFormat("Сахиул: {have} / {total}", {
           have: Math.min(route.defeated, route.total),
@@ -4729,11 +4674,7 @@ export function drawHearthCompletionEffect(
   }
 
   const elapsed = HEARTH_COMPLETION_EFFECT_DURATION - remaining;
-  const alpha = clamp(
-    Math.min(elapsed / 0.32, remaining / 0.55, 1),
-    0,
-    1,
-  );
+  const alpha = clamp(Math.min(elapsed / 0.32, remaining / 0.55, 1), 0, 1);
   // Гэрт — дэлгэцийн төв (зуух); гадаа — галын байрлал
   const fireX =
     state.phase === "ger"
@@ -4782,17 +4723,9 @@ export function drawHearthCompletionEffect(
 
   ctx.font = "15px system-ui, sans-serif";
   ctx.lineWidth = 3;
-  ctx.strokeText(
-    "Түлээ цогшиж, гал аслаа.",
-    VIEW_W / 2,
-    299,
-  );
+  ctx.strokeText("Түлээ цогшиж, гал аслаа.", VIEW_W / 2, 299);
   ctx.fillStyle = "#f2e8d5";
-  ctx.fillText(
-    "Түлээ цогшиж, гал аслаа.",
-    VIEW_W / 2,
-    299,
-  );
+  ctx.fillText("Түлээ цогшиж, гал аслаа.", VIEW_W / 2, 299);
   ctx.restore();
 }
 
@@ -4811,11 +4744,7 @@ export function drawLivestockCompletionEffect(
   }
 
   const elapsed = LIVESTOCK_COMPLETION_EFFECT_DURATION - remaining;
-  const alpha = clamp(
-    Math.min(elapsed / 0.32, remaining / 0.55, 1),
-    0,
-    1,
-  );
+  const alpha = clamp(Math.min(elapsed / 0.32, remaining / 0.55, 1), 0, 1);
   const pen = penCenter(state.world);
   const penX = clamp(pen.x - camera.x, 70, VIEW_W - 70);
   const penY = clamp(pen.y - camera.y, 70, VIEW_H - 70);
@@ -4859,13 +4788,13 @@ export function drawLivestockCompletionEffect(
   ctx.font = "15px system-ui, sans-serif";
   ctx.lineWidth = 3;
   ctx.strokeText(
-    "Тарсан мал хашаандаа орж, хотон бүрдэв.",
+    "Тарсан мал хашаандаа орж, хотонд хонь мал дүүрэв.",
     VIEW_W / 2,
     299,
   );
   ctx.fillStyle = "#f2e8d5";
   ctx.fillText(
-    "Тарсан мал хашаандаа орж, хотон бүрдэв.",
+    "Тарсан мал хашаандаа орж, хотонд хонь мал дүүрэв.",
     VIEW_W / 2,
     299,
   );
@@ -4887,11 +4816,7 @@ export function drawNightCompletionEffect(
   }
 
   const elapsed = NIGHT_COMPLETION_EFFECT_DURATION - remaining;
-  const alpha = clamp(
-    Math.min(elapsed / 0.32, remaining / 0.55, 1),
-    0,
-    1,
-  );
+  const alpha = clamp(Math.min(elapsed / 0.32, remaining / 0.55, 1), 0, 1);
   const wolf = getStoryWolf(state);
   const focusX = clamp(
     (wolf?.pos.x ?? state.player.pos.x) - camera.x,
@@ -4955,11 +4880,7 @@ export function drawNightCompletionEffect(
     299,
   );
   ctx.fillStyle = "#e8edf0";
-  ctx.fillText(
-    "Айдас арилаагүй ч хүү түүнд захирагдсангүй.",
-    VIEW_W / 2,
-    299,
-  );
+  ctx.fillText("Айдас арилаагүй ч хүү түүнд захирагдсангүй.", VIEW_W / 2, 299);
   ctx.restore();
 }
 
@@ -4978,11 +4899,7 @@ export function drawFamilyReunionEffect(
   }
 
   const elapsed = FAMILY_REUNION_EFFECT_DURATION - remaining;
-  const alpha = clamp(
-    Math.min(elapsed / 0.38, remaining / 0.62, 1),
-    0,
-    1,
-  );
+  const alpha = clamp(Math.min(elapsed / 0.38, remaining / 0.62, 1), 0, 1);
   const campX = clamp(state.world.campPos.x - camera.x, 80, VIEW_W - 80);
   const campY = clamp(state.world.campPos.y - camera.y, 80, VIEW_H - 80);
 
@@ -5024,16 +4941,8 @@ export function drawFamilyReunionEffect(
 
   ctx.font = "15px system-ui, sans-serif";
   ctx.lineWidth = 3;
-  ctx.strokeText(
-    "Хар хүлээс тасарч, голомтын бараа дахин бүтэн болов.",
-    VIEW_W / 2,
-    298,
-  );
+  ctx.strokeText("Хар хүлээс тасарч, голомтын гал сэргэв.", VIEW_W / 2, 298);
   ctx.fillStyle = "#f3ead8";
-  ctx.fillText(
-    "Хар хүлээс тасарч, голомтын бараа дахин бүтэн болов.",
-    VIEW_W / 2,
-    298,
-  );
+  ctx.fillText("Хар хүлээс тасарч, Голомтын гал сэргэв.", VIEW_W / 2, 298);
   ctx.restore();
 }
