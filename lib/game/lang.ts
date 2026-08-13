@@ -145,7 +145,7 @@ const MN = {
   "craft.felt.desc": "3 ноос → 1 эсгий",
   "craft.aaruul.name": "Ааруул",
   "craft.aaruul.desc": "2 сүү → 1 ааруул",
-  "craft.cashmereFelt.name": "Ноолууран эсгий",
+  "craft.cashmereFelt.name": "Ноолууран утас.",
   "craft.cashmereFelt.desc": "2 ноолуур → 2 эсгий",
 
   "common.backHint": "P / Enter — буцах",

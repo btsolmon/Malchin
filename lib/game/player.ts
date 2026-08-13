@@ -832,8 +832,7 @@ export function tryInteract(state: GameState): void {
     }
     if (nearWild) {
       tryCatchWildHorse(state);
-      player.chopCooldown =
-        state.horseLasso?.phase === "pulling" ? 0.09 : 0.32;
+      player.chopCooldown = state.horseLasso?.phase === "pulling" ? 0.09 : 0.32;
       state.input.interact = false;
       return;
     }
@@ -883,10 +882,16 @@ export function tryInteract(state: GameState): void {
     gainXp(state, take);
     sfx("berry");
     const blue = (bush.kind ?? (bush.id % 3 === 0 ? "blue" : "red")) === "blue";
-    spawnParticles(state, bush.pos, 4 + take * 2, blue ? "#4a68d0" : "#e04070", {
-      speed: 60,
-      size: 2.5,
-    });
+    spawnParticles(
+      state,
+      bush.pos,
+      4 + take * 2,
+      blue ? "#4a68d0" : "#e04070",
+      {
+        speed: 60,
+        size: 2.5,
+      },
+    );
     spawnText(
       state,
       bush.pos,
@@ -963,7 +968,7 @@ export function tryInteract(state: GameState): void {
 
   const tree = nearestAliveTree(player, world.trees);
   if (!tree) {
-    setMessage(state, "Ойрхон мод/жимс/чулуу/бэлчээр алга.", 1.5);
+    setMessage(state, "Ойрхон мод/жимс/чулуу/ алга.", 1.5);
     return;
   }
 
@@ -1091,7 +1096,7 @@ export function tryLightCampfire(state: GameState): void {
     (w) => w.alive && dist(player.pos, w.pos) < 170,
   );
   if (threatNear && !(fire.placed && fire.lit)) {
-    setMessage(state, "Аюул ойрхон — эхлээд тулалдаа!", 2.6);
+    setMessage(state, "Аюул ойрхон — эхлээд тулалд!", 2.6);
     return;
   }
 
@@ -1142,7 +1147,7 @@ export function tryLightCampfire(state: GameState): void {
   fire.igniting = CAMPFIRE_IGNITE_SEC;
   sfx("fire");
   spawnParticles(state, fire.pos, 8, "#c8a070", { speed: 40, gravity: -20 });
-  setMessage(state, "Тонгойж чулуу цохиж гал асааж байна…", 2.5);
+  setMessage(state, " чулуу цохиж гал асааж байна…", 2.5);
 }
 
 function tryUpgradeFence(state: GameState, fence: Fence): void {
@@ -1218,11 +1223,7 @@ function tryUpgradeFence(state: GameState, fence: Fence): void {
     spent.push(trFormat("−{n} зоос", { n: cost.score }));
   if (cost.berries > 0) spent.push(trFormat("−{n} жимс", { n: cost.berries }));
   if (spent.length) spawnText(state, fence.pos, spent.join(" · "), "#e8c56a");
-  setMessage(
-    state,
-    trFormat("{name} болголоо!", { name: tr(nextName) }),
-    1.6,
-  );
+  setMessage(state, trFormat("{name} болголоо!", { name: tr(nextName) }), 1.6);
   state.fencePreview = false;
 }
 
@@ -1427,8 +1428,7 @@ export function updateSurvival(state: GameState, dt: number): void {
     phase === "dawn" ||
     world.timeOfDay < 6 ||
     world.timeOfDay >= 20;
-  const harshWeather =
-    world.weather === "snow" || world.weather === "storm";
+  const harshWeather = world.weather === "snow" || world.weather === "storm";
   const seasonCold = seasonWarmthMult(world.season);
 
   let warmthDelta = 0;
@@ -1467,7 +1467,7 @@ export function updateSurvival(state: GameState, dt: number): void {
       state.bannerAlert.kind !== "cold" ||
       state.bannerAlert.timer < 1.1
     ) {
-      setBannerAlert(state, "ДААРЧ БАЙНА! ГАЛ ТҮЛ!", 3.4, "cold");
+      setBannerAlert(state, "Даарч байна, гэрт орж дулаац. !", 3.4, "cold");
     }
   }
 
@@ -1484,7 +1484,7 @@ export function updateSurvival(state: GameState, dt: number): void {
       !state.story.temporaryPlayerProtectionActive &&
       player.vitals.health <= 0
     ) {
-      handlePlayerDeath(state, "Хүйтэнд нэрвэгдлээ…");
+      handlePlayerDeath(state, "Осгож үхлээ ш дээ ээ! Ор, ор, өвчтэй юм бэ!!");
     }
   }
 
@@ -1509,9 +1509,7 @@ export function updateSurvival(state: GameState, dt: number): void {
       : 1;
   if (hungerRatio <= 0.3 && state.phase === "playing") {
     const hungerText =
-      hungerRatio <= 0
-        ? "ӨЛСӨЖ ҮХЭХ ГЭЖ БАЙНА!"
-        : "ӨЛСӨЖ БАЙНА! ХООЛ ИД!";
+      hungerRatio <= 0 ? "ӨЛСӨЖ ҮХЭХ ГЭЖ БАЙНА!" : "ӨЛСӨЖ БАЙНА! ХООЛ ИД!";
     if (
       !state.bannerAlert ||
       state.bannerAlert.kind !== "hunger" ||
@@ -1531,7 +1529,7 @@ export function updateSurvival(state: GameState, dt: number): void {
         !state.story.temporaryPlayerProtectionActive &&
         player.vitals.health <= 0
       ) {
-        handlePlayerDeath(state, "Өлсөж үхлээ…");
+        handlePlayerDeath(state, "Өлбөрөөд үхчихлээ хаха.");
       }
     }
   }
@@ -1546,7 +1544,7 @@ export function updateSurvival(state: GameState, dt: number): void {
       state.bannerAlert.kind !== "health" ||
       state.bannerAlert.timer < 1.1
     ) {
-      setBannerAlert(state, "АМЬ БАГАСАН!", 3.4, "health");
+      setBannerAlert(state, "АМЬ БАГА БАЙНА!!", 3.4, "health");
     }
   }
 
@@ -1642,8 +1640,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
 
   // Зун/намар/хавар — өдөр бэлчээрт гаргаж идүүлнэ
   const anyOut = world.flockOut || world.cattleOut;
-  const grazingHours =
-    world.dayPhase === "dawn" || world.dayPhase === "day";
+  const grazingHours = world.dayPhase === "dawn" || world.dayPhase === "day";
 
   if (anyOut && grazingHours) {
     markFlockGrazedToday(state);
@@ -1659,7 +1656,7 @@ function updatePastureAndFlockFeed(state: GameState, dt: number): void {
         world.pastureGrass = 0;
         setMessage(
           state,
-          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (H) шинэ бэлчээр рүү нүү, эсвэл тэвш ашигла.",
+          "Бэлчээрийн өвс дууслаа! Гэрээ хурааж (H) БЭЛЧЭЭР СЭЛГЭ!.",
           5,
         );
         sfx("alert");
@@ -1755,7 +1752,7 @@ export function tryMigrateGer(state: GameState): void {
     world.cattleBreach = null;
     sfx("buy");
     spawnParticles(state, pos, 20, "#e8c56a", { speed: 100, size: 3 });
-    spawnText(state, pos, "Гэр буулаа!", "#ffe9a0");
+    spawnText(state, pos, "Гэрээ хураалаа.!", "#ffe9a0");
     setMessage(
       state,
       world.season === "winter"
@@ -1795,7 +1792,11 @@ export function tryMigrateGer(state: GameState): void {
   const ger = gerDoorPos(world);
   if (dist(player.pos, ger) > 90) {
     if (fromHerdKey) return;
-    setMessage(state, "Гэрийнхээ дэргэд зогсоод K дар — моринд ачна.", 2.5);
+    setMessage(
+      state,
+      "Гэрийнхээ дэргэд зогсоод K дар — моринд Гэрээ ачаал.",
+      2.5,
+    );
     return;
   }
 
