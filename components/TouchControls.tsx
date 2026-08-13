@@ -381,7 +381,7 @@ export default function TouchControls({ gameRef, hidden }: Props) {
           type="button"
           className="touch-btn touch-btn-interact"
           onPointerDown={pulse("interact")}
-          aria-label="Interact"
+          aria-label="Use"
         >
           <TouchGlyph icon="hand" size={28} />
         </button>

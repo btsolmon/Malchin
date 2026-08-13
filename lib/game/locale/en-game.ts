@@ -142,8 +142,8 @@ export const EN_GAME: Record<string, string> = {
   "Story дууссан. Одоо сүргээ 1000 толгойд хүргэ.":
     "The story is done. Now grow your herd to 1000 head.",
   "Сүргээ 1000 толгойд хүргэлээ!": "You grew the herd to 1000 head!",
-  "WASD — алхах · E — харьцах · Зураг дээр дарж томруул · Хаалга руу алхаж гарна":
-    "WASD — walk · E — interact · Click a painting to zoom · Walk to the door to leave",
+  "WASD — алхах · E — ашиглах · Зураг дээр дарж томруул · Хаалга руу алхаж гарна":
+    "WASD — walk · E — use · Click a painting to zoom · Walk to the door to leave",
   А: "A",
   АСУУЛТ: "QUESTION",
   "АСУУЛТ · ЯРИА": "QUESTION · TALK",

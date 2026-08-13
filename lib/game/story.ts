@@ -189,7 +189,6 @@ export const BUILD_SPIRIT_OVOO_QUEST = {
 } as const;
 
 export const ENTER_SPIRIT_VIA_OVOO_QUEST = {
-<<<<<<< Updated upstream
   title: "Доод тив рүү ор",
   description: "Доод тив рүү ор. Орвол буцах хаалга байхгүй.",
   panelLines: [
@@ -206,17 +205,6 @@ export const DEFEAT_SPIRIT_GUARDS_QUEST = {
     "Аварга могой · Лалар · Бар хул ·",
     "Чөтгөр · Харваач чөтгөр.",
   ],
-=======
-  title: "Сүнсний орон руу ор",
-  description: "Сүнсний орон руу ор. Орвол буцах хаалга байхгүй.",
-  panelLines: ["Сүнсний орон руу ор.", "Орвол буцах хаалга байхгүй."],
-} as const;
-
-export const DEFEAT_SPIRIT_GUARDS_QUEST = {
-  title: "Сүнсний замыг нээ",
-  description: "Зургаан нар, Хар могой, үлдсэн гурван сахиулыг дар.",
-  panelLines: ["Зургаан нар · Хар могой ·", "үлдсэн гурван сахиулыг дар."],
->>>>>>> Stashed changes
 } as const;
 
 export const REACH_CURSED_GATE_QUEST = {
@@ -226,32 +214,21 @@ export const REACH_CURSED_GATE_QUEST = {
 } as const;
 
 export const DEFEAT_SHULMAS_BAATAR_QUEST = {
-<<<<<<< Updated upstream
   title: "Долоон толгойтой доголон хар мангасыг дар",
   description: "Хараалт талбайг манах долоон толгойтой мангасыг ял.",
   panelLines: [
     "Долоон толгойтой доголон",
     "хар мангасыг ял.",
   ],
-=======
-  title: "Шулмасын баатрыг дар",
-  description: "Хараалт талбайг сахих баатрыг ял.",
-  panelLines: ["Хараалт талбайг сахих", "баатрыг ял."],
->>>>>>> Stashed changes
 } as const;
 
 export const CLAIM_SKY_SWORD_QUEST = {
   title: "Хөх тэнгэрийн сэлмийг ав",
-<<<<<<< Updated upstream
   description: "Унасан мангасын дэргэд үлдсэн сэлмийг ав.",
   panelLines: [
     "Унасан мангасын дэргэд",
     "үлдсэн сэлмийг ав.",
   ],
-=======
-  description: "Унасан баатрын дэргэд үлдсэн сэлмийг ав.",
-  panelLines: ["Унасан баатрын дэргэд", "үлдсэн сэлмийг ав."],
->>>>>>> Stashed changes
 } as const;
 
 export const OPEN_BLACK_IRON_GATE_QUEST = {

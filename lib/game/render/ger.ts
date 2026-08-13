@@ -2107,7 +2107,7 @@ export function drawGerInterior(
     ctx.fillText(
       state.gerArtZoom
         ? "Дараад / Esc — хаах"
-        : "WASD — алхах · E — харьцах · Зураг дээр дарж томруул · Хаалга руу алхаж гарна",
+        : "WASD — алхах · E — ашиглах · Зураг дээр дарж томруул · Хаалга руу алхаж гарна",
       VIEW_W / 2,
       VIEW_H - 8,
     );

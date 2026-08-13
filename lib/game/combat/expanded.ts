@@ -1198,7 +1198,6 @@ function tryThrowStone(state: GameState): boolean {
   for (const animal of world.flock.visuals) {
     consider(animal.pos);
   }
-  if (world.dog) consider(world.dog.pos);
   if (world.mountHorse && !player.riding) consider(world.mountHorse.pos);
   for (const horse of world.wildHorses) {
     consider(horse.pos);
@@ -1273,14 +1272,6 @@ function tryStoneBonkFriendly(
       livestockHitSfx(animal.kind);
       return true;
     }
-  }
-
-  const dog = world.dog;
-  if (dog && dist(pos, dog.pos) < 16) {
-    dog.flash = 0.28;
-    bump(dog.pos, dog.vel);
-    sfx("bark");
-    return true;
   }
 
   if (state.parents) {
