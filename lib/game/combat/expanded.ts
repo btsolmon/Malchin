@@ -1243,7 +1243,7 @@ function livestockHitSfx(kind: LivestockKind): void {
   else sfx("baa");
 }
 
-/** Чулуу — эцэг эх / нохой / морь / мал руу онох (амь хасдаггүй) */
+/** Чулуу — эцэг эх / морь / мал руу онох (амь хасдаггүй) */
 function tryStoneBonkFriendly(
   state: GameState,
   projectile: Projectile,

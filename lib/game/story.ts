@@ -2701,8 +2701,18 @@ export function tryInspectStormTrace(state: GameState): boolean {
 
 const SPIRIT_OVOO_INTERACT_DISTANCE = 62;
 
+/** Аав ээж аварсны дараа доод тив рүү орох овоо бүрмөсөн хаагдана. */
+export function spiritOvooPermanentlyClosed(state: GameState): boolean {
+  return (
+    state.world.tumurShulmas.defeated ||
+    state.parentsReturned ||
+    state.story.milestone7Completed
+  );
+}
+
 export function nearSpiritOvooSite(state: GameState): boolean {
   if (state.phase !== "playing") return false;
+  if (spiritOvooPermanentlyClosed(state)) return false;
   if (!state.story.postSpiritScoutDialogueCompleted) return false;
   const pos = state.story.stormTracePos ?? ensureStormTracePosition(state);
   return (
@@ -2775,6 +2785,7 @@ export function tryExitSpiritViaOvoo(state: GameState): boolean {
 /** Хар мөрийн газарт овоо босгох эсвэл овоогоор сүнсний орон руу орох (заавал биш) */
 export function tryBuildOrEnterSpiritOvoo(state: GameState): boolean {
   if (!state.input.interact || !nearSpiritOvooSite(state)) return false;
+  if (spiritOvooPermanentlyClosed(state)) return false;
 
   const story = state.story;
   const pos = ensureStormTracePosition(state);
@@ -2981,10 +2992,13 @@ export function drawStormTrace(
     state.spiritMode === "shulmas" &&
     !story.spiritAllowReturn &&
     story.spiritOvooBuilt === true;
+  const ovooClosed = spiritOvooPermanentlyClosed(state);
   const ovooPhase =
-    story.postSpiritScoutDialogueCompleted || story.spiritOvooBuilt;
+    !ovooClosed &&
+    (story.postSpiritScoutDialogueCompleted || story.spiritOvooBuilt);
   const visible =
     (state.phase === "playing" &&
+      !ovooClosed &&
       story.milestone6DialogueCompleted &&
       (!story.stormTraceInspected ||
         story.stormTraceEffectRemaining > 0 ||
