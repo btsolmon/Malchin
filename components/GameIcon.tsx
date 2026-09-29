@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { gameIconDataUrl, type GameIconId } from "@/lib/game/icons";
 
 interface GameIconProps {
@@ -16,11 +15,7 @@ export default function GameIcon({
   className,
   alt = "",
 }: GameIconProps) {
-  const [src, setSrc] = useState("");
-
-  useEffect(() => {
-    setSrc(gameIconDataUrl(id, size * 2));
-  }, [id, size]);
+  const src = gameIconDataUrl(id, size * 2);
 
   if (!src) {
     return (

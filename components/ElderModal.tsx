@@ -39,13 +39,10 @@ export default function ElderModal({
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const skipScrollRef = useRef(false);
 
-  useEffect(() => {
-    setSelected((i) => Math.min(i, Math.max(0, ui.trades.length - 1)));
-  }, [ui.trades.length]);
-
-  useEffect(() => {
-    setFeedback(null);
-  }, [screen]);
+  const effectiveSelected = Math.min(
+    selected,
+    Math.max(0, ui.trades.length - 1),
+  );
 
   const tradeAt = useCallback(
     (index: number) => {
@@ -100,7 +97,7 @@ export default function ElderModal({
       return;
     }
     const list = listRef.current;
-    const row = rowRefs.current[selected];
+    const row = rowRefs.current[effectiveSelected];
     if (!list || !row) return;
 
     const listRect = list.getBoundingClientRect();
@@ -110,7 +107,7 @@ export default function ElderModal({
     } else if (rowRect.bottom > listRect.bottom) {
       list.scrollTop += rowRect.bottom - listRect.bottom;
     }
-  }, [screen, selected]);
+  }, [effectiveSelected, screen]);
 
   const openScreen = useCallback(
     (next: ElderScreen) => {
@@ -136,12 +133,16 @@ export default function ElderModal({
       if (e.code === "Escape" || e.code === "KeyP") {
         e.preventDefault();
         if (screen === "home") onClose();
-        else setScreen("home");
+        else {
+          setFeedback(null);
+          setScreen("home");
+        }
         return;
       }
 
       if (screen !== "home" && (e.code === "Backspace" || e.code === "ArrowLeft")) {
         e.preventDefault();
+        setFeedback(null);
         setScreen("home");
         return;
       }
@@ -220,13 +221,13 @@ export default function ElderModal({
 
       if (e.code === "ArrowUp" || e.code === "KeyW") {
         e.preventDefault();
-        selectByKey((selected + n - 1) % n);
+        selectByKey((effectiveSelected + n - 1) % n);
       } else if (e.code === "ArrowDown" || e.code === "KeyS") {
         e.preventDefault();
-        selectByKey((selected + 1) % n);
+        selectByKey((effectiveSelected + 1) % n);
       } else if (e.code === "Enter" || e.code === "Space" || e.code === "KeyE") {
         e.preventDefault();
-        tradeAt(selected);
+        tradeAt(effectiveSelected);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -240,7 +241,7 @@ export default function ElderModal({
     onQuizNext,
     screen,
     selectByKey,
-    selected,
+    effectiveSelected,
     tradeAt,
     ui.canLevelUp,
     ui.cultureQuiz,
@@ -575,7 +576,7 @@ export default function ElderModal({
               >
                 {ui.trades.map((t, i) => {
                   const afford = t.canTrade || t.owned;
-                  const isSelected = selected === i;
+                  const isSelected = effectiveSelected === i;
                   return (
                     <li
                       key={t.id}

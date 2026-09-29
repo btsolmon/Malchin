@@ -9,6 +9,7 @@ export type GamePhase =
   | "menu"
   | "intro"
   | "playing"
+  | "dying"
   | "paused"
   | "won"
   | "lost"
@@ -1038,6 +1039,7 @@ export interface GameState {
   fx: Effects;
   message: string;
   messageTimer: number;
+  deathTimer: number;
   /** Том дэлгэц дүүрэн аюулын мэдэгдэл */
   bannerAlert: BannerAlert | null;
   score: number;

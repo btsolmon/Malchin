@@ -136,5 +136,6 @@ export function drawGameIcon(
 
 /** React img src — бэлэн SVG зам */
 export function gameIconDataUrl(id: GameIconId, _size = 32): string {
+  void _size;
   return GAME_ICON_SRC[id];
 }

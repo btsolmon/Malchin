@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/refs */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   HerderGameHandle,
@@ -68,9 +70,9 @@ function isPortrait(): boolean {
  * Зүүн: joystick + F/H/1 · Баруун: тулаан · Дээд зүүн: цэс / бүтэн дэлгэц
  */
 export default function TouchControls({ gameRef, hidden }: Props) {
-  const [show, setShow] = useState(false);
+  const [show] = useState(isTouchDevice);
   const [active, setActive] = useState(false);
-  const [portrait, setPortrait] = useState(false);
+  const [portrait, setPortrait] = useState(isPortrait);
   const [fsHint, setFsHint] = useState<string | null>(null);
   const stickRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<HTMLDivElement>(null);
@@ -98,14 +100,12 @@ export default function TouchControls({ gameRef, hidden }: Props) {
   }, [clearMove, clearHolds]);
 
   useEffect(() => {
-    setShow(isTouchDevice());
     const syncOrient = () => {
       setPortrait(isPortrait());
       syncVisualViewportVars();
       // Эргүүлэх үед pointer алдагдаж хөдөлгөөн гацдаг
       clearAllTouch();
     };
-    syncOrient();
     window.addEventListener("orientationchange", syncOrient);
     window.addEventListener("resize", syncOrient);
     window.visualViewport?.addEventListener("resize", syncVisualViewportVars);

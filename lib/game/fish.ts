@@ -119,6 +119,7 @@ function colorFromLegacyTier(tier: FishTier): FishColor {
 }
 
 export function fishLabel(color: FishColor, _tier?: FishTier): string {
+  void _tier;
   return FISH_COLORS[color].name;
 }
 
@@ -298,6 +299,7 @@ export function fishMouthPos(fish: Fish): Vector2 {
 }
 
 function spawnFishNear(state: GameState, _preferredY?: number): void {
+  void _preferredY;
   // Локал spawn хэт олшрохоос сэргийлнэ
   if (state.world.fish.length >= FISH_COUNT + 2) return;
   // Голын дагуу зайтай цэгээс орно
@@ -551,7 +553,7 @@ export function updateFish(state: GameState, dt: number): void {
     const side = normalize({ x: -flow.y, y: flow.x });
     const dPlayer = dist(f.pos, player.pos);
     const t = state.world.elapsed;
-    let steerRate = 3.8;
+    const steerRate = 3.8;
     let turnRate = 7;
 
     if (hookedId !== null && f.id === hookedId && bobber && hookedStats) {

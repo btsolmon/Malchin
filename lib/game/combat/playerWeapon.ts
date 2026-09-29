@@ -1,4 +1,3 @@
-import { sfx } from "../audio";
 import type { GameState } from "../types";
 
 /**
@@ -35,5 +34,6 @@ export function applySelectedToolInput(state: GameState): void {
 
 /** @deprecated Hotbar 1–4 ашиглана */
 export function trySelectTool(_state: GameState): boolean {
+  void _state;
   return false;
 }

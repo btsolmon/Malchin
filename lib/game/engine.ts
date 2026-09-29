@@ -425,6 +425,7 @@ export function createInitialState(): GameState {
     message:
       "Үүр цайлаа! Галаа түлээд малаа бэлчээрт гарга.",
     messageTimer: 6,
+    deathTimer: 0,
     bannerAlert: null,
     score: 0,
     xp: 0,
@@ -506,6 +507,7 @@ export function bindInput(
   _getFencePreview: () => boolean = () => false,
   getPhase: () => GameState["phase"] = () => "menu",
 ): () => void {
+  void _getFencePreview;
   const setKey = (code: string, pressed: boolean, isRepeat = false): void => {
     const input = getInput();
     // Меню edge-trigger — key-repeat-ээр дууны түвшин/индекс унахгүй

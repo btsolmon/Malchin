@@ -205,6 +205,7 @@ export function mobileFullscreenEnteredTipMn(): string | null {
 
 /** Хуучин video-path API — no-op (compat) */
 export function bindDisplayCanvas(_canvas: HTMLCanvasElement | null): void {
+  void _canvas;
   /* video fullscreen хассан */
 }
 

@@ -77,6 +77,7 @@ export default function HerderGame() {
       />
       {elderUi?.activeDialogue ? (
         <ElderDialogueModal
+          key={`${elderUi.activeDialogue.beatIndex}-${elderUi.activeDialogue.beat.text ?? ""}`}
           beat={elderUi.activeDialogue.beat}
           beatIndex={elderUi.activeDialogue.beatIndex}
           beatCount={elderUi.activeDialogue.beatCount}

@@ -883,6 +883,7 @@ export function fencePlacePos(
   angle: number = 0,
   fences: Fence[] = [],
 ): Vector2 {
+  void _offsetSteps;
   const dir = cardinalFacing(facing);
   // Дөрвөн зүгт ижил зай
   const aim = {

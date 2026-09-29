@@ -60,7 +60,6 @@ import {
   PEN_RADIUS,
   pushOutOfGer,
   pushOutOfUrtz,
-  roundRectPath,
   drawFrostedGlassPanel,
   setMessage,
 } from "./utils";

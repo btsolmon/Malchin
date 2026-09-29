@@ -39,6 +39,7 @@ export function createDefaultHotbar(): Array<HotbarItemId | null> {
 }
 
 export function hotbarIcon(id: HotbarItemId | null, _hasSkySword = false): GameIconId {
+  void _hasSkySword;
   if (!id) return "empty";
   if (id === "melee") return "punch";
   if (id === "skySword") return "sword";
@@ -436,7 +437,7 @@ export function pruneHotbar(state: GameState): void {
 }
 
 /** Q — сонгосон нүхний хоол/уухыг хэрэглэнэ */
-export function useSelectedHotbarItem(state: GameState): boolean {
+export function consumeSelectedHotbarItem(state: GameState): boolean {
   const id = state.hotbar[state.hotbarSelected] ?? null;
   if (!id) {
     setMessage(state, t("hotbar.empty"), 1.4);
@@ -605,7 +606,7 @@ export function updateHotbar(state: GameState): void {
 
   if (state.input.eat) {
     state.input.eat = false;
-    useSelectedHotbarItem(state);
+    consumeSelectedHotbarItem(state);
   }
 }
 

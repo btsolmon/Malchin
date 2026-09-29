@@ -393,6 +393,8 @@ export function drawTree(
   time: number,
   windAmp: number,
 ): void {
+  void time;
+  void windAmp;
   const x = tree.pos.x - cam.x;
   const y = tree.pos.y - cam.y;
   const kind = tree.kind ?? "leafy";
@@ -2734,6 +2736,7 @@ export function drawHerderHairBack(
   _flip = 1,
   time = 0,
 ): void {
+  void _flip;
   const hair = "#2a1c12";
   const hairDeep = "#1a120c";
   const cord = "#e8b84a";
@@ -3369,6 +3372,7 @@ function drawFatherHairFront(
   hdy: number,
   _flip: number,
 ): void {
+  void _flip;
   const hair = "#140e0a";
   for (const side of [-1, 1] as const) {
     ctx.fillStyle = hair;

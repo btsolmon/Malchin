@@ -76,10 +76,6 @@ export default function ElderDialogueModal({
   const visibleText = useMemo(() => fullText.slice(0, visibleChars), [fullText, visibleChars]);
 
   useEffect(() => {
-    setVisibleChars(0);
-  }, [beatIndex, fullText]);
-
-  useEffect(() => {
     if (showingChoices || textFinished || fullText.length === 0) return;
     const timer = window.setInterval(() => {
       setVisibleChars((count) => Math.min(fullText.length, count + 1));
