@@ -1,9 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-const siteTitle = "The project — Нүүдэлчин";
+const siteTitle = "Нүүдэлчин / Nomad";
 const siteDescription =
-  "Нүүдэлчин төслийн бүтээгчид, технологи, зураг, зорилго болон сургамжийг бүртгэх төсөл танилцуулах маягт.";
+  "Монгол нүүдэлчний survival тоглоом. Сүргээ хамгаал, өвгөнөөс сур, Төмөр шулмасыг дийлээд гэр бүлээ буцааж ав. A Mongolian herder survival game in the browser.";
 
 export const metadata: Metadata = {
   title: siteTitle,

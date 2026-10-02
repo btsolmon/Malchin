@@ -1,5 +1,9 @@
-import ProjectForm from "@/components/ProjectForm";
+import HerderGame from "@/components/HerderGame";
 
 export default function Home() {
-  return <ProjectForm />;
+  return (
+    <main className="herder-page">
+      <HerderGame />
+    </main>
+  );
 }
